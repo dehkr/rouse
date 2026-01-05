@@ -7,16 +7,12 @@ import { dispatch } from './utils';
 
 const registry: Record<string, any> = {};
 const instanceMap = new WeakMap<HTMLElement, any>();
+const visibilityCallbacks = new WeakMap<HTMLElement, () => void>();
+
+let hasStarted = false;
 
 interface GilliganConfig {
-  init?:
-    | 'load'
-    | 'visible'
-    | 'idle'
-    | 'interaction'
-    | `delay->${number}`
-    | `media->${string}`
-    | `event->${string}`;
+  wake?: string;
   fetch?: boolean;
 }
 
@@ -56,7 +52,13 @@ function register(name: string, controllerDef: any) {
 }
 
 function start(config: GilliganConfig = {}) {
-  const { init = 'visible', fetch = true } = config;
+  if (hasStarted) {
+    console.warn('[Gilligan] gn.start() was called multiple times. Ignoring duplicate call.');
+    return;
+  }
+  hasStarted = true;
+
+  const { wake = 'load', fetch = true } = config;
 
   // Event delegation for fetch
   // Only attach if fetch capability is enabled
@@ -75,7 +77,7 @@ function start(config: GilliganConfig = {}) {
   }
 
   // Lifecycle observer
-  // Handles unmounting removed controllers and initializing added controllers
+  // Handles unmounting removed controllers and mounting added controllers
   const observer = new MutationObserver((mutations) => {
     mutations.forEach((m) => {
       m.removedNodes.forEach((node) => {
@@ -88,6 +90,7 @@ function start(config: GilliganConfig = {}) {
       });
       m.addedNodes.forEach((node) => {
         if (node instanceof HTMLElement) {
+          // Checks if this element needs to be a controller
           initElement(node);
           node.querySelectorAll<HTMLElement>('[data-gn]').forEach(initElement);
         }
@@ -96,78 +99,120 @@ function start(config: GilliganConfig = {}) {
   });
   observer.observe(document.body, { childList: true, subtree: true });
 
-  // Shared IntersectionObserver for 'visible' initialization strategy
+  // Shared IntersectionObserver for 'visible' wake strategy
   const visibilityObserver = new IntersectionObserver((entries) => {
     entries.forEach((entry) => {
       if (entry.isIntersecting) {
-        mount(entry.target as HTMLElement);
+        const el = entry.target as HTMLElement;
+        const cb = visibilityCallbacks.get(el);
+
+        // Check if a callback exists for handling multiple wake strategies.
+        // If yes, run it. Otherwise run mount.
+        if (cb) {
+          cb();
+          visibilityCallbacks.delete(el);
+        } else {
+          mount(el);
+        }
+
         visibilityObserver.unobserve(entry.target);
       }
     });
   });
 
-  // Initialization logic
-  // 6 init options: load, delay, media, event, interaction, visible (default)
+  // 6 wake strategies: load (default), visible, idle, interaction, delay, media, event
   const initElement = (el: HTMLElement) => {
     // Check element attribute first, fall back to global config default
-    const initAttr = el.dataset.gnInit || init;
-    const [strategy, param] = initAttr.split('->');
+    const initAttr = el.dataset.gnWake || wake;
 
-    switch (strategy) {
-      // data-gn-init="load"
-      case 'load':
+    // Split data-gn-wake value into distinct strategies
+    // Matches whitespace followed by keyword
+    const strategies = initAttr.split(/\s+(?=(?:load|visible|idle|interaction|delay|media|event))/);
+
+    // Countdown latch: mount only when all strategies are satisfied
+    let pending = strategies.length;
+    const satisfy = () => {
+      if (--pending === 0) {
         mount(el);
-        break;
+      }
+    };
 
-      // data-gn-init="delay->1000"
-      case 'delay':
-        setTimeout(() => mount(el), parseInt(param || '0', 10));
-        break;
+    strategies.forEach((str) => {
+      const [strategy, ...rest] = str.split('->');
+      const param = rest.join('->'); // Rejoin in case param contained '->'
 
-      // data-gn-init="media->(min-width: 768px)"
-      case 'media':
-        if (!param) return;
-        // MediaQueryList object
-        const mql = window.matchMedia(param);
-        if (mql.matches) {
-          mount(el);
-        } else {
-          const handler = (e: MediaQueryListEvent) => {
-            if (e.matches) {
-              mount(el);
-              mql.removeEventListener('change', handler);
-            }
+      switch (strategy) {
+        // data-gn-wake="load"
+        case 'load':
+          satisfy();
+          break;
+
+        // data-gn-wake="delay->1000"
+        case 'delay':
+          setTimeout(satisfy, parseInt(param || '0', 10));
+          break;
+
+        // data-gn-wake="visible"
+        case 'visible':
+          // Register a callback for this specific element
+          visibilityCallbacks.set(el, satisfy);
+          visibilityObserver.observe(el);
+          break;
+
+        // data-gn-wake="media->(min-width: 768px)"
+        case 'media':
+          if (!param) return;
+          // MediaQueryList object
+          const mql = window.matchMedia(param);
+          if (mql.matches) {
+            satisfy();
+          } else {
+            const handler = (e: MediaQueryListEvent) => {
+              if (e.matches) {
+                satisfy();
+                mql.removeEventListener('change', handler);
+              }
+            };
+            mql.addEventListener('change', handler);
+          }
+          break;
+
+        // data-gn-wake="event->open-cart"
+        case 'event':
+          if (!param) return;
+          window.addEventListener(param, satisfy, { once: true });
+          break;
+
+        // data-gn-wake="interaction"
+        case 'interaction':
+          const interactions = ['mouseover', 'focusin', 'touchstart'];
+          const interactHandler = () => {
+            satisfy();
+            interactions.forEach((evt) => {
+              el.removeEventListener(evt, interactHandler);
+            });
           };
-          mql.addEventListener('change', handler);
-        }
-        break;
-
-      // data-gn-init="event->open-cart"
-      case 'event':
-        if (!param) return;
-        window.addEventListener(param, () => mount(el), { once: true });
-        break;
-
-      // data-gn-init="interaction"
-      case 'interaction':
-        const interactions = ['mouseover', 'focusin', 'touchstart'];
-        const interactHandler = () => {
-          mount(el);
           interactions.forEach((evt) => {
-            el.removeEventListener(evt, interactHandler);
+            el.addEventListener(evt, interactHandler, { passive: true, once: true });
           });
-        };
-        interactions.forEach((evt) => {
-          el.addEventListener(evt, interactHandler, { passive: true, once: true });
-        });
-        break;
+          break;
 
-      // Usage: data-gn-init="visible"
-      case 'visible':
-      default:
-        visibilityObserver.observe(el);
-        break;
-    }
+        // data-gn-wake="idle"
+        case 'idle':
+          if ('requestIdleCallback' in window) {
+            (window as any).requestIdleCallback(satisfy);
+          } else {
+            // Fallback for Safari which doesn't support requestIdleCallback currently
+            setTimeout(satisfy, 1);
+          }
+          break;
+
+        default:
+          // Default to satisfy in case of unknown strategy so we don't block other valid strategies
+          satisfy();
+          break;
+      }
+    });
   };
 
   // Initial scan

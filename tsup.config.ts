@@ -4,7 +4,6 @@ export default defineConfig([
   {
     entry: ['src/index.ts'],
     format: ['cjs', 'esm'],
-    // globalName: 'Gilligan',
     outExtension({ format }) {
       return {
         js: format === 'esm' ? '.mjs' : '.cjs',
@@ -20,7 +19,7 @@ export default defineConfig([
       gilligan: 'src/index.ts',
     },
     format: ['iife'],
-    globalName: 'Gilligan',
+    // globalName: 'Gilligan',
     outExtension() {
       return {
         js: '.js',
@@ -35,7 +34,7 @@ export default defineConfig([
       gilligan: 'src/index.ts',
     },
     format: ['iife'],
-    globalName: 'Gilligan',
+    // globalName: 'Gilligan',
     outExtension() {
       return {
         js: '.min.js',
