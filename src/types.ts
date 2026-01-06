@@ -16,34 +16,44 @@ export type BindableValue =
 export type BusCallback<T = any> = (detail: T) => void;
 
 /**
- * The context object passed into every controller setup function.
+ * The object returned by a setup function.
+ * Includes standard lifecycle hooks and any custom state/methods.
  */
-export type SetupContext<P = any> = {
-  // Root element of the controller instance
+export type GilliganController = Record<string, any> & {
+  connect?: () => void;
+  disconnect?: () => void;
+};
+
+/**
+ * The context object passed into every controller setup function.
+ *
+ * @template P - The type of the props (data-gn-props).
+ */
+export type SetupContext<P extends Record<string, any> = Record<string, any>> = {
   el: HTMLElement;
-
-  // Map of elements marked with 'data-gn-ref=[name]'
   refs: Record<string, HTMLElement>;
-
-  // The parsed JSON configuration from 'data-gn-props'
   props: P;
-
-  // Helper to dispatch a CustomEvent bubbling up from this controller's root element
   dispatch: (name: string, detail?: any) => CustomEvent;
+  emit: (event: string, data?: any) => void;
+  on: (event: string, cb: BusCallback) => () => void;
+  load: (url: string) => Promise<void>;
 };
 
 /**
  * The definition of a setup function.
+ * Can be synchronous or asynchronous for dependency loading.
  */
-export type SetupFn<P = any, API = Record<string, any>> = (ctx: SetupContext<P>) => API;
+export type SetupFn<P extends Record<string, any> = Record<string, any>> = (
+  ctx: SetupContext<P>,
+) => GilliganController | Promise<GilliganController>;
 
 /**
  * Extended Event type for events handled by 'data-gn-on'.
  * The framework injects the specific element that triggered the listener.
- * 
+ *
  * @template E - The type of the element (e.g. HTMLInputElement).
  * @template D - The type of event.detail (data payload).
  */
 export interface GilliganEvent<E = HTMLElement, D = any> extends CustomEvent<D> {
-  el: E;
+  gnTarget: E;
 }

@@ -1,321 +1,353 @@
 import { internalBus } from './bus';
+import { load } from './load';
 import { effect } from './reactivity';
+import type { GilliganController, GilliganEvent, SetupContext, SetupFn } from './types';
 import { dispatch, safeParse } from './utils';
-import type { BindableValue, BusCallback, SetupContext } from './types';
+
+const REGEX_BIND_SPLIT = /\s+(?=[a-z]+(?:->|<->))/;
+const REGEX_BIND_PARSE = /([a-z]+)(<->|->)(.+)/;
+const REGEX_EVENT_SPLIT = /\s+/;
+const REGEX_EVENT_PARSE = /([a-z]+)->(.+)/;
 
 /**
- * Composes multiple setup functions into a single setup function.
- * Used when an element has multiple controllers (e.g. data-gn="foo bar").
+ * Identity function for TypeScript inference.
  */
-export function composeSetups(setupFns: Function[]) {
-  if (setupFns.length === 0) return () => ({});
-  if (setupFns.length === 1) return setupFns[0];
+export function controller<P extends Record<string, any> = Record<string, any>>(
+  fn: SetupFn<P>,
+): SetupFn<P> {
+  return fn;
+}
 
-  return (context: SetupContext) => {
-    const results = setupFns.map((fn) => fn(context));
-    const composed: any = {};
-    const connects: Function[] = [];
-    const disconnects: Function[] = [];
+/**
+ * Binds the controller instance to the DOM.
+ * Handles initial bindings and uses MO for dynamic updates and cleanup.
+ */
+function bindController(
+  root: HTMLElement,
+  instance: GilliganController,
+  refs: Record<string, HTMLElement>,
+) {
+  const elementCleanups = new Map<HTMLElement, (() => void)[]>();
+  const boundNodes = new WeakSet<HTMLElement>();
 
-    results.forEach((res) => {
-      if (!res) return;
+  const addCleanup = (el: HTMLElement, fn: () => void) => {
+    const cleanups = elementCleanups.get(el) ?? [];
+    if (!elementCleanups.has(el)) {
+      elementCleanups.set(el, cleanups);
+    }
+    cleanups.push(fn);
+  };
 
-      // Use getOwnPropertyDescriptors to preserve getters/setters when merging.
-      const descriptors = Object.getOwnPropertyDescriptors(res);
-      Object.keys(descriptors).forEach((key) => {
-        if (key !== 'connect' && key !== 'disconnect') {
-          Object.defineProperty(composed, key, descriptors[key]);
+  // Core binding engine
+  const apply = (el: HTMLElement) => {
+    if (boundNodes.has(el)) return;
+    boundNodes.add(el);
+
+    // Refs
+    if (el.dataset.gnRef) {
+      refs[el.dataset.gnRef] = el;
+    }
+
+    // Bindings
+    if (el.dataset.gnBind) {
+      const bindings = el.dataset.gnBind.split(REGEX_BIND_SPLIT);
+
+      bindings.forEach((binding) => {
+        const match = binding.match(REGEX_BIND_PARSE);
+        if (!match) return;
+
+        const [, type, dir, key] = match;
+        const isTwoWay = dir === '<->';
+
+        // State -> DOM
+        const stopEffect = effect(() => {
+          const value = instance[key];
+
+          switch (type) {
+            case 'text':
+              // Check equality to avoid cursor jumping in contenteditable
+              const strVal = String(value ?? '');
+              if (el.textContent !== strVal) {
+                el.textContent = strVal;
+              }
+              break;
+
+            case 'html':
+              const htmlVal = String(value ?? '');
+              if (el.innerHTML !== htmlVal) {
+                el.innerHTML = htmlVal;
+              }
+              break;
+
+            case 'value':
+              // Only update inputs if value changed to prevent cursor jumping
+              if ((el as HTMLInputElement).value !== String(value ?? '')) {
+                (el as HTMLInputElement).value = value ?? '';
+              }
+              break;
+
+            case 'class':
+              // Supports object syntax and string value
+              if (typeof value === 'object' && value !== null) {
+                Object.entries(value).forEach(([cls, active]) => {
+                  cls.split(' ').forEach((c) => {
+                    el.classList.toggle(c, !!active);
+                  });
+                });
+              } else {
+                el.className = String(value ?? '');
+              }
+              break;
+
+            case 'style':
+              // Supports object syntax and string value
+              if (typeof value === 'object' && value !== null) {
+                Object.assign(el.style, value);
+              } else {
+                el.style.cssText = String(value ?? '');
+              }
+              break;
+
+            default:
+              // Attribute fallback
+              if (value === false || value == null) {
+                el.removeAttribute(type);
+              } else {
+                el.setAttribute(type, value === true ? '' : String(value));
+              }
+          }
+        });
+        addCleanup(el, stopEffect);
+
+        // DOM -> State (two-way binding)
+        if (isTwoWay) {
+          const handler = (e: Event) => {
+            const target = e.target as HTMLInputElement;
+            let val: string | number | boolean = target.value;
+
+            // Handle contenteditable
+            if (target.isContentEditable) {
+              val = target.innerText;
+            }
+            // Handle form inputs
+            else {
+              const input = target as HTMLInputElement;
+              if (input.type === 'number') {
+                val = input.valueAsNumber;
+              } else if (input.type === 'checkbox') {
+                val = input.checked;
+              }
+            }
+            instance[key] = val;
+          };
+
+          // Determine best event type
+          const isCheckable =
+            (el as HTMLInputElement).type === 'checkbox' ||
+            (el as HTMLInputElement).type === 'radio';
+          const isSelect = el.tagName === 'SELECT';
+          const eventType = isSelect || isCheckable ? 'change' : 'input';
+
+          el.addEventListener(eventType, handler);
+          addCleanup(el, () => el.removeEventListener(eventType, handler));
         }
       });
+    }
 
-      if (typeof res.connect === 'function') {
-        connects.push(res.connect);
+    // Events
+    if (el.dataset.gnOn) {
+      const events = el.dataset.gnOn.split(REGEX_EVENT_SPLIT);
+      events.forEach((evtStr) => {
+        const match = evtStr.match(REGEX_EVENT_PARSE);
+        if (!match) return;
+
+        const [, evtName, methodName] = match;
+        if (typeof instance[methodName] !== 'function') return;
+
+        const handler = (e: Event) => {
+          // Inject the triggering element into the event for convenience
+          (e as GilliganEvent).gnTarget = el;
+          instance[methodName](e);
+        };
+
+        el.addEventListener(evtName, handler);
+        addCleanup(el, () => el.removeEventListener(evtName, handler));
+      });
+    }
+  };
+
+  // Scan (recursive add)
+  const scan = (node: HTMLElement) => {
+    // Check if the node belongs to this controller to ensure encapsulation of nested islands
+    const nodeOwner = node.closest('[data-gn');
+    if (nodeOwner === root) {
+      // Bind the node itself if it has attributes
+      if (node.dataset.gnBind || node.dataset.gnOn || node.dataset.gnRef) {
+        apply(node);
       }
-      if (typeof res.disconnect === 'function') {
-        disconnects.push(res.disconnect);
+    }
+    const children = node.querySelectorAll<HTMLElement>(
+      '[data-gn-bind], [data-gn-on], [data-gn-ref]',
+    );
+    // children.forEach(apply);
+    children.forEach((child) => {
+      const childOwner = child.closest('[data-gn]');
+      // Only bind if the closes data-gn ancestor is this controller
+      if (childOwner === root) {
+        apply(child);
       }
     });
+  };
 
-    if (connects.length > 0) {
-      composed.connect = () => {
-        connects.forEach((fn) => fn());
-      };
+  // Teardown (recursive remove)
+  const teardown = (node: HTMLElement) => {
+    // Clean up the node itself if it was bound
+    const cleanups = elementCleanups.get(node);
+    if (cleanups !== undefined) {
+      cleanups.forEach((fn) => {
+        fn();
+      });
+      elementCleanups.delete(node);
     }
 
-    if (disconnects.length > 0) {
-      composed.disconnect = () => {
-        disconnects.forEach((fn) => fn());
-      };
+    // Remove ref from refs if it points to this node
+    if (node.dataset.gnRef && refs[node.dataset.gnRef] === node) {
+      delete refs[node.dataset.gnRef];
     }
 
-    return composed;
+    // Query the detached tree to find descendants that might need cleanup
+    const children = node.querySelectorAll<HTMLElement>(
+      '[data-gn-bind], [data-gn-on], [data-gn-ref]',
+    );
+    children.forEach((child) => {
+      const cleanups = elementCleanups.get(child);
+      if (cleanups !== undefined) {
+        cleanups.forEach((fn) => {
+          fn();
+        });
+        elementCleanups.delete(child);
+      }
+      // Check if this child was a registered ref
+      if (child.dataset.gnRef && refs[child.dataset.gnRef] === child) {
+        delete refs[child.dataset.gnRef];
+      }
+    });
+  };
+
+  // Run initial scan
+  scan(root);
+
+  // Start MutationObserver to monitor nodes
+  const observer = new MutationObserver((mutations) => {
+    mutations.forEach((m) => {
+      m.addedNodes.forEach((node) => {
+        if (node instanceof HTMLElement) {
+          scan(node);
+        }
+      });
+      m.removedNodes.forEach((node) => {
+        if (node instanceof HTMLElement) {
+          teardown(node);
+        }
+      });
+    });
+  });
+
+  observer.observe(root, { childList: true, subtree: true });
+
+  // Lifecycle connection
+  if (typeof instance.connect === 'function') {
+    instance.connect();
+  }
+
+  // Global disconnect
+  return () => {
+    observer.disconnect();
+    for (const [_el, fns] of elementCleanups) {
+      fns.forEach((fn) => {
+        fn();
+      });
+    }
+    elementCleanups.clear();
+
+    if (typeof instance.disconnect === 'function') {
+      instance.disconnect();
+    }
   };
 }
 
 /**
- * The core factory function. Turns a setup function into a controller instance.
+ * Factory to create and manage a controller instance.
  */
-export function createController(el: HTMLElement, setupFn: Function) {
-  if (typeof setupFn !== 'function') {
-    throw new Error('[Gilligan] createController requires a setup function.');
-  }
+export function createController(
+  el: HTMLElement,
+  setup: SetupFn,
+  loadingClass: string = 'gn-loading',
+) {
+  const shell = {
+    isUnmounted: false,
+    _unmount: () => {
+      shell.isUnmounted = true;
+    },
+  };
 
+  // Gather initial refs
+  // Pre-scan so refs are available immediately in the setup function
   const refs: Record<string, HTMLElement> = {};
-  const refElements = [el, ...Array.from(el.querySelectorAll<HTMLElement>('[data-gn-ref]'))];
-
-  refElements.forEach((refEl) => {
-    if (refEl === el || refEl.closest('[data-gn]') === el) {
-      const name = refEl.dataset.gnRef;
-      if (name) {
-        refs[name] = refEl;
-      }
-    }
+  el.querySelectorAll<HTMLElement>('[data-gn-ref]').forEach((refEl) => {
+    const name = refEl.dataset.gnRef ?? '';
+    refs[name] = refEl;
   });
 
-  const props = safeParse(el.dataset.gnProps);
+  // Parse props
+  let props = {};
+  try {
+    if (el.dataset.gnProps) {
+      props = safeParse(el.dataset.gnProps);
+    }
+  } catch (e) {
+    console.error(`[Gilligan] Failed to parse props for`, el, e);
+  }
 
   const context: SetupContext = {
     el,
     refs,
     props,
-    dispatch: (name: string, detail: any = {}) => dispatch(el, name, detail),
+    dispatch: (name, detail) => dispatch(el, name, detail),
+    emit: (event, data) => internalBus.emit(event, data),
+    on: (event, cb) => internalBus.on(event, cb),
+    load,
   };
 
-  const api = setupFn(context);
+  const result = setup(context);
 
-  const instance: any = {
-    el,
-    refs,
-    cleanup: (fn: () => void) => cleanups.push(fn),
-    _resolveHtmlKey: (key: string) => instance[key],
+  const apply = (instance: GilliganController) => {
+    if (shell.isUnmounted) return;
+
+    // Pass refs to bindController so it can update them dynamically
+    const unbind = bindController(el, instance, refs);
+
+    shell._unmount = () => {
+      shell.isUnmounted = true;
+      unbind();
+    };
   };
 
-  // Copy user API properties to preserve getters/setters.
-  const descriptors = Object.getOwnPropertyDescriptors(api);
-  Object.defineProperties(instance, descriptors);
-
-  const cleanups: (() => void)[] = [];
-
-  instance.listen = <T>(event: string, callback: BusCallback<T>) => {
-    const boundCallback = callback.bind(instance);
-    const unsubscribe = internalBus.on(event, boundCallback);
-    instance.cleanup(unsubscribe);
-  };
-
-  instance._unmount = () => {
-    if (instance.disconnect) instance.disconnect();
-    cleanups.forEach((fn) => fn());
-  };
-
-  initBindings(instance);
-  initEvents(instance);
-
-  if (instance.connect) {
-    instance.connect();
-  }
-
-  return instance;
-}
-
-/**
- * Scans the DOM for 'data-gn-bind' attributes and sets up reactive effects.
- * Supports one-way (->) and two-way (<->) bindings.
- */
-function initBindings(instance: any) {
-  const root = instance.el as HTMLElement;
-  const elements = [root, ...Array.from(root.querySelectorAll<HTMLElement>('[data-gn-bind]'))];
-
-  elements.forEach((el) => {
-    if (el !== root && el.closest('[data-gn]') !== root) return;
-
-    const rawBindings = el.dataset.gnBind || '';
-    const bindings = rawBindings.trim().split(/\s+/);
-
-    bindings.forEach((inst) => {
-      if (!inst) return;
-
-      // Detect binding direction.
-      const isTwoWay = inst.includes('<->');
-      const separator = isTwoWay ? '<->' : '->';
-      const separatorIndex = inst.indexOf(separator);
-
-      if (separatorIndex === -1) return;
-
-      const bindType = inst.slice(0, separatorIndex);
-      const key = inst.slice(separatorIndex + separator.length);
-
-      // Set up DOM updates (one-way).
-      // Runs for both one-way and two-way bindings.
-      const stopEffect = effect(() => {
-        const value = instance._resolveHtmlKey(key);
-        updateDOM(el, bindType, value as BindableValue);
+  // Handle sync/async setup
+  if (result instanceof Promise) {
+    el.classList.add(loadingClass);
+    result
+      .then((instance) => {
+        el.classList.remove(loadingClass);
+        apply(instance);
+      })
+      .catch((err) => {
+        console.error('[Gilligan] Async setup failed:', err);
+        el.classList.remove(loadingClass);
       });
-      instance.cleanup(stopEffect);
-
-      // Attach input or change listeners to form elements (inputs,
-      // selects, textareas) for two-way data binding.
-      if (isTwoWay) {
-        const isInput = el instanceof HTMLInputElement;
-        const isSelect = el instanceof HTMLSelectElement;
-        const isContentEditable = el.isContentEditable;
-
-        if (isInput || isContentEditable) {
-          let evtType = 'input';
-          const isCheckable = isInput && (el.type === 'checkbox' || el.type === 'radio');
-          
-          if (isSelect || isCheckable) {
-            evtType = 'change';
-          }
-
-          const handler = () => {
-            let newVal: unknown;
-
-            if (isContentEditable) {
-              // Map based on the binding type (text vs html).
-              if (bindType === 'html') {
-                newVal = el.innerHTML;
-              } else {
-                newVal = el.textContent;
-              }
-            } else if (isInput) {
-              const inputEl = el as HTMLInputElement;
-              if (inputEl.type === 'checkbox' && bindType === 'checked') {
-                newVal = inputEl.checked;
-              } else if (inputEl.type === 'number') {
-                newVal = parseFloat(inputEl.value) || 0;
-              } else {
-                // Some frameworks alias this to checked.
-                // Gilligan is strict: value maps to value, checked maps to checked.
-                newVal = inputEl.value;
-              }
-            }
-
-            try {
-              instance[key] = newVal;
-            } catch (err) {
-              console.warn(`[Gilligan] Unable to update "${key}". Ensure it has a setter.`, err);
-            }
-          };
-
-          el.addEventListener(evtType, handler);
-          instance.cleanup(() => el.removeEventListener(evtType, handler));
-        }
-      }
-    });
-  });
-}
-
-/**
- * Scans the DOM for 'data-gn-on' attributes and attaches event listeners.
- */
-function initEvents(instance: any) {
-  const root = instance.el as HTMLElement;
-  const elements = [root, ...Array.from(root.querySelectorAll<HTMLElement>('[data-gn-on]'))];
-
-  elements.forEach((el) => {
-    if (el !== root && el.closest('[data-gn]') !== root) return;
-
-    const rawEvents = el.dataset.gnOn || '';
-    const events = rawEvents.trim().split(/\s+/);
-
-    events.forEach((inst) => {
-      if (!inst || inst === '') return;
-      const [evtName, funcName] = inst.split('->');
-      if (!evtName || !funcName) return;
-
-      const handlerFn = instance._resolveHtmlKey(funcName);
-
-      if (typeof handlerFn === 'function') {
-        const handler = (e: Event) => {
-          Object.defineProperty(e, 'el', { value: el, configurable: true, writable: true });
-          handlerFn(e);
-        };
-        el.addEventListener(evtName, handler);
-        instance.cleanup(() => el.removeEventListener(evtName, handler));
-      } else {
-        console.warn(`[Gilligan] Action "${funcName}" not found.`);
-      }
-    });
-  });
-}
-
-/**
- * Direct DOM manipulation utility used by reactive effects.
- */
-function updateDOM(el: HTMLElement, type: string, value: BindableValue) {
-  // For text and html, compare if current val is different before 
-  // writing to address cursor jumping for contenteditable.
-  if (type === 'text') {
-    const strValue = String(value ?? '');
-    if (el.textContent !== strValue) {
-      el.textContent = strValue;
-    }
-    return;
-  }
-
-  if (type === 'html') {
-    const strValue = String(value ?? '');
-    if (el.innerHTML !== strValue) {
-      el.innerHTML = strValue;
-    }
-    return;
-  }
-
-  // Object syntax: merges properties into el.style (additive).
-  // String syntax: overwrites el.style.cssText entirely (destructive).
-  if (type === 'style') {
-    if (typeof value === 'object' && value !== null) {
-      Object.assign(el.style, value);
-    } else {
-      el.style.cssText = String(value ?? '');
-    }
-    return;
-  }
-
-  // Object syntax: toggles individual classes based on truthiness (fine-grained).
-  // String syntax: replaces the entire class attribute (bulk update).
-  if (type === 'class') {
-    if (typeof value === 'object' && value !== null) {
-      Object.entries(value).forEach(([cls, active]) => {
-        cls
-          .split(' ')
-          .filter(Boolean)
-          .forEach((c) => el.classList.toggle(c, !!active));
-      });
-    } else {
-      el.className = String(value ?? '');
-    }
-    return;
-  }
-
-  // Synchronizes form inputs. We check (el.value !== newValue) to prevent 
-  // the cursor from snapping to the end of the field on every keystroke.
-  if (type === 'value' && (el as any).value !== String(value ?? '')) {
-    (el as any).value = value ?? '';
-    return;
-  }
-
-  // Explicitly handles checkboxes and radio buttons.
-  if (type === 'checked' && el instanceof HTMLInputElement) {
-    el.checked = !!value;
-    return; 
-  }
-
-  // Handles boolean (disabled, hidden, required) and standard attributes (src, href).
-  // - false/null/undefined: removes the attribute.
-  // - true: sets as a minimized boolean attribute (e.g. disabled="").
-  // - string/number: sets the attribute to the stringified value.
-  if (value == null || value === false) {
-    el.removeAttribute(type);
   } else {
-    el.setAttribute(type, value === true ? '' : String(value));
+    apply(result);
   }
-}
 
-/**
- * Defines a new controller.
- * Identity function for TypeScript inference.
- */
-export function controller<T>(setupFn: (ctx: SetupContext) => T): (ctx: SetupContext) => T {
-  return setupFn;
+  return shell;
 }
