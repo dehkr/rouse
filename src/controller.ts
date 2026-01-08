@@ -44,12 +44,15 @@ function bindController(
     if (boundNodes.has(el)) return;
     boundNodes.add(el);
 
+    const isSelectEl = el instanceof HTMLSelectElement;
+    const isInputEl = el instanceof HTMLInputElement;
+
     // Refs
     if (el.dataset.gnRef) {
       refs[el.dataset.gnRef] = el;
     }
 
-    // Bindings
+    // Bindings (data-gn-bind)
     if (el.dataset.gnBind) {
       const bindings = el.dataset.gnBind.split(REGEX_BIND_SPLIT);
 
@@ -82,14 +85,28 @@ function bindController(
               break;
             }
 
-            case 'value':
-              // Only update inputs if value changed to prevent cursor jumping
-              if ((el as HTMLInputElement).value !== String(value ?? '')) {
-                (el as HTMLInputElement).value = value ?? '';
+            case 'value': {
+              // Handle multi-select (array value)
+              if (isSelectEl && el.multiple && Array.isArray(value)) {
+                const vals = new Set(value.map(String));
+                Array.from(el.options).forEach((opt) => {
+                  opt.selected = vals.has(opt.value);
+                });
+              }
+              // Handle standard inputs (string value)
+              else {
+                const strVal = String(value ?? '');
+                // Only update if actually changed to prevent cursor jumping
+                if (isInputEl) {
+                  if (el.value !== strVal) {
+                    el.value = strVal;
+                  }
+                }
               }
               break;
+            }
 
-            case 'class':
+            case 'class': {
               // Object syntax toggles class: { 'active': bool } or { 'active bg-red: bool' }
               if (value && typeof value === 'object') {
                 for (const [cls, active] of Object.entries(value)) {
@@ -124,8 +141,9 @@ function bindController(
                 }
               }
               break;
+            }
 
-            case 'style':
+            case 'style': {
               // Supports object syntax and string value
               if (value && typeof value === 'object') {
                 Object.assign(el.style, value);
@@ -133,46 +151,58 @@ function bindController(
                 el.style.cssText = String(value ?? '').trim();
               }
               break;
+            }
 
-            default:
+            default: {
               // Attribute fallback
               if (value === false || value == null) {
                 el.removeAttribute(type);
               } else {
                 el.setAttribute(type, value === true ? '' : String(value));
               }
+            }
           }
         });
+
         addCleanup(el, stopEffect);
 
-        // DOM -> State (two-way binding)
+        // DOM -> state (two-way binding)
         if (isTwoWay) {
           const handler = (e: Event) => {
-            const target = e.target as HTMLInputElement;
-            let val: string | number | boolean = target.value;
+            const target = e.target as HTMLElement;
+            let val: unknown;
 
             // Handle contenteditable
             if (target.isContentEditable) {
               val = target.innerText;
             }
-            // Handle form inputs
-            else {
-              const input = target as HTMLInputElement;
-              if (input.type === 'number') {
-                val = input.valueAsNumber;
-              } else if (input.type === 'checkbox') {
-                val = input.checked;
+            // Handle select elements
+            else if (target instanceof HTMLSelectElement) {
+              val = target.multiple
+                ? Array.from(target.selectedOptions).map((o) => o.value)
+                : target.value;
+            }
+            // Handle intput/textarea elements
+            else if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
+              if (target instanceof HTMLInputElement && target.type === 'checkbox') {
+                val = target.checked;
+              } else if (
+                target instanceof HTMLInputElement &&
+                (target.type === 'number' || target.type === 'range')
+              ) {
+                // Handle empty numeric inputs
+                val = Number.isNaN(target.valueAsNumber) ? null : target.valueAsNumber;
+              } else {
+                val = target.value;
               }
             }
+
             setNestedVal(instance, key, val);
           };
 
           // Determine best event type
-          const isCheckable =
-            (el as HTMLInputElement).type === 'checkbox' ||
-            (el as HTMLInputElement).type === 'radio';
-          const isSelect = el.tagName === 'SELECT';
-          const eventType = isSelect || isCheckable ? 'change' : 'input';
+          const isBinary = isInputEl && (el.type === 'checkbox' || el.type === 'radio');
+          const eventType = isSelectEl || isBinary ? 'change' : 'input';
 
           el.addEventListener(eventType, handler);
           addCleanup(el, () => el.removeEventListener(eventType, handler));
@@ -180,7 +210,7 @@ function bindController(
       });
     }
 
-    // Events
+    // Events (data-gn-on)
     if (el.dataset.gnOn) {
       const events = el.dataset.gnOn.split(REGEX_EVENT_SPLIT);
       events.forEach((evtStr) => {
