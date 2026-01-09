@@ -46,11 +46,6 @@ export function safeParse(input: string | undefined | null): any {
   }
 }
 
-/** Checks if a value is an object and not null */
-export function isObject(val: unknown): val is object {
-  return val !== null && typeof val === 'object';
-}
-
 // Prevent prototype pollution
 const KEY_BLOCKLIST = new Set(['__proto__', 'constructor', 'prototype']);
 
@@ -87,9 +82,17 @@ export function setNestedVal(obj: any, path: string, value: any): void {
     }
     current = current[part];
   }
-  
+
   const lastKey = parts[parts.length - 1];
   if (!KEY_BLOCKLIST.has(lastKey)) {
     current[lastKey] = value;
   }
 }
+
+// is helper functions
+export const isObj = (val: unknown): val is Record<string, any> =>
+  val !== null && typeof val === 'object';
+export const isElt = (el: unknown): el is HTMLElement => el instanceof HTMLElement;
+export const isInp = (el: unknown): el is HTMLInputElement => el instanceof HTMLInputElement;
+export const isSel = (el: unknown): el is HTMLSelectElement => el instanceof HTMLSelectElement;
+export const isTxt = (el: unknown): el is HTMLTextAreaElement => el instanceof HTMLTextAreaElement;

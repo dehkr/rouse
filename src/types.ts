@@ -13,7 +13,7 @@ export type BindableValue =
 /**
  * Callback signature for the global event bus.
  */
-export type BusCallback<T = any> = (detail: T) => void;
+export type BusCallback<T = any> = (data?: T) => void;
 
 /**
  * The object returned by a setup function.
@@ -34,9 +34,12 @@ export type SetupContext<P extends Record<string, any> = Record<string, any>> = 
   refs: Record<string, HTMLElement>;
   props: P;
   dispatch: (name: string, detail?: any) => CustomEvent;
-  emit: (event: string, data?: any) => void;
-  on: (event: string, cb: BusCallback) => () => void;
   load: (url: string) => Promise<void>;
+  bus: {
+    publish: (event: string, data?: any) => void;
+    subscribe: (event: string, cb: BusCallback) => void;
+    unsubscribe: (event: string, cb: BusCallback) => void;
+  };
 };
 
 /**

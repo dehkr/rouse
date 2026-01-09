@@ -1,11 +1,11 @@
-import { internalBus } from './bus';
+import { bus } from './bus';
 import { controller, createController } from './controller';
 import { handleFetch } from './fetch';
 import { load } from './load';
 import { effect, reactive } from './reactivity';
 import { createStore } from './store';
 import type { SetupFn } from './types';
-import { dispatch } from './utils';
+import { dispatch, isElt } from './utils';
 
 const registry: Record<string, SetupFn> = {};
 const instanceMap = new WeakMap<HTMLElement, any>();
@@ -65,20 +65,20 @@ function initElement(el: HTMLElement, defaultWake: string, loadingClass: string)
     const param = rest.join('->');
 
     switch (strategy) {
-      case 'load':
+      case 'load': {
         satisfy();
         break;
-
-      case 'delay':
+      }
+      case 'delay': {
         setTimeout(satisfy, parseInt(param || '0', 10));
         break;
-
-      case 'visible':
+      }
+      case 'visible': {
         visibilityCallbacks.set(el, satisfy);
         visibilityObserver.observe(el);
         break;
-
-      case 'media':
+      }
+      case 'media': {
         if (!param) {
           satisfy();
           return;
@@ -96,16 +96,16 @@ function initElement(el: HTMLElement, defaultWake: string, loadingClass: string)
           mql.addEventListener('change', handler);
         }
         break;
-
-      case 'event':
+      }
+      case 'event': {
         if (!param) {
           satisfy();
           return;
         }
         window.addEventListener(param, satisfy, { once: true });
         break;
-
-      case 'interaction':
+      }
+      case 'interaction': {
         const interactions = ['mouseover', 'focusin', 'touchstart'];
         const interactHandler = () => {
           satisfy();
@@ -117,8 +117,8 @@ function initElement(el: HTMLElement, defaultWake: string, loadingClass: string)
           el.addEventListener(evt, interactHandler, { passive: true, once: true });
         });
         break;
-
-      case 'idle':
+      }
+      case 'idle': {
         if ('requestIdleCallback' in window) {
           (window as any).requestIdleCallback(satisfy);
         } else {
@@ -126,10 +126,11 @@ function initElement(el: HTMLElement, defaultWake: string, loadingClass: string)
           setTimeout(satisfy, 1);
         }
         break;
-
-      default:
+      }
+      default: {
         satisfy();
         break;
+      }
     }
   });
 }
@@ -149,7 +150,7 @@ const visibilityObserver = new IntersectionObserver((entries) => {
   });
 });
 
-function register(name: string, setup: SetupFn) {
+function register(name: string, setup: SetupFn<any>) {
   registry[name] = setup;
 }
 
@@ -168,7 +169,7 @@ function start(arg1?: string | HTMLElement | GilliganConfig, arg2?: GilliganConf
   let config: GilliganConfig = {};
 
   // Parse arguments
-  if (typeof arg1 === 'string' || arg1 instanceof HTMLElement) {
+  if (typeof arg1 === 'string' || isElt(arg1)) {
     root = arg1;
     config = arg2 || {};
   } else if (typeof arg1 === 'object') {
@@ -199,14 +200,16 @@ function start(arg1?: string | HTMLElement | GilliganConfig, arg2?: GilliganConf
         }
       }
     };
-    ['click', 'submit'].forEach((evt) => document.addEventListener(evt, handleGlobalFetch));
+    ['click', 'submit'].forEach((evt) => {
+      document.addEventListener(evt, handleGlobalFetch);
+    });
   }
 
   // Watch for elements with controller (data-gn) attribute
   const observer = new MutationObserver((mutations) => {
     mutations.forEach((m) => {
       m.removedNodes.forEach((node) => {
-        if (node instanceof HTMLElement) {
+        if (isElt(node)) {
           if (node.dataset.gn) {
             unmountInstance(node);
           }
@@ -214,15 +217,13 @@ function start(arg1?: string | HTMLElement | GilliganConfig, arg2?: GilliganConf
         }
       });
       m.addedNodes.forEach((node) => {
-        if (node instanceof HTMLElement) {
+        if (isElt(node)) {
           if (node.dataset.gn) {
             initElement(node, wake, loadingClass);
           }
-          node
-            .querySelectorAll<HTMLElement>('[data-gn]')
-            .forEach((el) => {
-              initElement(el, wake, loadingClass);
-            });
+          node.querySelectorAll<HTMLElement>('[data-gn]').forEach((el) => {
+            initElement(el, wake, loadingClass);
+          });
         }
       });
     });
@@ -247,9 +248,7 @@ export const Gilligan = {
   effect,
   store: createStore,
   dispatch,
-  emit: internalBus.emit.bind(internalBus),
-  on: internalBus.on.bind(internalBus),
-  off: internalBus.off.bind(internalBus),
+  bus,
   load,
   register,
   start,

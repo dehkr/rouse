@@ -1,4 +1,4 @@
-import { isObject } from './utils';
+import { isObj } from './utils';
 
 let activeEffect: (() => void) | null = null;
 const proxyMap = new WeakMap<object, any>();
@@ -13,7 +13,7 @@ const targetMap = new WeakMap<object, Map<string | symbol, Set<() => void>>>();
  * to ensure reactivity is maintained.
  */
 export function reactive<T extends object>(target: T): T {
-  if (!isObject(target)) {
+  if (!isObj(target)) {
     return target;
   }
 
@@ -28,7 +28,7 @@ export function reactive<T extends object>(target: T): T {
       track(target, key);
 
       // Lazy deep reactivity
-      return isObject(result) ? reactive(result) : result;
+      return isObj(result) ? reactive(result) : result;
     },
 
     set(target, key, value, receiver) {

@@ -1,8 +1,17 @@
-import { internalBus } from './bus';
+import { bus } from './bus';
 import { load } from './load';
 import { effect } from './reactivity';
 import type { GilliganController, GilliganEvent, SetupContext, SetupFn } from './types';
-import { dispatch, getNestedVal, safeParse, setNestedVal } from './utils';
+import {
+  dispatch,
+  getNestedVal,
+  isElt,
+  isInp,
+  isSel,
+  isTxt,
+  safeParse,
+  setNestedVal,
+} from './utils';
 
 const REGEX_BIND_SPLIT = /\s+(?=[a-z]+(?:->|<->))/;
 const REGEX_BIND_PARSE = /([a-z]+)(<->|->)(.+)/;
@@ -44,9 +53,6 @@ function bindController(
     if (boundNodes.has(el)) return;
     boundNodes.add(el);
 
-    const isSelectEl = el instanceof HTMLSelectElement;
-    const isInputEl = el instanceof HTMLInputElement;
-
     // Refs
     if (el.dataset.gnRef) {
       refs[el.dataset.gnRef] = el;
@@ -76,7 +82,6 @@ function bindController(
               }
               break;
             }
-
             case 'html': {
               const htmlVal = String(value ?? '');
               if (el.innerHTML !== htmlVal) {
@@ -84,10 +89,9 @@ function bindController(
               }
               break;
             }
-
             case 'value': {
               // Handle multi-select (array value)
-              if (isSelectEl && el.multiple && Array.isArray(value)) {
+              if (isSel(el) && el.multiple && Array.isArray(value)) {
                 const vals = new Set(value.map(String));
                 Array.from(el.options).forEach((opt) => {
                   opt.selected = vals.has(opt.value);
@@ -97,7 +101,7 @@ function bindController(
               else {
                 const strVal = String(value ?? '');
                 // Only update if actually changed to prevent cursor jumping
-                if (isInputEl) {
+                if (isInp(el)) {
                   if (el.value !== strVal) {
                     el.value = strVal;
                   }
@@ -105,7 +109,6 @@ function bindController(
               }
               break;
             }
-
             case 'class': {
               // Object syntax toggles class: { 'active': bool } or { 'active bg-red: bool' }
               if (value && typeof value === 'object') {
@@ -142,7 +145,6 @@ function bindController(
               }
               break;
             }
-
             case 'style': {
               // Supports object syntax and string value
               if (value && typeof value === 'object') {
@@ -152,7 +154,6 @@ function bindController(
               }
               break;
             }
-
             default: {
               // Attribute fallback
               if (value === false || value == null) {
@@ -177,19 +178,16 @@ function bindController(
               val = target.innerText;
             }
             // Handle select elements
-            else if (target instanceof HTMLSelectElement) {
+            else if (isSel(target)) {
               val = target.multiple
                 ? Array.from(target.selectedOptions).map((o) => o.value)
                 : target.value;
             }
             // Handle intput/textarea elements
-            else if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
-              if (target instanceof HTMLInputElement && target.type === 'checkbox') {
+            else if (isInp(target) || isTxt(target)) {
+              if (isInp(target) && target.type === 'checkbox') {
                 val = target.checked;
-              } else if (
-                target instanceof HTMLInputElement &&
-                (target.type === 'number' || target.type === 'range')
-              ) {
+              } else if (isInp(target) && (target.type === 'number' || target.type === 'range')) {
                 // Handle empty numeric inputs
                 val = Number.isNaN(target.valueAsNumber) ? null : target.valueAsNumber;
               } else {
@@ -201,8 +199,8 @@ function bindController(
           };
 
           // Determine best event type
-          const isBinary = isInputEl && (el.type === 'checkbox' || el.type === 'radio');
-          const eventType = isSelectEl || isBinary ? 'change' : 'input';
+          const isBinary = isInp(el) && (el.type === 'checkbox' || el.type === 'radio');
+          const eventType = isSel(el) || isBinary ? 'change' : 'input';
 
           el.addEventListener(eventType, handler);
           addCleanup(el, () => el.removeEventListener(eventType, handler));
@@ -297,12 +295,12 @@ function bindController(
   const observer = new MutationObserver((mutations) => {
     mutations.forEach((m) => {
       m.addedNodes.forEach((node) => {
-        if (node instanceof HTMLElement) {
+        if (isElt(node)) {
           scan(node);
         }
       });
       m.removedNodes.forEach((node) => {
-        if (node instanceof HTMLElement) {
+        if (isElt(node)) {
           teardown(node);
         }
       });
@@ -347,8 +345,7 @@ export function createController(
     },
   };
 
-  // Gather initial refs
-  // Pre-scan so refs are available immediately in the setup function
+  // Gather initial refs so they are available immediately in the setup function
   const refs: Record<string, HTMLElement> = {};
   el.querySelectorAll<HTMLElement>('[data-gn-ref]').forEach((refEl) => {
     const name = refEl.dataset.gnRef ?? '';
@@ -365,14 +362,23 @@ export function createController(
     console.error(`[Gilligan] Failed to parse props for`, el, e);
   }
 
+  // Track event bus subscriptions for auto-cleanup
+  const busCleanups: (() => void)[] = [];
+
   const context: SetupContext = {
     el,
     refs,
     props,
     dispatch: (name, detail) => dispatch(el, name, detail),
-    emit: (event, data) => internalBus.emit(event, data),
-    on: (event, cb) => internalBus.on(event, cb),
     load,
+    bus: {
+      publish: (event, data) => bus.publish(event, data),
+      subscribe: (event, cb) => {
+        const unsub = bus.subscribe(event, cb);
+        busCleanups.push(unsub);
+      },
+      unsubscribe: (event, cb) => bus.unsubscribe(event, cb),
+    },
   };
 
   const result = setup(context);
