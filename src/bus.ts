@@ -15,7 +15,7 @@ class EventBus {
    * @returns A function that, when called, removes this specific subscription.
    * @example
    * ```js
-   * const stop = gn.on('cart:add', (item) => console.log(item));
+   * const stop = gn.subscribe('cart:add', (item) => console.log(item));
    * // Later...
    * stop();
    * ```
@@ -28,7 +28,9 @@ class EventBus {
     if (set) {
       set.add(callback);
     }
-    return () => this.unsubscribe(event, callback);
+    return () => {
+      this.unsubscribe(event, callback);
+    };
   }
 
   /**
@@ -73,6 +75,14 @@ class EventBus {
       });
     }
   }
+
+  /**
+   * Clear all listeners
+   */
+  clear() {
+    this.listeners.clear();
+  }
 }
 
 export const bus = new EventBus();
+export type { EventBus };
