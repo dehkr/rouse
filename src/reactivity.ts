@@ -16,23 +16,25 @@ interface ReactiveEffect {
 /**
  * Creates a reactive proxy of the source object.
  *
- * @param target - The plain object to make reactive.
+ * @param target The plain object to make reactive.
  * @returns A reactive Proxy of the target.
  * @note Always interact with the returned Proxy, not the original target object,
  * to ensure reactivity is maintained.
  */
 export function reactive<T extends object>(target: T): T {
   if (!isObj(target)) return target;
-  if ((target as any)[IS_REACTIVE]) return target; // Prevent double-wrapping
-  if (proxyMap.has(target)) return proxyMap.get(target); // Raw object
+  // Prevent double wrapping
+  if ((target as any)[IS_REACTIVE]) return target;
+  // Return proxy if object is already in map
+  if (proxyMap.has(target)) return proxyMap.get(target);
 
   const handler: ProxyHandler<T> = {
     get(target, key, receiver) {
-      if (key === IS_REACTIVE) return true; // Intercept the flag check
+      if (key === IS_REACTIVE) return true;
       const result = Reflect.get(target, key, receiver);
       track(target, key);
-
-      return isObj(result) ? reactive(result) : result; // Lazy deep reactivity
+      // Lazy deep reactivity
+      return isObj(result) ? reactive(result) : result;
     },
 
     ownKeys(target) {
@@ -44,7 +46,8 @@ export function reactive<T extends object>(target: T): T {
       const oldValue = Reflect.get(target, key, receiver);
 
       // Determine if this is a new property/index or an existing one
-      const isArrIndex = Array.isArray(target) && typeof key === 'string' && !isNaN(Number(key));
+      const isArrIndex =
+        Array.isArray(target) && typeof key === 'string' && !Number.isNaN(Number(key));
       const hadKey = isArrIndex ? Number(key) < target.length : Object.hasOwn(target, key);
 
       const result = Reflect.set(target, key, value, receiver);
@@ -52,7 +55,7 @@ export function reactive<T extends object>(target: T): T {
       // Only trigger if the value changed
       if (oldValue !== value) {
         trigger(target, key);
-        // If it was an addition, trigger structural dependencies
+        // If it was an addition, trigger structural updates
         if (!hadKey) {
           trigger(target, Array.isArray(target) ? 'length' : ITERATE_KEY);
         }
@@ -86,8 +89,8 @@ export function reactive<T extends object>(target: T): T {
  */
 export function effect(fn: () => void): () => void {
   const run: ReactiveEffect = (() => {
-    // Don't run if the effect has been stopped
-    if (run.active === false) return;
+    if (!run.active) return;
+    cleanup(run);
 
     try {
       activeEffect = run;
@@ -98,16 +101,29 @@ export function effect(fn: () => void): () => void {
   }) as any;
 
   run.active = true;
+  run.deps = [];
 
   // Run immediately to capture initial dependencies
   run();
 
-  // Returns the "stop" function.
-  // Uses lazy cleanup: the runner is flagged instead of searching the dependency tree.
-  // TODO: consider adding active cleanup
+  // Returns a stop function
   return () => {
     run.active = false;
+    cleanup(run);
   };
+}
+
+/**
+ * Deletes all dependencies of an effect.
+ */
+function cleanup(effect: ReactiveEffect) {
+  const { deps } = effect;
+  if (deps.length) {
+    for (let i = 0; i < deps.length; i++) {
+      deps[i].delete(effect);
+    }
+    deps.length = 0;
+  }
 }
 
 /**
@@ -115,8 +131,6 @@ export function effect(fn: () => void): () => void {
  */
 function track(target: object, key: string | symbol) {
   if (!activeEffect) return;
-  // Skip tracking if the effect was stopped
-  if ((activeEffect as any).active === false) return;
 
   let depsMap = targetMap.get(target);
   if (!depsMap) {
@@ -130,7 +144,11 @@ function track(target: object, key: string | symbol) {
     depsMap.set(key, dep);
   }
 
-  dep.add(activeEffect);
+  // Link effect to dep and dep to effect
+  if (!dep.has(activeEffect)) {
+    dep.add(activeEffect);
+    activeEffect.deps.push(dep);
+  }
 }
 
 /**
@@ -146,17 +164,9 @@ function trigger(target: object, key: string | symbol) {
     const effectsToRun = new Set(dep);
     effectsToRun.forEach((effectFn) => {
       // Don't run if stopped or if it's the current effect (to prevent recursive loops)
-      if (effectFn !== activeEffect && (effectFn as any).active !== false) {
+      if (effectFn !== activeEffect && effectFn.active !== false) {
         effectFn();
-      } else if ((effectFn as any).active === false) {
-        // Clean up dead effects
-        dep.delete(effectFn);
       }
     });
-
-    // If the Set is now empty, remove the key to save memory
-    if (dep.size === 0) {
-      depsMap.delete(key);
-    }
   }
 }
