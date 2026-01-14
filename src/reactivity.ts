@@ -1,16 +1,44 @@
 import { isObj } from './utils';
 
 let activeEffect: ReactiveEffect | null = null;
+const effectStack: ReactiveEffect[] = [];
 
 const proxyMap = new WeakMap<object, any>();
 const targetMap = new WeakMap<object, Map<string | symbol, Set<ReactiveEffect>>>();
 const IS_REACTIVE = Symbol('is_reactive');
 const ITERATE_KEY = Symbol('iterate_key');
 
+let isFlushPending = false;
+const queue = new Set<ReactiveEffect>();
+const p = Promise.resolve();
+
 interface ReactiveEffect {
   (): void;
   active: boolean;
   deps: Set<ReactiveEffect>[];
+  options?: { scheduler?: (job: ReactiveEffect) => void };
+}
+
+// Batch updates to avoid duplicate runs and loops
+function queueJob(job: ReactiveEffect) {
+  if (!queue.has(job)) {
+    queue.add(job);
+    queueFlush();
+  }
+}
+
+function queueFlush() {
+  if (isFlushPending) return;
+  isFlushPending = true;
+  p.then(flushJobs);
+}
+
+function flushJobs() {
+  isFlushPending = false;
+  queue.forEach((job) => {
+    if (job.active) job();
+  });
+  queue.clear();
 }
 
 /**
@@ -93,15 +121,18 @@ export function effect(fn: () => void): () => void {
     cleanup(run);
 
     try {
+      effectStack.push(run);
       activeEffect = run;
       fn();
     } finally {
-      activeEffect = null;
+      effectStack.pop();
+      activeEffect = effectStack[effectStack.length - 1];
     }
   }) as any;
 
   run.active = true;
   run.deps = [];
+  run.options = { scheduler: queueJob };
 
   // Run immediately to capture initial dependencies
   run();
@@ -158,15 +189,27 @@ function trigger(target: object, key: string | symbol) {
   const depsMap = targetMap.get(target);
   if (!depsMap) return;
 
-  const dep = depsMap.get(key);
-  if (dep) {
-    // Clone the Set to avoid infinite loops if an effect mutates the dependency it's reading
-    const effectsToRun = new Set(dep);
-    effectsToRun.forEach((effectFn) => {
-      // Don't run if stopped or if it's the current effect (to prevent recursive loops)
-      if (effectFn !== activeEffect && effectFn.active !== false) {
-        effectFn();
-      }
-    });
+  const effectsToRun = new Set<ReactiveEffect>();
+  const add = (effects: Set<ReactiveEffect> | undefined) => {
+    if (effects) {
+      effects.forEach((effect) => {
+        // Don't trigger current effect to prevent infinite recursion
+        if (effect !== activeEffect || !effect.options?.scheduler) {
+          effectsToRun.add(effect);
+        }
+      });
+    }
+  };
+
+  if (key !== undefined) {
+    add(depsMap.get(key));
   }
+  
+  effectsToRun.forEach((effect) => {
+    if (effect.options?.scheduler) {
+      effect.options.scheduler(effect);
+    } else {
+      effect();
+    }
+  });
 }
