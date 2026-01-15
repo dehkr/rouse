@@ -12,14 +12,20 @@ let isFlushPending = false;
 const queue = new Set<ReactiveEffect>();
 const p = Promise.resolve();
 
-interface ReactiveEffect {
+export interface ReactiveEffect {
   (): void;
   active: boolean;
   deps: Set<ReactiveEffect>[];
-  options?: { scheduler?: (job: ReactiveEffect) => void };
+  options?: EffectOptions;
 }
 
-// Batch updates to avoid duplicate runs (e.g. 100 changes = 1 re-render)
+export interface EffectOptions {
+  scheduler?: (job: ReactiveEffect) => void;
+  sync?: boolean;
+}
+
+// Batches effect updates to avoid duplicate runs and loops
+// Minimizes re-renders (e.g. 100 changes = 1 re-render) and keeps the UI correct 
 function queueJob(job: ReactiveEffect) {
   if (!queue.has(job)) {
     queue.add(job);
@@ -133,7 +139,7 @@ export function reactive<T extends object>(target: T): T {
  * @param fn The function to execute and track.
  * @returns A stop function that marks the effect as inactive to prevent further runs.
  */
-export function effect(fn: () => void): () => void {
+export function effect(fn: () => void, options: EffectOptions = {}): () => void {
   const run: ReactiveEffect = (() => {
     if (!run.active) return;
     cleanup(run);
@@ -150,7 +156,10 @@ export function effect(fn: () => void): () => void {
 
   run.active = true;
   run.deps = [];
-  run.options = { scheduler: queueJob };
+
+  // Use provided scheduler or queueJob by default
+  // Unless sync is set to true in which case updates will run synchronously
+  run.options = options.sync ? undefined : { scheduler: options.scheduler || queueJob };
 
   // Run immediately to capture initial dependencies
   run();
@@ -224,7 +233,6 @@ function trigger(target: object, key: string | symbol, newValue?: any, oldValue?
     add(depsMap.get(key));
   }
 
-  // Structural dependencies
   const isAdd = oldValue === undefined && newValue !== undefined;
   const isDelete = newValue === undefined;
 
