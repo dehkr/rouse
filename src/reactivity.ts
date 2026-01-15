@@ -19,7 +19,7 @@ interface ReactiveEffect {
   options?: { scheduler?: (job: ReactiveEffect) => void };
 }
 
-// Batch updates to avoid duplicate runs and loops
+// Batch updates to avoid duplicate runs (e.g. 100 changes = 1 re-render)
 function queueJob(job: ReactiveEffect) {
   if (!queue.has(job)) {
     queue.add(job);
@@ -99,10 +99,11 @@ export function reactive<T extends object>(target: T): T {
 
       // Only trigger if the value changed
       if (oldValue !== value) {
-        trigger(target, key);
-        // If it was an addition, trigger structural updates
+        // trigger handles array length updates
+        trigger(target, key, value, oldValue);
+        // If new property, trigger structural updates
         if (!hadKey) {
-          trigger(target, Array.isArray(target) ? 'length' : ITERATE_KEY);
+          trigger(target, Array.isArray(target) ? 'length' : ITERATE_KEY, value, oldValue);
         }
       }
       return result;
@@ -111,10 +112,11 @@ export function reactive<T extends object>(target: T): T {
     deleteProperty(target, key) {
       const hadKey = Object.hasOwn(target, key);
       const result = Reflect.deleteProperty(target, key);
-      // If delete was successful, trigger structural updates
+      // If delete was successful and key existed, trigger updates
       if (result && hadKey) {
-        trigger(target, key);
-        trigger(target, Array.isArray(target) ? 'length' : ITERATE_KEY);
+        trigger(target, key, undefined, undefined);
+        // Structural updates
+        trigger(target, Array.isArray(target) ? 'length' : ITERATE_KEY, undefined, undefined);
       }
       return result;
     },
@@ -122,7 +124,6 @@ export function reactive<T extends object>(target: T): T {
 
   const proxy = new Proxy(target, handler);
   proxyMap.set(target, proxy);
-
   return proxy;
 }
 
@@ -202,16 +203,17 @@ function track(target: object, key: string | symbol) {
 /**
  * Runs all effects that depend on (target, key).
  */
-function trigger(target: object, key: string | symbol) {
+function trigger(target: object, key: string | symbol, newValue?: any, oldValue?: any) {
   const depsMap = targetMap.get(target);
   if (!depsMap) return;
 
   const effectsToRun = new Set<ReactiveEffect>();
+
   const add = (effects: Set<ReactiveEffect> | undefined) => {
     if (effects) {
       effects.forEach((effect) => {
         // Don't trigger current effect to prevent infinite recursion
-        if (effect !== activeEffect || !effect.options?.scheduler) {
+        if (effect !== activeEffect) {
           effectsToRun.add(effect);
         }
       });
@@ -220,6 +222,34 @@ function trigger(target: object, key: string | symbol) {
 
   if (key !== undefined) {
     add(depsMap.get(key));
+  }
+
+  // Structural dependencies
+  const isAdd = oldValue === undefined && newValue !== undefined;
+  const isDelete = newValue === undefined;
+
+  // Trigger iteration (Object.keys) on add/delete
+  if (isAdd || isDelete) {
+    add(depsMap.get(ITERATE_KEY));
+  }
+
+  // Handle array length mutation
+  if (key === 'length' && Array.isArray(target)) {
+    const newLength = Number(newValue);
+    depsMap.forEach((dep, key) => {
+      // Trigger any deleted index
+      if (key === 'length' || (typeof key === 'string' && Number(key) >= newLength)) {
+        add(dep);
+      }
+    });
+  }
+
+  // Trigger 'length' if new index added
+  if (Array.isArray(target) && key !== 'length') {
+    const isIndexAdd = Number.isInteger(Number(key)) && Number(key) >= target.length - 1;
+    if (isIndexAdd || isAdd || isDelete) {
+      add(depsMap.get('length'));
+    }
   }
 
   effectsToRun.forEach((effect) => {
