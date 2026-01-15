@@ -41,6 +41,18 @@ function flushJobs() {
   queue.clear();
 }
 
+// Identify types that require 'this' binding
+function isBuiltIn(val: unknown): boolean {
+  return (
+    val instanceof Map ||
+    val instanceof Set ||
+    val instanceof WeakMap ||
+    val instanceof WeakSet ||
+    val instanceof Date ||
+    val instanceof Promise
+  );
+}
+
 /**
  * Creates a reactive proxy of the source object.
  *
@@ -59,7 +71,12 @@ export function reactive<T extends object>(target: T): T {
   const handler: ProxyHandler<T> = {
     get(target, key, receiver) {
       if (key === IS_REACTIVE) return true;
+
       const result = Reflect.get(target, key, receiver);
+      // Native objects can throw errors when their methods are called on a Proxy
+      if (typeof result === 'function' && isBuiltIn(target)) {
+        return result.bind(target);
+      }
       track(target, key);
       // Lazy deep reactivity
       return isObj(result) ? reactive(result) : result;
@@ -204,7 +221,7 @@ function trigger(target: object, key: string | symbol) {
   if (key !== undefined) {
     add(depsMap.get(key));
   }
-  
+
   effectsToRun.forEach((effect) => {
     if (effect.options?.scheduler) {
       effect.options.scheduler(effect);
