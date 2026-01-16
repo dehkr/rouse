@@ -1,31 +1,42 @@
 import { isObj } from './utils';
 
-let activeEffect: ReactiveEffect | null = null;
-const effectStack: ReactiveEffect[] = [];
+// TYPES & INTERFACES
 
-const proxyMap = new WeakMap<object, any>();
-const targetMap = new WeakMap<object, Map<string | symbol, Set<ReactiveEffect>>>();
+export const RAW = Symbol('raw');
 const IS_REACTIVE = Symbol('is_reactive');
 const ITERATE_KEY = Symbol('iterate_key');
 
-let isFlushPending = false;
-const queue = new Set<ReactiveEffect>();
-const p = Promise.resolve();
-
-export interface ReactiveEffect {
-  (): void;
-  active: boolean;
-  deps: Set<ReactiveEffect>[];
-  options?: EffectOptions;
-}
+type Dep = Set<ReactiveEffect>;
+type KeyToDepMap = Map<string | symbol, Dep>;
 
 export interface EffectOptions {
   scheduler?: (job: ReactiveEffect) => void;
   sync?: boolean;
 }
 
-// Batches effect updates to avoid duplicate runs and loops
-// Minimizes re-renders (e.g. 100 changes = 1 re-render) and keeps the UI correct 
+export interface ReactiveEffect<T = any> {
+  (): T;
+  active: boolean;
+  deps: Dep[];
+  options: EffectOptions;
+}
+
+export type Reactive<T> = T;
+
+// GLOBALS
+
+let activeEffect: ReactiveEffect | null = null;
+const effectStack: ReactiveEffect[] = [];
+const targetMap = new WeakMap<object, KeyToDepMap>();
+const proxyMap = new WeakMap<object, any>();
+
+// SCHEDULING
+
+let isFlushPending = false;
+const queue = new Set<ReactiveEffect>();
+const p = Promise.resolve();
+
+// Batch effect updates to avoid duplicate runs/loops and keep the UI correct
 function queueJob(job: ReactiveEffect) {
   if (!queue.has(job)) {
     queue.add(job);
@@ -47,16 +58,179 @@ function flushJobs() {
   queue.clear();
 }
 
-// Identify types that require 'this' binding
-function isBuiltIn(val: unknown): boolean {
-  return (
-    val instanceof Map ||
-    val instanceof Set ||
-    val instanceof WeakMap ||
-    val instanceof WeakSet ||
-    val instanceof Date ||
-    val instanceof Promise
-  );
+// BASE HANDLERS
+
+/**
+ * Standard handlers for plain Objects and Arrays.
+ * Relies on Reflect to ensure proper 'this' binding for getters/setters.
+ */
+const baseHandlers: ProxyHandler<object> = {
+  get(target, key, receiver) {
+    if (key === IS_REACTIVE) return true;
+    if (key === RAW) return target;
+
+    const result = Reflect.get(target, key, receiver);
+
+    // Track standard keys
+    if (typeof key !== 'symbol') {
+      track(target, key);
+    }
+
+    // Lazy deep reactivity
+    return isObj(result) ? reactive(result) : result;
+  },
+
+  set(target, key, value, receiver) {
+    const oldVal = (target as any)[key];
+    const result = Reflect.set(target, key, value, receiver);
+
+    // Only trigger if value actually changed
+    // Also protects against prototype pollution triggers
+    if (result && oldVal !== value) {
+      trigger(target, key, value, oldVal);
+
+      // Handle Array length or new properties
+      const isArrayIndex =
+        Array.isArray(target) && Number.isInteger(Number(key)) && Number(key) >= target.length - 1;
+
+      if (isArrayIndex || !Object.hasOwn(target, key)) {
+        trigger(target, Array.isArray(target) ? 'length' : ITERATE_KEY);
+      }
+    }
+    return result;
+  },
+
+  deleteProperty(target, key) {
+    const hadKey = Object.hasOwn(target, key);
+    const result = Reflect.deleteProperty(target, key);
+
+    if (result && hadKey) {
+      trigger(target, key, undefined, undefined);
+      trigger(target, Array.isArray(target) ? 'length' : ITERATE_KEY);
+    }
+    return result;
+  },
+
+  ownKeys(target) {
+    track(target, Array.isArray(target) ? 'length' : ITERATE_KEY);
+    return Reflect.ownKeys(target);
+  },
+};
+
+// COLLECTION HANDLERS
+
+/**
+ * Custom instrumentations for Map/Set/WeakMap/WeakSet.
+ * Required because Proxy traps don't work on internal methods of these native types.
+ */
+const collectionInst: Record<string, Function> = {
+  get(this: Map<any, any>, key: unknown) {
+    const target = (this as any)[RAW];
+    const res = target.get(key);
+    track(target, key as string);
+    return isObj(res) ? reactive(res) : res;
+  },
+
+  get size() {
+    const target = (this as any)[RAW];
+    track(target, ITERATE_KEY);
+    return Reflect.get(target, 'size', target);
+  },
+
+  has(this: Map<any, any>, key: unknown) {
+    const target = (this as any)[RAW];
+    const res = target.has(key);
+    track(target, key as string);
+    return res;
+  },
+
+  set(this: Map<any, any>, key: unknown, value: unknown) {
+    const target = (this as any)[RAW];
+    const oldVal = target.get(key);
+    const hadKey = target.has(key);
+    const res = target.set(key, value);
+
+    if (!hadKey || value !== oldVal) {
+      trigger(target, key as string, value, oldVal);
+      if (!hadKey) trigger(target, ITERATE_KEY); // Size changed
+    }
+    return res;
+  },
+
+  add(this: Set<any>, value: unknown) {
+    const target = (this as any)[RAW];
+    const hadKey = target.has(value);
+    const res = target.add(value);
+    if (!hadKey) {
+      trigger(target, value as string, value, undefined);
+      trigger(target, ITERATE_KEY);
+    }
+    return res;
+  },
+
+  delete(this: Map<any, any> | Set<any>, key: unknown) {
+    const target = (this as any)[RAW];
+    const hadKey = target.has(key);
+    const res = target.delete(key);
+    if (hadKey) {
+      trigger(target, key as string, undefined, undefined);
+      trigger(target, ITERATE_KEY);
+    }
+    return res;
+  },
+
+  clear(this: Map<any, any> | Set<any>) {
+    const target = (this as any)[RAW];
+    const hadItems = target.size > 0;
+    const res = target.clear();
+    if (hadItems) {
+      trigger(target, ITERATE_KEY, undefined, undefined);
+    }
+    return res;
+  },
+
+  forEach(this: Map<any, any> | Set<any>, callback: Function, thisArg?: any) {
+    const target = (this as any)[RAW];
+    track(target, ITERATE_KEY);
+    // Wrap callback so we pass reactive versions of values
+    target.forEach((value: any, key: any) => {
+      // For Sets, key is same as value
+      const wrappedValue = isObj(value) ? reactive(value) : value;
+      const wrappedKey = isObj(key) ? reactive(key) : key;
+      callback.call(thisArg, wrappedValue, wrappedKey, this);
+    });
+  },
+};
+
+const collectionHandlers: ProxyHandler<object> = {
+  get(target, key, receiver) {
+    if (key === IS_REACTIVE) return true;
+    if (key === RAW) return target;
+
+    // Return instrumented method if it exists (get, set, add, etc)
+    if (Object.hasOwn(collectionInst, key)) {
+      return Reflect.get(collectionInst, key, receiver);
+    }
+
+    // Handle 'size' specifically because it's a getter on the prototype
+    if (key === 'size') {
+      return Reflect.get(collectionInst, 'size', receiver);
+    }
+
+    // Fallback to standard props (e.g. toString)
+    return Reflect.get(target, key, receiver);
+  },
+};
+
+// REACTIVITY
+
+function getTargetType(value: object): 'COLLECTION' | 'COMMON' {
+  return value instanceof Map ||
+    value instanceof Set ||
+    value instanceof WeakMap ||
+    value instanceof WeakSet
+    ? 'COLLECTION'
+    : 'COMMON';
 }
 
 /**
@@ -67,71 +241,22 @@ function isBuiltIn(val: unknown): boolean {
  * @note Always interact with the returned Proxy, not the original target object,
  * to ensure reactivity is maintained.
  */
-export function reactive<T extends object>(target: T): T {
+export function reactive<T extends object>(target: T): Reactive<T> {
   if (!isObj(target)) return target;
   // Prevent double wrapping
   if ((target as any)[IS_REACTIVE]) return target;
   // Return proxy if object is already in map
   if (proxyMap.has(target)) return proxyMap.get(target);
 
-  const handler: ProxyHandler<T> = {
-    get(target, key, receiver) {
-      if (key === IS_REACTIVE) return true;
-
-      const result = Reflect.get(target, key, receiver);
-      // Native objects can throw errors when their methods are called on a Proxy
-      if (typeof result === 'function' && isBuiltIn(target)) {
-        return result.bind(target);
-      }
-      track(target, key);
-      // Lazy deep reactivity
-      return isObj(result) ? reactive(result) : result;
-    },
-
-    ownKeys(target) {
-      track(target, Array.isArray(target) ? 'length' : ITERATE_KEY);
-      return Reflect.ownKeys(target);
-    },
-
-    set(target, key, value, receiver) {
-      const oldValue = Reflect.get(target, key, receiver);
-
-      // Determine if this is a new property/index or an existing one
-      const isArrIndex =
-        Array.isArray(target) && typeof key === 'string' && !Number.isNaN(Number(key));
-      const hadKey = isArrIndex ? Number(key) < target.length : Object.hasOwn(target, key);
-
-      const result = Reflect.set(target, key, value, receiver);
-
-      // Only trigger if the value changed
-      if (oldValue !== value) {
-        // trigger handles array length updates
-        trigger(target, key, value, oldValue);
-        // If new property, trigger structural updates
-        if (!hadKey) {
-          trigger(target, Array.isArray(target) ? 'length' : ITERATE_KEY, value, oldValue);
-        }
-      }
-      return result;
-    },
-
-    deleteProperty(target, key) {
-      const hadKey = Object.hasOwn(target, key);
-      const result = Reflect.deleteProperty(target, key);
-      // If delete was successful and key existed, trigger updates
-      if (result && hadKey) {
-        trigger(target, key, undefined, undefined);
-        // Structural updates
-        trigger(target, Array.isArray(target) ? 'length' : ITERATE_KEY, undefined, undefined);
-      }
-      return result;
-    },
-  };
+  const targetType = getTargetType(target);
+  const handler = targetType === 'COLLECTION' ? collectionHandlers : baseHandlers;
 
   const proxy = new Proxy(target, handler);
   proxyMap.set(target, proxy);
-  return proxy;
+  return proxy as Reactive<T>;
 }
+
+// EFFECTS
 
 /**
  * Runs a function immediately and re-runs it whenever its reactive dependencies change.
@@ -139,8 +264,8 @@ export function reactive<T extends object>(target: T): T {
  * @param fn The function to execute and track.
  * @returns A stop function that marks the effect as inactive to prevent further runs.
  */
-export function effect(fn: () => void, options: EffectOptions = {}): () => void {
-  const run: ReactiveEffect = (() => {
+export function effect<T = any>(fn: () => void, options: EffectOptions = {}): () => void {
+  const run = (() => {
     if (!run.active) return;
     cleanup(run);
 
@@ -152,14 +277,14 @@ export function effect(fn: () => void, options: EffectOptions = {}): () => void 
       effectStack.pop();
       activeEffect = effectStack[effectStack.length - 1];
     }
-  }) as any;
+  }) as ReactiveEffect<T>;
 
   run.active = true;
   run.deps = [];
 
   // Use provided scheduler or queueJob by default
   // Unless sync is set to true in which case updates will run synchronously
-  run.options = options.sync ? undefined : { scheduler: options.scheduler || queueJob };
+  run.options = options.sync ? {} : { scheduler: options.scheduler || queueJob };
 
   // Run immediately to capture initial dependencies
   run();
@@ -169,19 +294,6 @@ export function effect(fn: () => void, options: EffectOptions = {}): () => void 
     run.active = false;
     cleanup(run);
   };
-}
-
-/**
- * Deletes all dependencies of an effect.
- */
-function cleanup(effect: ReactiveEffect) {
-  const { deps } = effect;
-  if (deps.length) {
-    for (let i = 0; i < deps.length; i++) {
-      deps[i].delete(effect);
-    }
-    deps.length = 0;
-  }
 }
 
 /**
@@ -202,7 +314,7 @@ function track(target: object, key: string | symbol) {
     depsMap.set(key, dep);
   }
 
-  // Link effect to dep and dep to effect
+  // Link effect to dependency and dependency to effect
   if (!dep.has(activeEffect)) {
     dep.add(activeEffect);
     activeEffect.deps.push(dep);
@@ -212,16 +324,15 @@ function track(target: object, key: string | symbol) {
 /**
  * Runs all effects that depend on (target, key).
  */
-function trigger(target: object, key: string | symbol, newValue?: any, oldValue?: any) {
+function trigger(target: object, key: string | symbol, _newVal?: any, _oldVal?: any) {
   const depsMap = targetMap.get(target);
   if (!depsMap) return;
 
   const effectsToRun = new Set<ReactiveEffect>();
 
-  const add = (effects: Set<ReactiveEffect> | undefined) => {
+  const add = (effects?: Set<ReactiveEffect>) => {
     if (effects) {
       effects.forEach((effect) => {
-        // Don't trigger current effect to prevent infinite recursion
         if (effect !== activeEffect) {
           effectsToRun.add(effect);
         }
@@ -229,35 +340,27 @@ function trigger(target: object, key: string | symbol, newValue?: any, oldValue?
     }
   };
 
-  if (key !== undefined) {
-    add(depsMap.get(key));
-  }
+  // Schedule effects for specific key
+  add(depsMap.get(key));
 
-  const isAdd = oldValue === undefined && newValue !== undefined;
-  const isDelete = newValue === undefined;
-
-  // Trigger iteration (Object.keys) on add/delete
-  if (isAdd || isDelete) {
+  // Schedule effects for iteration (e.g. Object.keys, Map.size, Array traversal)
+  if (key === ITERATE_KEY || key === 'length' || (Array.isArray(target) && key === 'length')) {
     add(depsMap.get(ITERATE_KEY));
+    add(depsMap.get('length')); // Often redundant but safe
   }
 
-  // Handle array length mutation
-  if (key === 'length' && Array.isArray(target)) {
-    const newLength = Number(newValue);
+  // If array length changes, or we add to array, trigger length deps
+  if (Array.isArray(target) && key !== 'length') {
+    add(depsMap.get('length'));
+  }
+
+  // Specific Array index handling (if length changes, indices might change)
+  if (Array.isArray(target) && key === 'length') {
     depsMap.forEach((dep, key) => {
-      // Trigger any deleted index
-      if (key === 'length' || (typeof key === 'string' && Number(key) >= newLength)) {
+      if (key !== 'length' && key !== ITERATE_KEY) {
         add(dep);
       }
     });
-  }
-
-  // Trigger 'length' if new index added
-  if (Array.isArray(target) && key !== 'length') {
-    const isIndexAdd = Number.isInteger(Number(key)) && Number(key) >= target.length - 1;
-    if (isIndexAdd || isAdd || isDelete) {
-      add(depsMap.get('length'));
-    }
   }
 
   effectsToRun.forEach((effect) => {
@@ -267,4 +370,17 @@ function trigger(target: object, key: string | symbol, newValue?: any, oldValue?
       effect();
     }
   });
+}
+
+/**
+ * Deletes all dependencies of an effect.
+ */
+function cleanup(effect: ReactiveEffect) {
+  const { deps } = effect;
+  if (deps.length) {
+    for (let i = 0; i < deps.length; i++) {
+      deps[i].delete(effect);
+    }
+    deps.length = 0;
+  }
 }
