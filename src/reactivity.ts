@@ -10,6 +10,7 @@ type Dep = Set<ReactiveEffect>;
 type KeyToDepMap = Map<string | symbol, Dep>;
 
 export interface EffectOptions {
+  lazy?: boolean;
   scheduler?: (job: ReactiveEffect) => void;
   sync?: boolean;
 }
@@ -19,6 +20,12 @@ export interface ReactiveEffect<T = any> {
   active: boolean;
   deps: Dep[];
   options: EffectOptions;
+  stop: () => void;
+}
+
+export interface ComputedRef<T> {
+  readonly value: T;
+  readonly effect: ReactiveEffect<T>;
 }
 
 export type Reactive<T> = T;
@@ -287,15 +294,18 @@ export function reactive<T extends object>(target: T): Reactive<T> {
  * @param fn The function to execute and track.
  * @returns A stop function that marks the effect as inactive to prevent further runs.
  */
-export function effect<T = any>(fn: () => void, options: EffectOptions = {}): () => void {
+export function effect<T = any>(fn: () => void, options: EffectOptions = {}): ReactiveEffect<T> {
   const run = (() => {
-    if (!run.active) return;
+    // If effect is stopped the normal function is returned
+    if (!run.active) {
+      return fn();
+    }
     cleanup(run);
 
     try {
       effectStack.push(run);
       activeEffect = run;
-      fn();
+      return fn(); // Return the value for computed
     } finally {
       effectStack.pop();
       activeEffect = effectStack[effectStack.length - 1];
@@ -309,14 +319,66 @@ export function effect<T = any>(fn: () => void, options: EffectOptions = {}): ()
   // Unless sync is set to true in which case updates will run synchronously
   run.options = options.sync ? {} : { scheduler: options.scheduler || queueJob };
 
-  // Run immediately to capture initial dependencies
-  run();
-
-  // Returns a stop function
-  return () => {
+  // Attach the stop method
+  run.stop = () => {
     run.active = false;
     cleanup(run);
   };
+
+  // Run immediately (if not lazy) to capture initial dependencies
+  if (!options.lazy) {
+    run();
+  }
+
+  return run;
+}
+
+/**
+ * Creates a read-only reactive reference that lazily evaluates and caches its value.
+ *
+ * @template T -The type of the computed valuee.
+ * @param getter - A function that calculates the value. It should rely on reactive state.
+ * @returns A read-only ref object with a `.value` property.
+ * @example
+ * const state = reactive({ count: 1 });
+ * const double = computed(() => state.count * 2);
+ *
+ * console.log(double.value); // 2 (calculated)
+ * console.log(double.value); // 2 (cached - getter not run)
+ *
+ * state.count++; // double.value is marked dirty, but not calculated yet
+ *
+ * console.log(double.value); // 4 (re-calculated)
+ */
+export function computed<T>(getter: () => T): ComputedRef<T> {
+  let value: T;
+  let dirty = true;
+
+  const runner = effect(getter, {
+    lazy: true,
+    scheduler: () => {
+      // Mark dirty and notify listeners if dep changed
+      if (!dirty) {
+        dirty = true;
+        trigger(computedRef, 'value');
+      }
+    },
+  });
+
+  const computedRef = {
+    get value() {
+      track(computedRef, 'value');
+      if (dirty) {
+        // Run the effect to get the new value
+        value = runner();
+        dirty = false;
+      }
+      return value;
+    },
+    effect: runner,
+  };
+
+  return computedRef as ComputedRef<T>;
 }
 
 /**
