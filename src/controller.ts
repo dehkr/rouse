@@ -1,6 +1,6 @@
 import { bus } from './bus';
 import { load } from './load';
-import { effect } from './reactivity';
+import { effect } from './effect';
 import type { GilliganController, GilliganEvent, SetupContext, SetupFn } from './types';
 import {
   dispatch,

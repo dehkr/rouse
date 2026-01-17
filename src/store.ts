@@ -1,4 +1,4 @@
-import { reactive } from './reactivity';
+import { reactive } from './reactive';
 
 /**
  * Creates a reactive store to enable shared state.
