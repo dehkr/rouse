@@ -26,6 +26,7 @@ export type Reactive<T> = T;
 // GLOBALS
 
 let activeEffect: ReactiveEffect | null = null;
+let shouldTrack = true;
 const effectStack: ReactiveEffect[] = [];
 const targetMap = new WeakMap<object, KeyToDepMap>();
 const proxyMap = new WeakMap<object, any>();
@@ -60,6 +61,24 @@ function flushJobs() {
 
 // BASE HANDLERS
 
+const arrayInstrumentations: Record<string, Function> = {};
+
+['push', 'pop', 'shift', 'unshift', 'splice'].forEach((key) => {
+  arrayInstrumentations[key] = function (this: unknown[], ...args: unknown[]) {
+    const target = (this as any)[RAW];
+
+    // Pause tracking before running method on target array to prevent
+    // unnecessary triggers while array goes through steps of mutating
+    shouldTrack = false;
+    const result = (target as any)[key].apply(target, args);
+    shouldTrack = true;
+
+    trigger(target, 'length');
+
+    return result;
+  };
+});
+
 /**
  * Standard handlers for plain Objects and Arrays.
  * Relies on Reflect to ensure proper 'this' binding for getters/setters.
@@ -68,6 +87,11 @@ const baseHandlers: ProxyHandler<object> = {
   get(target, key, receiver) {
     if (key === IS_REACTIVE) return true;
     if (key === RAW) return target;
+
+    // Intercept array mutators
+    if (Array.isArray(target) && Object.hasOwn(arrayInstrumentations, key)) {
+      return Reflect.get(arrayInstrumentations, key, receiver);
+    }
 
     const result = Reflect.get(target, key, receiver);
 
@@ -84,15 +108,14 @@ const baseHandlers: ProxyHandler<object> = {
     const oldVal = (target as any)[key];
     const result = Reflect.set(target, key, value, receiver);
 
-    // Only trigger if value actually changed
-    // Also protects against prototype pollution triggers
     if (result && oldVal !== value) {
       trigger(target, key, value, oldVal);
 
-      // Handle Array length or new properties
+      // Detects if setter is adding new index via direct assignment (arr[5] = 'apple')
       const isArrayIndex =
-        Array.isArray(target) && Number.isInteger(Number(key)) && Number(key) >= target.length - 1;
+        Array.isArray(target) && Number.isInteger(Number(key)) && Number(key) >= target.length;
 
+      // If adding new key in array or object, notify watchers of length prop or iterators
       if (isArrayIndex || !Object.hasOwn(target, key)) {
         trigger(target, Array.isArray(target) ? 'length' : ITERATE_KEY);
       }
@@ -300,7 +323,7 @@ export function effect<T = any>(fn: () => void, options: EffectOptions = {}): ()
  * Records the current activeEffect as a dependency of (target, key).
  */
 function track(target: object, key: string | symbol) {
-  if (!activeEffect) return;
+  if (!activeEffect || !shouldTrack) return;
 
   let depsMap = targetMap.get(target);
   if (!depsMap) {
