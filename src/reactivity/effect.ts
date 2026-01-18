@@ -1,3 +1,5 @@
+import { activeEffectScope } from "./scope";
+
 export const RAW = Symbol('raw');
 export const IS_REACTIVE = Symbol('is_reactive');
 export const ITERATE_KEY = Symbol('iterate_key');
@@ -16,8 +18,11 @@ export interface EffectOptions {
 export interface ReactiveEffect<T = any> {
   (): T;
   active: boolean;
+  paused: boolean;
   deps: Dep[];
   options: EffectOptions;
+  pause: () => void;
+  resume: () => void;
   stop: () => void;
 }
 
@@ -32,6 +37,7 @@ let activeEffect: ReactiveEffect | null = null;
 let shouldTrack = true;
 const effectStack: ReactiveEffect[] = [];
 const targetMap = new WeakMap<object, KeyToDepMap>();
+const pausedEffects = new WeakSet<ReactiveEffect>();
 
 export function pauseTracking() {
   shouldTrack = false;
@@ -91,18 +97,38 @@ export function effect<T = any>(fn: () => void, options: EffectOptions = {}): Re
       return fn(); // Return the value for computed
     } finally {
       effectStack.pop();
-      activeEffect = effectStack[effectStack.length - 1];
+      activeEffect = effectStack[effectStack.length - 1] ?? null;
     }
   }) as ReactiveEffect<T>;
 
   run.active = true;
+  run.paused = false;
   run.deps = [];
 
   // Use provided scheduler or queueJob by default
   // Unless sync is set to true in which case updates will run synchronously
   run.options = options.sync ? {} : { scheduler: options.scheduler || queueJob };
 
-  // Attach the stop method
+  // Attach state methods (pause, resume, stop)
+  run.pause = () => {
+    run.paused = true;
+  };
+
+  run.resume = () => {
+    if (run.paused) {
+      run.paused = false;
+      // If this effect was triggered while paused, run it now
+      if (pausedEffects.has(run)) {
+        pausedEffects.delete(run);
+        if (run.options.scheduler) {
+          run.options.scheduler(run);
+        } else {
+          run();
+        }
+      }
+    }
+  };
+
   run.stop = () => {
     run.active = false;
     cleanup(run);
@@ -111,6 +137,11 @@ export function effect<T = any>(fn: () => void, options: EffectOptions = {}): Re
   // Run immediately (if not lazy) to capture initial dependencies
   if (!options.lazy) {
     run();
+  }
+
+  // Register with the current scope
+  if (activeEffectScope) {
+    activeEffectScope.effects.push(run);
   }
 
   return run;
@@ -214,7 +245,6 @@ export function trigger(target: object, key: string | symbol, _newVal?: any, _ol
   // Schedule effects for iteration (e.g. Object.keys, Map.size, Array traversal)
   if (key === ITERATE_KEY || key === 'length' || (Array.isArray(target) && key === 'length')) {
     add(depsMap.get(ITERATE_KEY));
-    add(depsMap.get('length')); // Often redundant but safe
   }
 
   // If array length changes, or we add to array, trigger length deps
@@ -232,7 +262,13 @@ export function trigger(target: object, key: string | symbol, _newVal?: any, _ol
   }
 
   effectsToRun.forEach((effect) => {
-    if (effect.options?.scheduler) {
+    // If paused, add to queue and skip running
+    if (effect.paused) {
+      pausedEffects.add(effect);
+      return;
+    }
+    // Normal execution
+    if (effect.options.scheduler) {
       effect.options.scheduler(effect);
     } else {
       effect();
@@ -247,7 +283,7 @@ function cleanup(effect: ReactiveEffect) {
   const { deps } = effect;
   if (deps.length) {
     for (let i = 0; i < deps.length; i++) {
-      deps[i].delete(effect);
+      deps[i]?.delete(effect);
     }
     deps.length = 0;
   }
