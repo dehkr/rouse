@@ -1,3 +1,5 @@
+// Shared types
+
 /**
  * Values that can be bound to the DOM via 'data-gn-bind'.
  */

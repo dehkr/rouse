@@ -1,17 +1,11 @@
-import { bus } from './bus';
-import { load } from './load';
-import { effect } from './effect';
-import type { GilliganController, GilliganEvent, SetupContext, SetupFn } from './types';
-import {
-  dispatch,
-  getNestedVal,
-  isElt,
-  isInp,
-  isSel,
-  isTxt,
-  safeParse,
-  setNestedVal,
-} from './utils';
+import { bus } from '../core/bus';
+import { load } from '../net/load';
+import { effect } from '../reactivity/effect';
+import type { GilliganController, GilliganEvent, SetupContext, SetupFn } from '../types';
+import { dispatch } from '../utils/dispatch';
+import { isElt, isInp, isSel, isTxt } from '../utils/is';
+import { safeParse } from '../utils/json';
+import { getNestedVal, setNestedVal } from '../utils/nested';
 
 const REGEX_BIND_SPLIT = /\s+(?=[a-z]+(?:->|<->))/;
 const REGEX_BIND_PARSE = /([a-z]+)(<->|->)(.+)/;

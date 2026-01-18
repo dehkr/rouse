@@ -7,7 +7,7 @@ import {
   trigger,
   RAW,
 } from './effect';
-import { isObj } from './utils';
+import { isObj } from '../utils/is';
 
 // ARRAY INSTRUMENTATION
 

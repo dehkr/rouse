@@ -1,12 +1,13 @@
 import { bus } from './bus';
-import { controller, createController } from './controller';
-import { handleFetch } from './fetch';
-import { load } from './load';
-import { reactive } from './reactive';
-import { effect } from './effect';
-import { createStore } from './store';
-import type { SetupFn } from './types';
-import { dispatch, isElt } from './utils';
+import { controller, createController } from '../dom/controller';
+import { handleFetch } from '../net/fetch';
+import { load } from '../net/load';
+import { reactive } from '../reactivity/reactive';
+import { effect } from '../reactivity/effect';
+import { createStore } from '../reactivity/store';
+import type { SetupFn } from '../types';
+import { dispatch } from '../utils/dispatch';
+import { isElt } from '../utils/is';
 
 const registry: Record<string, SetupFn> = {};
 const instanceMap = new WeakMap<HTMLElement, any>();

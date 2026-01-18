@@ -1,4 +1,4 @@
-import type { BusCallback } from './types';
+import type { BusCallback } from '../types';
 
 /**
  * Lightweight pub/sub event bus for cross-controller communication.

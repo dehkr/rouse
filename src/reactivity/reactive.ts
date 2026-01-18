@@ -1,4 +1,4 @@
-import { isObj } from './utils';
+import { isObj } from '../utils/is';
 import { IS_REACTIVE } from './effect';
 import { createBaseHandlers, createCollectionHandlers } from './handlers';
 
