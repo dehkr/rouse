@@ -2,7 +2,7 @@
  * Adapted from Vue.js
  * The following code for EffectScope is heavily inspired by/copied from @vue/reactivity.
  * https://github.com/vuejs/core/blob/main/packages/reactivity/src/effectScope.ts
- *
+ * --------------------------------------------------------------------------------------
  * The MIT License (MIT)
  *
  * Copyright (c) 2018-present, Yuxi (Evan) You and Vue contributors

@@ -2,7 +2,7 @@
 const KEY_BLOCKLIST = new Set(['__proto__', 'constructor', 'prototype']);
 
 /** Resolve a dot-notation path to a value */
-export function getNestedVal(obj: any, path: string): any {
+export function getNestedVal(obj: any, path: string | undefined): any {
   if (!obj || !path) return undefined;
 
   const parts = path.split('.');
@@ -17,15 +17,13 @@ export function getNestedVal(obj: any, path: string): any {
 }
 
 /** Set a value at a dot-notation path */
-export function setNestedVal(obj: any, path: string, value: any): void {
+export function setNestedVal(obj: any, path: string | undefined, value: any): void {
   if (!obj || !path) return;
 
   const parts = path.split('.');
   let current = obj;
 
-  for (let i = 0; i < parts.length - 1; i++) {
-    const part = parts[i];
-
+  for (const part of parts.slice(0, -1)) {
     if (KEY_BLOCKLIST.has(part)) return;
 
     // Auto-initialize missing parts or overwrite primitive types to allow traversal
@@ -35,8 +33,8 @@ export function setNestedVal(obj: any, path: string, value: any): void {
     current = current[part];
   }
 
-  const lastKey = parts[parts.length - 1];
-  if (!KEY_BLOCKLIST.has(lastKey)) {
+  const lastKey = parts.at(-1);
+  if (lastKey !== undefined && !KEY_BLOCKLIST.has(lastKey)) {
     current[lastKey] = value;
   }
 }

@@ -1,6 +1,7 @@
 import { bus } from '../core/bus';
 import { load } from '../net/load';
 import { effect } from '../reactivity/effect';
+import { effectScope } from '../reactivity/effectScope';
 import type { GilliganController, GilliganEvent, SetupContext, SetupFn } from '../types';
 import { dispatch } from '../utils/dispatch';
 import { isElt, isInp, isSel, isTxt } from '../utils/is';
@@ -68,6 +69,9 @@ function bindController(
           const value = getNestedVal(instance, key);
 
           switch (type) {
+            case undefined: {
+              break;
+            }
             case 'text': {
               // Check equality to avoid cursor jumping in contenteditable
               const strVal = String(value ?? '');
@@ -210,6 +214,7 @@ function bindController(
         if (!match) return;
 
         const [, evtName, methodName] = match;
+        if (!evtName || !methodName) return;
         if (typeof instance[methodName] !== 'function') return;
 
         const handler = (e: Event) => {
@@ -332,10 +337,16 @@ export function createController(
   setup: SetupFn,
   loadingClass: string = 'gn-loading',
 ) {
-  const shell = {
-    isUnmounted: false,
+  let isUnmounted = false;
+  const cleanups: (() => void)[] = [];
+
+  const handle = {
     _unmount: () => {
-      shell.isUnmounted = true;
+      if (isUnmounted) return;
+      isUnmounted = true;
+      cleanups.reverse().forEach((fn) => {
+        fn();
+      });
     },
   };
 
@@ -356,9 +367,6 @@ export function createController(
     console.error(`[Gilligan] Failed to parse props for`, el, e);
   }
 
-  // Track event bus subscriptions for auto-cleanup
-  const busCleanups: (() => void)[] = [];
-
   const context: SetupContext = {
     el,
     refs,
@@ -369,24 +377,23 @@ export function createController(
       publish: (event, data) => bus.publish(event, data),
       subscribe: (event, cb) => {
         const unsub = bus.subscribe(event, cb);
-        busCleanups.push(unsub);
+        cleanups.push(unsub);
       },
       unsubscribe: (event, cb) => bus.unsubscribe(event, cb),
     },
   };
 
-  const result = setup(context);
+  // Controller instance should have an EffectScope so any effects created
+  // within it are garbage collected if controller is removed from DOM.
+  const scope = effectScope();
+  cleanups.push(() => scope.stop());
+  const result = scope.run(() => setup(context));
 
   const apply = (instance: GilliganController) => {
-    if (shell.isUnmounted) return;
-
+    if (isUnmounted) return;
     // Pass refs to bindController so it can update them dynamically
-    const unbind = bindController(el, instance, refs);
-
-    shell._unmount = () => {
-      shell.isUnmounted = true;
-      unbind();
-    };
+    const unbindDom = bindController(el, instance, refs);
+    cleanups.push(unbindDom);
   };
 
   // Handle sync/async setup
@@ -402,8 +409,10 @@ export function createController(
         el.classList.remove(loadingClass);
       });
   } else {
-    apply(result);
+    if (result !== undefined) {
+      apply(result);
+    }
   }
 
-  return shell;
+  return handle;
 }

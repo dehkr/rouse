@@ -1,4 +1,4 @@
-import { activeEffectScope } from "./scope";
+import { activeEffectScope } from './effectScope';
 
 export const RAW = Symbol('raw');
 export const IS_REACTIVE = Symbol('is_reactive');
@@ -113,22 +113,16 @@ export function effect<T = any>(fn: () => void, options: EffectOptions = {}): Re
   run.pause = () => {
     run.paused = true;
   };
-
   run.resume = () => {
     if (run.paused) {
       run.paused = false;
       // If this effect was triggered while paused, run it now
       if (pausedEffects.has(run)) {
         pausedEffects.delete(run);
-        if (run.options.scheduler) {
-          run.options.scheduler(run);
-        } else {
-          run();
-        }
+        triggerEffect(run);
       }
     }
   };
-
   run.stop = () => {
     run.active = false;
     cleanup(run);
@@ -262,18 +256,20 @@ export function trigger(target: object, key: string | symbol, _newVal?: any, _ol
   }
 
   effectsToRun.forEach((effect) => {
-    // If paused, add to queue and skip running
     if (effect.paused) {
       pausedEffects.add(effect);
-      return;
-    }
-    // Normal execution
-    if (effect.options.scheduler) {
-      effect.options.scheduler(effect);
     } else {
-      effect();
+      triggerEffect(effect);
     }
   });
+}
+
+function triggerEffect(effect: ReactiveEffect) {
+  if (effect.options.scheduler) {
+    effect.options.scheduler(effect);
+  } else {
+    effect();
+  }
 }
 
 /**
