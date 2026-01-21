@@ -1,4 +1,4 @@
-import { activeEffectScope } from './effectScope';
+import { activeEffectScope } from './scope';
 
 export const RAW = Symbol('raw');
 export const IS_REACTIVE = Symbol('is_reactive');
@@ -83,7 +83,10 @@ function flushJobs() {
  * @param fn The function to execute and track.
  * @returns A stop function that marks the effect as inactive to prevent further runs.
  */
-export function effect<T = any>(fn: () => void, options: EffectOptions = {}): ReactiveEffect<T> {
+export function effect<T = any>(
+  fn: () => void,
+  options: EffectOptions = {},
+): ReactiveEffect<T> {
   const run = (() => {
     // If effect is stopped the normal function is returned
     if (!run.active) {
@@ -217,7 +220,12 @@ export function track(target: object, key: string | symbol) {
 /**
  * Runs all effects that depend on (target, key).
  */
-export function trigger(target: object, key: string | symbol, _newVal?: any, _oldVal?: any) {
+export function trigger(
+  target: object,
+  key: string | symbol,
+  _newVal?: any,
+  _oldVal?: any,
+) {
   const depsMap = targetMap.get(target);
   if (!depsMap) return;
 
@@ -237,7 +245,11 @@ export function trigger(target: object, key: string | symbol, _newVal?: any, _ol
   add(depsMap.get(key));
 
   // Schedule effects for iteration (e.g. Object.keys, Map.size, Array traversal)
-  if (key === ITERATE_KEY || key === 'length' || (Array.isArray(target) && key === 'length')) {
+  if (
+    key === ITERATE_KEY ||
+    key === 'length' ||
+    (Array.isArray(target) && key === 'length')
+  ) {
     add(depsMap.get(ITERATE_KEY));
   }
 

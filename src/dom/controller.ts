@@ -1,7 +1,7 @@
 import { bus } from '../core/bus';
 import { load } from '../net/load';
 import { effect } from '../reactivity/effect';
-import { effectScope } from '../reactivity/effectScope';
+import { effectScope } from '../reactivity/scope';
 import type { GilliganController, GilliganEvent, SetupContext, SetupFn } from '../types';
 import { dispatch } from '../utils/dispatch';
 import { isElt, isInp, isSel, isTxt } from '../utils/is';
@@ -252,7 +252,6 @@ function bindController(
     });
   };
 
-  // Teardown (recursive remove)
   const teardown = (node: HTMLElement) => {
     // Clean up the node itself if it was bound
     const cleanups = elementCleanups.get(node);
@@ -364,7 +363,7 @@ export function createController(
       props = safeParse(el.dataset.gnProps);
     }
   } catch (e) {
-    console.error(`[Gilligan] Failed to parse props for`, el, e);
+    console.warn(`[Gilligan] Failed to parse props for`, el, e);
   }
 
   const context: SetupContext = {
@@ -405,7 +404,7 @@ export function createController(
         apply(instance);
       })
       .catch((err) => {
-        console.error('[Gilligan] Async setup failed:', err);
+        console.warn('[Gilligan] Async setup failed:', err);
         el.classList.remove(loadingClass);
       });
   } else {
