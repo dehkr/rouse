@@ -16,7 +16,7 @@ export type Target = {
 };
 
 export type RawObject<T> = T & { [KeepRaw]?: true };
-export type Proxy<T> = T;
+export type ReactiveProxy<T> = T;
 
 /** Makes sure a value is eligible to be a proxy. */
 export function proxiable(value: unknown): value is object {
@@ -32,14 +32,24 @@ export function flagged(target: any): target is Target {
 }
 
 /**
- * Runs checks to make sure a value can be proxied and returns a reactive proxy.
+ * Creates a reactive proxy for the target object.
  *
- * @param target The plain object to make reactive.
- * @returns A reactive Proxy of the target.
- * @note Always interact with the returned Proxy, not the original target object,
- * to ensure reactivity is maintained.
+ * - If passed a raw object, it returns its reactive proxy (creating one if needed).
+ * - If passed an existing proxy, it returns it as-is.
+ * - If passed a non-proxiable value (primitive, DOM node, flagged), it returns it as-is.
+ *
+ * The returned proxy is deeply reactive but lazy: nested properties are converted to
+ * proxies only when accessed.
+ *
+ * @template T - The type of the target object.
+ * @param target - The object to make reactive.
+ * @returns The reactive proxy, or the original value if it cannot be proxied.
+ *
+ * @example
+ * const state = reactive({ count: 0 });
+ * effect(() => console.log(state.count));
  */
-export function reactive<T extends object>(target: T): Proxy<T> {
+export function reactive<T extends object>(target: T): ReactiveProxy<T> {
   if (!proxiable(target)) return target;
   if (flagged(target)) return target;
   if (rawCache.has(target)) return target;
@@ -50,7 +60,7 @@ export function reactive<T extends object>(target: T): Proxy<T> {
   proxyCache.set(target, proxy);
   rawCache.set(proxy, target);
 
-  return proxy as Proxy<T>;
+  return proxy as ReactiveProxy<T>;
 }
 
 /**
@@ -76,7 +86,7 @@ export function createProxy<T>(value: T): T {
 }
 
 /** Check if a value is a proxy. */
-export function isProxy(value: unknown): value is Proxy<typeof value> {
+export function isProxy(value: unknown): value is ReactiveProxy<typeof value> {
   return !!(proxiable(value) && rawCache.has(value));
 }
 

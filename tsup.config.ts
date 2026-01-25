@@ -9,9 +9,24 @@ export default defineConfig([
         js: format === 'esm' ? '.mjs' : '.cjs',
       };
     },
+    noExternal: ['alien-signals'],
     dts: true,
     clean: true,
     minify: false,
+    splitting: false,
+  },
+  {
+    entry: ['src/index.ts'],
+    format: ['esm'],
+    outExtension({ format }) {
+      return {
+        js: '.min.mjs',
+      };
+    },
+    noExternal: ['alien-signals'],
+    dts: true,
+    clean: true,
+    minify: true,
     splitting: false,
   },
   {

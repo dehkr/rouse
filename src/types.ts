@@ -50,7 +50,7 @@ export type SetupContext<P extends Record<string, any> = Record<string, any>> = 
  */
 export type SetupFn<P extends Record<string, any> = Record<string, any>> = (
   ctx: SetupContext<P>,
-) => GilliganController | Promise<GilliganController>;
+) => GilliganController;
 
 /**
  * Extended Event type for events handled by 'data-gn-on'.

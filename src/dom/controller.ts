@@ -336,7 +336,7 @@ function attachController(
 export function createController(
   el: HTMLElement,
   setup: SetupFn,
-  loadingClass: string = 'gn-loading',
+  _loadingClass: string = 'gn-loading',
 ) {
   let isUnmounted = false;
   const cleanups: (() => void)[] = [];
@@ -344,7 +344,6 @@ export function createController(
   const handle = {
     instance: null as any,
     _unmount: () => {
-      console.log('unmounted:', instance);
       if (isUnmounted) return;
       isUnmounted = true;
       // Teardown child effects (DOM) before parent state
@@ -388,7 +387,7 @@ export function createController(
   };
 
   // Setup effect scope
-  // Wraps the logic that creates the controller state
+  // Wraps the effects that belong to the controller instance
   let instance: any;
   const stopSetupScope = effectScope(() => {
     instance = setup(context);
@@ -396,37 +395,27 @@ export function createController(
   // Add setup scope's stop function to cleanup
   cleanups.push(stopSetupScope);
 
-  const apply = (instance: GilliganController) => {
-    if (isUnmounted) return;
+  // Block async setup functions since they can't be captured in effect scope
+  // which will cause memory leaks. Controllers should be initialized synchronously,
+  // then populated asynchronously if necessary. Data should be fetched as side effect.
+  if (instance instanceof Promise) {
+    handle._unmount();
+    throw new Error(
+      `[gn] Controller setup must be synchronous ("async" will cause reactivity leaks). Fetch data as a side effect.`,
+    );
+  }
 
-    // Binding effect scope
-    // If setup was async the first scope will be closed
+  // Binding effect scope
+  // Wraps the logic that connects the reactive state to the DOM
+  // Captures effects created by bindings (text, atts, etc.) so the UI auto updates
+  if (instance !== undefined) {
     const stopBindingScope = effectScope(() => {
       const unbindDom = attachController(el, instance, refs);
       if (unbindDom) {
         cleanups.push(unbindDom);
       }
     });
-    // Add binding scope's stop function to cleanup
     cleanups.push(stopBindingScope);
-  };
-
-  // Handle sync/async setup
-  if (instance instanceof Promise) {
-    el.classList.add(loadingClass);
-    instance
-      .then((instance) => {
-        el.classList.remove(loadingClass);
-        apply(instance);
-      })
-      .catch((err) => {
-        console.warn('[Gilligan] Async setup failed:', err);
-        el.classList.remove(loadingClass);
-      });
-  } else {
-    if (instance !== undefined) {
-      apply(instance);
-    }
   }
 
   return handle;

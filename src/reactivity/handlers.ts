@@ -1,6 +1,6 @@
-import { signal } from 'alien-signals';
-import { reactive, getRaw, flag, proxiable, type Target } from './reactive';
+import { signal, trigger } from './';
 import { methodIntercepts } from './arrays';
+import { flag, getRaw, proxiable, reactive, type Target } from './reactive';
 
 export const ITERATION_KEY = Symbol('gn_iteration');
 const signalCache = new WeakMap<object, Map<string | symbol, any>>();
@@ -55,12 +55,15 @@ export const handlers: ProxyHandler<Target> = {
     const result = Reflect.set(target, key, value, receiver);
 
     if (value !== oldValue) {
-      // Trigger the specific key
-      getSignal(target, key)(value);
-      // If it's an Array, trigger the iteration key
-      // Empty object `{}` passed because alien signals requires a value for setters
+      const sig = getSignal(target, key);
+      
+      // If the value actually changed (reference change), set it
+      // If it's the same object (mutation), use trigger
+      value !== sig() ? sig(value) : trigger(sig);
+
+      // Trigger the iteration key
       if (Array.isArray(target)) {
-        getSignal(target, ITERATION_KEY)({});
+        trigger(getSignal(target, ITERATION_KEY));
       }
     }
     return result;
@@ -79,7 +82,7 @@ export const handlers: ProxyHandler<Target> = {
     // Trigger if the key actually existed and was deleted
     if (result && hadKey) {
       getSignal(target, key)(undefined);
-      getSignal(target, ITERATION_KEY)({});
+      trigger(getSignal(target, ITERATION_KEY));
     }
     return result;
   },
