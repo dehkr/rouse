@@ -3,33 +3,9 @@ import { handlers } from './handlers';
 const proxyCache = new WeakMap();
 const rawCache = new WeakMap();
 
-export declare const KeepRaw: unique symbol;
+export const RAW = Symbol('gn_raw');
 
-export const flag = {
-  RAW: Symbol('gn_raw'),
-  SKIP: Symbol('gn_skip'),
-} as const;
-
-export type Target = {
-  [flag.RAW]?: any;
-  [flag.SKIP]?: boolean;
-};
-
-export type RawObject<T> = T & { [KeepRaw]?: true };
 export type ReactiveProxy<T> = T;
-
-/** Makes sure a value is eligible to be a proxy. */
-export function proxiable(value: unknown): value is object {
-  if (value === null || typeof value !== 'object') return false;
-  if (Array.isArray(value)) return true;
-  // Make sure it's a plain object
-  return Object.prototype.toString.call(value) === '[object Object]';
-}
-
-/** Checks for any flags indicating target should not be proxied. */
-export function flagged(target: any): target is Target {
-  return !!(target && (target[flag.SKIP] || target[flag.RAW]));
-}
 
 /**
  * Creates a reactive proxy for the target object.
@@ -51,7 +27,7 @@ export function flagged(target: any): target is Target {
  */
 export function reactive<T extends object>(target: T): ReactiveProxy<T> {
   if (!proxiable(target)) return target;
-  if (flagged(target)) return target;
+  if ((target as any)[RAW]) return target;
   if (rawCache.has(target)) return target;
   if (proxyCache.has(target)) return proxyCache.get(target);
 
@@ -63,21 +39,12 @@ export function reactive<T extends object>(target: T): ReactiveProxy<T> {
   return proxy as ReactiveProxy<T>;
 }
 
-/**
- * Flags an object with `SKIP` to prevent it from being proxied.
- * Returns the object itself.
- * @param value - The object to be flagged.
- */
-export function keepRaw<T extends object>(value: T): RawObject<T> {
-  if (!Object.hasOwn(value, flag.SKIP) && Object.isExtensible(value)) {
-    Object.defineProperty(value, flag.SKIP, {
-      configurable: true,
-      enumerable: false,
-      writable: false,
-      value: true,
-    });
-  }
-  return value;
+/** Makes sure a value is eligible to be a proxy. */
+export function proxiable(value: unknown): value is object {
+  if (value === null || typeof value !== 'object') return false;
+  if (Array.isArray(value)) return true;
+  // Make sure it's a plain object
+  return Object.prototype.toString.call(value) === '[object Object]';
 }
 
 /** Creates a reactive proxy for an eligible object. */

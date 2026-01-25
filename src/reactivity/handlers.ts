@@ -1,6 +1,6 @@
 import { signal, trigger } from './';
 import { methodIntercepts } from './arrays';
-import { flag, getRaw, proxiable, reactive, type Target } from './reactive';
+import { getRaw, proxiable, RAW, reactive } from './reactive';
 
 export const ITERATION_KEY = Symbol('gn_iteration');
 const signalCache = new WeakMap<object, Map<string | symbol, any>>();
@@ -27,9 +27,9 @@ export function getSignal(target: object, key: string | symbol) {
   return sig;
 }
 
-export const handlers: ProxyHandler<Target> = {
-  get(target: Target, key: string | symbol, receiver: object): any {
-    if (key === flag.RAW || key === '__proto__') return target;
+export const handlers: ProxyHandler<object> = {
+  get(target: object, key: string | symbol, receiver: object): any {
+    if (key === RAW || key === '__proto__') return target;
 
     if (Array.isArray(target) && Object.hasOwn(methodIntercepts, key)) {
       return Reflect.get(methodIntercepts, key, receiver);

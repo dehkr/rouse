@@ -8,4 +8,4 @@ export {
   trigger,
 } from 'alien-signals';
 
-export { getProxy, getRaw, isProxy, keepRaw, reactive } from './reactive';
+export { getProxy, getRaw, isProxy, reactive } from './reactive';
