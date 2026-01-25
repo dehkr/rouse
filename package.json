@@ -19,5 +19,8 @@
     "@biomejs/biome": "2.3.10",
     "tsup": "^8.5.1",
     "typescript": "~5.9.3"
+  },
+  "dependencies": {
+    "alien-signals": "^3.1.2"
   }
 }

@@ -1,7 +1,6 @@
 import { bus } from '../core/bus';
 import { load } from '../net/load';
-import { effect } from '../reactivity/effect';
-import { effectScope } from '../reactivity/scope';
+import { effect, effectScope } from '../reactivity';
 import type { GilliganController, GilliganEvent, SetupContext, SetupFn } from '../types';
 import { dispatch } from '../utils/dispatch';
 import { isElt, isInp, isSel, isTxt } from '../utils/is';
@@ -26,7 +25,7 @@ export function controller<P extends Record<string, any> = Record<string, any>>(
  * Binds the controller instance to the DOM.
  * Handles initial bindings and uses MO for dynamic updates and cleanup.
  */
-function bindController(
+function attachController(
   root: HTMLElement,
   instance: GilliganController,
   refs: Record<string, HTMLElement>,
@@ -185,7 +184,10 @@ function bindController(
             else if (isInp(target) || isTxt(target)) {
               if (isInp(target) && target.type === 'checkbox') {
                 val = target.checked;
-              } else if (isInp(target) && (target.type === 'number' || target.type === 'range')) {
+              } else if (
+                isInp(target) &&
+                (target.type === 'number' || target.type === 'range')
+              ) {
                 // Handle empty numeric inputs
                 val = Number.isNaN(target.valueAsNumber) ? null : target.valueAsNumber;
               } else {
@@ -340,9 +342,12 @@ export function createController(
   const cleanups: (() => void)[] = [];
 
   const handle = {
+    instance: null as any,
     _unmount: () => {
+      console.log('unmounted:', instance);
       if (isUnmounted) return;
       isUnmounted = true;
+      // Teardown child effects (DOM) before parent state
       cleanups.reverse().forEach((fn) => {
         fn();
       });
@@ -382,23 +387,34 @@ export function createController(
     },
   };
 
-  // Controller instance should have an EffectScope so any effects created
-  // within it are garbage collected if controller is removed from DOM.
-  const scope = effectScope();
-  cleanups.push(() => scope.stop());
-  const result = scope.run(() => setup(context));
+  // Setup effect scope
+  // Wraps the logic that creates the controller state
+  let instance: any;
+  const stopSetupScope = effectScope(() => {
+    instance = setup(context);
+  });
+  // Add setup scope's stop function to cleanup
+  cleanups.push(stopSetupScope);
 
   const apply = (instance: GilliganController) => {
     if (isUnmounted) return;
-    // Pass refs to bindController so it can update them dynamically
-    const unbindDom = bindController(el, instance, refs);
-    cleanups.push(unbindDom);
+
+    // Binding effect scope
+    // If setup was async the first scope will be closed
+    const stopBindingScope = effectScope(() => {
+      const unbindDom = attachController(el, instance, refs);
+      if (unbindDom) {
+        cleanups.push(unbindDom);
+      }
+    });
+    // Add binding scope's stop function to cleanup
+    cleanups.push(stopBindingScope);
   };
 
   // Handle sync/async setup
-  if (result instanceof Promise) {
+  if (instance instanceof Promise) {
     el.classList.add(loadingClass);
-    result
+    instance
       .then((instance) => {
         el.classList.remove(loadingClass);
         apply(instance);
@@ -408,8 +424,8 @@ export function createController(
         el.classList.remove(loadingClass);
       });
   } else {
-    if (result !== undefined) {
-      apply(result);
+    if (instance !== undefined) {
+      apply(instance);
     }
   }
 

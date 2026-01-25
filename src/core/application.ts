@@ -1,13 +1,12 @@
-import { bus } from './bus';
 import { controller, createController } from '../dom/controller';
 import { handleFetch } from '../net/fetch';
 import { load } from '../net/load';
-import { reactive } from '../reactivity/reactive';
-import { effect } from '../reactivity/effect';
-import { createStore } from '../reactivity/store';
+import { effect, reactive } from '../reactivity/';
 import type { SetupFn } from '../types';
 import { dispatch } from '../utils/dispatch';
 import { isElt } from '../utils/is';
+import { bus } from './bus';
+import { createStore } from './store';
 
 const registry: Record<string, SetupFn> = {};
 const instanceMap = new WeakMap<HTMLElement, any>();
@@ -51,7 +50,9 @@ function initElement(el: HTMLElement, defaultWake: string, loadingClass: string)
 
   // Parse wake strategy
   const wakeAttr = el.dataset.gnWake || defaultWake;
-  const strategies = wakeAttr.split(/\s+(?=(?:load|visible|idle|interaction|delay|media|event))/);
+  const strategies = wakeAttr.split(
+    /\s+(?=(?:load|visible|idle|interaction|delay|media|event))/,
+  );
 
   // Wake triggers only when all conditions are satisfied
   let pending = strategies.length;
@@ -183,7 +184,8 @@ function start(arg1?: string | HTMLElement | GilliganConfig, arg2?: GilliganConf
 
   const { wake = 'load', fetch = true, loadingClass = 'gn-loading' } = config;
 
-  const rootEl = typeof root === 'string' ? (document.querySelector(root) as HTMLElement) : root;
+  const rootEl =
+    typeof root === 'string' ? (document.querySelector(root) as HTMLElement) : root;
 
   if (!rootEl) {
     console.warn('[Gilligan] Root element not found:', root);

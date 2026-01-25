@@ -7,6 +7,10 @@ settings:
 importers:
 
   .:
+    dependencies:
+      alien-signals:
+        specifier: ^3.1.2
+        version: 3.1.2
     devDependencies:
       '@biomejs/biome':
         specifier: 2.3.10
@@ -15,7 +19,7 @@ importers:
         specifier: ^8.5.1
         version: 8.5.1(postcss@8.5.6)(typescript@5.9.3)
       typescript:
-        specifier: ^5.9.3
+        specifier: ~5.9.3
         version: 5.9.3
 
 packages:
@@ -359,6 +363,9 @@ packages:
     resolution: {integrity: sha512-NZyJarBfL7nWwIq+FDL6Zp/yHEhePMNnnJ0y3qfieCrmNvYct8uvtiV41UvlSe6apAfk0fY1FbWx+NwfmpvtTg==}
     engines: {node: '>=0.4.0'}
     hasBin: true
+
+  alien-signals@3.1.2:
+    resolution: {integrity: sha512-d9dYqZTS90WLiU0I5c6DHj/HcKkF8ZyGN3G5x8wSbslulz70KOxaqCT0hQCo9KOyhVqzqGojvNdJXoTumZOtcw==}
 
   any-promise@1.3.0:
     resolution: {integrity: sha512-7UvmKalWRt1wgjL1RrGxoSJW/0QZFIegpeGvZG9kjp8vrRu55XTHbwnqq2GpXm9uLbcuhxm3IqX9OB4MZR1b2A==}
@@ -766,6 +773,8 @@ snapshots:
   '@types/estree@1.0.8': {}
 
   acorn@8.15.0: {}
+
+  alien-signals@3.1.2: {}
 
   any-promise@1.3.0: {}
 

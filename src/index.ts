@@ -5,8 +5,7 @@ export { Gilligan, Gilligan as gn };
 
 // These are available on gn/Gilligan but providing as named exports for good measure
 export { controller } from './dom/controller';
-export { createStore } from './reactivity/store';
-export { reactive } from './reactivity/reactive';
-export { effect, computed, type ReactiveEffect } from './reactivity/effect';
+export { createStore } from './core/store';
+export { computed, effect, reactive} from './reactivity/';
 
 export type { SetupContext, SetupFn, GilliganEvent, BindableValue } from './types';
