@@ -31,10 +31,9 @@ export default defineConfig([
   },
   {
     entry: {
-      gilligan: 'src/index.ts',
+      rouse: 'src/index.ts',
     },
     format: ['iife'],
-    // globalName: 'Gilligan',
     outExtension() {
       return {
         js: '.js',
@@ -46,10 +45,9 @@ export default defineConfig([
   },
   {
     entry: {
-      gilligan: 'src/index.ts',
+      rouse: 'src/index.ts',
     },
     format: ['iife'],
-    // globalName: 'Gilligan',
     outExtension() {
       return {
         js: '.min.js',
