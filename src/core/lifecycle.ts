@@ -19,18 +19,16 @@ let hasStarted = false;
 
 /**
  * Starts the Rouse framework.
- * Accepts a root element, a config object, or both.
+ * @param config - Optional configuration settings.
  */
-export function start(cfg: RouseConfig) {
+export function start(config: RouseConfig = {}) {
   if (hasStarted) {
     console.warn('[Rouse] Rouse.start() called multiple times. Ignoring.');
     return;
   }
   hasStarted = true;
 
-  let config = cfg || {};
-
-  let {
+  const {
     wake = defaultConfig.wake as string,
     fetch = defaultConfig.fetch as boolean,
     root = defaultConfig.root as HTMLElement,
