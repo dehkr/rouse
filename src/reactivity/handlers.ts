@@ -2,7 +2,7 @@ import { signal, trigger } from './';
 import { methodIntercepts } from './arrays';
 import { getRaw, proxiable, RAW, reactive } from './reactive';
 
-export const ITERATION_KEY = Symbol('gn_iteration');
+export const ITERATION_KEY = Symbol('rz_iteration');
 const signalCache = new WeakMap<object, Map<string | symbol, any>>();
 
 /**

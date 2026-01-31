@@ -3,7 +3,7 @@ import { handlers } from './handlers';
 const proxyCache = new WeakMap();
 const rawCache = new WeakMap();
 
-export const RAW = Symbol('gn_raw');
+export const RAW = Symbol('rz_raw');
 
 export type ReactiveProxy<T> = T;
 

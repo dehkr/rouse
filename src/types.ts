@@ -1,10 +1,9 @@
-// Shared types
-
 /**
- * Values that can be bound to the DOM via 'data-gn-bind'.
+ * Values that can be bound to the DOM.
  */
 export type BindableValue =
   | string
+  | string[]
   | number
   | boolean
   | null
@@ -21,21 +20,24 @@ export type BusCallback<T = any> = (data?: T) => void;
  * The object returned by a setup function.
  * Includes standard lifecycle hooks and any custom state/methods.
  */
-export type GilliganController = Record<string, any> & {
+export type RouseController = Record<string, any> & {
   connect?: () => void;
   disconnect?: () => void;
 };
 
+export interface RouseFetchOptions extends RequestInit {
+  serializeForm?: HTMLFormElement;
+}
+
 /**
  * The context object passed into every controller setup function.
- *
- * @template P - The type of the props (data-gn-props).
+ * @template P - The type of the props (rz-props).
  */
 export type SetupContext<P extends Record<string, any> = Record<string, any>> = {
   el: HTMLElement;
-  refs: Record<string, HTMLElement>;
   props: P;
   dispatch: (name: string, detail?: any) => CustomEvent;
+  http: (url: string, options: RouseFetchOptions) => Promise<string>;
   load: (url: string) => Promise<void>;
   bus: {
     publish: (event: string, data?: any) => void;
@@ -50,15 +52,4 @@ export type SetupContext<P extends Record<string, any> = Record<string, any>> = 
  */
 export type SetupFn<P extends Record<string, any> = Record<string, any>> = (
   ctx: SetupContext<P>,
-) => GilliganController;
-
-/**
- * Extended Event type for events handled by 'data-gn-on'.
- * The framework injects the specific element that triggered the listener.
- *
- * @template E - The type of the element (e.g. HTMLInputElement).
- * @template D - The type of event.detail (data payload).
- */
-export interface GilliganEvent<E = HTMLElement, D = any> extends CustomEvent<D> {
-  gnTarget: E;
-}
+) => RouseController;

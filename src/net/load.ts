@@ -31,7 +31,7 @@ export function load(url: string): Promise<void> {
     element.onerror = () => {
       // Remove from cache so we can try again if needed
       cache.delete(url);
-      reject(new Error(`[Gilligan] Failed to load ${url}`));
+      reject(new Error(`[Rouse] Failed to load ${url}`));
     };
 
     document.head.appendChild(element);

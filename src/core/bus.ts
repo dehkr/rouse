@@ -15,7 +15,7 @@ class EventBus {
    * @returns A function that, when called, removes this specific subscription.
    * @example
    * ```js
-   * const stop = gn.subscribe('cart:add', (item) => console.log(item));
+   * const stop = rz.subscribe('cart:add', (item) => console.log(item));
    * // Later...
    * stop();
    * ```
@@ -58,7 +58,7 @@ class EventBus {
    * @param data - Optional data payload to pass to subscribers.
    * @example
    * ```js
-   * gn.publish('cart:updated', { itemCount: 5, total: 49.99 });
+   * rz.publish('cart:updated', { itemCount: 5, total: 49.99 });
    * ```
    */
   publish<T = any>(event: string, data?: T) {
@@ -70,7 +70,7 @@ class EventBus {
         try {
           cb(data);
         } catch (err) {
-          console.error(`[Gilligan] Error in global event listener for "${event}":`, err);
+          console.error(`[Rouse] Error in global event listener for "${event}":`, err);
         }
       });
     }

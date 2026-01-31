@@ -1,5 +1,4 @@
 {
-  "include": ["src"],
   "compilerOptions": {
     /* Type Checking */
     "noFallthroughCasesInSwitch": true,
@@ -44,5 +43,6 @@
 
     /* Command Line */
     /* Watch Options */
-  }
+  },
+  "include": ["src"]
 }
