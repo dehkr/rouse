@@ -9,7 +9,7 @@ export function applyBind(
   type: string,
   path: string,
 ): () => void {
-  const stop = effect(() => {
+  return effect(() => {
     const val = getNestedVal(instance, path);
 
     if (type === 'class') {
@@ -17,9 +17,7 @@ export function applyBind(
     } else if (type === 'style') {
       updateStyle(el, val);
     } else {
-      updateAttr(el, type || path, val);
+      updateAttr(el, type, val);
     }
   });
-
-  return stop;
 }

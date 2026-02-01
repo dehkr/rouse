@@ -8,10 +8,8 @@ export function applyText(
   instance: RouseController,
   prop: string,
 ): () => void {
-  const stop = effect(() => {
+  return effect(() => {
     const val = getNestedVal(instance, prop);
     updateText(el, val);
   });
-
-  return stop;
 }

@@ -4,7 +4,7 @@ import { isInput, isSelect, isTextArea } from './utils';
 const prevClasses = new WeakMap<HTMLElement, string>();
 
 /**
- * Handles innerText updates
+ * Handles innerText updates.
  */
 export function updateText(el: HTMLElement, value: BindableValue) {
   // Check equality to avoid cursor jumping in contenteditable
@@ -15,7 +15,7 @@ export function updateText(el: HTMLElement, value: BindableValue) {
 }
 
 /**
- * Handles innerHTML updates
+ * Handles innerHTML updates.
  */
 export function updateHtml(el: HTMLElement, value: BindableValue) {
   const htmlVal = String(value ?? '');
@@ -25,7 +25,7 @@ export function updateHtml(el: HTMLElement, value: BindableValue) {
 }
 
 /**
- * Handles setting value of modelable elements
+ * Handles setting value of modelable elements.
  */
 export function updateValue(el: HTMLElement, value: BindableValue) {
   // Text of elements with `contenteditable` attribute are modelable
@@ -63,7 +63,7 @@ export function updateValue(el: HTMLElement, value: BindableValue) {
 }
 
 /**
- * Returns current value of HTML element
+ * Returns current value of HTML element.
  */
 export function getValue(el: HTMLElement): BindableValue {
   // Text of elements with `contenteditable` attribute are modelable
@@ -87,11 +87,12 @@ export function getValue(el: HTMLElement): BindableValue {
 }
 
 /**
- * Handles class attribute updates
+ * Handles class attribute updates.
+ * Object syntax toggles class: { 'active': bool } or { 'active bg-red: bool' }.
+ * String value swaps class w/out replacing existing classes: 'active' or 'active bg-red'.
  */
 export function updateClass(el: HTMLElement, value: BindableValue) {
   if (value && typeof value === 'object') {
-    // Object syntax toggles class: { 'active': bool } or { 'active bg-red: bool' }
     for (const [cls, active] of Object.entries(value)) {
       const classes = cls.trim().split(/\s+/).filter(Boolean);
 
@@ -104,7 +105,6 @@ export function updateClass(el: HTMLElement, value: BindableValue) {
       }
     }
   } else {
-    // String value swaps class safely: 'active' or 'active bg-red'
     const newClass = String(value ?? '').trim();
     const oldClass = prevClasses.get(el);
 
@@ -119,16 +119,15 @@ export function updateClass(el: HTMLElement, value: BindableValue) {
         prevClasses.set(el, newClass);
       }
     } else {
-      prevClasses.delete(el); // Clean up if no classes remain
+      prevClasses.delete(el);
     }
   }
 }
 
 /**
- * Handles style attribute updates
+ * Handles style attribute updates. Supports object syntax and string value.
  */
 export function updateStyle(el: HTMLElement, value: BindableValue) {
-  // Supports object syntax and string value
   if (value && typeof value === 'object') {
     Object.assign(el.style, value);
   } else {
@@ -137,10 +136,9 @@ export function updateStyle(el: HTMLElement, value: BindableValue) {
 }
 
 /**
- * Handles generic attribute updates
+ * Handles generic attribute updates.
  */
 export function updateAttr(el: HTMLElement, attr: string, value: BindableValue) {
-  // Attribute fallback
   if (value === false || value == null) {
     el.removeAttribute(attr);
   } else {

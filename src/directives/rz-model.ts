@@ -5,7 +5,7 @@ import type { RouseController } from '../types';
 
 export function applyModel(el: HTMLElement, instance: RouseController, prop: string) {
   // State -> DOM
-  effect(() => {
+  const stopEffect = effect(() => {
     const val = getNestedVal(instance, prop);
     updateValue(el, val);
   });
@@ -23,5 +23,8 @@ export function applyModel(el: HTMLElement, instance: RouseController, prop: str
   el.addEventListener(eventType, handler);
 
   // Return cleanup
-  return () => el.removeEventListener(eventType, handler);
+  return () => {
+    stopEffect();
+    el.removeEventListener(eventType, handler);
+  }
 }

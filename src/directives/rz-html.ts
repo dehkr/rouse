@@ -8,10 +8,8 @@ export function applyHtml(
   instance: RouseController,
   prop: string,
 ): () => void {
-  const stop = effect(() => {
+  return effect(() => {
     const val = getNestedVal(instance, prop);
     updateHtml(el, val);
   });
-
-  return stop;
 }
