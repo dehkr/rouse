@@ -6,8 +6,8 @@ import type { RouseController } from '../types';
 export function applyBind(
   el: HTMLElement,
   instance: RouseController,
+  type: string,
   path: string,
-  type?: string,
 ): () => void {
   const stop = effect(() => {
     const val = getNestedVal(instance, path);
