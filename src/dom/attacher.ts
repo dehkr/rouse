@@ -1,35 +1,36 @@
 import { applyBind, applyHtml, applyModel, applyOn, applyText } from '../directives';
 import type { RouseController } from '../types';
 import { isElement } from './utils';
-
-// TYPES
+import { getDirective, hasDirective, selector } from './attributes';
+import { parseDirective } from './parser';
 
 type Cleanup = (() => void) | void;
 
 interface SimpleDirective {
+  slug: string;
   multi: false;
-  selector: string;
   apply: (el: HTMLElement, inst: RouseController, value: string) => Cleanup;
 }
 
 interface MultiDirective {
+  slug: string;
   multi: true;
-  selector: string;
   apply: (el: HTMLElement, inst: RouseController, p1: string, p2: string) => Cleanup;
 }
 
 type DirectiveDef = SimpleDirective | MultiDirective;
 
-// DIRECTIVE REGISTRY
-
+/**
+ * Directive registry
+ */
 const DIRECTIVES: Record<string, DirectiveDef> = {
   rzBind: {
-    selector: '[data-rz-bind]',
+    slug: 'bind',
     multi: true,
     apply: (el, inst, type, path) => applyBind(el, inst, type, path),
   },
   rzOn: {
-    selector: '[data-rz-on]',
+    slug: 'on',
     multi: true,
     apply: (el, inst, evt, method) => {
       if (typeof inst[method] === 'function') {
@@ -39,30 +40,21 @@ const DIRECTIVES: Record<string, DirectiveDef> = {
     },
   },
   rzText: {
-    selector: '[data-rz-text]',
+    slug: 'text',
     multi: false,
     apply: (el, inst, val) => applyText(el, inst, val),
   },
   rzHtml: {
-    selector: '[data-rz-html]',
+    slug: 'html',
     multi: false,
     apply: (el, inst, val) => applyHtml(el, inst, val),
   },
   rzModel: {
-    selector: '[data-rz-model]',
+    slug: 'model',
     multi: false,
     apply: (el, inst, val) => applyModel(el, inst, val),
   },
 } as const;
-
-// CONSTANTS
-
-const REGEX_SPLIT = /\s+/;
-const REGEX_PARSE = /([a-z]+)->(.+)/;
-const DIRECTIVE_ENTRIES = Object.entries(DIRECTIVES);
-const DIRECTIVES_QUERY = Object.values(DIRECTIVES)
-  .map((d) => d.selector)
-  .join(', ');
 
 /**
  * Binds the controller instance to the DOM.
@@ -71,6 +63,12 @@ const DIRECTIVES_QUERY = Object.values(DIRECTIVES)
 export function attachController(root: HTMLElement, instance: RouseController) {
   const elementCleanups = new Map<HTMLElement, (() => void)[]>();
   const boundNodes = new WeakSet<HTMLElement>();
+
+  // const DIRECTIVE_ENTRIES = Object.entries(DIRECTIVES);
+  const DIRECTIVES_VALUES = Object.values(DIRECTIVES);
+  const DIRECTIVES_SELECTOR = DIRECTIVES_VALUES
+    .map((d) => selector(d.slug))
+    .join(', ');
 
   function addCleanup(el: HTMLElement, fn: () => void) {
     const cleanups = elementCleanups.get(el) ?? [];
@@ -101,23 +99,23 @@ export function attachController(root: HTMLElement, instance: RouseController) {
     if (boundNodes.has(el)) return;
     boundNodes.add(el);
 
-    for (const [key, def] of DIRECTIVE_ENTRIES) {
-      const rawValue = el.dataset[key];
-      if (!rawValue) continue;
+    for (const def of DIRECTIVES_VALUES) {
+      const rawValue = getDirective(el, def.slug);
+
+      // Strict check to allow empty/boolean directives
+      if (rawValue === null) continue;
 
       if (def.multi) {
-        // MultiDirective
-        rawValue.split(REGEX_SPLIT).forEach((item) => {
-          const match = item.match(REGEX_PARSE);
-          if (!match) return;
-          const [, left = '', right = ''] = match;
-          const cleanup = def.apply(el, instance, left.trim(), right.trim());
+        // Multi-value directive
+        const pairs = parseDirective(rawValue);
+        pairs.forEach(([key, val]) => {
+          const cleanup = def.apply(el, instance, key, val);
           if (cleanup) {
             addCleanup(el, cleanup);
-          }
+          }          
         });
       } else {
-        // SimpleDirective
+        // Simple directives take the whole trimmed value
         const cleanup = def.apply(el, instance, rawValue.trim());
         if (cleanup) {
           addCleanup(el, cleanup);
@@ -126,22 +124,22 @@ export function attachController(root: HTMLElement, instance: RouseController) {
     }
   }
 
-  function scan(el: HTMLElement) {
+  function scan(startEl: HTMLElement) {
     // Don't scan nested controllers
-    if (el.dataset.rz !== undefined && el !== root) return;
+    if (hasDirective(startEl, 'use') && startEl !== root) return;
 
     // Bind el if it belongs to controller scope and has directives
-    const belongsToMe = el === root || el.closest('[data-rz]') === root;
-    if (belongsToMe && el.matches(DIRECTIVES_QUERY)) {
-      apply(el);
+    const belongsToMe = startEl === root || startEl.closest(selector('use')) === root;
+    if (belongsToMe && startEl.matches(DIRECTIVES_SELECTOR)) {
+      apply(startEl);
     }
 
     // TODO: replace querySelector with TreeWalker
-    if (el.children.length > 0) {
-      const children = el.querySelectorAll<HTMLElement>(DIRECTIVES_QUERY);
+    if (startEl.children.length > 0) {
+      const children = startEl.querySelectorAll<HTMLElement>(DIRECTIVES_SELECTOR);
       for (const child of children) {
         // Only bind if the closest data-rz ancestor is this controller
-        if (child.closest('[data-rz]') === root) {
+        if (child.closest(selector('use')) === root) {
           apply(child);
         }
       }
@@ -151,7 +149,7 @@ export function attachController(root: HTMLElement, instance: RouseController) {
   function teardown(el: HTMLElement) {
     runCleanup(el);
     // Clean up descendants
-    const children = el.querySelectorAll<HTMLElement>(DIRECTIVES_QUERY);
+    const children = el.querySelectorAll<HTMLElement>(DIRECTIVES_SELECTOR);
     for (const child of children) {
       runCleanup(child);
     }

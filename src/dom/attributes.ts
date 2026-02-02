@@ -4,7 +4,7 @@ let useDataAttributes = false;
  * Configures the directive prefix strategy.
  * If false (default) directives use "rz-" prefix.
  */
-export function configureAttributes(useData: boolean) {
+export function configureDirectivePrefix(useData: boolean) {
   useDataAttributes = useData;
 }
 
@@ -16,7 +16,7 @@ export function name(slug: string): string {
 }
 
 /**
- * Generates a CSS selector for the directive.
+ * Generates a CSS selector for a directive.
  */
 export function selector(slug: string): string {
   return `[${name(slug)}]`;
@@ -25,13 +25,13 @@ export function selector(slug: string): string {
 /**
  * Wrapper for getAttribute that respects the directive prefix config.
  */
-export function getAttr(el: HTMLElement, slug: string): string | null {
+export function getDirective(el: HTMLElement, slug: string): string | null {
   return el.getAttribute(name(slug));
 }
 
 /**
  * Wrapper for hasAttribute that respects the directive prefix config.
  */
-export function hasAttr(el: HTMLElement, slug: string): boolean {
+export function hasDirective(el: HTMLElement, slug: string): boolean {
   return el.hasAttribute(name(slug));
 }
