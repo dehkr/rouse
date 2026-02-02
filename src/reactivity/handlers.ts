@@ -1,4 +1,4 @@
-import { signal, trigger } from './';
+import { signal, trigger } from '.';
 import { methodIntercepts } from './arrays';
 import { getRaw, proxiable, RAW, reactive } from './reactive';
 

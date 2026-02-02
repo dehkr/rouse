@@ -1,4 +1,4 @@
-import { endBatch, startBatch, trigger } from './';
+import { endBatch, startBatch, trigger } from '.';
 import { getSignal, ITERATION_KEY } from './handlers';
 import { createProxy, getRaw } from './reactive';
 
