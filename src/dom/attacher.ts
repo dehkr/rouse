@@ -7,13 +7,11 @@ import { parseDirective } from './parser';
 type Cleanup = (() => void) | void;
 
 interface SimpleDirective {
-  slug: string;
   multi: false;
   apply: (el: HTMLElement, inst: RouseController, value: string) => Cleanup;
 }
 
 interface MultiDirective {
-  slug: string;
   multi: true;
   apply: (el: HTMLElement, inst: RouseController, p1: string, p2: string) => Cleanup;
 }
@@ -24,13 +22,11 @@ type DirectiveDef = SimpleDirective | MultiDirective;
  * Directive registry
  */
 const DIRECTIVES: Record<string, DirectiveDef> = {
-  rzBind: {
-    slug: 'bind',
+  bind: {
     multi: true,
     apply: (el, inst, type, path) => applyBind(el, inst, type, path),
   },
-  rzOn: {
-    slug: 'on',
+  on: {
     multi: true,
     apply: (el, inst, evt, method) => {
       if (typeof inst[method] === 'function') {
@@ -39,18 +35,15 @@ const DIRECTIVES: Record<string, DirectiveDef> = {
       console.warn(`[Rouse] Method "${method}" not found on controller.`);
     },
   },
-  rzText: {
-    slug: 'text',
+  text: {
     multi: false,
     apply: (el, inst, val) => applyText(el, inst, val),
   },
-  rzHtml: {
-    slug: 'html',
+  html: {
     multi: false,
     apply: (el, inst, val) => applyHtml(el, inst, val),
   },
-  rzModel: {
-    slug: 'model',
+  model: {
     multi: false,
     apply: (el, inst, val) => applyModel(el, inst, val),
   },
@@ -64,10 +57,9 @@ export function attachController(root: HTMLElement, instance: RouseController) {
   const elementCleanups = new Map<HTMLElement, (() => void)[]>();
   const boundNodes = new WeakSet<HTMLElement>();
 
-  // const DIRECTIVE_ENTRIES = Object.entries(DIRECTIVES);
-  const DIRECTIVES_VALUES = Object.values(DIRECTIVES);
-  const DIRECTIVES_SELECTOR = DIRECTIVES_VALUES
-    .map((d) => selector(d.slug))
+  const DIRECTIVES_ENTRIES = Object.entries(DIRECTIVES);
+  const DIRECTIVES_SELECTOR = DIRECTIVES_ENTRIES
+    .map(([key, _val]) => selector(key))
     .join(', ');
 
   function addCleanup(el: HTMLElement, fn: () => void) {
@@ -99,8 +91,8 @@ export function attachController(root: HTMLElement, instance: RouseController) {
     if (boundNodes.has(el)) return;
     boundNodes.add(el);
 
-    for (const def of DIRECTIVES_VALUES) {
-      const rawValue = getDirective(el, def.slug);
+    for (const [key, def] of DIRECTIVES_ENTRIES) {
+      const rawValue = getDirective(el, key);
 
       // Strict check to allow empty/boolean directives
       if (rawValue === null) continue;
