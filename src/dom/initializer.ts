@@ -1,11 +1,12 @@
-import { unmountInstance } from '../dom/controller';
 import { registry } from '../core/registry';
 import { processWake } from '../directives';
+import { unmountInstance } from '../dom/controller';
+import { getDirective, hasDirective, selector } from './attributes';
 import { isElement } from './utils';
 
 // Initialize element
 export function initElement(el: HTMLElement, defaultWake: string) {
-  const rawName = el.dataset.rz;
+  const rawName = getDirective(el, 'use');
   if (!rawName) return;
 
   const name = rawName.trim();
@@ -19,24 +20,26 @@ export function initElement(el: HTMLElement, defaultWake: string) {
   processWake(el, setup, defaultWake);
 }
 
-// Watch for elements with controller (data-rz) attribute
+// Watch for elements with controller (rz-use) attribute
 export function initObserver(wake: string) {
+  const sel = selector('use');
+
   return new MutationObserver((mutations) => {
     mutations.forEach((m) => {
       m.removedNodes.forEach((node) => {
         if (isElement(node)) {
-          if (node.dataset.rz) {
+          if (hasDirective(node, 'use')) {
             unmountInstance(node);
           }
-          node.querySelectorAll<HTMLElement>('[data-rz]').forEach(unmountInstance);
+          node.querySelectorAll<HTMLElement>(sel).forEach(unmountInstance);
         }
       });
       m.addedNodes.forEach((node) => {
         if (isElement(node)) {
-          if (node.dataset.rz) {
+          if (hasDirective(node, 'use')) {
             initElement(node, wake);
           }
-          node.querySelectorAll<HTMLElement>('[data-rz]').forEach((el) => {
+          node.querySelectorAll<HTMLElement>(sel).forEach((el) => {
             initElement(el, wake);
           });
         }

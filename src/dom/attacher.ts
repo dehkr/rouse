@@ -58,9 +58,10 @@ export function attachController(root: HTMLElement, instance: RouseController) {
   const boundNodes = new WeakSet<HTMLElement>();
 
   const DIRECTIVES_ENTRIES = Object.entries(DIRECTIVES);
-  const DIRECTIVES_SELECTOR = DIRECTIVES_ENTRIES.map(([key, _val]) => selector(key)).join(
-    ', ',
-  );
+  // prettier-ignore
+  const DIRECTIVES_SELECTOR = DIRECTIVES_ENTRIES
+    .map(([key, _val]) => selector(key))
+    .join(', ');
 
   function addCleanup(el: HTMLElement, fn: () => void) {
     const cleanups = elementCleanups.get(el) ?? [];

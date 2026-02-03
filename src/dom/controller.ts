@@ -4,6 +4,7 @@ import { load } from '../net/load';
 import { effectScope } from '../reactivity';
 import type { SetupContext, SetupFn } from '../types';
 import { attachController } from './attacher';
+import { getDirective } from './attributes';
 import { safeParse } from './utils';
 
 const instanceMap = new WeakMap<HTMLElement, any>();
@@ -67,8 +68,9 @@ export function createController(el: HTMLElement, setup: SetupFn) {
   // Parse props
   let props = {};
   try {
-    if (el.dataset.rzProps) {
-      props = safeParse(el.dataset.rzProps);
+    const rawProps = getDirective(el, 'props');
+    if (rawProps) {
+      props = safeParse(rawProps);
     }
   } catch (e) {
     console.warn(`[Rouse] Failed to parse props for`, el, e);
@@ -105,7 +107,7 @@ export function createController(el: HTMLElement, setup: SetupFn) {
   if (instance instanceof Promise) {
     handle._unmount();
     throw new Error(
-      `[Rouse] Controller setup must be synchronous ("async" will cause reactivity leaks). Fetch data as a side effect.`,
+      `[Rouse] Controller setup must be synchronous. Fetch data as a side effect.`,
     );
   }
 
