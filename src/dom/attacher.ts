@@ -58,9 +58,9 @@ export function attachController(root: HTMLElement, instance: RouseController) {
   const boundNodes = new WeakSet<HTMLElement>();
 
   const DIRECTIVES_ENTRIES = Object.entries(DIRECTIVES);
-  const DIRECTIVES_SELECTOR = DIRECTIVES_ENTRIES
-    .map(([key, _val]) => selector(key))
-    .join(', ');
+  const DIRECTIVES_SELECTOR = DIRECTIVES_ENTRIES.map(([key, _val]) => selector(key)).join(
+    ', ',
+  );
 
   function addCleanup(el: HTMLElement, fn: () => void) {
     const cleanups = elementCleanups.get(el) ?? [];
@@ -104,7 +104,7 @@ export function attachController(root: HTMLElement, instance: RouseController) {
           const cleanup = def.apply(el, instance, key, val);
           if (cleanup) {
             addCleanup(el, cleanup);
-          }          
+          }
         });
       } else {
         // Simple directives take the whole trimmed value
@@ -118,32 +118,39 @@ export function attachController(root: HTMLElement, instance: RouseController) {
 
   function scan(startEl: HTMLElement) {
     // Don't scan nested controllers
-    if (hasDirective(startEl, 'use') && startEl !== root) return;
+    const owner = startEl.closest(selector('use'));
+    if (!owner || owner !== root) return;
 
-    // Bind el if it belongs to controller scope and has directives
-    const belongsToMe = startEl === root || startEl.closest(selector('use')) === root;
-    if (belongsToMe && startEl.matches(DIRECTIVES_SELECTOR)) {
+    const walker = document.createTreeWalker(startEl, NodeFilter.SHOW_ELEMENT, {
+      acceptNode(node) {
+        const el = node as HTMLElement;
+        // Skip subtrees
+        if (el !== root && hasDirective(el, 'use')) {
+          return NodeFilter.FILTER_REJECT;
+        }
+        // Skip nodes that don't match but continue walking
+        return el.matches(DIRECTIVES_SELECTOR)
+          ? NodeFilter.FILTER_ACCEPT
+          : NodeFilter.FILTER_SKIP;
+      },
+    });
+
+    // Check startEl manually
+    if (startEl.matches(DIRECTIVES_SELECTOR)) {
       apply(startEl);
     }
 
-    // TODO: replace querySelector with TreeWalker
-    if (startEl.children.length > 0) {
-      const children = startEl.querySelectorAll<HTMLElement>(DIRECTIVES_SELECTOR);
-      for (const child of children) {
-        // Only bind if the closest data-rz ancestor is this controller
-        if (child.closest(selector('use')) === root) {
-          apply(child);
-        }
-      }
+    // Apply accepted nodes
+    while (walker.nextNode()) {
+      apply(walker.currentNode as HTMLElement);
     }
   }
 
-  function teardown(el: HTMLElement) {
-    runCleanup(el);
-    // Clean up descendants
-    const children = el.querySelectorAll<HTMLElement>(DIRECTIVES_SELECTOR);
-    for (const child of children) {
-      runCleanup(child);
+  function teardown(removedEl: HTMLElement) {
+    for (const boundEl of [...elementCleanups.keys()]) {
+      if (removedEl === boundEl || removedEl.contains(boundEl)) {
+        runCleanup(boundEl);
+      }
     }
   }
 
@@ -175,10 +182,11 @@ export function attachController(root: HTMLElement, instance: RouseController) {
   // Return global disconnect function
   return () => {
     observer.disconnect();
-    // Run cleanup on all tracked elements of this instance
-    for (const el of elementCleanups.keys()) {
+    // Cleanup all tracked elements of this instance
+    for (const el of [...elementCleanups.keys()]) {
       runCleanup(el);
     }
+    // If controller defined a disconnect function, run it
     if (typeof instance.disconnect === 'function') {
       instance.disconnect();
     }
