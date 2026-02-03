@@ -1,12 +1,12 @@
-import type { SetupFn } from '../types';
+import { getDirective } from '../dom/attributes';
 import { mountInstance } from '../dom/controller';
+import { parseDirective } from '../dom/parser';
 import * as scheduler from '../dom/scheduler';
+import type { SetupFn } from '../types';
 
 export function processWake(el: HTMLElement, setup: SetupFn, defaultStrategy: string) {
-  const wakeAttr = el.dataset.rzWake || defaultStrategy;
-  const strategies = wakeAttr.split(
-    /\s+(?=(?:load|visible|idle|interaction|delay|media|event))/,
-  );
+  const rawWake = getDirective(el, 'wake');
+  const strategies = rawWake ? parseDirective(rawWake) : parseDirective(defaultStrategy);
 
   let pending = strategies.length;
   if (pending === 0) {
@@ -22,11 +22,7 @@ export function processWake(el: HTMLElement, setup: SetupFn, defaultStrategy: st
   };
 
   // Strategy Logic
-  strategies.forEach((str: string) => {
-    // const [strategy, ...rest] = str.split('->');
-    // const param = rest.join('->');
-    const [strategy, param = ''] = str.split('->');
-
+  strategies.forEach(([strategy, param]) => {
     switch (strategy) {
       case 'load':
         return scheduler.whenLoaded(satisfy);

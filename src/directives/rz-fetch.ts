@@ -1,5 +1,6 @@
-import { http } from '../net/fetch';
+import { getDirective } from '../dom/attributes';
 import { swap } from '../dom/utils';
+import { http } from '../net/fetch';
 
 /**
  * Basic fetch handling.
@@ -7,16 +8,16 @@ import { swap } from '../dom/utils';
  * Triggered by 'rz-fetch' on links, forms, or buttons.
  */
 export async function handleFetch(el: HTMLElement, loadingClass = 'rz-loading') {
-  // Prioritize value in data-rz-fetch
-  const url = el.dataset.rzFetch || el.getAttribute('href') || el.getAttribute('action');
+  // Prioritize value in rz-fetch
+  const url = getDirective(el, 'fetch') || el.getAttribute('href') || el.getAttribute('action');
   if (!url) return;
 
-  // Prioritize value in data-rz-method
-  const method = el.dataset.rzMethod || el.getAttribute('method') || 'GET';
+  // Prioritize value in rz-method
+  const method = getDirective(el, 'method') || el.getAttribute('method') || 'GET';
   // If target not provided use the calling element
-  const targetSelector = el.dataset.rzTarget || el;
+  const targetSelector = getDirective(el, 'target') || el;
   // Default to innerHTML
-  const swapMethod = el.dataset.rzSwap || 'outerHTML';
+  const swapMethod = getDirective(el, 'swap') || 'outerHTML';
 
   // TODO: Add to target element instead or in addition to?
   el.classList.add(loadingClass);
