@@ -1,5 +1,7 @@
 import type { RouseController } from "../types";
 
+export const ON_SLUG = 'on' as const;
+
 export function applyOn(
   el: HTMLElement,
   instance: RouseController,

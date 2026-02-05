@@ -1,6 +1,11 @@
 import { getDirective } from '../dom/attributes';
 import { swap } from '../dom/utils';
 import { http } from '../net/fetch';
+import { getMethod } from './rz-method';
+import { getSwap } from './rz-swap';
+import { getTarget } from './rz-target';
+
+export const FETCH_SLUG = 'fetch' as const;
 
 /**
  * Basic fetch handling.
@@ -9,15 +14,12 @@ import { http } from '../net/fetch';
  */
 export async function handleFetch(el: HTMLElement, loadingClass = 'rz-loading') {
   // Prioritize value in rz-fetch
-  const url = getDirective(el, 'fetch') || el.getAttribute('href') || el.getAttribute('action');
+  const url = getDirective(el, FETCH_SLUG) || el.getAttribute('href') || el.getAttribute('action');
   if (!url) return;
 
-  // Prioritize value in rz-method
-  const method = getDirective(el, 'method') || el.getAttribute('method') || 'GET';
-  // If target not provided use the calling element
-  const targetSelector = getDirective(el, 'target') || el;
-  // Default to innerHTML
-  const swapMethod = getDirective(el, 'swap') || 'outerHTML';
+  const method = getMethod(el);
+  const targetSelector = getTarget(el);
+  const swapMethod = getSwap(el);
 
   // TODO: Add to target element instead or in addition to?
   el.classList.add(loadingClass);

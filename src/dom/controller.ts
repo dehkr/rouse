@@ -1,11 +1,10 @@
 import { bus } from '../core/bus';
+import { getProps } from '../directives/rz-props';
 import { http } from '../net/fetch';
 import { load } from '../net/load';
 import { effectScope } from '../reactivity';
 import type { SetupContext, SetupFn } from '../types';
 import { attachController } from './attacher';
-import { getDirective } from './attributes';
-import { safeParse } from './utils';
 
 const instanceMap = new WeakMap<HTMLElement, any>();
 
@@ -65,20 +64,9 @@ export function createController(el: HTMLElement, setup: SetupFn) {
     },
   };
 
-  // Parse props
-  let props = {};
-  try {
-    const rawProps = getDirective(el, 'props');
-    if (rawProps) {
-      props = safeParse(rawProps);
-    }
-  } catch (e) {
-    console.warn(`[Rouse] Failed to parse props for`, el, e);
-  }
-
   const context: SetupContext = {
     el,
-    props,
+    props: getProps(el),
     dispatch: (name, detail) => dispatch(el, name, detail),
     http,
     load,

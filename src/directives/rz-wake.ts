@@ -4,6 +4,8 @@ import { parseDirective } from '../dom/parser';
 import * as scheduler from '../dom/scheduler';
 import type { SetupFn } from '../types';
 
+export const WAKE_SLUG = 'wake' as const;
+
 export function processWake(el: HTMLElement, setup: SetupFn, defaultStrategy: string) {
   const rawWake = getDirective(el, 'wake');
   const strategies = rawWake ? parseDirective(rawWake) : parseDirective(defaultStrategy);

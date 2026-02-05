@@ -1,53 +1,9 @@
-import { applyBind, applyHtml, applyModel, applyOn, applyText } from '../directives';
+import type { DirectiveDef, DomDirectiveSlug } from '../directives';
+import { DOM_DIRECTIVES } from '../directives';
 import type { RouseController } from '../types';
-import { isElement } from './utils';
 import { getDirective, hasDirective, selector } from './attributes';
 import { parseDirective } from './parser';
-
-type Cleanup = (() => void) | void;
-
-interface SimpleDirective {
-  multi: false;
-  apply: (el: HTMLElement, inst: RouseController, value: string) => Cleanup;
-}
-
-interface MultiDirective {
-  multi: true;
-  apply: (el: HTMLElement, inst: RouseController, p1: string, p2: string) => Cleanup;
-}
-
-type DirectiveDef = SimpleDirective | MultiDirective;
-
-/**
- * Directive registry
- */
-const DIRECTIVES: Record<string, DirectiveDef> = {
-  bind: {
-    multi: true,
-    apply: (el, inst, type, path) => applyBind(el, inst, type, path),
-  },
-  on: {
-    multi: true,
-    apply: (el, inst, evt, method) => {
-      if (typeof inst[method] === 'function') {
-        return applyOn(el, inst, evt, method);
-      }
-      console.warn(`[Rouse] Method "${method}" not found on controller.`);
-    },
-  },
-  text: {
-    multi: false,
-    apply: (el, inst, val) => applyText(el, inst, val),
-  },
-  html: {
-    multi: false,
-    apply: (el, inst, val) => applyHtml(el, inst, val),
-  },
-  model: {
-    multi: false,
-    apply: (el, inst, val) => applyModel(el, inst, val),
-  },
-} as const;
+import { isElement } from './utils';
 
 /**
  * Binds the controller instance to the DOM.
@@ -57,7 +13,10 @@ export function attachController(root: HTMLElement, instance: RouseController) {
   const elementCleanups = new Map<HTMLElement, (() => void)[]>();
   const boundNodes = new WeakSet<HTMLElement>();
 
-  const DIRECTIVES_ENTRIES = Object.entries(DIRECTIVES);
+  const DIRECTIVES_ENTRIES = Object.entries(DOM_DIRECTIVES) as [
+    DomDirectiveSlug,
+    DirectiveDef,
+  ][];
   // prettier-ignore
   const DIRECTIVES_SELECTOR = DIRECTIVES_ENTRIES
     .map(([key, _val]) => selector(key))
@@ -118,14 +77,13 @@ export function attachController(root: HTMLElement, instance: RouseController) {
   }
 
   function scan(startEl: HTMLElement) {
-    // Don't scan nested controllers
     const owner = startEl.closest(selector('use'));
     if (!owner || owner !== root) return;
 
     const walker = document.createTreeWalker(startEl, NodeFilter.SHOW_ELEMENT, {
       acceptNode(node) {
         const el = node as HTMLElement;
-        // Skip subtrees
+        // Skip subtrees of nested controllers
         if (el !== root && hasDirective(el, 'use')) {
           return NodeFilter.FILTER_REJECT;
         }

@@ -1,7 +1,9 @@
-import { effect } from '../reactivity';
+import { getValue, updateValue } from '../dom/updater';
 import { getNestedVal, isInput, isSelect, setNestedVal } from '../dom/utils';
-import { updateValue, getValue } from '../dom/updater';
+import { effect } from '../reactivity';
 import type { RouseController } from '../types';
+
+export const MODEL_SLUG = 'model' as const;
 
 export function applyModel(el: HTMLElement, instance: RouseController, prop: string) {
   // State -> DOM
@@ -26,5 +28,5 @@ export function applyModel(el: HTMLElement, instance: RouseController, prop: str
   return () => {
     stopEffect();
     el.removeEventListener(eventType, handler);
-  }
+  };
 }

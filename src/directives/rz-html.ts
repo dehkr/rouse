@@ -3,6 +3,8 @@ import { getNestedVal } from '../dom/utils';
 import { effect } from '../reactivity';
 import type { RouseController } from '../types';
 
+export const HTML_SLUG = 'html' as const;
+
 export function applyHtml(
   el: HTMLElement,
   instance: RouseController,

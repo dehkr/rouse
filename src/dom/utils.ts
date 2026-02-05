@@ -1,3 +1,4 @@
+import type { SwapMethod } from '../directives/rz-swap';
 import type { BindableValue } from '../types';
 
 export const isElement = (el: unknown) => el instanceof HTMLElement;
@@ -8,10 +9,20 @@ export const isTextArea = (el: unknown) => el instanceof HTMLTextAreaElement;
 /**
  * Handles injecting HTML partials into document
  */
-export function swap(el: Element, html: string, method: string) {
-  method === 'innerHTML' || method === 'outerHTML'
-    ? (el[method] = html)
-    : el.insertAdjacentHTML(method as InsertPosition, html);
+export function swap(target: HTMLElement, content: string, method: SwapMethod) {
+  switch (method) {
+    case 'delete':
+      target.remove();
+      break;
+    case 'innerHTML':
+      target.innerHTML = content;
+      break;
+    case 'outerHTML':
+      target.outerHTML = content;
+      break;
+    default:
+      target.insertAdjacentHTML(method, content);
+  }
 }
 
 // Prevent prototype pollution
