@@ -1,5 +1,5 @@
+import { configureDirectivePrefix, hasDirective, selector } from '../directives/prefix';
 import { handleFetch } from '../directives/rz-fetch';
-import { configureDirectivePrefix, hasDirective, selector } from '../dom/attributes';
 import { initElement, initObserver } from '../dom/initializer';
 
 export interface RouseConfig {

@@ -1,6 +1,6 @@
-import { getDirective } from '../dom/attributes';
 import { swap } from '../dom/utils';
 import { http } from '../net/fetch';
+import { getDirective } from './prefix';
 import { getMethod } from './rz-method';
 import { getSwap } from './rz-swap';
 import { getTarget } from './rz-target';

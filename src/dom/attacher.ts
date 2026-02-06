@@ -1,7 +1,7 @@
 import type { DirectiveDef, DomDirectiveSlug } from '../directives';
 import { DOM_DIRECTIVES } from '../directives';
+import { getDirective, hasDirective, selector } from '../directives/prefix';
 import type { RouseController } from '../types';
-import { getDirective, hasDirective, selector } from './attributes';
 import { parseDirective } from './parser';
 import { isElement } from './utils';
 

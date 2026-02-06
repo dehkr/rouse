@@ -1,5 +1,5 @@
-import { getDirective } from '../dom/attributes';
 import { safeParse } from '../dom/utils';
+import { getDirective } from './prefix';
 
 export const SLUG = 'props' as const;
 

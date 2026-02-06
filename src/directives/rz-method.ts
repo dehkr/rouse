@@ -1,4 +1,4 @@
-import { getDirective } from '../dom/attributes';
+import { getDirective } from './prefix';
 
 export const SLUG = 'method' as const;
 

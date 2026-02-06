@@ -1,7 +1,7 @@
 import { registry } from '../core/registry';
 import { processWake } from '../directives';
+import { getDirective, hasDirective, selector } from '../directives/prefix';
 import { unmountInstance } from '../dom/controller';
-import { getDirective, hasDirective, selector } from './attributes';
 import { isElement } from './utils';
 
 // Initialize element

@@ -1,8 +1,8 @@
-import { getDirective } from '../dom/attributes';
 import { mountInstance } from '../dom/controller';
 import { parseDirective } from '../dom/parser';
 import * as scheduler from '../dom/scheduler';
 import type { SetupFn } from '../types';
+import { getDirective } from './prefix';
 
 export const SLUG = 'wake' as const;
 

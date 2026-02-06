@@ -1,4 +1,4 @@
-import type { DirectiveSlug } from '../directives';
+import type { DirectiveSlug } from '.';
 
 let useDataAttributes = false;
 
