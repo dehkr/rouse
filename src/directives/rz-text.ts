@@ -3,7 +3,7 @@ import { getNestedVal } from '../dom/utils';
 import { effect } from '../reactivity';
 import type { RouseController } from '../types';
 
-export const TEXT_SLUG = 'text' as const;
+export const SLUG = 'text' as const;
 
 export function applyText(
   el: HTMLElement,

@@ -1,16 +1,16 @@
 import type { RouseController } from '../types';
-import { applyBind, BIND_SLUG } from './rz-bind';
-import { FETCH_SLUG } from './rz-fetch';
-import { applyHtml, HTML_SLUG } from './rz-html';
-import { METHOD_SLUG } from './rz-method';
-import { applyModel, MODEL_SLUG } from './rz-model';
-import { applyOn, ON_SLUG } from './rz-on';
-import { PROPS_SLUG } from './rz-props';
-import { SWAP_SLUG } from './rz-swap';
-import { TARGET_SLUG } from './rz-target';
-import { applyText, TEXT_SLUG } from './rz-text';
-import { USE_SLUG } from './rz-use';
-import { WAKE_SLUG } from './rz-wake';
+import { applyBind, SLUG as BIND_SLUG } from './rz-bind';
+import { SLUG as FETCH_SLUG } from './rz-fetch';
+import { applyHtml, SLUG as HTML_SLUG } from './rz-html';
+import { SLUG as METHOD_SLUG } from './rz-method';
+import { applyModel, SLUG as MODEL_SLUG } from './rz-model';
+import { applyOn, SLUG as ON_SLUG } from './rz-on';
+import { SLUG as PROPS_SLUG } from './rz-props';
+import { SLUG as SWAP_SLUG } from './rz-swap';
+import { SLUG as TARGET_SLUG } from './rz-target';
+import { applyText, SLUG as TEXT_SLUG } from './rz-text';
+import { SLUG as USE_SLUG } from './rz-use';
+import { SLUG as WAKE_SLUG } from './rz-wake';
 
 // Directive types that are bound to DOM by attacher
 export type DomDirectiveSlug =

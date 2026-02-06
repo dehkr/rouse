@@ -5,7 +5,7 @@ import { getMethod } from './rz-method';
 import { getSwap } from './rz-swap';
 import { getTarget } from './rz-target';
 
-export const FETCH_SLUG = 'fetch' as const;
+export const SLUG = 'fetch' as const;
 
 /**
  * Basic fetch handling.
@@ -14,7 +14,7 @@ export const FETCH_SLUG = 'fetch' as const;
  */
 export async function handleFetch(el: HTMLElement, loadingClass = 'rz-loading') {
   // Prioritize value in rz-fetch
-  const url = getDirective(el, FETCH_SLUG) || el.getAttribute('href') || el.getAttribute('action');
+  const url = getDirective(el, SLUG) || el.getAttribute('href') || el.getAttribute('action');
   if (!url) return;
 
   const method = getMethod(el);

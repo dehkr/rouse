@@ -3,7 +3,7 @@ import { getNestedVal, isInput, isSelect, setNestedVal } from '../dom/utils';
 import { effect } from '../reactivity';
 import type { RouseController } from '../types';
 
-export const MODEL_SLUG = 'model' as const;
+export const SLUG = 'model' as const;
 
 export function applyModel(el: HTMLElement, instance: RouseController, prop: string) {
   // State -> DOM

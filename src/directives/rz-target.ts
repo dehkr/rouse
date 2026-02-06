@@ -1,6 +1,6 @@
 import { getDirective } from '../dom/attributes';
 
-export const TARGET_SLUG = 'target' as const;
+export const SLUG = 'target' as const;
 
 /**
  * Resolves the target element for an action.
@@ -8,7 +8,7 @@ export const TARGET_SLUG = 'target' as const;
  * @param defaultToSelf - If true, returns host element when no attribute is found.
  */
 export function getTarget(el: HTMLElement, defaultToSelf = true): HTMLElement | null {
-  const selector = getDirective(el, TARGET_SLUG);
+  const selector = getDirective(el, SLUG);
 
   if (selector) {
     return document.querySelector(selector);

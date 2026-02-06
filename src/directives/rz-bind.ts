@@ -3,7 +3,7 @@ import { getNestedVal } from '../dom/utils';
 import { effect } from '../reactivity';
 import type { RouseController } from '../types';
 
-export const BIND_SLUG = 'bind' as const;
+export const SLUG = 'bind' as const;
 
 export function applyBind(
   el: HTMLElement,

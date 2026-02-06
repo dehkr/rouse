@@ -1,6 +1,6 @@
 import { getDirective } from '../dom/attributes';
 
-export const SWAP_SLUG = 'swap' as const;
+export const SLUG = 'swap' as const;
 
 export type SwapMethod =
   | 'innerHTML'
@@ -16,5 +16,5 @@ export type SwapMethod =
  * Defaults to 'innerHTML' if not specified.
  */
 export function getSwap(el: HTMLElement): SwapMethod {
-  return (getDirective(el, SWAP_SLUG) as SwapMethod) || 'innerHTML';
+  return (getDirective(el, SLUG) as SwapMethod) || 'innerHTML';
 }
