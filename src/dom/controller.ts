@@ -57,6 +57,8 @@ export function createController(el: HTMLElement, setup: SetupFn) {
     props: getProps(el),
     request: (url, opts) => request(url, opts),
     dispatch: (evt, detail, opts) => dispatch(el, evt, detail, opts),
+    // Convenience alias for bus.publish to match directives
+    emit: (evt, detail) => bus.publish(evt, detail),
     load,
     bus: {
       publish: (event, data) => bus.publish(event, data),
