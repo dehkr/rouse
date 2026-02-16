@@ -46,7 +46,7 @@ export interface RouseReqOpts extends RequestInit {
 export type SetupContext<P extends Record<string, any> = Record<string, any>> = {
   el: HTMLElement;
   props: P;
-  dispatch: (name: string, detail?: any) => CustomEvent;
+  dispatch: (name: string, detail?: any, options?: CustomEventInit) => CustomEvent;
   request: <T = any>(url: string, options?: RouseReqOpts) => Promise<RequestResult<T>>;
   load: (url: string) => Promise<void>;
   bus: {

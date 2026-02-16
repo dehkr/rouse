@@ -33,14 +33,25 @@ export function controller<P extends Record<string, any> = Record<string, any>>(
 }
 
 /**
- * Dispatches a custom event from a specific element.
+ * Dispatches a custom event from an element.
  *
  * @param el - The element to dispatch from
  * @param name - The event name
  * @param detail - The event data
+ * @param options - Allows overriding cancelable/bubbles
  */
-export function dispatch(el: HTMLElement, name: string, detail: any = {}) {
-  const event = new CustomEvent(name, { detail, bubbles: true, cancelable: true });
+export function dispatch(
+  el: HTMLElement,
+  name: string,
+  detail: any = {},
+  options: CustomEventInit = {},
+): CustomEvent {
+  const event = new CustomEvent(name, {
+    bubbles: true,
+    cancelable: false,
+    ...options,
+    detail,
+  });
   el.dispatchEvent(event);
   return event;
 }

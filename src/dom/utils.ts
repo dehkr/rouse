@@ -2,6 +2,7 @@ import type { SwapMethod } from '../directives/rz-swap';
 import type { BindableValue } from '../types';
 
 export const isElement = (el: unknown) => el instanceof HTMLElement;
+export const isForm = (el: unknown) => el instanceof HTMLFormElement;
 export const isInput = (el: unknown) => el instanceof HTMLInputElement;
 export const isSelect = (el: unknown) => el instanceof HTMLSelectElement;
 export const isTextArea = (el: unknown) => el instanceof HTMLTextAreaElement;
