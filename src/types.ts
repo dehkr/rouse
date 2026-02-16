@@ -25,8 +25,18 @@ export type RouseController = Record<string, any> & {
   disconnect?: () => void;
 };
 
-export interface RouseFetchOptions extends RequestInit {
+export interface RequestResult<T = any> {
+  data: T | null;
+  error: { message: string; status: number | string } | null;
+  response: Response | null;
+}
+
+export interface RouseReqOpts extends RequestInit {
   serializeForm?: HTMLFormElement;
+  onUploadProgress?: (ev: ProgressEvent) => void;
+  retry?: number;
+  timeout?: number;
+  abortKey?: string | symbol;
 }
 
 /**
@@ -37,7 +47,7 @@ export type SetupContext<P extends Record<string, any> = Record<string, any>> = 
   el: HTMLElement;
   props: P;
   dispatch: (name: string, detail?: any) => CustomEvent;
-  http: (url: string, options: RouseFetchOptions) => Promise<string>;
+  request: <T = any>(url: string, options?: RouseReqOpts) => Promise<RequestResult<T>>;
   load: (url: string) => Promise<void>;
   bus: {
     publish: (event: string, data?: any) => void;
