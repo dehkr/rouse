@@ -3,14 +3,11 @@ import { applyBind, SLUG as BIND_SLUG } from './rz-bind';
 import { SLUG as FETCH_SLUG } from './rz-fetch';
 import { applyHtml, SLUG as HTML_SLUG } from './rz-html';
 import { SLUG as INSERT_SLUG } from './rz-insert';
-import { SLUG as METHOD_SLUG } from './rz-method';
 import { applyModel, SLUG as MODEL_SLUG } from './rz-model';
 import { applyOn, SLUG as ON_SLUG } from './rz-on';
 import { SLUG as PROPS_SLUG } from './rz-props';
 import { SLUG as PUBLISH_SLUG } from './rz-publish';
 import { SLUG as REQ_SLUG } from './rz-req';
-import { SLUG as SWAP_SLUG } from './rz-swap';
-import { SLUG as TARGET_SLUG } from './rz-target';
 import { applyText, SLUG as TEXT_SLUG } from './rz-text';
 import { SLUG as USE_SLUG } from './rz-use';
 import { SLUG as WAKE_SLUG } from './rz-wake';
@@ -27,12 +24,9 @@ export type DomDirectiveSlug =
 export type ConfigDirectiveSlug =
   | typeof FETCH_SLUG
   | typeof INSERT_SLUG
-  | typeof METHOD_SLUG
   | typeof PROPS_SLUG
   | typeof PUBLISH_SLUG
   | typeof REQ_SLUG
-  | typeof SWAP_SLUG
-  | typeof TARGET_SLUG
   | typeof USE_SLUG
   | typeof WAKE_SLUG;
 
@@ -68,14 +62,10 @@ export { applyBind } from './rz-bind';
 export { handleFetch } from './rz-fetch';
 export { applyHtml } from './rz-html';
 export { getInsertConfig } from './rz-insert';
-export { getMethod } from './rz-method';
 export { applyModel } from './rz-model';
 export { applyOn } from './rz-on';
 export { getProps } from './rz-props';
 export { getRequestConfig } from './rz-req';
-export { getSwap } from './rz-swap';
-export { getTarget } from './rz-target';
 export { applyText } from './rz-text';
 export { getControllerName } from './rz-use';
 export { processWake } from './rz-wake';
-
