@@ -1,7 +1,6 @@
 import { bus } from '../core/bus';
-import { dispatch } from '../dom/controller';
 import { parseDirective } from '../dom/parser';
-import { isForm, swap } from '../dom/utils';
+import { dispatch, isForm, swap } from '../dom/utils';
 import { request } from '../net/request';
 import { getDirective } from './prefix';
 import { getInsertConfig } from './rz-insert';

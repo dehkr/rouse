@@ -8,6 +8,30 @@ export const isSelect = (el: unknown) => el instanceof HTMLSelectElement;
 export const isTextArea = (el: unknown) => el instanceof HTMLTextAreaElement;
 
 /**
+ * Dispatches a custom event from an element.
+ *
+ * @param el - The element to dispatch from
+ * @param name - The event name
+ * @param detail - The event data
+ * @param options - Allows overriding cancelable/bubbles
+ */
+export function dispatch(
+  el: HTMLElement,
+  name: string,
+  detail: any = {},
+  options: CustomEventInit = {},
+): CustomEvent {
+  const event = new CustomEvent(name, {
+    bubbles: true,
+    cancelable: false,
+    ...options,
+    detail,
+  });
+  el.dispatchEvent(event);
+  return event;
+}
+
+/**
  * Handles injecting HTML partials into document
  */
 export function swap(target: HTMLElement, content: string, method: SwapMethod) {

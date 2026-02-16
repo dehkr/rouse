@@ -1,10 +1,11 @@
 import { bus } from '../core/bus';
 import { getProps } from '../directives/rz-props';
-import { http } from '../net/fetch';
 import { load } from '../net/load';
+import { request } from '../net/request';
 import { effectScope } from '../reactivity';
 import type { SetupContext, SetupFn } from '../types';
 import { attachController } from './attacher';
+import { dispatch } from './utils';
 
 const instanceMap = new WeakMap<HTMLElement, any>();
 
@@ -33,30 +34,6 @@ export function controller<P extends Record<string, any> = Record<string, any>>(
 }
 
 /**
- * Dispatches a custom event from an element.
- *
- * @param el - The element to dispatch from
- * @param name - The event name
- * @param detail - The event data
- * @param options - Allows overriding cancelable/bubbles
- */
-export function dispatch(
-  el: HTMLElement,
-  name: string,
-  detail: any = {},
-  options: CustomEventInit = {},
-): CustomEvent {
-  const event = new CustomEvent(name, {
-    bubbles: true,
-    cancelable: false,
-    ...options,
-    detail,
-  });
-  el.dispatchEvent(event);
-  return event;
-}
-
-/**
  * Factory to create and manage a controller instance.
  */
 export function createController(el: HTMLElement, setup: SetupFn) {
@@ -78,8 +55,8 @@ export function createController(el: HTMLElement, setup: SetupFn) {
   const context: SetupContext = {
     el,
     props: getProps(el),
-    dispatch: (name, detail) => dispatch(el, name, detail),
-    http,
+    request: (url, opts) => request(url, opts),
+    dispatch: (evt, detail, opts) => dispatch(el, evt, detail, opts),
     load,
     bus: {
       publish: (event, data) => bus.publish(event, data),
