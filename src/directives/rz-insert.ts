@@ -18,7 +18,7 @@ export type InsertMethod = (typeof INSERT_METHODS)[number];
 
 const STRATEGIES = new Set<InsertMethod>(INSERT_METHODS);
 
-export interface InsertConfig {
+export interface InsertOperation {
   targets: HTMLElement[];
   strategy: InsertMethod;
 }
@@ -32,48 +32,62 @@ function warn(val: string) {
 }
 
 /**
- * Parse value of rz-insert directive
+ * Parse value of rz-insert directive.
+ * Returns an array of operations to support multi-target updates.
  */
-export function getInsertConfig(el: HTMLElement): InsertConfig {
+export function getInsertConfig(el: HTMLElement): InsertOperation[] {
   const raw = getDirective(el, SLUG);
 
+  // Default behavior updates innerHTML of self
   if (!raw) {
-    return { targets: [el], strategy: DEFAULT_METHOD };
+    return [{ targets: [el], strategy: DEFAULT_METHOD }];
   }
 
   const parsed = parseDirective(raw);
-  const firstPair = parsed[0];
-
-  if (!firstPair) {
-    return { targets: [el], strategy: DEFAULT_METHOD };
+  if (parsed.length === 0) {
+    return [{ targets: [el], strategy: DEFAULT_METHOD }];
   }
 
-  const [key, val] = firstPair;
+  const operations: InsertOperation[] = [];
 
-  // Case 1: "STRATEGY: SELECTOR" (e.g. "beforebegin: #header")
-  if (val) {
-    const strategy = isInsertMethod(key) ? key : DEFAULT_METHOD;
-    const nodeList = document.querySelectorAll(val);
+  // Iterate over all parsed pairs
+  for (const [key, val] of parsed) {
+    // Case 1: "STRATEGY: SELECTOR" (e.g. "beforebegin: #header")
+    if (val) {
+      const strategy = isInsertMethod(key) ? key : DEFAULT_METHOD;
+      const nodeList = document.querySelectorAll(val);
 
-    if (nodeList.length === 0) {
-      warn(val);
-      return { strategy, targets: [] };
+      if (nodeList.length === 0) {
+        warn(val);
+        // Push empty op to maintain index but do nothing
+        operations.push({ strategy, targets: [] });
+      } else {
+        operations.push({
+          strategy,
+          targets: Array.from(nodeList) as HTMLElement[],
+        });
+      }
+      continue;
     }
 
-    return { strategy, targets: Array.from(nodeList) as HTMLElement[] };
+    // Case 2: "STRATEGY" (e.g. "delete", "outerHTML")
+    if (isInsertMethod(key)) {
+      operations.push({ targets: [el], strategy: key });
+      continue;
+    }
+
+    // Case 3: "SELECTOR" (e.g. "#output")
+    const nodeList = document.querySelectorAll(key);
+    if (nodeList.length === 0) {
+      warn(key);
+      operations.push({ targets: [], strategy: DEFAULT_METHOD });
+    } else {
+      operations.push({
+        targets: Array.from(nodeList) as HTMLElement[],
+        strategy: DEFAULT_METHOD,
+      });
+    }
   }
 
-  // Case 2: "STRATEGY" (e.g. "delete", "outerHTML")
-  if (isInsertMethod(key)) {
-    return { targets: [el], strategy: key };
-  }
-
-  // Case 3: "SELECTOR" (e.g. "#output")
-  const nodeList = document.querySelectorAll(key);
-  if (nodeList.length === 0) {
-    warn(key);
-    return { targets: [], strategy: DEFAULT_METHOD };
-  }
-
-  return { targets: Array.from(nodeList) as HTMLElement[], strategy: DEFAULT_METHOD };
+  return operations;
 }

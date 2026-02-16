@@ -1,4 +1,5 @@
-import { controller, dispatch } from '../dom/controller';
+import { controller } from '../dom/controller';
+import { dispatch } from '../dom/utils';
 import { load } from '../net/load';
 import { effect, reactive } from '../reactivity';
 import { bus } from './bus';

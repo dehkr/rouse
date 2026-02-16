@@ -1,6 +1,6 @@
 import { bus } from '../core/bus';
 import { parseDirective } from '../dom/parser';
-import { dispatch, isForm, swap } from '../dom/utils';
+import { dispatch, insert, isForm } from '../dom/utils';
 import { request } from '../net/request';
 import { getDirective } from './prefix';
 import { getInsertConfig } from './rz-insert';
@@ -101,15 +101,17 @@ async function executeFetch(
 
     if (typeof data === 'string') {
       // HTML
-      const { targets, strategy } = getInsertConfig(el);
-      // Supports multiple targets
-      if (targets.length > 0) {
-        targets.forEach((target) => {
-          swap(target, data, strategy);
-          // Dispatch success on each target
-          dispatch(target, 'rz:fetch:success', { content: data });
-        });
-      }
+      const operations = getInsertConfig(el);
+      // Iterate over every operation in the list
+      operations.forEach(({ targets, strategy }) => {
+        if (targets.length > 0) {
+          targets.forEach((target) => {
+            insert(target, data, strategy);
+            // Dispatch success on each target
+            dispatch(target, 'rz:fetch:success', { content: data });
+          });
+        }
+      });
     } else {
       // JSON
       dispatch(el, 'rz:fetch:success', { data });

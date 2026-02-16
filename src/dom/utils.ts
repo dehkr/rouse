@@ -1,4 +1,4 @@
-import type { SwapMethod } from '../directives/rz-swap';
+import type { InsertMethod } from '../directives/rz-insert';
 import type { BindableValue } from '../types';
 
 export const isElement = (el: unknown) => el instanceof HTMLElement;
@@ -34,7 +34,7 @@ export function dispatch(
 /**
  * Handles injecting HTML partials into document
  */
-export function swap(target: HTMLElement, content: string, method: SwapMethod) {
+export function insert(target: HTMLElement, content: string, method: InsertMethod) {
   switch (method) {
     case 'delete':
       target.remove();

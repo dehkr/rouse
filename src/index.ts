@@ -2,12 +2,12 @@ import { Rouse } from './core';
 
 export { Rouse };
 
-export { controller } from './dom/controller';
-export { http } from './net/fetch';
-export { createStore } from './core/store';
-export { computed, effect, signal, reactive, trigger } from './reactivity';
+  export { createStore } from './core/store';
+  export { controller } from './dom/controller';
+  export { request } from './net/request';
+  export { computed, effect, reactive, signal, trigger } from './reactivity';
 
-export type { SetupContext, SetupFn, BindableValue } from './types';
+export type { BindableValue, SetupContext, SetupFn } from './types';
 
 if (typeof window !== 'undefined') {
   (window as any).Rouse = Rouse;
