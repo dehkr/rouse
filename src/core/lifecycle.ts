@@ -49,15 +49,35 @@ export function start(config: RouseConfig = {}) {
   // Attach global fetch handling event listeners
   const handleGlobalFetch = (e: Event) => {
     const target = (e.target as HTMLElement).closest<HTMLElement>(selector('fetch'));
+
     if (target) {
-      const isForm = target.tagName === 'FORM';
-      if ((e.type === 'submit' && isForm) || (e.type === 'click' && !isForm)) {
+      const tagName = target.tagName;
+      const isForm = tagName === 'FORM';
+      const isInput =
+        tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT';
+
+      // Forms: trigger on submit
+      if (isForm && e.type === 'submit') {
+        e.preventDefault();
+        handleFetch(target, loadingClass);
+        return;
+      }
+
+      // Inputs: trigger on input or change (ignore clicks)
+      if (isInput && (e.type === 'input' || e.type === 'change')) {
+        handleFetch(target, loadingClass);
+        return;
+      }
+
+      // Everything else trigger on click
+      if (!isForm && !isInput && e.type === 'click') {
         e.preventDefault();
         handleFetch(target, loadingClass);
       }
     }
   };
-  ['click', 'submit'].forEach((evt) => {
+
+  ['click', 'submit', 'input', 'change'].forEach((evt) => {
     document.addEventListener(evt, handleGlobalFetch);
   });
 

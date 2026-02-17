@@ -48,7 +48,6 @@ export type SetupContext<P extends Record<string, any> = Record<string, any>> = 
   props: P;
   dispatch: (name: string, detail?: any, options?: CustomEventInit) => CustomEvent;
   request: <T = any>(url: string, options?: RouseReqOpts) => Promise<RequestResult<T>>;
-  emit: (event: string, detail?: any) => void;
   load: (url: string) => Promise<void>;
   bus: {
     publish: (event: string, data?: any) => void;

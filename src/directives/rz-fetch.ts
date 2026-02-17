@@ -1,6 +1,6 @@
 import { bus } from '../core/bus';
 import { parseDirective } from '../dom/parser';
-import { dispatch, insert, isForm } from '../dom/utils';
+import { dispatch, insert, isForm, isInput, isSelect, isTextArea } from '../dom/utils';
 import { request } from '../net/request';
 import { getDirective } from './prefix';
 import { getInsertConfig } from './rz-insert';
@@ -12,7 +12,7 @@ export const SLUG = 'fetch' as const;
 const timers = new WeakMap<HTMLElement, { debounce?: any; poll?: any }>();
 
 /**
- * Fetch orchetration
+ * Fetch orchestration
  */
 export async function handleFetch(el: HTMLElement, loadingClass = 'rz-loading') {
   const config = getRequestConfig(el);
@@ -46,6 +46,7 @@ async function executeFetch(
   let url: string | null = null;
   let method = 'GET';
 
+  // Parse URL and method from directive
   const fetchRaw = getDirective(el, SLUG);
   if (fetchRaw) {
     const parsed = parseDirective(fetchRaw);
@@ -62,6 +63,7 @@ async function executeFetch(
     }
   }
 
+  // Fallback to URL in href or action attributes
   if (!url) {
     if (el instanceof HTMLAnchorElement) {
       url = el.href;
@@ -72,6 +74,27 @@ async function executeFetch(
 
   if (!url) return;
 
+  // Handle standalone inputs
+  // Capture the value if the trigger is an input,
+  // since it won't be auto-serialized like a form.
+  const isField = isInput(el) || isSelect(el) || isTextArea(el);
+  
+  if (isField) {
+    const field = el as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+    if (field.name) {
+      if (method === 'GET') {
+        // Append to URL search params
+        // document.baseURI ensures relative URLs resolve correctly
+        const urlObj = new URL(url, document.baseURI);
+        urlObj.searchParams.set(field.name, field.value);
+        url = urlObj.toString();
+      } else if (!options.body) {
+        // For POST/PUT, send as JSON if not already defined
+        options.body = { [field.name]: field.value };
+      }
+    }
+  }
+
   // Lifecycle
   const configEvent = dispatch(
     el,
@@ -79,6 +102,7 @@ async function executeFetch(
     { config: options, url, method },
     { cancelable: true },
   );
+
   if (configEvent.defaultPrevented) return;
 
   el.classList.add(loadingClass);
