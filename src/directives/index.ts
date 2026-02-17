@@ -7,8 +7,8 @@ import { applyModel, SLUG as MODEL_SLUG } from './rz-model';
 import { applyOn, SLUG as ON_SLUG } from './rz-on';
 import { SLUG as PROPS_SLUG } from './rz-props';
 import { SLUG as PUBLISH_SLUG } from './rz-publish';
-import { SLUG as REQ_SLUG } from './rz-req';
 import { applyText, SLUG as TEXT_SLUG } from './rz-text';
+import { SLUG as TUNE_SLUG } from './rz-tune';
 import { SLUG as USE_SLUG } from './rz-use';
 import { SLUG as WAKE_SLUG } from './rz-wake';
 
@@ -26,7 +26,7 @@ export type ConfigDirectiveSlug =
   | typeof INSERT_SLUG
   | typeof PROPS_SLUG
   | typeof PUBLISH_SLUG
-  | typeof REQ_SLUG
+  | typeof TUNE_SLUG
   | typeof USE_SLUG
   | typeof WAKE_SLUG;
 
@@ -65,7 +65,7 @@ export { getInsertConfig } from './rz-insert';
 export { applyModel } from './rz-model';
 export { applyOn } from './rz-on';
 export { getProps } from './rz-props';
-export { getRequestConfig } from './rz-req';
 export { applyText } from './rz-text';
+export { getTuningStrategy } from './rz-tune';
 export { getControllerName } from './rz-use';
 export { processWake } from './rz-wake';

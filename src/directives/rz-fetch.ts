@@ -5,7 +5,7 @@ import { request } from '../net/request';
 import { getDirective } from './prefix';
 import { getInsertConfig } from './rz-insert';
 import { getPublishTopic } from './rz-publish';
-import { getRequestConfig } from './rz-req';
+import { getTuningStrategy } from './rz-tune';
 
 export const SLUG = 'fetch' as const;
 
@@ -15,7 +15,7 @@ const timers = new WeakMap<HTMLElement, { debounce?: any; poll?: any }>();
  * Fetch orchestration
  */
 export async function handleFetch(el: HTMLElement, loadingClass = 'rz-loading') {
-  const config = getRequestConfig(el);
+  const config = getTuningStrategy(el);
   const { debounce = 0, poll = 0, ...reqOpts } = config;
 
   const existing = timers.get(el);

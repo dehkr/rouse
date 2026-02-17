@@ -12,13 +12,11 @@ class EventBus {
    * @template T - The expected type of the event detail/payload.
    * @param event - The name of the event to listen for.
    * @param callback - The function to execute. Bound to the controller instance if used in `listen()`.
-   * @returns A function that, when called, removes this specific subscription.
+   * @returns A function that removes this specific subscription.
    * @example
-   * ```js
    * const stop = rz.subscribe('cart:add', (item) => console.log(item));
    * // Later...
    * stop();
-   * ```
    */
   subscribe<T = any>(event: string, callback: BusCallback<T>): () => void {
     if (!this.listeners.has(event)) {
@@ -57,14 +55,11 @@ class EventBus {
    * @param event - The name of the event to publish.
    * @param data - Optional data payload to pass to subscribers.
    * @example
-   * ```js
    * rz.publish('cart:updated', { itemCount: 5, total: 49.99 });
-   * ```
    */
   publish<T = any>(event: string, data?: T) {
     const callbacks = this.listeners.get(event);
     if (callbacks) {
-      // Snapshot of the Set to avoid issues if a listener unsubscribes itself during braodcast
       const queue = Array.from(callbacks);
       queue.forEach((cb) => {
         try {

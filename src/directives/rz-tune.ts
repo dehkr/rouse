@@ -2,9 +2,9 @@ import { parseDirective } from '../dom/parser';
 import type { RouseReqOpts } from '../types';
 import { getDirective } from './prefix';
 
-export const SLUG = 'req' as const;
+export const SLUG = 'tune' as const;
 
-export interface RequestConfig extends Partial<RouseReqOpts> {
+export interface TuningStrategy extends Partial<RouseReqOpts> {
   debounce?: number;
   poll?: number;
 }
@@ -12,14 +12,14 @@ export interface RequestConfig extends Partial<RouseReqOpts> {
 type NumberKeys = 'retry' | 'timeout' | 'debounce' | 'poll';
 
 /**
- * Parses the rz-req directive.
- * Example: rz-req="retry: 3, timeout: 5000, key: main-search"
+ * Parses the client-side tuning strategy for a fetch request.
+ * Example: rz-tune="retry: 3, timeout: 5000, key: main-search"
  */
-export function getRequestConfig(el: HTMLElement): RequestConfig {
+export function getTuningStrategy(el: HTMLElement): TuningStrategy {
   const raw = getDirective(el, SLUG);
   if (!raw) return {};
 
-  const config: RequestConfig = {};
+  const config: TuningStrategy = {};
   const parsed = parseDirective(raw);
 
   // TODO: allow passing other random flags (custom headers for example)
