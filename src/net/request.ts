@@ -1,7 +1,37 @@
-import type { RequestResult, RouseReqOpts } from '../types';
+import type {
+  CustomErrorStatus,
+  NetworkInterceptors,
+  RequestError,
+  RequestResult,
+  RouseReqOpts,
+} from '../types';
 
-// Global map to track abort controllers by key (for auto-cancellation)
-const abortControllers = new Map<string | symbol, AbortController>();
+let globalBaseUrl = '';
+let globalHeaders: HeadersInit = {};
+let interceptors: NetworkInterceptors = {};
+
+interface AbortEntry {
+  controller: AbortController;
+  ownerId: symbol;
+}
+
+const abortControllers = new Map<string | symbol, AbortEntry>();
+
+export function configureClient(config: {
+  baseUrl?: string;
+  headers?: HeadersInit;
+  interceptors?: NetworkInterceptors;
+}) {
+  if (config.baseUrl) {
+    globalBaseUrl = config.baseUrl.replace(/\/$/, '');
+  }
+  if (config.headers) {
+    globalHeaders = { ...globalHeaders, ...config.headers };
+  }
+  if (config.interceptors) {
+    interceptors = { ...interceptors, ...config.interceptors };
+  }
+}
 
 /**
  * Handles Fetch/XHR switching, error normalization, retries, and response parsing.
@@ -10,6 +40,21 @@ export async function request<T = any>(
   url: string,
   options: RouseReqOpts = {},
 ): Promise<RequestResult<T>> {
+  let currentOptions = { ...options };
+
+  // Run request interceptor
+  if (!currentOptions.skipInterceptors && interceptors.onRequest) {
+    try {
+      currentOptions = await interceptors.onRequest(currentOptions);
+    } catch (e) {
+      if (interceptors.onError) {
+        interceptors.onError(e, currentOptions);
+      }
+      throw e;
+    }
+  }
+
+  // Extract Rouse-specific options so they don't get passed to native fetch()
   const {
     method = 'GET',
     headers = {},
@@ -19,11 +64,19 @@ export async function request<T = any>(
     retry = 0,
     timeout = 0,
     abortKey,
+    skipInterceptors,
+    triggerEl,
     ...reqOptions
-  } = options;
+  } = currentOptions;
 
-  // Prepare headers
-  const reqHeaders = new Headers(headers);
+  let finalUrl = url;
+  if (globalBaseUrl && !url.startsWith('http') && !url.startsWith('//')) {
+    finalUrl = `${globalBaseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
+  }
+
+  const reqHeaders = new Headers(globalHeaders);
+  new Headers(headers).forEach((val, key) => reqHeaders.set(key, val));
+
   reqHeaders.set('Rouse-Request', 'true');
 
   if (!reqHeaders.has('Accept')) {
@@ -34,32 +87,65 @@ export async function request<T = any>(
   let finalBody: BodyInit | null = body || null;
 
   if (serializeForm) {
-    finalBody = new FormData(serializeForm);
-    // Let browser set content-type for FormData (multipart/form-data)
-    // Browser sets boundary automatically
+    if (method === 'GET' || method === 'HEAD') {
+      // GET forms should append to the URL as query parameters
+      const formData = new FormData(serializeForm);
+      const urlObj = new URL(finalUrl, document.baseURI);
+      
+      formData.forEach((value, key) => {
+        urlObj.searchParams.append(key, value.toString());
+      });
+      finalUrl = urlObj.toString();
+    } else {
+      // POST/PUT/PATCH -> send as FormData body
+      finalBody = new FormData(serializeForm);
+    }
+  } else if (body instanceof FormData) {
+    // Already FormData, pass through
+    finalBody = body;
+    // Let browser set Content-Type
+  } else if (body instanceof URLSearchParams) {
+    // URLSearchParams -> application/x-www-form-urlencoded
+    finalBody = body;
+    if (!reqHeaders.has('Content-Type')) {
+      reqHeaders.set('Content-Type', 'application/x-www-form-urlencoded');
+    }
+  } else if (body instanceof Blob || body instanceof File) {
+    // Binary data, pass through
+    finalBody = body;
+    // Content-Type should be set by caller or already on Blob
   } else if (
     body &&
     typeof body === 'object' &&
-    !(body instanceof FormData) &&
-    !(body instanceof Blob) &&
-    !(body instanceof URLSearchParams)
+    !(body instanceof ArrayBuffer) &&
+    !(body instanceof ReadableStream)
   ) {
+    // Plain object -> JSON
     finalBody = JSON.stringify(body);
     if (!reqHeaders.has('Content-Type')) {
       reqHeaders.set('Content-Type', 'application/json');
     }
+  } else if (typeof body === 'string') {
+    // String body, pass through
+    finalBody = body;
+    // Caller should set Content-Type
   }
 
   // Handle concurrency
   let mainSignal: AbortSignal | null = null;
+  let ownerId: symbol | null = null;
 
   if (abortKey) {
     if (abortControllers.has(abortKey)) {
-      abortControllers.get(abortKey)?.abort('Replacement request started');
+      abortControllers.get(abortKey)?.controller.abort('Replacement request started');
     }
+
     const newController = new AbortController();
-    abortControllers.set(abortKey, newController);
+    const newOwnerId = Symbol('abort-owner');
+
+    abortControllers.set(abortKey, { controller: newController, ownerId: newOwnerId });
     mainSignal = newController.signal;
+    ownerId = newOwnerId;
   } else if (reqOptions.signal) {
     mainSignal = reqOptions.signal;
   }
@@ -75,12 +161,6 @@ export async function request<T = any>(
     }
 
     try {
-      // XHR fallback for upload progress
-      if (onUploadProgress && method !== 'GET' && method !== 'HEAD') {
-        return await xhrRequest(url, method, reqHeaders, finalBody, onUploadProgress);
-      }
-
-      // Native fetch with timeout and abortkey
       const attemptController = new AbortController();
 
       // Link main signal (abortKey) to this attempt's controller
@@ -93,15 +173,32 @@ export async function request<T = any>(
         timeout > 0 ? setTimeout(() => attemptController.abort(), timeout) : null;
 
       try {
-        const response = await fetch(url, {
-          method,
-          headers: reqHeaders,
-          body: finalBody,
-          signal: attemptController.signal,
-          ...reqOptions,
-        });
+        let response: Response;
 
-        if (timeoutId) clearTimeout(timeoutId);
+        // Route through XHR or Fetch
+        if (onUploadProgress && method !== 'GET' && method !== 'HEAD') {
+          response = await xhrRequest(
+            finalUrl,
+            method,
+            reqHeaders,
+            finalBody,
+            onUploadProgress,
+            timeout,
+            attemptController.signal,
+          );
+        } else {
+          response = await fetch(finalUrl, {
+            method,
+            headers: reqHeaders,
+            body: finalBody,
+            signal: attemptController.signal,
+            ...reqOptions,
+          });
+        }
+
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
 
         // If the server is overloaded (503) or if rate-limited (429),
         // check the 'Retry-After' header to avoid further hammering the server.
@@ -128,17 +225,35 @@ export async function request<T = any>(
             }
           }
 
-          // Time check (cap at 60s)
-          // HTTP-Date could be in the past so ensure not below 0
+          // HTTP-Date could be in the past so ensure not below 0 and cap at 60s
           waitMs = Math.max(0, Math.min(waitMs, 60000));
-
           await new Promise((r) => setTimeout(r, waitMs));
+
           return execute(attempt + 1);
         }
 
-        return await normalizeResponse(response);
+        // Parses the JSON/HTML and flags HTTP errors
+        const normalized = await normalizeResponse(response);
+
+        // Run response interceptors
+        if (!currentOptions.skipInterceptors) {
+          if (normalized.error && interceptors.onError) {
+            // Error (e.g. 404, 500, parse error)
+            interceptors.onError(normalized.error, currentOptions);
+          } else if (!normalized.error && interceptors.onResponse) {
+            // Success (parsed data can safely be mutated)
+            normalized.data = await interceptors.onResponse(
+              normalized.data,
+              currentOptions,
+            );
+          }
+        }
+
+        return normalized;
       } catch (err: any) {
-        if (timeoutId) clearTimeout(timeoutId);
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
         throw err;
       } finally {
         if (mainSignal) {
@@ -147,18 +262,27 @@ export async function request<T = any>(
       }
     } catch (err: any) {
       const isAbort = err.name === 'AbortError';
+
       // Distinguish between timeout and explicit cancel
-      const status = isAbort
+      const status: CustomErrorStatus = isAbort
         ? mainSignal?.aborted
           ? 'CANCELED'
           : 'TIMEOUT'
         : 'NETWORK_ERROR';
+
       const message =
         status === 'TIMEOUT'
           ? 'Request timed out'
           : status === 'CANCELED'
             ? 'Request canceled'
             : err.message || 'Network Error';
+
+      const errorPayload: RequestError = { message, status, original: err };
+
+      // Error interceptor
+      if (!currentOptions.skipInterceptors && interceptors.onError) {
+        interceptors.onError(errorPayload, currentOptions);
+      }
 
       // Retry on network errors or timeouts (but not explicit cancels)
       if (attempt < retry && status !== 'CANCELED') {
@@ -171,7 +295,7 @@ export async function request<T = any>(
       return {
         data: null,
         response: null,
-        error: { message, status },
+        error: errorPayload,
       };
     }
   };
@@ -180,8 +304,11 @@ export async function request<T = any>(
     return await execute(0);
   } finally {
     // Cleanup abort key mapping only if this request owns it
-    if (abortKey && abortControllers.get(abortKey)?.signal === mainSignal) {
-      abortControllers.delete(abortKey);
+    if (abortKey && ownerId) {
+      const entry = abortControllers.get(abortKey);
+      if (entry?.ownerId === ownerId) {
+        abortControllers.delete(abortKey);
+      }
     }
   }
 }
@@ -191,7 +318,7 @@ export async function request<T = any>(
  */
 async function normalizeResponse(response: Response): Promise<RequestResult> {
   let data: any = null;
-  let error = null;
+  let error: RequestError | null = null;
 
   try {
     // Safety check to make sure the body hasn't been consumed
@@ -204,7 +331,7 @@ async function normalizeResponse(response: Response): Promise<RequestResult> {
     }
 
     const text = await response.text();
-    const contentType = response.headers.get('content-type') || '';
+    const contentType = response.headers.get('Content-Type') || '';
 
     if (contentType.includes('application/json') && text) {
       try {
@@ -232,7 +359,7 @@ async function normalizeResponse(response: Response): Promise<RequestResult> {
 }
 
 /**
- * XHR implementation for progress support.
+ * XHR implementation for progress support. Returns a mock Response.
  */
 function xhrRequest(
   url: string,
@@ -240,10 +367,36 @@ function xhrRequest(
   headers: Headers,
   body: any,
   onProgress: (ev: ProgressEvent) => void,
-): Promise<RequestResult> {
-  return new Promise((resolve) => {
+  timeout: number,
+  signal: AbortSignal | null,
+): Promise<Response> {
+  return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open(method, url);
+
+    if (timeout > 0) {
+      xhr.timeout = timeout;
+    }
+
+    const onAbort = () => {
+      xhr.abort();
+      reject(new DOMException('Aborted', 'AbortError'));
+    };
+
+    if (signal) {
+      if (signal.aborted) {
+        onAbort();
+        return;
+      }
+      signal.addEventListener('abort', onAbort);
+    }
+
+    // Helper to prevent memory leaks
+    const cleanup = () => {
+      if (signal) {
+        signal.removeEventListener('abort', onAbort);
+      }
+    };
 
     headers.forEach((val, key) => {
       xhr.setRequestHeader(key, val);
@@ -254,30 +407,26 @@ function xhrRequest(
     }
 
     xhr.onload = () => {
-      const mockResponse = new Response(xhr.response, {
-        status: xhr.status,
-        statusText: xhr.statusText,
-        headers: new Headers({
-          'Content-Type': xhr.getResponseHeader('Content-Type') || 'text/plain',
+      cleanup();
+      resolve(
+        new Response(xhr.response, {
+          status: xhr.status,
+          statusText: xhr.statusText,
+          headers: new Headers({
+            'Content-Type': xhr.getResponseHeader('Content-Type') || 'text/plain',
+          }),
         }),
-      });
-      resolve(normalizeResponse(mockResponse));
+      );
     };
 
     xhr.onerror = () => {
-      resolve({
-        data: null,
-        response: null,
-        error: { message: 'Network Error', status: 'NETWORK_ERROR' },
-      });
+      cleanup();
+      reject(new TypeError('Network Error'));
     };
 
     xhr.ontimeout = () => {
-      resolve({
-        data: null,
-        response: null,
-        error: { message: 'Request timed out', status: 'TIMEOUT' },
-      });
+      cleanup();
+      reject(new DOMException('Request timed out', 'AbortError'));
     };
 
     xhr.send(body);

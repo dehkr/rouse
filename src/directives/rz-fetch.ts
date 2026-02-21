@@ -28,10 +28,12 @@ export async function handleFetch(el: HTMLElement, loadingClass = 'rz-loading') 
 
   if (debounce > 0) {
     const timerId = setTimeout(() => {
-      timers.delete(el);
+      const current = timers.get(el) || {};
+      timers.set(el, { ...current, debounce: undefined });
+
       executeFetch(el, loadingClass, reqOpts, poll);
     }, debounce);
-    
+
     timers.set(el, { ...existing, debounce: timerId });
     return;
   }
@@ -45,6 +47,24 @@ async function executeFetch(
   options: any,
   pollInterval: number,
 ) {
+  // Memory leak guard for polling
+  if (!document.body.contains(el)) {
+    return;
+  }
+
+  // Allow for pausing polling by adding `disabled` or `aria-disabled` attributes
+  if (el.hasAttribute('disabled') || el.getAttribute('aria-disabled') === 'true') {
+    if (pollInterval > 0) {
+      const timer = setTimeout(
+        () => executeFetch(el, loadingClass, options, pollInterval),
+        pollInterval,
+      );
+      const existing = timers.get(el) || {};
+      timers.set(el, { ...existing, poll: timer });
+    }
+    return;
+  }
+
   let url: string | null = null;
   let method = 'GET';
 
@@ -80,16 +100,15 @@ async function executeFetch(
   // Capture the value if the trigger is an input,
   // since it won't be auto-serialized like a form.
   const isField = isInput(el) || isSelect(el) || isTextArea(el);
-  
+
   if (isField) {
     const field = el as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
     if (field.name) {
       if (method === 'GET') {
-        // Append to URL search params
-        // document.baseURI ensures relative URLs resolve correctly
-        const urlObj = new URL(url, document.baseURI);
-        urlObj.searchParams.set(field.name, field.value);
-        url = urlObj.toString();
+        // Append query param without converting URLs from relative to absolute
+        const separator = url.includes('?') ? '&' : '?';
+        const e = encodeURIComponent;
+        url = `${url}${separator}${e(field.name)}=${e(field.value)}`;
       } else if (!options.body) {
         // For POST/PUT, send as JSON if not already defined
         options.body = { [field.name]: field.value };
@@ -114,6 +133,7 @@ async function executeFetch(
   try {
     const result = await request(url, {
       method,
+      triggerElement: el,
       serializeForm: isForm(el) ? el : undefined,
       ...options,
     });
@@ -146,15 +166,6 @@ async function executeFetch(
         bus.publish(topic, data);
       }
     }
-
-    // Polling
-    if (pollInterval > 0) {
-      const timer = setTimeout(
-        () => executeFetch(el, loadingClass, options, pollInterval),
-        pollInterval,
-      );
-      timers.set(el, { poll: timer });
-    }
   } catch (err: any) {
     console.error('[Rouse] Fetch failed:', err);
     dispatch(el, 'rz:fetch:error', { error: err });
@@ -162,5 +173,16 @@ async function executeFetch(
     el.classList.remove(loadingClass);
     el.setAttribute('aria-busy', 'false');
     dispatch(el, 'rz:fetch:end');
+
+    // Polling should continue even after cancellation or network errors
+    if (pollInterval > 0) {
+      const timer = setTimeout(
+        () => executeFetch(el, loadingClass, options, pollInterval),
+        pollInterval,
+      );
+      // Preserve any existing debounce timers for this element
+      const existing = timers.get(el) || {};
+      timers.set(el, { ...existing, poll: timer });
+    }
   }
 }

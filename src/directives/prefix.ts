@@ -1,20 +1,20 @@
 import type { DirectiveSlug } from '.';
 
-let useDataAttributes = false;
+let useDataAttr = false;
 
 /**
  * Configures the directive prefix strategy.
  * If false (default) directives use "rz-" prefix.
  */
 export function configureDirectivePrefix(useData: boolean) {
-  useDataAttributes = useData;
+  useDataAttr = useData;
 }
 
 /**
  * Generates directive name according to prefix config.
  */
 export function name(slug: DirectiveSlug): string {
-  return useDataAttributes ? `data-rz-${slug}` : `rz-${slug}`;
+  return useDataAttr ? `data-rz-${slug}` : `rz-${slug}`;
 }
 
 /**

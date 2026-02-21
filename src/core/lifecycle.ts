@@ -2,12 +2,17 @@ import { getTuningStrategy } from '../directives';
 import { configureDirectivePrefix, hasDirective, selector } from '../directives/prefix';
 import { handleFetch } from '../directives/rz-fetch';
 import { initElement, initObserver } from '../dom/initializer';
+import { configureClient } from '../net/request';
+import type { NetworkInterceptors } from '../types';
 
 export const defaultConfig = {
   loadingClass: 'rz-loading',
   root: document.body as string | HTMLElement,
-  useDataAttributes: false,
+  useDataAttr: false,
   wake: 'load',
+  baseUrl: '' as string | undefined,
+  headers: {} as HeadersInit | undefined,
+  interceptors: undefined as NetworkInterceptors | undefined,
 };
 
 export type RouseConfig = Partial<typeof defaultConfig>;
@@ -26,13 +31,18 @@ export function start(config: RouseConfig = {}) {
   hasStarted = true;
 
   const {
-    loadingClass = defaultConfig.loadingClass as string,
-    root = defaultConfig.root as HTMLElement,
-    useDataAttributes = defaultConfig.useDataAttributes as boolean,
-    wake = defaultConfig.wake as string,
+    loadingClass = defaultConfig.loadingClass,
+    root = defaultConfig.root,
+    useDataAttr = defaultConfig.useDataAttr,
+    wake = defaultConfig.wake,
+    baseUrl,
+    headers,
+    interceptors,
   } = config;
 
-  configureDirectivePrefix(useDataAttributes);
+  configureDirectivePrefix(useDataAttr);
+
+  configureClient({ baseUrl, headers, interceptors });
 
   const rootEl =
     typeof root === 'string' ? (document.querySelector(root) as HTMLElement) : root;
@@ -86,7 +96,7 @@ export function start(config: RouseConfig = {}) {
   };
 
   // Bubbling events only
-  const EVENTS = [
+  const events = [
     'click',
     'dblclick',
     'submit',
@@ -102,7 +112,7 @@ export function start(config: RouseConfig = {}) {
     'pointerup',
   ];
 
-  EVENTS.forEach((evt) => {
+  events.forEach((evt) => {
     document.addEventListener(evt, handleGlobalFetch);
   });
 
@@ -118,5 +128,29 @@ export function start(config: RouseConfig = {}) {
   const controllers = rootEl.querySelectorAll<HTMLElement>(selector('use'));
   controllers.forEach((el) => {
     initElement(el, wake);
+  });
+
+  // Initial scan for auto-fetching elements and custom triggers
+  const fetchNodes = rootEl.querySelectorAll<HTMLElement>(selector('fetch'));
+  
+  fetchNodes.forEach((el) => {
+    const tune = getTuningStrategy(el);
+    
+    if (tune.trigger && tune.trigger.length > 0) {
+      // Auto-start on 'load'
+      if (tune.trigger.includes('load')) {
+        handleFetch(el, loadingClass);
+      }
+      
+      // Attach direct listeners for custom events
+      tune.trigger.forEach((evt) => {
+        if (evt !== 'load' && evt !== 'none' && !events.includes(evt)) {
+          el.addEventListener(evt, (e) => {
+            e.preventDefault();
+            handleFetch(el, loadingClass);
+          });
+        }
+      });
+    }
   });
 }

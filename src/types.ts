@@ -1,6 +1,3 @@
-/**
- * Values that can be bound to the DOM.
- */
 export type BindableValue =
   | string
   | string[]
@@ -11,9 +8,7 @@ export type BindableValue =
   | Record<string, boolean> // For class bindings
   | Record<string, string>; // For style bindings
 
-/**
- * Callback signature for the global event bus.
- */
+/** Callback signature for the global event bus */
 export type BusCallback<T = any> = (data?: T) => void;
 
 /**
@@ -25,10 +20,59 @@ export type RouseController = Record<string, any> & {
   disconnect?: () => void;
 };
 
+/** Custom error statuses for non-HTTP failures */
+export type CustomErrorStatus =
+  | 'CANCELED' // User or AbortController canceled the request
+  | 'TIMEOUT' // Request exceeded timeout threshold
+  | 'NETWORK_ERROR' // Fetch failed (offline, DNS, CORS, etc.)
+  | 'PARSE_ERROR' // Response body couldn't be parsed
+  | 'INTERNAL_ERROR'; // Unexpected error in request engine
+
+/** HTTP status codes (2xx-5xx) or custom error status */
+export type ErrorStatus = CustomErrorStatus | number;
+
+/** Normalized error object */
+export interface RequestError {
+  message: string;
+  status: ErrorStatus;
+  original?: any;
+}
+
 export interface RequestResult<T = any> {
   data: T | null;
-  error: { message: string; status: number | string } | null;
+  error: RequestError | null;
   response: Response | null;
+}
+
+/** Check if error is a custom status (not HTTP) */
+export function isCustomError(
+  error: RequestError,
+): error is RequestError & { status: CustomErrorStatus } {
+  return typeof error.status === 'string';
+}
+
+/** Check if error is an HTTP status code */
+export function isHttpError(
+  error: RequestError,
+): error is RequestError & { status: number } {
+  return typeof error.status === 'number';
+}
+
+/** Check for specific custom error */
+export function isErrorStatus<T extends CustomErrorStatus>(
+  error: RequestError,
+  status: T,
+): error is RequestError & { status: T } {
+  return error.status === status;
+}
+
+/** Check if HTTP status is in range */
+export function isHttpStatusInRange(
+  error: RequestError,
+  min: number,
+  max: number,
+): error is RequestError & { status: number } {
+  return typeof error.status === 'number' && error.status >= min && error.status <= max;
 }
 
 export interface RouseReqOpts extends RequestInit {
@@ -37,6 +81,17 @@ export interface RouseReqOpts extends RequestInit {
   retry?: number;
   timeout?: number;
   abortKey?: string | symbol;
+  skipInterceptors?: boolean;
+  triggerEl?: HTMLElement;
+}
+
+export interface NetworkInterceptors {
+  onRequest?: (config: RouseReqOpts) => RouseReqOpts | Promise<RouseReqOpts>;
+  onResponse?: (
+    data: any,
+    config: RouseReqOpts,
+  ) => any | Promise<any>;
+  onError?: (error: any, config: RouseReqOpts) => void;
 }
 
 /**
