@@ -1,6 +1,5 @@
 import { controller } from '../dom/controller';
 import { dispatch } from '../dom/utils';
-import { load } from '../net/load';
 import { effect, reactive } from '../reactivity';
 import { bus } from './bus';
 import { start } from './lifecycle';
@@ -14,7 +13,6 @@ export const Rouse = {
   createStore,
   dispatch,
   bus,
-  load,
   register,
   start,
 };

@@ -1,6 +1,5 @@
 import { bus } from '../core/bus';
 import { getProps } from '../directives/rz-props';
-import { load } from '../net/load';
 import { request } from '../net/request';
 import { effectScope } from '../reactivity';
 import type { SetupContext, SetupFn } from '../types';
@@ -57,7 +56,6 @@ export function createController(el: HTMLElement, setup: SetupFn) {
     props: getProps(el),
     request: (url, opts) => request(url, opts),
     dispatch: (evt, detail, opts) => dispatch(el, evt, detail, opts),
-    load,
     bus: {
       publish: (event, data) => bus.publish(event, data),
       subscribe: (event, cb) => {
