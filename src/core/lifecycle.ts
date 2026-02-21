@@ -3,19 +3,14 @@ import { configureDirectivePrefix, hasDirective, selector } from '../directives/
 import { handleFetch } from '../directives/rz-fetch';
 import { initElement, initObserver } from '../dom/initializer';
 
-export interface RouseConfig {
-  loadingClass?: string;
-  root?: string | HTMLElement;
-  useDataAttributes?: boolean;
-  wake?: string;
-}
-
-export const defaultConfig: RouseConfig = {
+export const defaultConfig = {
   loadingClass: 'rz-loading',
-  root: document.body,
+  root: document.body as string | HTMLElement,
   useDataAttributes: false,
   wake: 'load',
 };
+
+export type RouseConfig = Partial<typeof defaultConfig>;
 
 let hasStarted = false;
 
