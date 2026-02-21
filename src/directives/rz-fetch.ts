@@ -22,15 +22,17 @@ export async function handleFetch(el: HTMLElement, loadingClass = 'rz-loading') 
   if (existing?.poll) {
     clearTimeout(existing.poll);
   }
+  if (existing?.debounce) {
+    clearTimeout(existing.debounce);
+  }
 
   if (debounce > 0) {
-    if (existing?.debounce) {
-      clearTimeout(existing.debounce);
-    }
-    timers.set(el, {
-      ...existing,
-      debounce: setTimeout(() => executeFetch(el, loadingClass, reqOpts, poll), debounce),
-    });
+    const timerId = setTimeout(() => {
+      timers.delete(el);
+      executeFetch(el, loadingClass, reqOpts, poll);
+    }, debounce);
+    
+    timers.set(el, { ...existing, debounce: timerId });
     return;
   }
 

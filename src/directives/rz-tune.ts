@@ -10,7 +10,13 @@ export interface TuningStrategy extends Partial<RouseReqOpts> {
   trigger?: string[];
 }
 
-type NumberKeys = 'retry' | 'timeout' | 'debounce' | 'poll';
+// TODO: add throttle and leading debounce strategies
+const numKeys = ['retry', 'timeout', 'debounce', 'poll'] as const;
+type NumberKeys = typeof numKeys[number];
+
+function isNumberKey(key: string): key is NumberKeys {
+  return numKeys.includes(key as NumberKeys);
+}
 
 /**
  * Parses the client-side tuning strategy for a fetch request.
@@ -24,8 +30,8 @@ export function getTuningStrategy(el: HTMLElement): TuningStrategy {
   const parsed = parseDirective(raw);
 
   for (const [key, val] of parsed) {
-    if (['retry', 'timeout', 'debounce', 'poll'].includes(key)) {
-      config[key as NumberKeys] = parseInt(val, 10);
+    if (isNumberKey(key)) {
+      config[key] = parseInt(val, 10);
     } else if (key === 'key') {
       config.abortKey = val;
     } else if (key === 'trigger' && val) {
