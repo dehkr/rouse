@@ -7,6 +7,7 @@ export const SLUG = 'tune' as const;
 export interface TuningStrategy extends Partial<RouseReqOpts> {
   debounce?: number;
   poll?: number;
+  trigger?: string[];
 }
 
 type NumberKeys = 'retry' | 'timeout' | 'debounce' | 'poll';
@@ -22,12 +23,17 @@ export function getTuningStrategy(el: HTMLElement): TuningStrategy {
   const config: TuningStrategy = {};
   const parsed = parseDirective(raw);
 
-  // TODO: allow passing other random flags (custom headers for example)
   for (const [key, val] of parsed) {
     if (['retry', 'timeout', 'debounce', 'poll'].includes(key)) {
       config[key as NumberKeys] = parseInt(val, 10);
     } else if (key === 'key') {
       config.abortKey = val;
+    } else if (key === 'trigger' && val) {
+      // Split multiple triggers by pipe: "mouseover|keyup"
+      config.trigger = val
+        .split('|')
+        .map((s) => s.trim())
+        .filter(Boolean);
     }
   }
 

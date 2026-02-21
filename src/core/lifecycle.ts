@@ -1,3 +1,4 @@
+import { getTuningStrategy } from '../directives';
 import { configureDirectivePrefix, hasDirective, selector } from '../directives/prefix';
 import { handleFetch } from '../directives/rz-fetch';
 import { initElement, initObserver } from '../dom/initializer';
@@ -51,6 +52,18 @@ export function start(config: RouseConfig = {}) {
     const target = (e.target as HTMLElement).closest<HTMLElement>(selector('fetch'));
 
     if (target) {
+      const tune = getTuningStrategy(target);
+
+      // If triggers are present only fire on those events
+      // TODO: add warning if user-supplied trigger is not supported
+      if (tune.trigger && tune.trigger.length > 0) {
+        if (tune.trigger.includes(e.type)) {
+          e.preventDefault();
+          handleFetch(target, loadingClass);
+        }
+        return;
+      }
+
       const tagName = target.tagName;
       const isForm = tagName === 'FORM';
       const isInput =
@@ -77,7 +90,24 @@ export function start(config: RouseConfig = {}) {
     }
   };
 
-  ['click', 'submit', 'input', 'change'].forEach((evt) => {
+  // Bubbling events only
+  const EVENTS = [
+    'click',
+    'dblclick',
+    'submit',
+    'input',
+    'change',
+    'keyup',
+    'keydown',
+    'mouseover',
+    'mouseout',
+    'focusin',
+    'focusout',
+    'pointerdown',
+    'pointerup',
+  ];
+
+  EVENTS.forEach((evt) => {
     document.addEventListener(evt, handleGlobalFetch);
   });
 

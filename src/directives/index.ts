@@ -30,7 +30,6 @@ export type ConfigDirectiveSlug =
   | typeof USE_SLUG
   | typeof WAKE_SLUG;
 
-// Union type of all directives
 export type DirectiveSlug = DomDirectiveSlug | ConfigDirectiveSlug;
 
 type Cleanup = (() => void) | void;

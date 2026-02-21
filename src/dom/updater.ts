@@ -79,7 +79,7 @@ export function getValue(el: HTMLElement): BindableValue {
   if (input.type === 'number' || input.type === 'range') {
     return Number.isNaN(input.valueAsNumber) ? null : input.valueAsNumber;
   }
-  if (input instanceof HTMLSelectElement && input.multiple) {
+  if (isSelect(input) && input.multiple) {
     return Array.from(input.selectedOptions).map((o) => o.value);
   }
 
