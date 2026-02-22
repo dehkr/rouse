@@ -32,7 +32,6 @@ export function parseDirective(value: string): ParsedVal {
   // Process the final segment
   parseSegment(value.slice(start), parsed);
 
-  console.log(parsed);
   return parsed;
 }
 

@@ -20,7 +20,7 @@ export type RouseConfig = Partial<typeof defaultConfig>;
 let hasStarted = false;
 
 /**
- * Starts the Rouse framework.
+ * Starts the Rouse framework. Sets up the global fetch handler.
  * @param config - Optional configuration settings.
  */
 export function start(config: RouseConfig = {}) {
@@ -60,7 +60,6 @@ export function start(config: RouseConfig = {}) {
       const tune = getTuningStrategy(target);
 
       // If triggers are present only fire on those events
-      // TODO: add warning if user-supplied trigger is not supported
       if (tune.trigger && tune.trigger.length > 0) {
         if (tune.trigger.includes(e.type)) {
           e.preventDefault();
@@ -81,13 +80,13 @@ export function start(config: RouseConfig = {}) {
         return;
       }
 
-      // Inputs: trigger on input or change (ignore clicks)
+      // Inputs: trigger on input or change
       if (isInput && (e.type === 'input' || e.type === 'change')) {
         handleFetch(target, loadingClass);
         return;
       }
 
-      // Everything else trigger on click
+      // Everything else trigger on click by default
       if (!isForm && !isInput && e.type === 'click') {
         e.preventDefault();
         handleFetch(target, loadingClass);
@@ -97,19 +96,19 @@ export function start(config: RouseConfig = {}) {
 
   // Bubbling events only
   const events = [
+    'change',
     'click',
     'dblclick',
-    'submit',
-    'input',
-    'change',
-    'keyup',
-    'keydown',
-    'mouseover',
-    'mouseout',
     'focusin',
     'focusout',
+    'input',
+    'keydown',
+    'keyup',
+    'mouseout',
+    'mouseover',
     'pointerdown',
     'pointerup',
+    'submit',
   ];
 
   events.forEach((evt) => {

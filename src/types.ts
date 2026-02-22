@@ -75,14 +75,15 @@ export function isHttpStatusInRange(
   return typeof error.status === 'number' && error.status >= min && error.status <= max;
 }
 
-export interface RouseReqOpts extends RequestInit {
+export interface RouseReqOpts extends Omit<RequestInit, 'body'> {
+  body?: BodyInit | Record<string, any> | any[] | null | undefined;
+  triggerEl?: HTMLElement;
   serializeForm?: HTMLFormElement;
+  skipInterceptors?: boolean;
   onUploadProgress?: (ev: ProgressEvent) => void;
   retry?: number;
   timeout?: number;
   abortKey?: string | symbol;
-  skipInterceptors?: boolean;
-  triggerEl?: HTMLElement;
 }
 
 export interface NetworkInterceptors {
