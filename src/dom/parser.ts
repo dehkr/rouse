@@ -1,9 +1,13 @@
-type ParsedVal = [string, string][];
+export type ParsedVal = [string, string, string[]][];
 
 /**
  * Handles string splitting for directive values.
+ * 
  * rz-wake="visible, media: (min-width: 600px)" is parsed to:
  * [['visible', ''], ['media', '(min-width: 600px)']]
+ * 
+ * Values with modifiers (e.g. rz-tune="debounce.trailing: 500") are parsed to:
+ * [['debounce', '500', ['trailing']]]
  */
 export function parseDirective(value: string): ParsedVal {
   if (!value) return [];
@@ -28,11 +32,12 @@ export function parseDirective(value: string): ParsedVal {
   // Process the final segment
   parseSegment(value.slice(start), parsed);
 
+  console.log(parsed);
   return parsed;
 }
 
 /**
- * Parse a single segment into [key, value].
+ * Parse a single segment into [key, value, [modifiers]].
  */
 function parseSegment(segment: string, acc: ParsedVal) {
   const trimmed = segment.trim();
@@ -53,18 +58,23 @@ function parseSegment(segment: string, acc: ParsedVal) {
     }
   });
 
-  if (splitIndex !== -1) {
-    const key = trimmed.slice(0, splitIndex).trim();
-    let val = trimmed.slice(splitIndex + 1).trim();
+  const processKey = (str: string, val: string) => {
+    const [key, ...modifiers] = str.split('.');
+    if (key) {
+      acc.push([key, val, modifiers]);
+    }
+  };
 
+  if (splitIndex !== -1) {
+    const rawKey = trimmed.slice(0, splitIndex).trim();
+    let val = trimmed.slice(splitIndex + 1).trim();
     if (isInQuotes(val)) {
       val = val.slice(1, -1);
     }
-    if (key) {
-      acc.push([key, val]);
-    }
+    processKey(rawKey, val);
   } else {
-    acc.push([trimmed, '']);
+    // Key-only directive values
+    processKey(trimmed, '');
   }
 }
 
