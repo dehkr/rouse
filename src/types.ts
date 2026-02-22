@@ -89,6 +89,7 @@ export interface NetworkInterceptors {
   onRequest?: (config: RouseReqOpts) => RouseReqOpts | Promise<RouseReqOpts>;
   onResponse?: (
     data: any,
+    response: Response,
     config: RouseReqOpts,
   ) => any | Promise<any>;
   onError?: (error: any, config: RouseReqOpts) => void;
@@ -103,7 +104,6 @@ export type SetupContext<P extends Record<string, any> = Record<string, any>> = 
   props: P;
   dispatch: (name: string, detail?: any, options?: CustomEventInit) => CustomEvent;
   request: <T = any>(url: string, options?: RouseReqOpts) => Promise<RequestResult<T>>;
-  load: (url: string) => Promise<void>;
   bus: {
     publish: (event: string, data?: any) => void;
     subscribe: (event: string, cb: BusCallback) => void;

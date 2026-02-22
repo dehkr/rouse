@@ -2,7 +2,7 @@ import { getTuningStrategy } from '../directives';
 import { configureDirectivePrefix, hasDirective, selector } from '../directives/prefix';
 import { handleFetch } from '../directives/rz-fetch';
 import { initElement, initObserver } from '../dom/initializer';
-import { configureClient } from '../net/request';
+import { configureClient } from '../net/config';
 import type { NetworkInterceptors } from '../types';
 
 export const defaultConfig = {
@@ -132,16 +132,16 @@ export function start(config: RouseConfig = {}) {
 
   // Initial scan for auto-fetching elements and custom triggers
   const fetchNodes = rootEl.querySelectorAll<HTMLElement>(selector('fetch'));
-  
+
   fetchNodes.forEach((el) => {
     const tune = getTuningStrategy(el);
-    
+
     if (tune.trigger && tune.trigger.length > 0) {
       // Auto-start on 'load'
       if (tune.trigger.includes('load')) {
         handleFetch(el, loadingClass);
       }
-      
+
       // Attach direct listeners for custom events
       tune.trigger.forEach((evt) => {
         if (evt !== 'load' && evt !== 'none' && !events.includes(evt)) {

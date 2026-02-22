@@ -1,14 +1,8 @@
-import type {
-  CustomErrorStatus,
-  NetworkInterceptors,
-  RequestError,
-  RequestResult,
-  RouseReqOpts,
-} from '../types';
-
-let globalBaseUrl = '';
-let globalHeaders: HeadersInit = {};
-let interceptors: NetworkInterceptors = {};
+import type { RequestResult, RouseReqOpts } from '../types';
+import { getClientConfig } from './config';
+import { preparePayload } from './payload';
+import { mapCatchError, normalizeResponse } from './response';
+import { xhrRequest } from './xhr';
 
 interface AbortEntry {
   controller: AbortController;
@@ -17,119 +11,45 @@ interface AbortEntry {
 
 const abortControllers = new Map<string | symbol, AbortEntry>();
 
-export function configureClient(config: {
-  baseUrl?: string;
-  headers?: HeadersInit;
-  interceptors?: NetworkInterceptors;
-}) {
-  if (config.baseUrl) {
-    globalBaseUrl = config.baseUrl.replace(/\/$/, '');
-  }
-  if (config.headers) {
-    globalHeaders = { ...globalHeaders, ...config.headers };
-  }
-  if (config.interceptors) {
-    interceptors = { ...interceptors, ...config.interceptors };
-  }
-}
-
 /**
- * Handles Fetch/XHR switching, error normalization, retries, and response parsing.
+ * Handles Fetch/XHR switching, error normalization, retries, and interceptors.
  */
 export async function request<T = any>(
   url: string,
   options: RouseReqOpts = {},
 ): Promise<RequestResult<T>> {
   let currentOptions = { ...options };
+  const config = getClientConfig();
+  const ci = config.interceptors;
 
   // Run request interceptor
-  if (!currentOptions.skipInterceptors && interceptors.onRequest) {
+  if (!currentOptions.skipInterceptors && ci.onRequest) {
     try {
-      currentOptions = await interceptors.onRequest(currentOptions);
+      currentOptions = await ci.onRequest(currentOptions);
     } catch (e) {
-      if (interceptors.onError) {
-        interceptors.onError(e, currentOptions);
+      if (ci.onError) {
+        ci.onError(e, currentOptions);
       }
       throw e;
     }
   }
 
-  // Extract Rouse-specific options so they don't get passed to native fetch()
+  // Prepare payload (URL, headers, body)
+  const { finalUrl, method, reqHeaders, finalBody, restOptions } = preparePayload(
+    url,
+    currentOptions,
+    config,
+  );
+
+  // Extract Rouse-specific execution options
   const {
-    method = 'GET',
-    headers = {},
-    body,
     onUploadProgress,
-    serializeForm,
     retry = 0,
     timeout = 0,
     abortKey,
-    skipInterceptors,
     triggerEl,
-    ...reqOptions
-  } = currentOptions;
-
-  let finalUrl = url;
-  if (globalBaseUrl && !url.startsWith('http') && !url.startsWith('//')) {
-    finalUrl = `${globalBaseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
-  }
-
-  const reqHeaders = new Headers(globalHeaders);
-  new Headers(headers).forEach((val, key) => reqHeaders.set(key, val));
-
-  reqHeaders.set('Rouse-Request', 'true');
-
-  if (!reqHeaders.has('Accept')) {
-    reqHeaders.set('Accept', 'application/json, text/html, application/xhtml+xml');
-  }
-
-  // Prepare body
-  let finalBody: BodyInit | null = body || null;
-
-  if (serializeForm) {
-    if (method === 'GET' || method === 'HEAD') {
-      // GET forms should append to the URL as query parameters
-      const formData = new FormData(serializeForm);
-      const urlObj = new URL(finalUrl, document.baseURI);
-      
-      formData.forEach((value, key) => {
-        urlObj.searchParams.append(key, value.toString());
-      });
-      finalUrl = urlObj.toString();
-    } else {
-      // POST/PUT/PATCH -> send as FormData body
-      finalBody = new FormData(serializeForm);
-    }
-  } else if (body instanceof FormData) {
-    // Already FormData, pass through
-    finalBody = body;
-    // Let browser set Content-Type
-  } else if (body instanceof URLSearchParams) {
-    // URLSearchParams -> application/x-www-form-urlencoded
-    finalBody = body;
-    if (!reqHeaders.has('Content-Type')) {
-      reqHeaders.set('Content-Type', 'application/x-www-form-urlencoded');
-    }
-  } else if (body instanceof Blob || body instanceof File) {
-    // Binary data, pass through
-    finalBody = body;
-    // Content-Type should be set by caller or already on Blob
-  } else if (
-    body &&
-    typeof body === 'object' &&
-    !(body instanceof ArrayBuffer) &&
-    !(body instanceof ReadableStream)
-  ) {
-    // Plain object -> JSON
-    finalBody = JSON.stringify(body);
-    if (!reqHeaders.has('Content-Type')) {
-      reqHeaders.set('Content-Type', 'application/json');
-    }
-  } else if (typeof body === 'string') {
-    // String body, pass through
-    finalBody = body;
-    // Caller should set Content-Type
-  }
+    ...fetchOptions
+  } = restOptions;
 
   // Handle concurrency
   let mainSignal: AbortSignal | null = null;
@@ -146,8 +66,8 @@ export async function request<T = any>(
     abortControllers.set(abortKey, { controller: newController, ownerId: newOwnerId });
     mainSignal = newController.signal;
     ownerId = newOwnerId;
-  } else if (reqOptions.signal) {
-    mainSignal = reqOptions.signal;
+  } else if (fetchOptions.signal) {
+    mainSignal = fetchOptions.signal;
   }
 
   const execute = async (attempt: number): Promise<RequestResult<T>> => {
@@ -162,9 +82,9 @@ export async function request<T = any>(
 
     try {
       const attemptController = new AbortController();
-
       // Link main signal (abortKey) to this attempt's controller
       const onMainAbort = () => attemptController.abort();
+
       if (mainSignal) {
         mainSignal.addEventListener('abort', onMainAbort);
       }
@@ -192,7 +112,7 @@ export async function request<T = any>(
             headers: reqHeaders,
             body: finalBody,
             signal: attemptController.signal,
-            ...reqOptions,
+            ...fetchOptions,
           });
         }
 
@@ -214,7 +134,6 @@ export async function request<T = any>(
           // The Retry-After header can come in two formats: seconds or HTTP-Date
           if (retryHeader) {
             if (/^\d+$/.test(retryHeader)) {
-              // Delay in seconds
               waitMs = parseInt(retryHeader, 10) * 1000;
             } else {
               // HTTP-Date (e.g. "Fri, 31 Dec 2024...")
@@ -232,23 +151,22 @@ export async function request<T = any>(
           return execute(attempt + 1);
         }
 
-        // Parses the JSON/HTML and flags HTTP errors
         const normalized = await normalizeResponse(response);
 
-        // Run response interceptors
+        // Run response/error interceptors
         if (!currentOptions.skipInterceptors) {
-          if (normalized.error && interceptors.onError) {
+          if (normalized.error && ci.onError) {
             // Error (e.g. 404, 500, parse error)
-            interceptors.onError(normalized.error, currentOptions);
-          } else if (!normalized.error && interceptors.onResponse) {
+            ci.onError(normalized.error, currentOptions);
+          } else if (!normalized.error && ci.onResponse) {
             // Success (parsed data can safely be mutated)
-            normalized.data = await interceptors.onResponse(
+            normalized.data = await ci.onResponse(
               normalized.data,
+              normalized.response as Response,
               currentOptions,
             );
           }
         }
-
         return normalized;
       } catch (err: any) {
         if (timeoutId) {
@@ -261,31 +179,16 @@ export async function request<T = any>(
         }
       }
     } catch (err: any) {
-      const isAbort = err.name === 'AbortError';
-
-      // Distinguish between timeout and explicit cancel
-      const status: CustomErrorStatus = isAbort
-        ? mainSignal?.aborted
-          ? 'CANCELED'
-          : 'TIMEOUT'
-        : 'NETWORK_ERROR';
-
-      const message =
-        status === 'TIMEOUT'
-          ? 'Request timed out'
-          : status === 'CANCELED'
-            ? 'Request canceled'
-            : err.message || 'Network Error';
-
-      const errorPayload: RequestError = { message, status, original: err };
+      // Map native errors to CustomErrorStatus
+      const errorPayload = mapCatchError(err, !!mainSignal?.aborted);
 
       // Error interceptor
-      if (!currentOptions.skipInterceptors && interceptors.onError) {
-        interceptors.onError(errorPayload, currentOptions);
+      if (!currentOptions.skipInterceptors && ci.onError) {
+        ci.onError(errorPayload, currentOptions);
       }
 
       // Retry on network errors or timeouts (but not explicit cancels)
-      if (attempt < retry && status !== 'CANCELED') {
+      if (attempt < retry && errorPayload.status !== 'CANCELED') {
         // Exponential backoff: 200ms, 400ms, 800ms... cap at 10s
         const backoff = Math.min(2 ** attempt * 200, 10000);
         await new Promise((r) => setTimeout(r, backoff));
@@ -311,124 +214,4 @@ export async function request<T = any>(
       }
     }
   }
-}
-
-/**
- * Normalizes a fetch response.
- */
-async function normalizeResponse(response: Response): Promise<RequestResult> {
-  let data: any = null;
-  let error: RequestError | null = null;
-
-  try {
-    // Safety check to make sure the body hasn't been consumed
-    if (response.bodyUsed) {
-      return {
-        data: null,
-        error: { message: 'Stream already consumed', status: 'INTERNAL_ERROR' },
-        response,
-      };
-    }
-
-    const text = await response.text();
-    const contentType = response.headers.get('Content-Type') || '';
-
-    if (contentType.includes('application/json') && text) {
-      try {
-        data = JSON.parse(text);
-      } catch {
-        data = text;
-      }
-    } else {
-      data = text;
-    }
-  } catch (e) {
-    const errorMessage = e instanceof Error ? e.message : String(e);
-    data = null;
-    error = { message: errorMessage, status: 'PARSE_ERROR' };
-  }
-
-  if (!response.ok) {
-    error = {
-      message: response.statusText || 'Request failed',
-      status: response.status,
-    };
-  }
-
-  return { data, error, response };
-}
-
-/**
- * XHR implementation for progress support. Returns a mock Response.
- */
-function xhrRequest(
-  url: string,
-  method: string,
-  headers: Headers,
-  body: any,
-  onProgress: (ev: ProgressEvent) => void,
-  timeout: number,
-  signal: AbortSignal | null,
-): Promise<Response> {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open(method, url);
-
-    if (timeout > 0) {
-      xhr.timeout = timeout;
-    }
-
-    const onAbort = () => {
-      xhr.abort();
-      reject(new DOMException('Aborted', 'AbortError'));
-    };
-
-    if (signal) {
-      if (signal.aborted) {
-        onAbort();
-        return;
-      }
-      signal.addEventListener('abort', onAbort);
-    }
-
-    // Helper to prevent memory leaks
-    const cleanup = () => {
-      if (signal) {
-        signal.removeEventListener('abort', onAbort);
-      }
-    };
-
-    headers.forEach((val, key) => {
-      xhr.setRequestHeader(key, val);
-    });
-
-    if (xhr.upload) {
-      xhr.upload.onprogress = onProgress;
-    }
-
-    xhr.onload = () => {
-      cleanup();
-      resolve(
-        new Response(xhr.response, {
-          status: xhr.status,
-          statusText: xhr.statusText,
-          headers: new Headers({
-            'Content-Type': xhr.getResponseHeader('Content-Type') || 'text/plain',
-          }),
-        }),
-      );
-    };
-
-    xhr.onerror = () => {
-      cleanup();
-      reject(new TypeError('Network Error'));
-    };
-
-    xhr.ontimeout = () => {
-      cleanup();
-      reject(new DOMException('Request timed out', 'AbortError'));
-    };
-
-    xhr.send(body);
-  });
 }
