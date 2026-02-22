@@ -49,7 +49,6 @@ export function getTuningStrategy(el: HTMLElement): TuningStrategy {
       config.abortKey = val;
     } else if (key === 'trigger' && val) {
       // Split multiple triggers by pipe: "mouseover|keyup"
-      // TODO: handle in parser
       config.trigger = val
         .split('|')
         .map((s) => s.trim())

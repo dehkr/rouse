@@ -10,7 +10,27 @@ import { getTuningStrategy } from './rz-tune';
 
 export const SLUG = 'fetch' as const;
 
-const timers = new WeakMap<HTMLElement, { debounce?: any; throttle?: any; poll?: any }>();
+type TimerState = {
+  debounce?: any;
+  throttle?: any;
+  poll?: any;
+  abortKey?: string;
+};
+
+const timers = new WeakMap<HTMLElement, TimerState>();
+
+function updateTimer(el: HTMLElement, key: keyof TimerState, value: any) {
+  const current = timers.get(el) || {};
+  timers.set(el, { ...current, [key]: value });
+}
+
+function clearTimer(el: HTMLElement, key: 'debounce' | 'throttle' | 'poll') {
+  const current = timers.get(el);
+  if (current && current[key]) {
+    clearTimeout(current[key]);
+    updateTimer(el, key, undefined);
+  }
+}
 
 /**
  * This function acts as the gatekeeper before a network request is fired. It parses
@@ -29,14 +49,13 @@ const timers = new WeakMap<HTMLElement, { debounce?: any; throttle?: any; poll?:
  */
 export async function handleFetch(el: HTMLElement, loadingClass = 'rz-loading') {
   const config = getTuningStrategy(el) as Record<string, any>;
-  const pollInterval = Number(config.poll) || 0;
+  const pollInterval = Math.max(0, Number(config.poll) || 0);
 
   let debounce = 0;
   let isLeading = false;
 
   if (config.debounce !== undefined) {
     debounce = config.debounce;
-    // Check for 'leading' modifier on the debounce key
     const mods = config.modifiers?.debounce || [];
     isLeading = mods.includes('leading');
   }
@@ -44,13 +63,7 @@ export async function handleFetch(el: HTMLElement, loadingClass = 'rz-loading') 
   const throttle = Number(config.throttle) || 0;
 
   // Strip timing keys to keep reqOpts clean
-  const {
-    poll: _p,
-    debounce: _d,
-    throttle: _t,
-    modifiers: _m,
-    ...reqOpts
-  } = config;
+  const { poll: _p, debounce: _d, throttle: _t, modifiers: _m, ...reqOpts } = config;
 
   const existing = timers.get(el) || {};
 
@@ -62,11 +75,10 @@ export async function handleFetch(el: HTMLElement, loadingClass = 'rz-loading') 
     executeFetch(el, loadingClass, reqOpts, pollInterval);
 
     const timerId = setTimeout(() => {
-      const current = timers.get(el) || {};
-      timers.set(el, { ...current, throttle: undefined });
+      updateTimer(el, 'throttle', undefined);
     }, throttle);
 
-    timers.set(el, { ...existing, throttle: timerId });
+    updateTimer(el, 'throttle', timerId);
     return;
   }
 
@@ -75,42 +87,34 @@ export async function handleFetch(el: HTMLElement, loadingClass = 'rz-loading') 
   if (debounce > 0) {
     if (isLeading) {
       const canFire = !existing.debounce;
-      if (existing.debounce) {
-        clearTimeout(existing.debounce);
-      }
+      clearTimer(el, 'debounce');
 
       if (canFire) {
         executeFetch(el, loadingClass, reqOpts, pollInterval);
       }
 
       const timerId = setTimeout(() => {
-        const current = timers.get(el) || {};
-        timers.set(el, { ...current, debounce: undefined });
+        updateTimer(el, 'debounce', undefined);
       }, debounce);
 
-      timers.set(el, { ...existing, debounce: timerId });
+      updateTimer(el, 'debounce', timerId);
     } else {
       // Trailing edge
-      if (existing.debounce) clearTimeout(existing.debounce);
+      clearTimer(el, 'debounce');
 
       const timerId = setTimeout(() => {
-        const current = timers.get(el) || {};
-        timers.set(el, { ...current, debounce: undefined });
+        updateTimer(el, 'debounce', undefined);
         executeFetch(el, loadingClass, reqOpts, pollInterval);
       }, debounce);
 
-      timers.set(el, { ...existing, debounce: timerId });
+      updateTimer(el, 'debounce', timerId);
     }
     return;
   }
 
   // IMMEDIATE
 
-  if (existing.debounce) {
-    clearTimeout(existing.debounce);
-    timers.set(el, { ...existing, debounce: undefined });
-  }
-
+  clearTimer(el, 'debounce');
   executeFetch(el, loadingClass, reqOpts, pollInterval);
 }
 
@@ -139,12 +143,9 @@ async function executeFetch(
 ) {
   // Clean up timers map to prevent memory leaks
   if (!document.body.contains(el)) {
-    const existing = timers.get(el);
-    if (existing) {
-      if (existing.poll) clearTimeout(existing.poll);
-      if (existing.debounce) clearTimeout(existing.debounce);
-      if (existing.throttle) clearTimeout(existing.throttle);
-    }
+    clearTimer(el, 'poll');
+    clearTimer(el, 'debounce');
+    clearTimer(el, 'throttle');
     timers.delete(el);
     return;
   }
@@ -156,7 +157,7 @@ async function executeFetch(
         () => executeFetch(el, loadingClass, options, pollInterval),
         pollInterval,
       );
-      timers.set(el, { ...(timers.get(el) || {}), poll: timer });
+      updateTimer(el, 'poll', timer);
     }
     return;
   }
@@ -192,17 +193,24 @@ async function executeFetch(
 
   // Handle standalone inputs since they aren't serialized like forms
   if (isInput(el) || isSelect(el) || isTextArea(el)) {
-    const field = el as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+    const field = el;
 
     if (field.name) {
       let values: string[] = [];
 
-      // Checkboxes/radios and multi-selects
-      if (
-        (field.type === 'checkbox' || field.type === 'radio') &&
-        !(field as HTMLInputElement).checked
-      ) {
-        // Skip unchecked
+      if (field.type === 'radio') {
+        // Find the checked radio in the same group (scoped to form if applicable)
+        const root = field.closest('form') || document;
+        const checked = root.querySelector(
+          `input[type="radio"][name="${CSS.escape(field.name)}"]:checked`,
+        ) as HTMLInputElement | null;
+        if (checked) {
+          values = [checked.value];
+        }
+      } else if (field.type === 'checkbox') {
+        if ((field as HTMLInputElement).checked) {
+          values = [field.value];
+        }
       } else if (isSelect(field) && field.multiple) {
         values = Array.from(field.selectedOptions).map((opt) => opt.value);
       } else {
@@ -211,12 +219,15 @@ async function executeFetch(
 
       if (values.length > 0) {
         if (method === 'GET') {
-          // Use a temp base to parse relative URLs without losing hashes
-          const tempBase = 'http://__rouse__';
-          const urlObj = new URL(url, tempBase);
-          values.forEach((val) => urlObj.searchParams.append(field.name, val));
-          // Strip the temp base back out
-          url = urlObj.toString().replace(tempBase, '');
+          // Preserve hashes and search params for both relative and absolute URLs
+          const urlObj = new URL(url, window.location.href);
+          values.forEach((val) => {
+            urlObj.searchParams.append(field.name, val);
+          });
+          url =
+            url.startsWith('http') || url.startsWith('//')
+              ? urlObj.toString()
+              : urlObj.pathname + urlObj.search + urlObj.hash;
         } else if (!options.body) {
           options.body =
             values.length > 1 ? { [field.name]: values } : { [field.name]: values[0] };
@@ -224,6 +235,15 @@ async function executeFetch(
       }
     }
   }
+
+  // Automatically generate abort key if one not provided
+  // Guarantees an element can never have conflicting requests
+  let autoAbortKey = timers.get(el)?.abortKey;
+  if (!autoAbortKey) {
+    autoAbortKey = `rzKey_${Math.random().toString(36).slice(2, 11)}`;
+    updateTimer(el, 'abortKey', autoAbortKey);
+  }
+  options.abortKey = options.abortKey || autoAbortKey;
 
   // Lifecycle config
   const configEvent = dispatch(
@@ -250,7 +270,7 @@ async function executeFetch(
     if (result.error) {
       if (result.error.status === 'CANCELED') {
         dispatch(el, 'rz:fetch:abort');
-        return; 
+        return;
       }
       throw result.error;
     }
@@ -292,8 +312,7 @@ async function executeFetch(
         () => executeFetch(el, loadingClass, options, pollInterval),
         pollInterval,
       );
-      // Preserve any existing debounce timers for this element
-      timers.set(el, { ...(timers.get(el) || {}), poll: timer });
+      updateTimer(el, 'poll', timer);
     }
   }
 }
