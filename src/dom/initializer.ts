@@ -1,15 +1,15 @@
 import { registry } from '../core/registry';
 import { processWake } from '../directives';
 import { getDirective, hasDirective, selector } from '../directives/prefix';
-import { unmountInstance } from '../dom/controller';
-import { isElement } from './utils';
+import { mountInstance, unmountInstance } from '../dom/controller';
+import { isElement, resolvePayload, splitInjection } from './utils';
 
 // Initialize element
 export function initElement(el: HTMLElement, defaultWake: string) {
-  const rawName = getDirective(el, 'use');
-  if (!rawName) return;
+  const raw = getDirective(el, 'use');
+  if (!raw) return;
 
-  const name = rawName.trim();
+  const { key: name, rawPayload } = splitInjection(raw);
 
   const setup = registry[name];
   if (!setup) {
@@ -17,7 +17,11 @@ export function initElement(el: HTMLElement, defaultWake: string) {
     return;
   }
 
-  processWake(el, setup, defaultWake);
+  processWake(el, defaultWake, () => {
+    // Lazy JSON parse
+    const props = resolvePayload(rawPayload) || {};
+    mountInstance(el, setup, props);
+  });
 }
 
 // Watch for elements with controller (rz-use) attribute

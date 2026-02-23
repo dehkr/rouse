@@ -1,5 +1,4 @@
 import { bus } from '../core/bus';
-import { getProps } from '../directives/rz-props';
 import { request } from '../net/request';
 import { effectScope } from '../reactivity';
 import type { SetupContext, SetupFn } from '../types';
@@ -9,9 +8,13 @@ import { dispatch } from './utils';
 const instanceMap = new WeakMap<HTMLElement, any>();
 
 // Initializes a controller on a specific element
-export function mountInstance(el: HTMLElement, setup: SetupFn) {
+export function mountInstance(
+  el: HTMLElement,
+  setup: SetupFn,
+  props: Record<string, any> = {},
+) {
   if (instanceMap.has(el)) return;
-  instanceMap.set(el, createController(el, setup));
+  instanceMap.set(el, createController(el, setup, props));
 }
 
 export function unmountInstance(el: HTMLElement) {
@@ -35,7 +38,11 @@ export function controller<P extends Record<string, any> = Record<string, any>>(
 /**
  * Factory to create and manage a controller instance.
  */
-export function createController(el: HTMLElement, setup: SetupFn) {
+export function createController(
+  el: HTMLElement,
+  setup: SetupFn,
+  props: Record<string, any> = {},
+) {
   let isUnmounted = false;
   const cleanups: (() => void)[] = [];
 
@@ -53,7 +60,7 @@ export function createController(el: HTMLElement, setup: SetupFn) {
 
   const context: SetupContext = {
     el,
-    props: getProps(el),
+    props,
     request: (url, opts) => request(url, opts),
     dispatch: (evt, detail, opts) => dispatch(el, evt, detail, opts),
     bus: {

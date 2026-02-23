@@ -5,7 +5,6 @@ import { applyHtml, SLUG as HTML_SLUG } from './rz-html';
 import { SLUG as INSERT_SLUG } from './rz-insert';
 import { applyModel, SLUG as MODEL_SLUG } from './rz-model';
 import { applyOn, SLUG as ON_SLUG } from './rz-on';
-import { SLUG as PROPS_SLUG } from './rz-props';
 import { SLUG as PUBLISH_SLUG } from './rz-publish';
 import { applyText, SLUG as TEXT_SLUG } from './rz-text';
 import { SLUG as TUNE_SLUG } from './rz-tune';
@@ -24,7 +23,6 @@ export type DomDirectiveSlug =
 export type ConfigDirectiveSlug =
   | typeof FETCH_SLUG
   | typeof INSERT_SLUG
-  | typeof PROPS_SLUG
   | typeof PUBLISH_SLUG
   | typeof TUNE_SLUG
   | typeof USE_SLUG
@@ -63,7 +61,6 @@ export { applyHtml } from './rz-html';
 export { getInsertConfig } from './rz-insert';
 export { applyModel } from './rz-model';
 export { applyOn } from './rz-on';
-export { getProps } from './rz-props';
 export { applyText } from './rz-text';
 export { getTuningStrategy } from './rz-tune';
 export { getControllerName } from './rz-use';

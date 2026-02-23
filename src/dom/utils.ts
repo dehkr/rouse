@@ -32,7 +32,7 @@ export function dispatch(
 }
 
 /**
- * Handles injecting HTML partials into document
+ * Handles inserting HTML partials into document
  */
 export function insert(target: HTMLElement, content: string, method: InsertMethod) {
   switch (method) {
@@ -130,19 +130,30 @@ export function splitInjection(raw: string): {
 }
 
 /**
+ * Validates that the parsed result is strictly a plain object.
+ */
+function validateObject(parsed: unknown): Record<string, any> | undefined {
+  if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+    return parsed as Record<string, any>;
+  }
+  console.warn(`[Rouse] Payload must be a JSON object. Received:`, parsed);
+  return undefined;
+}
+
+/**
  * Resolves a payload string into a JavaScript value.
  * Uses heuristics to determine if the payload is inline JSON or a DOM ID.
  */
-export function resolvePayload(input: string | undefined | null): unknown {
+export function resolvePayload(input: string | undefined | null): Record<string, any> | undefined {
   const value = input?.trim();
   if (!value) return undefined;
 
-  // Quick check for inline JSON object/array
-  if (/^[{\[]/.test(value)) {
+  // Quick check for inline JSON object
+  if (value.startsWith('{')) {
     try {
-      return safeJSONParse(value);
+      return validateObject(safeJSONParse(value));
     } catch (e) {
-      console.warn(`[Rouse] Invalid inline JSON:`, e);
+      console.warn(`[Rouse] Invalid inline JSON.`, e);
       return undefined;
     }
   }
@@ -154,21 +165,16 @@ export function resolvePayload(input: string | undefined | null): unknown {
       const content = el.textContent?.trim();
       if (!content) return {};
       try {
-        return safeJSONParse(content);
+        return validateObject(safeJSONParse(content));
       } catch (e) {
-        console.warn(`[Rouse] Invalid JSON in #${value}:`, e);
+        console.warn(`[Rouse] Invalid JSON in #${value}.`, e);
         return undefined;
       }
     }
-    console.warn(`[Rouse] #${value} must be <script type="application/json">`);
+    console.warn(`[Rouse] #${value} must be <script type="application/json">.`);
     return undefined;
   }
 
-  // Try parsing whatever is left
-  try {
-    return safeJSONParse(value);
-  } catch (e) {
-    console.warn(`[Rouse] Payload "${value}" is not valid JSON or a valid element ID.`);
-    return undefined;
-  }
+  console.warn(`[Rouse] "${value}" is not a valid JSON object or element ID.`);
+  return undefined;
 }
