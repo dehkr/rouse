@@ -100,36 +100,75 @@ export function setNestedVal(obj: any, path: string | undefined, value: any): vo
 }
 
 /**
- * Safely parses JSON from a string or a DOM element reference.
- *
- * @param input - JSON string or id of script element containing JSON (e.g. "#app-data")
+ * Parse JSON with recursive check that blocks prototype pollution keys.
  */
-export function safeParse(input: string | undefined | null): any {
-  if (!input) return {};
+function safeJSONParse(text: string): unknown {
+  return JSON.parse(text, (key, value) => {
+    if (KEY_BLOCKLIST.has(key)) {
+      console.warn(`[Rouse] Blocked forbidden key in JSON: "${key}".`);
+      return undefined;
+    }
+    return value;
+  });
+}
 
-  const value = input.trim();
-  if (!value) return {};
+/**
+ * Splits a JSON injection string into its key and raw payload components.
+ */
+export function splitInjection(raw: string): {
+  key: string;
+  rawPayload: string | undefined;
+} {
+  const i = raw.indexOf('#');
+  if (i === -1) {
+    return { key: raw.trim(), rawPayload: undefined };
+  }
+  return {
+    key: raw.slice(0, i).trim(),
+    rawPayload: raw.slice(i + 1).trim(),
+  };
+}
 
-  if (value.startsWith('#')) {
+/**
+ * Resolves a payload string into a JavaScript value.
+ * Uses heuristics to determine if the payload is inline JSON or a DOM ID.
+ */
+export function resolvePayload(input: string | undefined | null): unknown {
+  const value = input?.trim();
+  if (!value) return undefined;
+
+  // Quick check for inline JSON object/array
+  if (/^[{\[]/.test(value)) {
     try {
-      const el = document.querySelector(value);
-      if (el) {
-        const jsonContent = (el.textContent || '').trim();
-        return jsonContent ? JSON.parse(jsonContent) : {};
-      } else {
-        console.warn(`[Rouse] Config element not found: "${value}"`);
-        return {};
-      }
+      return safeJSONParse(value);
     } catch (e) {
-      console.warn(`[Rouse] Error parsing config from "${value}":`, e);
-      return {};
+      console.warn(`[Rouse] Invalid inline JSON:`, e);
+      return undefined;
     }
   }
 
+  // Check if it's a script ID
+  const el = document.getElementById(value);
+  if (el) {
+    if (el instanceof HTMLScriptElement && el.type === 'application/json') {
+      const content = el.textContent?.trim();
+      if (!content) return {};
+      try {
+        return safeJSONParse(content);
+      } catch (e) {
+        console.warn(`[Rouse] Invalid JSON in #${value}:`, e);
+        return undefined;
+      }
+    }
+    console.warn(`[Rouse] #${value} must be <script type="application/json">`);
+    return undefined;
+  }
+
+  // Try parsing whatever is left
   try {
-    return JSON.parse(value);
+    return safeJSONParse(value);
   } catch (e) {
-    console.warn(`[Rouse] Failed to parse JSON attribute:`, e);
-    return {};
+    console.warn(`[Rouse] Payload "${value}" is not valid JSON or a valid element ID.`);
+    return undefined;
   }
 }
