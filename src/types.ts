@@ -1,3 +1,5 @@
+import type { StoreManager } from './core/store';
+
 export type BindableValue =
   | string
   | string[]
@@ -44,37 +46,6 @@ export interface RequestResult<T = any> {
   response: Response | null;
 }
 
-/** Check if error is a custom status (not HTTP) */
-export function isCustomError(
-  error: RequestError,
-): error is RequestError & { status: CustomErrorStatus } {
-  return typeof error.status === 'string';
-}
-
-/** Check if error is an HTTP status code */
-export function isHttpError(
-  error: RequestError,
-): error is RequestError & { status: number } {
-  return typeof error.status === 'number';
-}
-
-/** Check for specific custom error */
-export function isErrorStatus<T extends CustomErrorStatus>(
-  error: RequestError,
-  status: T,
-): error is RequestError & { status: T } {
-  return error.status === status;
-}
-
-/** Check if HTTP status is in range */
-export function isHttpStatusInRange(
-  error: RequestError,
-  min: number,
-  max: number,
-): error is RequestError & { status: number } {
-  return typeof error.status === 'number' && error.status >= min && error.status <= max;
-}
-
 export interface RouseReqOpts extends Omit<RequestInit, 'body'> {
   body?: BodyInit | Record<string, any> | any[] | null | undefined;
   triggerEl?: HTMLElement;
@@ -110,6 +81,7 @@ export type SetupContext<P extends Record<string, any> = Record<string, any>> = 
     subscribe: (event: string, cb: BusCallback) => void;
     unsubscribe: (event: string, cb: BusCallback) => void;
   };
+  stores: StoreManager;
 };
 
 /**

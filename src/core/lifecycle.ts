@@ -1,9 +1,9 @@
-import { getTuningStrategy } from '../directives';
+import { getTuningStrategy, handleFetch } from '../directives';
 import { configureDirectivePrefix, hasDirective, selector } from '../directives/prefix';
-import { handleFetch } from '../directives/rz-fetch';
-import { initElement, initObserver } from '../dom/initializer';
+import { initControllerElement, initObserver } from '../dom/initializer';
 import { configureClient } from '../net/config';
 import type { NetworkInterceptors } from '../types';
+import { coreStore } from './store';
 
 export const defaultConfig = {
   loadingClass: 'rz-loading',
@@ -51,6 +51,12 @@ export function start(config: RouseConfig = {}) {
     console.warn('[Rouse] Root element not found:', root);
     return;
   }
+
+  // Initialize global stores from <script rz-store="...">
+  const storeScripts = document.querySelectorAll<HTMLScriptElement>(
+    `script${selector('store')}`,
+  );
+  storeScripts.forEach((script) => coreStore.initScript(script));
 
   // Attach global fetch handling event listeners
   const handleGlobalFetch = (e: Event) => {
@@ -121,12 +127,12 @@ export function start(config: RouseConfig = {}) {
 
   // Initial scan
   if (hasDirective(rootEl, 'use')) {
-    initElement(rootEl, wake);
+    initControllerElement(rootEl, wake);
   }
 
   const controllers = rootEl.querySelectorAll<HTMLElement>(selector('use'));
   controllers.forEach((el) => {
-    initElement(el, wake);
+    initControllerElement(el, wake);
   });
 
   // Initial scan for auto-fetching elements and custom triggers

@@ -1,4 +1,5 @@
 import type { RouseController } from '../types';
+import { SLUG as AUTOSYNC_SLUG } from './rz-autosync';
 import { applyBind, SLUG as BIND_SLUG } from './rz-bind';
 import { SLUG as FETCH_SLUG } from './rz-fetch';
 import { applyHtml, SLUG as HTML_SLUG } from './rz-html';
@@ -6,6 +7,8 @@ import { SLUG as INSERT_SLUG } from './rz-insert';
 import { applyModel, SLUG as MODEL_SLUG } from './rz-model';
 import { applyOn, SLUG as ON_SLUG } from './rz-on';
 import { SLUG as PUBLISH_SLUG } from './rz-publish';
+import { SLUG as REFETCH_SLUG } from './rz-refetch';
+import { SLUG as STORE_SLUG } from './rz-store';
 import { applyText, SLUG as TEXT_SLUG } from './rz-text';
 import { SLUG as TUNE_SLUG } from './rz-tune';
 import { SLUG as USE_SLUG } from './rz-use';
@@ -21,9 +24,12 @@ export type DomDirectiveSlug =
 
 // Directive types used mainly for config
 export type ConfigDirectiveSlug =
+  | typeof AUTOSYNC_SLUG
   | typeof FETCH_SLUG
   | typeof INSERT_SLUG
   | typeof PUBLISH_SLUG
+  | typeof REFETCH_SLUG
+  | typeof STORE_SLUG
   | typeof TUNE_SLUG
   | typeof USE_SLUG
   | typeof WAKE_SLUG;
@@ -55,12 +61,16 @@ export const DOM_DIRECTIVES: Record<DomDirectiveSlug, DirectiveDef> = {
   [MODEL_SLUG]: { multi: false, apply: applyModel },
 };
 
+export { applyAutosync } from './rz-autosync';
 export { applyBind } from './rz-bind';
 export { handleFetch } from './rz-fetch';
 export { applyHtml } from './rz-html';
 export { getInsertConfig } from './rz-insert';
 export { applyModel } from './rz-model';
 export { applyOn } from './rz-on';
+export { getPublishTopic } from './rz-publish';
+export { applyRefetch } from './rz-refetch';
+export { getStoreName } from './rz-store';
 export { applyText } from './rz-text';
 export { getTuningStrategy } from './rz-tune';
 export { getControllerName } from './rz-use';

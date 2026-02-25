@@ -1,4 +1,5 @@
 import { bus } from '../core/bus';
+import { stores } from '../core/store';
 import { request } from '../net/request';
 import { effectScope } from '../reactivity';
 import type { SetupContext, SetupFn } from '../types';
@@ -71,6 +72,7 @@ export function createController(
       },
       unsubscribe: (event, cb) => bus.unsubscribe(event, cb),
     },
+    stores,
   };
 
   // Setup effect scope

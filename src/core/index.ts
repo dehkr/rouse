@@ -4,13 +4,13 @@ import { effect, reactive } from '../reactivity';
 import { bus } from './bus';
 import { start } from './lifecycle';
 import { register } from './registry';
-import { createStore } from './store';
+import { store } from './store';
 
 export const Rouse = {
   controller,
   reactive,
   effect,
-  createStore,
+  store,
   dispatch,
   bus,
   register,
