@@ -1,6 +1,6 @@
 import { registry } from '../core/registry';
 import { coreStore } from '../core/store';
-import { attachAutosave, attachRefresh, processWake } from '../directives';
+import { attachAutosave, attachRefresh, cleanupFetch, processWake } from '../directives';
 import { getDirective, hasDirective, selector } from '../directives/prefix';
 import { mountInstance, unmountInstance } from '../dom/controller';
 import { isElement, resolvePayload, splitInjection } from './utils';
@@ -8,10 +8,10 @@ import { isElement, resolvePayload, splitInjection } from './utils';
 const storeCleanups = new WeakMap<HTMLScriptElement, Array<() => void>>();
 
 /**
- * Initializes a controller element by parsing its directive, resolving its 
+ * Initializes a controller element by parsing its directive, resolving its
  * setup function from the registry, and mounting the reactive instance.
  * Honors the specified `wake` strategy before executing the mount.
- * 
+ *
  * @param el - The DOM element containing the `rz-use` directive.
  * @param defaultWake - The fallback wake strategy if the element doesn't specify one.
  */
@@ -35,10 +35,10 @@ export function initControllerElement(el: HTMLElement, defaultWake: string) {
 }
 
 /**
- * Bootstraps a global reactive store from a `<script>` tag. 
- * Initializes the reactive data registry and attaches any declared 
+ * Bootstraps a global reactive store from a `<script>` tag.
+ * Initializes the reactive data registry and attaches any declared
  * networking behaviors (`rz-autosave`, `rz-refresh`).
- * 
+ *
  * @param script - The `<script>` element containing the JSON state and directives.
  */
 function initStoreElement(script: HTMLScriptElement) {
@@ -63,7 +63,10 @@ function initStoreElement(script: HTMLScriptElement) {
 }
 
 /**
- * Cleanup script elements when removed from the DOM
+ * Safely tears down side-effects associated with a removed store `<script>`.
+ * Note: This does not delete the store's data from the global registry.
+ * 
+ * @param script - The `<script>` element that was removed from the DOM.
  */
 function cleanupStoreElement(script: HTMLScriptElement) {
   const cleanups = storeCleanups.get(script);
@@ -74,15 +77,20 @@ function cleanupStoreElement(script: HTMLScriptElement) {
 }
 
 /**
- * Watches for new controller (rz-use) and store (rz-store) elements
+ * Creates and returns a MutationObserver that watches for new controller (rz-use)
+ * and store (rz-store) `<script>` elements. Also handles cleanup for rz-fetch polling
+ * timers.
+ * 
+ * @param wake - The framework-level default wake strategy.
+ * @returns A configured, unstarted MutationObserver instance.
  */
 export function initObserver(wake: string) {
   const sel = selector('use');
   const storeSel = `script${selector('store')}`;
+  const fetchSel = selector('fetch');
 
   return new MutationObserver((mutations) => {
     mutations.forEach((m) => {
-
       // Added
       m.addedNodes.forEach((node) => {
         if (isElement(node)) {
@@ -116,6 +124,12 @@ export function initObserver(wake: string) {
             unmountInstance(node);
           }
           node.querySelectorAll<HTMLElement>(sel).forEach(unmountInstance);
+
+          // Actively garbage collect fetch polling timers
+          if (hasDirective(node, 'fetch')) {
+            cleanupFetch(node);
+          }
+          node.querySelectorAll<HTMLElement>(fetchSel).forEach(cleanupFetch);
         }
       });
     });

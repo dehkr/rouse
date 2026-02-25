@@ -63,7 +63,7 @@ export const DOM_DIRECTIVES: Record<DomDirectiveSlug, DirectiveDef> = {
 
 export { attachAutosave } from './rz-autosave';
 export { applyBind } from './rz-bind';
-export { handleFetch } from './rz-fetch';
+export { cleanupFetch, handleFetch } from './rz-fetch';
 export { applyHtml } from './rz-html';
 export { getInsertConfig } from './rz-insert';
 export { applyModel } from './rz-model';

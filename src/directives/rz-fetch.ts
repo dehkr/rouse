@@ -15,6 +15,7 @@ type TimerState = {
   throttle?: any;
   poll?: any;
   abortKey?: string;
+  destroyed?: boolean;
 };
 
 const timers = new WeakMap<HTMLElement, TimerState>();
@@ -29,6 +30,21 @@ function clearTimer(el: HTMLElement, key: 'debounce' | 'throttle' | 'poll') {
   if (current && current[key]) {
     clearTimeout(current[key]);
     updateTimer(el, key, undefined);
+  }
+}
+
+/**
+ * Explicit timer cleanup handled by global MutationObserver
+ */
+export function cleanupFetch(el: HTMLElement) {
+  clearTimer(el, 'poll');
+  clearTimer(el, 'debounce');
+  clearTimer(el, 'throttle');
+
+  // Mark as destroyed to prevent callbacks from rescheduling
+  const current = timers.get(el);
+  if (current) {
+    timers.set(el, { ...current, destroyed: true });
   }
 }
 
@@ -141,18 +157,22 @@ async function executeFetch(
   options: RouseReqOpts,
   pollInterval: number,
 ) {
-  // Clean up timers map to prevent memory leaks
+  // Check destroyed flag and bail out if marked for cleanup
+  const state = timers.get(el);
+  if (state?.destroyed) {
+    return;
+  }
+
+  // Circuit breaker for edge cases where the element is removed while the
+  // network request is actively in the air
   if (!document.body.contains(el)) {
-    clearTimer(el, 'poll');
-    clearTimer(el, 'debounce');
-    clearTimer(el, 'throttle');
-    timers.delete(el);
+    cleanupFetch(el);
     return;
   }
 
   // Allow pausing execution while keeping polling scheduled
   if (el.hasAttribute('disabled') || el.getAttribute('aria-disabled') === 'true') {
-    if (pollInterval > 0) {
+    if (pollInterval > 0 && !state?.destroyed) {
       const timer = setTimeout(
         () => executeFetch(el, loadingClass, options, pollInterval),
         pollInterval,
@@ -306,8 +326,11 @@ async function executeFetch(
     el.setAttribute('aria-busy', 'false');
     dispatch(el, 'rz:fetch:end');
 
+    // Check destroyed flag before scheduling next poll
+    const state = timers.get(el);
+
     // Poll timers should continue even if request aborted or after network errors
-    if (pollInterval > 0) {
+    if (pollInterval > 0 && !state?.destroyed) {
       const timer = setTimeout(
         () => executeFetch(el, loadingClass, options, pollInterval),
         pollInterval,
