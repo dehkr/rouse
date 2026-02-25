@@ -1,6 +1,6 @@
 import { registry } from '../core/registry';
 import { coreStore } from '../core/store';
-import { applyAutosync, applyRefetch, processWake } from '../directives';
+import { attachAutosave, attachRefresh, processWake } from '../directives';
 import { getDirective, hasDirective, selector } from '../directives/prefix';
 import { mountInstance, unmountInstance } from '../dom/controller';
 import { isElement, resolvePayload, splitInjection } from './utils';
@@ -37,7 +37,7 @@ export function initControllerElement(el: HTMLElement, defaultWake: string) {
 /**
  * Bootstraps a global reactive store from a `<script>` tag. 
  * Initializes the reactive data registry and attaches any declared 
- * networking behaviors (`rz-autosync`, `rz-refetch`).
+ * networking behaviors (`rz-autosave`, `rz-refresh`).
  * 
  * @param script - The `<script>` element containing the JSON state and directives.
  */
@@ -49,14 +49,14 @@ function initStoreElement(script: HTMLScriptElement) {
   const cleanups: Array<() => void> = [];
 
   // Attach behaviors and save their cleanup functions
-  const autoCleanup = applyAutosync(script);
+  const autoCleanup = attachAutosave(script);
   if (autoCleanup) {
     cleanups.push(autoCleanup);
   }
 
-  const refetchCleanup = applyRefetch(script);
-  if (refetchCleanup) {
-    cleanups.push(refetchCleanup);
+  const refreshCleanup = attachRefresh(script);
+  if (refreshCleanup) {
+    cleanups.push(refreshCleanup);
   }
 
   storeCleanups.set(script, cleanups);

@@ -2,9 +2,9 @@ import { coreStore } from '../core/store';
 import { parseDirective } from '../dom/parser';
 import { getDirective } from './prefix';
 
-export const SLUG = 'refetch' as const;
+export const SLUG = 'refresh' as const;
 
-export function applyRefetch(el: HTMLScriptElement) {
+export function attachRefresh(el: HTMLScriptElement) {
   const storeName = getDirective(el, 'store');
   const raw = getDirective(el, SLUG);
 
@@ -27,33 +27,33 @@ export function applyRefetch(el: HTMLScriptElement) {
     }
   }
 
-  const triggerPull = () => {
-    // Only pull if we aren't already actively syncing/loading
+  const triggerRefresh = () => {
+    // Only refresh if we aren't already actively saving/loading
     if (!coreStore._status.get(storeName)?.loading) {
-      coreStore.pull(storeName, { url, method });
+      coreStore.refresh(storeName, { url, method });
     }
   };
 
   if (focus) {
-    window.addEventListener('focus', triggerPull);
+    window.addEventListener('focus', triggerRefresh);
   }
 
   if (reconnect) {
-    window.addEventListener('online', triggerPull);
+    window.addEventListener('online', triggerRefresh);
   }
 
   let timer: number | undefined;
   if (interval > 0) {
-    timer = window.setInterval(triggerPull, interval);
+    timer = window.setInterval(triggerRefresh, interval);
   }
 
   // Return the cleanup function
   return () => {
     if (focus) {
-      window.removeEventListener('focus', triggerPull);
+      window.removeEventListener('focus', triggerRefresh);
     }
     if (reconnect) {
-      window.removeEventListener('online', triggerPull);
+      window.removeEventListener('online', triggerRefresh);
     }
     if (timer) {
       clearInterval(timer);

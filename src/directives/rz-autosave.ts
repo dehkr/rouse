@@ -3,9 +3,9 @@ import { parseDirective } from '../dom/parser';
 import { effect } from '../reactivity';
 import { getDirective } from './prefix';
 
-export const SLUG = 'autosync' as const;
+export const SLUG = 'autosave' as const;
 
-export function applyAutosync(el: HTMLScriptElement) {
+export function attachAutosave(el: HTMLScriptElement) {
   const storeName = getDirective(el, 'store');
   const raw = getDirective(el, SLUG);
 
@@ -43,7 +43,7 @@ export function applyAutosync(el: HTMLScriptElement) {
 
     clearTimeout(timeout);
     timeout = window.setTimeout(() => {
-      coreStore.sync(storeName, { url, method });
+      coreStore.save(storeName, { url, method });
     }, debounce);
   });
 

@@ -18,8 +18,8 @@ export interface StoreManager {
   snapshot: <T = any>(name: string) => T | undefined;
   has: (name: string) => boolean;
   status: (name: string) => StoreStatus | undefined;
-  sync: (name: string, config?: { url: string; method?: string }) => Promise<void>;
-  pull: (name: string, config?: { url: string; method?: string }) => Promise<void>;
+  save: (name: string, config?: { url: string; method?: string }) => Promise<void>;
+  refresh: (name: string, config?: { url: string; method?: string }) => Promise<void>;
   reset: (name: string) => void;
   remove: (name: string) => void;
 }
@@ -45,7 +45,7 @@ function clone<T>(obj: T): T {
 }
 
 /**
- * The central registry for all reactive stores and their sync logic.
+ * The central registry for all reactive stores and their save logic.
  */
 export const coreStore = {
   _data: new Map<string, any>(),
@@ -86,11 +86,11 @@ export const coreStore = {
   },
 
   /**
-   * Internal unified request handler for sync and pull operations.
+   * Internal unified request handler for save and refresh operations.
    */
   async _request(
     id: string,
-    operation: 'sync' | 'pull',
+    operation: 'save' | 'refresh',
     manualConfig?: { url: string; method?: string },
   ) {
     const store = this._getStore(id);
@@ -98,7 +98,7 @@ export const coreStore = {
 
     const { data, status, config } = store;
     const url = manualConfig?.url || config?.url;
-    const defaultMethod = operation === 'sync' ? 'POST' : 'GET';
+    const defaultMethod = operation === 'save' ? 'POST' : 'GET';
     const method = manualConfig?.method || config?.method || defaultMethod;
 
     if (!url) {
@@ -110,14 +110,14 @@ export const coreStore = {
     const reqToken = Symbol();
     this._activeReqs.set(id, reqToken);
 
-    const snapshot = operation === 'sync' ? clone(data) : null;
+    const snapshot = operation === 'save' ? clone(data) : null;
     status.loading = true;
     status.error = null;
 
     try {
       const result = await request(url, {
         method,
-        ...(operation === 'sync' && { body: data }),
+        ...(operation === 'save' && { body: data }),
         abortKey: `${operation}_${id}`,
       });
 
@@ -131,13 +131,13 @@ export const coreStore = {
       if (result.data && typeof result.data === 'object') {
         replaceState(data, result.data);
 
-        if (operation === 'pull') {
+        if (operation === 'refresh') {
           this._initial.set(id, clone(result.data));
         }
       }
       status.lastSync = Date.now();
     } catch (error: any) {
-      if (operation === 'sync' && snapshot) {
+      if (operation === 'save' && snapshot) {
         replaceState(data, snapshot);
       }
       status.error = error.message || `${operation} failed`;
@@ -187,12 +187,12 @@ export const coreStore = {
     }
   },
 
-  async sync(id: string, manualConfig?: { url: string; method?: string }) {
-    return this._request(id, 'sync', manualConfig);
+  async save(id: string, manualConfig?: { url: string; method?: string }) {
+    return this._request(id, 'save', manualConfig);
   },
 
-  async pull(id: string, manualConfig?: { url: string; method?: string }) {
-    return this._request(id, 'pull', manualConfig);
+  async refresh(id: string, manualConfig?: { url: string; method?: string }) {
+    return this._request(id, 'refresh', manualConfig);
   },
 
   reset(id: string) {
@@ -222,7 +222,7 @@ export const coreStore = {
 };
 
 /**
- * Public API to programmatically define a global store with an optional sync config.
+ * Public API to programmatically define a global store with an optional save config.
  */
 export function store<T extends object>(
   name: string,
@@ -249,11 +249,11 @@ export const stores: StoreManager = {
   status(name: string): StoreStatus | undefined {
     return coreStore._status.get(name);
   },
-  sync(name: string, config?: { url: string; method?: string }): Promise<void> {
-    return coreStore.sync(name, config);
+  save(name: string, config?: { url: string; method?: string }): Promise<void> {
+    return coreStore.save(name, config);
   },
-  pull(name: string, config?: { url: string; method?: string }): Promise<void> {
-    return coreStore.pull(name, config);
+  refresh(name: string, config?: { url: string; method?: string }): Promise<void> {
+    return coreStore.refresh(name, config);
   },
   reset(name: string) {
     coreStore.reset(name);

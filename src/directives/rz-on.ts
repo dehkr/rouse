@@ -3,7 +3,7 @@ import type { RouseController } from '../types';
 
 export const SLUG = 'on' as const;
 
-export function applyOn(
+export function attachOn(
   el: HTMLElement,
   instance: RouseController,
   evtName: string,

@@ -1,13 +1,13 @@
 import type { RouseController } from '../types';
-import { SLUG as AUTOSYNC_SLUG } from './rz-autosync';
+import { SLUG as AUTOSAVE_SLUG } from './rz-autosave';
 import { applyBind, SLUG as BIND_SLUG } from './rz-bind';
 import { SLUG as FETCH_SLUG } from './rz-fetch';
 import { applyHtml, SLUG as HTML_SLUG } from './rz-html';
 import { SLUG as INSERT_SLUG } from './rz-insert';
 import { applyModel, SLUG as MODEL_SLUG } from './rz-model';
-import { applyOn, SLUG as ON_SLUG } from './rz-on';
+import { attachOn, SLUG as ON_SLUG } from './rz-on';
 import { SLUG as PUBLISH_SLUG } from './rz-publish';
-import { SLUG as REFETCH_SLUG } from './rz-refetch';
+import { SLUG as REFRESH_SLUG } from './rz-refresh';
 import { SLUG as STORE_SLUG } from './rz-store';
 import { applyText, SLUG as TEXT_SLUG } from './rz-text';
 import { SLUG as TUNE_SLUG } from './rz-tune';
@@ -24,11 +24,11 @@ export type DomDirectiveSlug =
 
 // Directive types used mainly for config
 export type ConfigDirectiveSlug =
-  | typeof AUTOSYNC_SLUG
+  | typeof AUTOSAVE_SLUG
   | typeof FETCH_SLUG
   | typeof INSERT_SLUG
   | typeof PUBLISH_SLUG
-  | typeof REFETCH_SLUG
+  | typeof REFRESH_SLUG
   | typeof STORE_SLUG
   | typeof TUNE_SLUG
   | typeof USE_SLUG
@@ -55,21 +55,21 @@ export type DirectiveDef = SimpleDirective | MultiDirective;
  */
 export const DOM_DIRECTIVES: Record<DomDirectiveSlug, DirectiveDef> = {
   [BIND_SLUG]: { multi: true, apply: applyBind },
-  [ON_SLUG]: { multi: true, apply: applyOn },
+  [ON_SLUG]: { multi: true, apply: attachOn },
   [TEXT_SLUG]: { multi: false, apply: applyText },
   [HTML_SLUG]: { multi: false, apply: applyHtml },
   [MODEL_SLUG]: { multi: false, apply: applyModel },
 };
 
-export { applyAutosync } from './rz-autosync';
+export { attachAutosave } from './rz-autosave';
 export { applyBind } from './rz-bind';
 export { handleFetch } from './rz-fetch';
 export { applyHtml } from './rz-html';
 export { getInsertConfig } from './rz-insert';
 export { applyModel } from './rz-model';
-export { applyOn } from './rz-on';
+export { attachOn } from './rz-on';
 export { getPublishTopic } from './rz-publish';
-export { applyRefetch } from './rz-refetch';
+export { attachRefresh } from './rz-refresh';
 export { getStoreName } from './rz-store';
 export { applyText } from './rz-text';
 export { getTuningStrategy } from './rz-tune';
