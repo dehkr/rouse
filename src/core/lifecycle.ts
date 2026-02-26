@@ -1,9 +1,12 @@
 import { getTuningStrategy, handleFetch } from '../directives';
 import { configureDirectivePrefix, hasDirective, selector } from '../directives/prefix';
-import { initControllerElement, initObserver } from '../dom/initializer';
+import {
+  initControllerElement,
+  initObserver,
+  initStoreElement,
+} from '../dom/initializer';
 import { configureClient } from '../net/config';
 import type { NetworkInterceptors } from '../types';
-import { coreStore } from './store';
 
 export const defaultConfig = {
   loadingClass: 'rz-loading',
@@ -56,7 +59,9 @@ export function start(config: RouseConfig = {}) {
   const storeScripts = document.querySelectorAll<HTMLScriptElement>(
     `script${selector('store')}`,
   );
-  storeScripts.forEach((script) => coreStore.initScript(script));
+  storeScripts.forEach((script) => {
+    initStoreElement(script);
+  });
 
   // Attach global fetch handling event listeners
   const handleGlobalFetch = (e: Event) => {

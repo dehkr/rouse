@@ -41,7 +41,7 @@ export function initControllerElement(el: HTMLElement, defaultWake: string) {
  *
  * @param script - The `<script>` element containing the JSON state and directives.
  */
-function initStoreElement(script: HTMLScriptElement) {
+export function initStoreElement(script: HTMLScriptElement) {
   if (storeCleanups.has(script)) return;
 
   coreStore.initScript(script);
@@ -68,7 +68,7 @@ function initStoreElement(script: HTMLScriptElement) {
  * 
  * @param script - The `<script>` element that was removed from the DOM.
  */
-function cleanupStoreElement(script: HTMLScriptElement) {
+export function cleanupStoreElement(script: HTMLScriptElement) {
   const cleanups = storeCleanups.get(script);
   if (cleanups) {
     cleanups.forEach((cleanup) => cleanup());

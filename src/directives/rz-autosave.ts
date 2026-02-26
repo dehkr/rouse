@@ -25,6 +25,11 @@ export function attachAutosave(el: HTMLScriptElement) {
     }
   }
 
+  // Register the URL globally
+  if (url) {
+    coreStore._setConfig(storeName, { url, saveMethod: method });
+  }
+
   let timeout: number;
   let isInitial = true;
 
@@ -43,14 +48,14 @@ export function attachAutosave(el: HTMLScriptElement) {
 
     clearTimeout(timeout);
     timeout = window.setTimeout(() => {
-      coreStore.save(storeName, { url, method });
+      coreStore.save(storeName, url ? { url, method } : undefined);
     }, debounce);
   });
 
   return () => {
     clearTimeout(timeout);
     if (typeof stopEffect === 'function') {
-      stopEffect(); // Stop the watcher if supported
+      stopEffect();
     }
   };
 }

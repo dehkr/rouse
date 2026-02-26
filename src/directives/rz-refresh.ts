@@ -27,10 +27,15 @@ export function attachRefresh(el: HTMLScriptElement) {
     }
   }
 
+  // Register the URL globally
+  if (url) {
+    coreStore._setConfig(storeName, { url, refreshMethod: method });
+  }
+
   const triggerRefresh = () => {
     // Only refresh if we aren't already actively saving/loading
     if (!coreStore._status.get(storeName)?.loading) {
-      coreStore.refresh(storeName, { url, method });
+      coreStore.refresh(storeName, url ? { url, method } : undefined);
     }
   };
 
