@@ -1,7 +1,17 @@
 import type { SetupFn } from '../types';
 
-export const registry: Record<string, SetupFn> = {};
+export class Registry {
+  private controllers = new Map<string, SetupFn<any>>();
 
-export function register(name: string, setup: SetupFn<any>) {
-  registry[name] = setup;
+  register(name: string, setup: SetupFn<any>) {
+    this.controllers.set(name, setup);
+  }
+
+  get(name: string): SetupFn<any> | undefined {
+    return this.controllers.get(name);
+  }
+
+  has(name: string): boolean {
+    return this.controllers.has(name);
+  }
 }

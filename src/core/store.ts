@@ -14,17 +14,6 @@ export interface SyncConfig {
   refreshMethod?: string;
 }
 
-export interface StoreManager {
-  get: <T = any>(name: string) => T | undefined;
-  snapshot: <T = any>(name: string) => T | undefined;
-  has: (name: string) => boolean;
-  status: (name: string) => StoreStatus | undefined;
-  save: (name: string, config?: { url: string; method?: string }) => Promise<void>;
-  refresh: (name: string, config?: { url: string; method?: string }) => Promise<void>;
-  reset: (name: string) => void;
-  remove: (name: string) => void;
-}
-
 /**
  * A highly optimized deep cloner that enforces serializable state and
  * protects against circular reference stack overflows.
@@ -34,7 +23,7 @@ function clone<T>(obj: T, seen = new WeakMap()): T {
     return obj;
   }
 
-  // Prevent circular reference stack overflow
+  // Circular reference protection
   if (seen.has(obj as any)) {
     return seen.get(obj as any);
   }
@@ -68,7 +57,6 @@ function clone<T>(obj: T, seen = new WeakMap()): T {
 
 /**
  * Performant deep equality check with circular reference protection.
- * Optimized for O(N) traversal and avoids array allocations.
  * Ignores non-serializable properties (functions/undefined) to align with clone().
  */
 function deepEqual(a: any, b: any, seen = new WeakMap<object, any>()): boolean {
@@ -127,7 +115,6 @@ function deepEqual(a: any, b: any, seen = new WeakMap<object, any>()): boolean {
       const valA = a[key];
       if (typeof valA !== 'function' && valA !== undefined) {
         validKeysA++;
-        // Fast O(1) lookup instead of O(N) .includes()
         if (!Object.hasOwn(b, key)) {
           return false;
         }
@@ -166,34 +153,35 @@ function replaceState(target: Record<string, any>, source: Record<string, any>) 
 }
 
 /**
- * The central registry for all reactive stores and their save logic.
+ * The central manager for all reactive stores and their network logic.
+ * Instantiated once per RouseApp to ensure isolation.
  */
-export const coreStore = {
-  _data: new Map<string, any>(),
-  _status: new Map<string, StoreStatus>(),
-  _configs: new Map<string, SyncConfig>(),
-  _initial: new Map<string, any>(),
-  _activeReqs: new Map<string, symbol>(), // Tracks the latest request token
+export class StoreManager {
+  private _data = new Map<string, any>();
+  private _status = new Map<string, StoreStatus>();
+  private _configs = new Map<string, SyncConfig>();
+  private _initial = new Map<string, any>();
+  private _activeReqs = new Map<string, symbol>();
 
-  _createStatus(): StoreStatus {
+  private _createStatus(): StoreStatus {
     return reactive({ loading: false, error: null, lastSync: 0 });
-  },
+  }
 
   _setConfig(id: string, partial?: Partial<SyncConfig>) {
     const existing = this._configs.get(id) || { url: '' };
     this._configs.set(id, { ...existing, ...partial });
-  },
+  }
 
-  _register(id: string, state: object, programmaticConfig?: Partial<SyncConfig>) {
+  private _register(id: string, state: object, programmaticConfig?: Partial<SyncConfig>) {
     this._data.set(id, reactive(state));
     this._initial.set(id, clone(state));
     this._status.set(id, this._createStatus());
     if (programmaticConfig) {
       this._setConfig(id, programmaticConfig);
     }
-  },
+  }
 
-  _getStore(id: string) {
+  private _getStore(id: string) {
     const data = this._data.get(id);
     const status = this._status.get(id);
     const config = this._configs.get(id);
@@ -204,12 +192,12 @@ export const coreStore = {
     }
 
     return { data, status, config };
-  },
+  }
 
   /**
    * Internal unified request handler for save and refresh operations.
    */
-  async _request(
+  private async _request(
     id: string,
     operation: 'save' | 'refresh',
     manualConfig?: { url: string; method?: string },
@@ -218,11 +206,7 @@ export const coreStore = {
     if (!store) return;
 
     const { data, status, config } = store;
-
-    // Resolve the URL
     const url = manualConfig?.url || config?.url;
-
-    // Method routing
     const defaultMethod = operation === 'save' ? 'POST' : 'GET';
     const storeMethod = operation === 'save' ? config?.saveMethod : config?.refreshMethod;
     const method = manualConfig?.method || storeMethod || defaultMethod;
@@ -232,7 +216,7 @@ export const coreStore = {
       return;
     }
 
-    // Generate a unique token for this network request
+    // Unique token for this specific network request
     const reqToken = Symbol();
     this._activeReqs.set(id, reqToken);
 
@@ -260,7 +244,6 @@ export const coreStore = {
         if (!isMutating) {
           // Safe to apply server update
           replaceState(data, result.data);
-
           if (operation === 'refresh') {
             this._initial.set(id, clone(result.data));
           }
@@ -280,7 +263,9 @@ export const coreStore = {
         this._activeReqs.delete(id);
       }
     }
-  },
+  }
+
+  // PUBLIC API
 
   define(name: string, state: object, config?: Partial<SyncConfig>) {
     if (this._data.has(name)) {
@@ -292,7 +277,7 @@ export const coreStore = {
     } else {
       this._register(name, state, config);
     }
-  },
+  }
 
   /**
    * Initializes a global store directly from a <script> tag.
@@ -316,80 +301,52 @@ export const coreStore = {
     } else {
       this._register(name, newJson);
     }
-  },
+  }
 
-  async save(id: string, manualConfig?: { url: string; method?: string }) {
-    return this._request(id, 'save', manualConfig);
-  },
-
-  async refresh(id: string, manualConfig?: { url: string; method?: string }) {
-    return this._request(id, 'refresh', manualConfig);
-  },
-
-  reset(id: string) {
-    const data = this._data.get(id);
-    const initial = this._initial.get(id);
-
-    if (!data) {
-      console.warn(`[Rouse] Cannot reset store "${id}": Store not found.`);
-      return;
-    }
-
-    if (!initial) {
-      console.warn(`[Rouse] Cannot reset store "${id}": No initial state cached.`);
-      return;
-    }
-
-    replaceState(data, clone(initial));
-  },
-
-  remove(id: string) {
-    this._data.delete(id);
-    this._status.delete(id);
-    this._configs.delete(id);
-    this._initial.delete(id);
-    this._activeReqs.delete(id);
-  },
-};
-
-/**
- * Public API to programmatically define a global store with an optional save config.
- */
-export function store<T extends object>(
-  name: string,
-  state: T,
-  config?: Partial<SyncConfig>,
-): void {
-  coreStore.define(name, state, config);
-}
-
-/**
- * The stores API. Available in Rouse.stores and via ctx.stores in controllers.
- */
-export const stores: StoreManager = {
   get<T = any>(name: string): T | undefined {
-    return coreStore._data.get(name);
-  },
+    return this._data.get(name);
+  }
+
   snapshot<T = any>(name: string): T | undefined {
-    const data = coreStore._data.get(name);
+    const data = this._data.get(name);
     return data ? clone(data) : undefined;
-  },
+  }
+
   has(name: string): boolean {
-    return coreStore._data.has(name);
-  },
+    return this._data.has(name);
+  }
+
   status(name: string): StoreStatus | undefined {
-    return coreStore._status.get(name);
-  },
-  save(name: string, config?: { url: string; method?: string }): Promise<void> {
-    return coreStore.save(name, config);
-  },
-  refresh(name: string, config?: { url: string; method?: string }): Promise<void> {
-    return coreStore.refresh(name, config);
-  },
+    return this._status.get(name);
+  }
+
+  async save(name: string, config?: { url: string; method?: string }): Promise<void> {
+    return this._request(name, 'save', config);
+  }
+
+  async refresh(name: string, config?: { url: string; method?: string }): Promise<void> {
+    return this._request(name, 'refresh', config);
+  }
+
   reset(name: string) {
-    coreStore.reset(name);
-  },
+    const data = this._data.get(name);
+    const initial = this._initial.get(name);
+    if (!data) {
+      return console.warn(`[Rouse] Cannot reset store "${name}": Store not found.`);
+    }
+    if (!initial) {
+      return console.warn(
+        `[Rouse] Cannot reset store "${name}": No initial state cached.`,
+      );
+    }
+    replaceState(data, clone(initial));
+  }
+
   remove(name: string) {
-    coreStore.remove(name);
-  },
-};
+    this._data.delete(name);
+    this._status.delete(name);
+    this._configs.delete(name);
+    this._initial.delete(name);
+    this._activeReqs.delete(name);
+  }
+}

@@ -3,7 +3,7 @@ import type { BusCallback } from '../types';
 /**
  * Lightweight pub/sub event bus for cross-controller communication.
  */
-class EventBus {
+export class EventBus {
   private listeners = new Map<string, Set<BusCallback>>();
 
   /**
@@ -78,6 +78,3 @@ class EventBus {
     this.listeners.clear();
   }
 }
-
-export const bus = new EventBus();
-export type { EventBus };
