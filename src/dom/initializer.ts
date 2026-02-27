@@ -1,5 +1,4 @@
-import { registry } from '../core/registry';
-import { coreStore } from '../core/store';
+import { getApp } from '../core/app';
 import { attachAutosave, attachRefresh, cleanupFetch, processWake } from '../directives';
 import { getDirective, hasDirective, selector } from '../directives/prefix';
 import { mountInstance, unmountInstance } from '../dom/controller';
@@ -16,12 +15,15 @@ const storeCleanups = new WeakMap<HTMLScriptElement, Array<() => void>>();
  * @param defaultWake - The fallback wake strategy if the element doesn't specify one.
  */
 export function initControllerElement(el: HTMLElement, defaultWake: string) {
+  const app = getApp(el);
+  if (!app) return;
+
   const raw = getDirective(el, 'use');
   if (!raw) return;
 
   const { key: name, rawPayload } = splitInjection(raw);
 
-  const setup = registry[name];
+  const setup = app.registry.get(name);
   if (!setup) {
     console.warn(`[Rouse] Controller "${name}" is not registered.`);
     return;
@@ -44,7 +46,10 @@ export function initControllerElement(el: HTMLElement, defaultWake: string) {
 export function initStoreElement(script: HTMLScriptElement) {
   if (storeCleanups.has(script)) return;
 
-  coreStore.initScript(script);
+  const app = getApp(script);
+  if (!app) return;
+
+  app.stores.initScript(script);
 
   const cleanups: Array<() => void> = [];
 
@@ -65,13 +70,15 @@ export function initStoreElement(script: HTMLScriptElement) {
 /**
  * Safely tears down side-effects associated with a removed store `<script>`.
  * Note: This does not delete the store's data from the global registry.
- * 
+ *
  * @param script - The `<script>` element that was removed from the DOM.
  */
 export function cleanupStoreElement(script: HTMLScriptElement) {
   const cleanups = storeCleanups.get(script);
   if (cleanups) {
-    cleanups.forEach((cleanup) => cleanup());
+    cleanups.forEach((cleanup) => {
+      cleanup();
+    });
     storeCleanups.delete(script);
   }
 }
@@ -80,7 +87,7 @@ export function cleanupStoreElement(script: HTMLScriptElement) {
  * Creates and returns a MutationObserver that watches for new controller (rz-use)
  * and store (rz-store) `<script>` elements. Also handles cleanup for rz-fetch polling
  * timers.
- * 
+ *
  * @param wake - The framework-level default wake strategy.
  * @returns A configured, unstarted MutationObserver instance.
  */
@@ -88,6 +95,9 @@ export function initObserver(wake: string) {
   const sel = selector('use');
   const storeSel = `script${selector('store')}`;
   const fetchSel = selector('fetch');
+
+  const qsa = <T extends Element>(el: Element, s: string): NodeListOf<T> =>
+    el.querySelectorAll(s) as NodeListOf<T>;
 
   return new MutationObserver((mutations) => {
     mutations.forEach((m) => {
@@ -98,13 +108,13 @@ export function initObserver(wake: string) {
           if (node.tagName === 'SCRIPT' && hasDirective(node, 'store')) {
             initStoreElement(node as HTMLScriptElement);
           }
-          node.querySelectorAll<HTMLScriptElement>(storeSel).forEach(initStoreElement);
+          qsa<HTMLScriptElement>(node, storeSel).forEach(initStoreElement);
 
           // Check for controllers
           if (hasDirective(node, 'use')) {
             initControllerElement(node, wake);
           }
-          node.querySelectorAll<HTMLElement>(sel).forEach((el) => {
+          qsa<HTMLElement>(node, sel).forEach((el) => {
             initControllerElement(el, wake);
           });
         }
@@ -117,19 +127,19 @@ export function initObserver(wake: string) {
           if (node.tagName === 'SCRIPT' && hasDirective(node, 'store')) {
             cleanupStoreElement(node as HTMLScriptElement);
           }
-          node.querySelectorAll<HTMLScriptElement>(storeSel).forEach(cleanupStoreElement);
+          qsa<HTMLScriptElement>(node, storeSel).forEach(cleanupStoreElement);
 
           // Cleanup removed controllers
           if (hasDirective(node, 'use')) {
             unmountInstance(node);
           }
-          node.querySelectorAll<HTMLElement>(sel).forEach(unmountInstance);
+          qsa<HTMLElement>(node, sel).forEach(unmountInstance);
 
           // Actively garbage collect fetch polling timers
           if (hasDirective(node, 'fetch')) {
             cleanupFetch(node);
           }
-          node.querySelectorAll<HTMLElement>(fetchSel).forEach(cleanupFetch);
+          qsa<HTMLElement>(node, fetchSel).forEach(cleanupFetch);
         }
       });
     });

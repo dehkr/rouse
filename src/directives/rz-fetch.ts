@@ -1,4 +1,4 @@
-import { bus } from '../core/bus';
+import { getApp } from '../core/app';
 import { parseDirective } from '../dom/parser';
 import { dispatch, insert, isForm, isInput, isSelect, isTextArea } from '../dom/utils';
 import { request } from '../net/request';
@@ -315,7 +315,7 @@ async function executeFetch(
       dispatch(el, 'rz:fetch:success', { data });
       const topic = getPublishTopic(el);
       if (topic) {
-        bus.publish(topic, data);
+        getApp(el)?.bus.publish(topic, data);
       }
     }
   } catch (err: any) {

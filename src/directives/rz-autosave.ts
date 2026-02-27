@@ -1,4 +1,4 @@
-import { coreStore } from '../core/store';
+import { getApp } from '../core/app';
 import { parseDirective } from '../dom/parser';
 import { effect } from '../reactivity';
 import { getDirective } from './prefix';
@@ -6,6 +6,9 @@ import { getDirective } from './prefix';
 export const SLUG = 'autosave' as const;
 
 export function attachAutosave(el: HTMLScriptElement) {
+  const app = getApp(el);
+  if (!app) return;
+
   const storeName = getDirective(el, 'store');
   const raw = getDirective(el, SLUG);
 
@@ -27,14 +30,14 @@ export function attachAutosave(el: HTMLScriptElement) {
 
   // Register the URL globally
   if (url) {
-    coreStore._setConfig(storeName, { url, saveMethod: method });
+    app.stores._setConfig(storeName, { url, saveMethod: method });
   }
 
   let timeout: number;
   let isInitial = true;
 
   const stopEffect = effect(() => {
-    const data = coreStore._data.get(storeName);
+    const data = app.stores.get(storeName);
     if (!data) return;
 
     // Deep-read the proxy to register all nested dependencies
@@ -48,7 +51,7 @@ export function attachAutosave(el: HTMLScriptElement) {
 
     clearTimeout(timeout);
     timeout = window.setTimeout(() => {
-      coreStore.save(storeName, url ? { url, method } : undefined);
+      app.stores.save(storeName, url ? { url, method } : undefined);
     }, debounce);
   });
 

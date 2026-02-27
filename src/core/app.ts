@@ -85,7 +85,7 @@ export class RouseApp {
 export function getApp(el: HTMLElement): RouseApp | undefined {
   const root = el.closest<HTMLElement>('[data-rouse-app]');
   if (!root) {
-    console.warn('[Rouse] Element is not inside a mounted app instance.', el);
+    console.warn('[Rouse] Element is not inside a Rouse app instance.', el);
     return undefined;
   }
   return appInstances.get(root);

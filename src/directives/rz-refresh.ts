@@ -1,10 +1,13 @@
-import { coreStore } from '../core/store';
+import { getApp } from '../core/app';
 import { parseDirective } from '../dom/parser';
 import { getDirective } from './prefix';
 
 export const SLUG = 'refresh' as const;
 
 export function attachRefresh(el: HTMLScriptElement) {
+  const app = getApp(el);
+  if (!app) return;
+
   const storeName = getDirective(el, 'store');
   const raw = getDirective(el, SLUG);
 
@@ -29,20 +32,19 @@ export function attachRefresh(el: HTMLScriptElement) {
 
   // Register the URL globally
   if (url) {
-    coreStore._setConfig(storeName, { url, refreshMethod: method });
+    app.stores._setConfig(storeName, { url, refreshMethod: method });
   }
 
   const triggerRefresh = () => {
     // Only refresh if we aren't already actively saving/loading
-    if (!coreStore._status.get(storeName)?.loading) {
-      coreStore.refresh(storeName, url ? { url, method } : undefined);
+    if (!app.stores.status(storeName)?.loading) {
+      app.stores.refresh(storeName, url ? { url, method } : undefined);
     }
   };
 
   if (focus) {
     window.addEventListener('focus', triggerRefresh);
   }
-
   if (reconnect) {
     window.addEventListener('online', triggerRefresh);
   }
@@ -52,7 +54,7 @@ export function attachRefresh(el: HTMLScriptElement) {
     timer = window.setInterval(triggerRefresh, interval);
   }
 
-  // Return the cleanup function
+  // Cleanup
   return () => {
     if (focus) {
       window.removeEventListener('focus', triggerRefresh);
