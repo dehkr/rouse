@@ -1,39 +1,27 @@
 import type { DirectiveSlug } from '.';
 
-let useDataAttr = false;
-
 /**
- * Configures the directive prefix strategy.
- * If false (default) directives use "rz-" prefix.
+ * Generates a CSS selector that matches both prefix styles.
+ * Example: "[rz-bind], [data-rz-bind]"
  */
-export function configureDirectivePrefix(useData: boolean) {
-  useDataAttr = useData;
+export function selector(slug: DirectiveSlug | string): string {
+  return `[rz-${slug}], [data-rz-${slug}]`;
 }
 
 /**
- * Generates directive name according to prefix config.
+ * Gets the directive value, checking the data- attribute first,
+ * then falling back to the shorthand prefix.
  */
-export function name(slug: DirectiveSlug): string {
-  return useDataAttr ? `data-rz-${slug}` : `rz-${slug}`;
+export function getDirective(
+  el: HTMLElement,
+  slug: DirectiveSlug | string,
+): string | null {
+  return el.getAttribute(`data-rz-${slug}`) ?? el.getAttribute(`rz-${slug}`);
 }
 
 /**
- * Generates a CSS selector for a directive.
+ * Checks if the element has either prefix.
  */
-export function selector(slug: DirectiveSlug): string {
-  return `[${name(slug)}]`;
-}
-
-/**
- * Wrapper for getAttribute that respects the directive prefix config.
- */
-export function getDirective(el: HTMLElement, slug: DirectiveSlug): string | null {
-  return el.getAttribute(name(slug));
-}
-
-/**
- * Wrapper for hasAttribute that respects the directive prefix config.
- */
-export function hasDirective(el: HTMLElement, slug: DirectiveSlug): boolean {
-  return el.hasAttribute(name(slug));
+export function hasDirective(el: HTMLElement, slug: DirectiveSlug | string): boolean {
+  return el.hasAttribute(`data-rz-${slug}`) || el.hasAttribute(`rz-${slug}`);
 }

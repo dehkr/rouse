@@ -1,4 +1,4 @@
-import { getApp } from '../core/app';
+import { getApp, type RouseApp } from '../core/app';
 import { attachAutosave, attachRefresh, cleanupFetch, processWake } from '../directives';
 import { getDirective, hasDirective, selector } from '../directives/prefix';
 import { mountInstance, unmountInstance } from '../dom/controller';
@@ -84,17 +84,18 @@ export function cleanupStoreElement(script: HTMLScriptElement) {
 }
 
 /**
- * Creates and returns a MutationObserver that watches for new controller (rz-use)
- * and store (rz-store) `<script>` elements. Also handles cleanup for rz-fetch polling
- * timers.
+ * Creates a MutationObserver scoped to the provided app instance.
+ * Watches for new controller and store elements. Also handles cleanup
+ * for rz-fetch polling timers.
  *
  * @param wake - The framework-level default wake strategy.
  * @returns A configured, unstarted MutationObserver instance.
  */
-export function initObserver(wake: string) {
+export function initObserver(app: RouseApp) {
   const sel = selector('use');
   const storeSel = `script${selector('store')}`;
   const fetchSel = selector('fetch');
+  const wake = app.config.wake;
 
   const qsa = <T extends Element>(el: Element, s: string): NodeListOf<T> =>
     el.querySelectorAll(s) as NodeListOf<T>;
@@ -105,17 +106,27 @@ export function initObserver(wake: string) {
       m.addedNodes.forEach((node) => {
         if (isElement(node)) {
           // Check for stores
-          if (node.tagName === 'SCRIPT' && hasDirective(node, 'store')) {
+          if (
+            node.tagName === 'SCRIPT' &&
+            hasDirective(node, 'store') &&
+            getApp(node) === app
+          ) {
             initStoreElement(node as HTMLScriptElement);
           }
-          qsa<HTMLScriptElement>(node, storeSel).forEach(initStoreElement);
+          qsa<HTMLScriptElement>(node, storeSel).forEach((script) => {
+            if (getApp(script) === app) {
+              initStoreElement(script);
+            }
+          });
 
           // Check for controllers
-          if (hasDirective(node, 'use')) {
+          if (hasDirective(node, 'use') && getApp(node) === app) {
             initControllerElement(node, wake);
           }
-          qsa<HTMLElement>(node, sel).forEach((el) => {
-            initControllerElement(el, wake);
+          qsa<HTMLElement>(node, sel).forEach((child) => {
+            if (getApp(child) === app) {
+              initControllerElement(child, wake);
+            }
           });
         }
       });
@@ -123,19 +134,16 @@ export function initObserver(wake: string) {
       // Removed
       m.removedNodes.forEach((node) => {
         if (isElement(node)) {
-          // Cleanup removed store scripts
           if (node.tagName === 'SCRIPT' && hasDirective(node, 'store')) {
             cleanupStoreElement(node as HTMLScriptElement);
           }
           qsa<HTMLScriptElement>(node, storeSel).forEach(cleanupStoreElement);
 
-          // Cleanup removed controllers
           if (hasDirective(node, 'use')) {
             unmountInstance(node);
           }
           qsa<HTMLElement>(node, sel).forEach(unmountInstance);
 
-          // Actively garbage collect fetch polling timers
           if (hasDirective(node, 'fetch')) {
             cleanupFetch(node);
           }

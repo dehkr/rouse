@@ -1,3 +1,10 @@
+import { getTuningStrategy, handleFetch } from '../directives';
+import { hasDirective, selector } from '../directives/prefix';
+import {
+  initControllerElement,
+  initObserver,
+  initStoreElement,
+} from '../dom/initializer';
 import type { NetworkInterceptors, SetupFn } from '../types';
 import { EventBus } from './bus';
 import { Registry } from './registry';
@@ -5,7 +12,6 @@ import { StoreManager } from './store';
 
 export const defaultConfig = {
   loadingClass: 'rz-loading',
-  useDataAttr: false,
   wake: 'load',
   baseUrl: '',
   headers: {} as HeadersInit,
@@ -48,7 +54,6 @@ export class RouseApp {
 
     this.config = {
       loadingClass: config.loadingClass ?? defaultConfig.loadingClass,
-      useDataAttr: config.useDataAttr ?? defaultConfig.useDataAttr,
       wake: config.wake ?? defaultConfig.wake,
       baseUrl: config.baseUrl ?? defaultConfig.baseUrl,
       headers: config.headers ?? defaultConfig.headers,
@@ -72,9 +77,126 @@ export class RouseApp {
     return this;
   }
 
+  private _hasStarted = false;
+
+  /**
+   * Starts the Rouse app instance. Sets up the global fetch handler.
+   */
   start() {
-    // TODO: build the scoped event listeners and observers
-    console.log('[Rouse] App started on:', this.root);
+    if (this._hasStarted) {
+      console.warn('[Rouse] Rouse.start() called multiple times. Ignoring.');
+      return;
+    }
+    this._hasStarted = true;
+
+    const { loadingClass, wake } = this.config;
+
+    // Initialize global stores
+    const storeScripts = this.root.querySelectorAll<HTMLScriptElement>(
+      `script${selector('store')}`,
+    );
+    storeScripts.forEach((script) => {
+      if (getApp(script) === this) initStoreElement(script);
+    });
+
+    // Attach scoped fetch handling event listeners to app root
+    const handleGlobalFetch = (e: Event) => {
+      const target = (e.target as HTMLElement).closest<HTMLElement>(selector('fetch'));
+
+      if (target) {
+        if (getApp(target) !== this) return;
+
+        const tune = getTuningStrategy(target);
+
+        if (tune.trigger && tune.trigger.length > 0) {
+          if (tune.trigger.includes(e.type)) {
+            e.preventDefault();
+            handleFetch(target, loadingClass);
+          }
+          return;
+        }
+
+        const tagName = target.tagName;
+        const isForm = tagName === 'FORM';
+        const isInput =
+          tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT';
+
+        if (isForm && e.type === 'submit') {
+          e.preventDefault();
+          handleFetch(target, loadingClass);
+          return;
+        }
+
+        if (isInput && (e.type === 'input' || e.type === 'change')) {
+          handleFetch(target, loadingClass);
+          return;
+        }
+
+        if (!isForm && !isInput && e.type === 'click') {
+          e.preventDefault();
+          handleFetch(target, loadingClass);
+        }
+      }
+    };
+
+    const events = [
+      'change',
+      'click',
+      'dblclick',
+      'focusin',
+      'focusout',
+      'input',
+      'keydown',
+      'keyup',
+      'mouseout',
+      'mouseover',
+      'pointerdown',
+      'pointerup',
+      'submit',
+    ];
+
+    events.forEach((evt) => {
+      this.root.addEventListener(evt, handleGlobalFetch);
+    });
+
+    // Start the scoped mutation observer
+    const controllerObserver = initObserver(this);
+    controllerObserver.observe(this.root, { childList: true, subtree: true });
+
+    // Initial scan for controllers
+    if (hasDirective(this.root, 'use') && getApp(this.root) === this) {
+      initControllerElement(this.root, wake);
+    }
+
+    const controllers = this.root.querySelectorAll<HTMLElement>(selector('use'));
+    controllers.forEach((el) => {
+      if (getApp(el) === this) {
+        initControllerElement(el, wake);
+      }
+    });
+
+    // Initial scan for auto-fetching elements and custom triggers
+    const fetchNodes = this.root.querySelectorAll<HTMLElement>(selector('fetch'));
+    fetchNodes.forEach((el) => {
+      if (getApp(el) !== this) return;
+
+      const tune = getTuningStrategy(el);
+      if (tune.trigger && tune.trigger.length > 0) {
+        // Auto-start on 'load'
+        if (tune.trigger.includes('load')) {
+          handleFetch(el, loadingClass);
+        }
+        // Attach direct listeners for custom events
+        tune.trigger.forEach((evt) => {
+          if (evt !== 'load' && evt !== 'none' && !events.includes(evt)) {
+            el.addEventListener(evt, (e) => {
+              e.preventDefault();
+              handleFetch(el, loadingClass);
+            });
+          }
+        });
+      }
+    });
   }
 }
 
