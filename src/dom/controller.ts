@@ -1,5 +1,4 @@
-import { bus } from '../core/bus';
-import { stores } from '../core/store';
+import { getApp } from '../core/app';
 import { request } from '../net/request';
 import { effectScope } from '../reactivity';
 import type { SetupContext, SetupFn } from '../types';
@@ -59,20 +58,26 @@ export function createController(
     },
   };
 
+  const app = getApp(el);
+  if (!app) {
+    console.warn('[Rouse] Cannot attach controller outside of an app instance:', el);
+    return handle;
+  }
+
   const context: SetupContext = {
     el,
     props,
     request: (url, opts) => request(url, opts),
     dispatch: (evt, detail, opts) => dispatch(el, evt, detail, opts),
     bus: {
-      publish: (event, data) => bus.publish(event, data),
+      publish: (event, data) => app.bus.publish(event, data),
       subscribe: (event, cb) => {
-        const unsub = bus.subscribe(event, cb);
+        const unsub = app.bus.subscribe(event, cb);
         cleanups.push(unsub);
       },
-      unsubscribe: (event, cb) => bus.unsubscribe(event, cb),
+      unsubscribe: (event, cb) => app.bus.unsubscribe(event, cb),
     },
-    stores,
+    stores: app.stores,
   };
 
   // Setup effect scope
@@ -81,12 +86,11 @@ export function createController(
   const stopSetupScope = effectScope(() => {
     instance = setup(context);
   });
-  // Add setup scope's stop function to cleanup
   cleanups.push(stopSetupScope);
 
   // Block async setup functions since they can't be captured in effect scope
   // which will cause memory leaks. Controllers should be initialized synchronously,
-  // then populated asynchronously if necessary. Data should be fetched as side effect.
+  // then populated asynchronously (data should be fetched as side effect).
   if (instance instanceof Promise) {
     handle._unmount();
     throw new Error(
