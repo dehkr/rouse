@@ -1,4 +1,4 @@
-# Rouse
+# RouseJS
 
 [![npm](https://img.shields.io/npm/v/rousejs)](https://www.npmjs.com/package/rousejs)
 
