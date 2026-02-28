@@ -1,14 +1,17 @@
 {
   "name": "rousejs",
-  "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
+  "description": "Lightweight JavaScript orchestrator for server-rendered HTML",
   "type": "module",
-  "types": "index.d.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.cjs"
+      "import": "./dist/index.js"
+    },
+    "./min": {
+      "import": "./dist/index.min.js"
     }
   },
   "scripts": {
@@ -16,12 +19,32 @@
     "check": "biome check",
     "format": "biome format --write"
   },
+  "keywords": [
+    "ssr",
+    "server-rendered",
+    "progressive-enhancement",
+    "islands",
+    "orchestrator",
+    "reactivity",
+    "signals",
+    "event-bus",
+    "optimistic-ui",
+    "html-first",
+    "no-build"
+  ],
+  "author": "dehkr <dehkr25@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dehkr/rouse"
+  },
+  "files": [
+    "dist"
+  ],
   "devDependencies": {
+    "alien-signals": "^3.1.2",
     "@biomejs/biome": "2.4.4",
     "tsup": "^8.5.1",
     "typescript": "~5.9.3"
-  },
-  "dependencies": {
-    "alien-signals": "^3.1.2"
   }
 }

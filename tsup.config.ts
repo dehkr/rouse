@@ -1,60 +1,31 @@
 import { defineConfig } from 'tsup';
 
+const baseConfig = {
+  entry: ['src/index.ts'],
+  format: ['esm'],
+  outDir: 'dist',
+  noExternal: ['alien-signals'],
+  splitting: false,
+  sourcemap: true,
+};
+
 export default defineConfig([
   {
-    entry: ['src/index.ts'],
-    format: ['cjs', 'esm'],
-    outExtension({ format }) {
-      return {
-        js: format === 'esm' ? '.mjs' : '.cjs',
-      };
+    ...baseConfig,
+    outExtension() {
+      return { js: '.js' };
     },
-    noExternal: ['alien-signals'],
     dts: true,
     clean: true,
     minify: false,
-    splitting: false,
   },
   {
-    entry: ['src/index.ts'],
-    format: ['esm'],
-    outExtension({ format }) {
-      return {
-        js: '.min.mjs',
-      };
-    },
-    noExternal: ['alien-signals'],
-    dts: true,
-    clean: true,
-    minify: true,
-    splitting: false,
-  },
-  {
-    entry: {
-      rouse: 'src/index.ts',
-    },
-    format: ['iife'],
+    ...baseConfig,
     outExtension() {
-      return {
-        js: '.js',
-      };
+      return { js: '.min.js' };
     },
-    clean: true,
-    minify: false,
-    splitting: false,
-  },
-  {
-    entry: {
-      rouse: 'src/index.ts',
-    },
-    format: ['iife'],
-    outExtension() {
-      return {
-        js: '.min.js',
-      };
-    },
-    clean: true,
+    dts: false,
+    clean: false,
     minify: true,
-    splitting: false,
   },
 ]);
