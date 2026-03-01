@@ -24,8 +24,12 @@ export type RouseConfig = Partial<typeof defaultConfig> & {
   root?: string | HTMLElement;
 };
 
-// Private map to isolate Rouse instances and prevent collisions
+// Private map for isolating Rouse instances
 const appInstances = new WeakMap<HTMLElement, RouseApp>();
+
+const fail = (reason: string): never => {
+  throw new Error(`[Rouse] Registration failed: ${reason}`);
+};
 
 export class RouseApp {
   public root: HTMLElement;
@@ -86,10 +90,58 @@ export class RouseApp {
     appInstances.set(this.root, this);
   }
 
-  // PUBLIC API
+  /**
+   * Registers one or multiple controllers to the application.
+   *
+   * @example
+   * // Single registration
+   * app.register('counter', counter);
+   * app.register('cart', cart);
+   *
+   * @example
+   * // Object shorthand for bulk registration
+   * app.register({ counter, cart });
+   *
+   * @param nameOrControllers - Either the unique string name of a controller, or an object mapping names to setup functions.
+   * @param setup - The setup function (only required when the first argument is a string).
+   */
+  register<P extends Record<string, any>>(name: string, setup: SetupFn<P>): this;
+  register(controllers: Record<string, SetupFn<any>>): this;
+  register(
+    nameOrControllers: string | Record<string, SetupFn<any>>,
+    setup?: SetupFn<any>,
+  ): this {
+    if (typeof nameOrControllers === 'string') {
+      // Handle single registration
+      if (typeof setup === 'function') {
+        this.registry.register(nameOrControllers, setup);
+      } else {
+        fail(`A valid setup function is required for "${nameOrControllers}".`);
+      }
+    } else if (
+      // Handle bulk registration using object shorthand
+      nameOrControllers &&
+      typeof nameOrControllers === 'object' &&
+      !Array.isArray(nameOrControllers)
+    ) {
+      for (const [name, fn] of Object.entries(nameOrControllers)) {
+        if (typeof fn === 'function') {
+          this.registry.register(name, fn);
+        } else {
+          fail(`Controller "${name}" must be a setup function.`);
+        }
+      }
+    } else {
+      // Catch-all for everything else
+      const received =
+        nameOrControllers === null
+          ? 'null'
+          : Array.isArray(nameOrControllers)
+            ? 'an array'
+            : typeof nameOrControllers;
+      fail(`Expected a string name or an object of controllers, but received ${received}.`);
+    }
 
-  register(name: string, setup: SetupFn<any>) {
-    this.registry.register(name, setup);
     return this;
   }
 
@@ -203,8 +255,8 @@ export class RouseApp {
   }
 
   /**
-   * Completely tears down the app instance, unmounts all controllers,
-   * stops all network polling, and frees memory.
+   * Completely tears down the app instance, unmounts controllers,
+   * stops timers, and frees memory.
    */
   destroy() {
     if (!this._hasStarted) return;
