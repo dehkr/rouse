@@ -1,6 +1,6 @@
 {
   "name": "rousejs",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Lightweight JavaScript orchestrator for server-rendered HTML",
   "type": "module",
   "main": "./dist/index.js",
