@@ -1,6 +1,8 @@
-import { getTuningStrategy, handleFetch } from '../directives';
+import { cleanupFetch, getTuningStrategy, handleFetch } from '../directives';
 import { hasDirective, selector } from '../directives/prefix';
+import { unmountInstance } from '../dom/controller';
 import {
+  cleanupStoreElement,
   initControllerElement,
   initObserver,
   initStoreElement,
@@ -31,6 +33,25 @@ export class RouseApp {
   public stores: StoreManager;
   public registry: Registry;
   public config: typeof defaultConfig;
+
+  private _hasStarted = false;
+  private _observer?: MutationObserver;
+  private _handleGlobalFetch?: (e: Event) => void;
+  private _events = [
+    'change',
+    'click',
+    'dblclick',
+    'focusin',
+    'focusout',
+    'input',
+    'keydown',
+    'keyup',
+    'mouseout',
+    'mouseover',
+    'pointerdown',
+    'pointerup',
+    'submit',
+  ];
 
   constructor(config: RouseConfig = {}) {
     const rootEl =
@@ -77,8 +98,6 @@ export class RouseApp {
     return this;
   }
 
-  private _hasStarted = false;
-
   /**
    * Starts the Rouse app instance. Sets up the global fetch handler.
    */
@@ -100,7 +119,7 @@ export class RouseApp {
     });
 
     // Attach scoped fetch handling event listeners to app root
-    const handleGlobalFetch = (e: Event) => {
+    this._handleGlobalFetch = (e: Event) => {
       const target = (e.target as HTMLElement).closest<HTMLElement>(selector('fetch'));
 
       if (target) {
@@ -139,29 +158,13 @@ export class RouseApp {
       }
     };
 
-    const events = [
-      'change',
-      'click',
-      'dblclick',
-      'focusin',
-      'focusout',
-      'input',
-      'keydown',
-      'keyup',
-      'mouseout',
-      'mouseover',
-      'pointerdown',
-      'pointerup',
-      'submit',
-    ];
-
-    events.forEach((evt) => {
-      this.root.addEventListener(evt, handleGlobalFetch);
+    this._events.forEach((evt) => {
+      this.root.addEventListener(evt, this._handleGlobalFetch!);
     });
 
     // Start the scoped mutation observer
-    const controllerObserver = initObserver(this);
-    controllerObserver.observe(this.root, { childList: true, subtree: true });
+    this._observer = initObserver(this);
+    this._observer.observe(this.root, { childList: true, subtree: true });
 
     // Initial scan for controllers
     if (hasDirective(this.root, 'use') && getApp(this.root) === this) {
@@ -188,7 +191,7 @@ export class RouseApp {
         }
         // Attach direct listeners for custom events
         tune.trigger.forEach((evt) => {
-          if (evt !== 'load' && evt !== 'none' && !events.includes(evt)) {
+          if (evt !== 'load' && evt !== 'none' && !this._events.includes(evt)) {
             el.addEventListener(evt, (e) => {
               e.preventDefault();
               handleFetch(el, loadingClass);
@@ -198,11 +201,57 @@ export class RouseApp {
       }
     });
   }
+
+  /**
+   * Completely tears down the app instance, unmounts all controllers,
+   * stops all network polling, and frees memory.
+   */
+  destroy() {
+    if (!this._hasStarted) return;
+
+    // Disconnect the mutation observer
+    this._observer?.disconnect();
+
+    // Remove global event listeners
+    if (this._handleGlobalFetch) {
+      this._events.forEach((evt) => {
+        this.root.removeEventListener(evt, this._handleGlobalFetch!);
+      });
+    }
+
+    // Unmount all controllers
+    const controllers = this.root.querySelectorAll<HTMLElement>(selector('use'));
+    controllers.forEach(unmountInstance);
+    if (hasDirective(this.root, 'use')) {
+      unmountInstance(this.root);
+    }
+
+    // Clear all active fetch polling timers
+    const fetchNodes = this.root.querySelectorAll<HTMLElement>(selector('fetch'));
+    fetchNodes.forEach(cleanupFetch);
+    if (hasDirective(this.root, 'fetch')) {
+      cleanupFetch(this.root);
+    }
+
+    // Cleanup store directive side-effects
+    const storeScripts = this.root.querySelectorAll<HTMLScriptElement>(
+      `script${selector('store')}`,
+    );
+    storeScripts.forEach(cleanupStoreElement);
+
+    // Clear the EventBus
+    this.bus.clear();
+
+    // Remove the root indicator
+    this.root.removeAttribute('data-rouse-app');
+
+    this._hasStarted = false;
+    console.log('[Rouse] App destroyed:', this.root);
+  }
 }
 
 /**
- * High-performance DOM resolver.
- * Allows any deep child element to instantly find its specific parent app instance.
+ * Finds the parent app instance for any child element.
  */
 export function getApp(el: HTMLElement): RouseApp | undefined {
   const root = el.closest<HTMLElement>('[data-rouse-app]');
