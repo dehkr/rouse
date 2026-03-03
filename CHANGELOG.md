@@ -9,7 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Renamed the `rz-use` directive to `rz-island`.
+- The `rz-use` directive is now `rz-island`.
+- Rename the RouseApp `store()` method to `addStore()`.
 
 ## [0.1.1] - 2026-03-01
 

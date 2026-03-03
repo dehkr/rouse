@@ -145,7 +145,7 @@ export class RouseApp {
     return this;
   }
 
-  store(name: string, state: object, config?: any) {
+  addStore(name: string, state: object, config?: any) {
     this.stores.define(name, state, config);
     return this;
   }
