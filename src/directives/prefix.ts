@@ -4,7 +4,7 @@ import type { DirectiveSlug } from '.';
  * Generates a CSS selector that matches both prefix styles.
  * Example: "[rz-bind], [data-rz-bind]"
  */
-export function selector(slug: DirectiveSlug | string): string {
+export function selector(slug: DirectiveSlug): string {
   return `[rz-${slug}], [data-rz-${slug}]`;
 }
 
@@ -14,7 +14,7 @@ export function selector(slug: DirectiveSlug | string): string {
  */
 export function getDirective(
   el: HTMLElement,
-  slug: DirectiveSlug | string,
+  slug: DirectiveSlug,
 ): string | null {
   return el.getAttribute(`data-rz-${slug}`) ?? el.getAttribute(`rz-${slug}`);
 }
@@ -22,6 +22,6 @@ export function getDirective(
 /**
  * Checks if the element has either prefix.
  */
-export function hasDirective(el: HTMLElement, slug: DirectiveSlug | string): boolean {
+export function hasDirective(el: HTMLElement, slug: DirectiveSlug): boolean {
   return el.hasAttribute(`data-rz-${slug}`) || el.hasAttribute(`rz-${slug}`);
 }

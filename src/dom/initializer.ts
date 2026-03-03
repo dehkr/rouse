@@ -11,14 +11,14 @@ const storeCleanups = new WeakMap<HTMLScriptElement, Array<() => void>>();
  * setup function from the registry, and mounting the reactive instance.
  * Honors the specified `wake` strategy before executing the mount.
  *
- * @param el - The DOM element containing the `rz-use` directive.
+ * @param el - The DOM element containing the `rz-island` directive.
  * @param defaultWake - The fallback wake strategy if the element doesn't specify one.
  */
 export function initControllerElement(el: HTMLElement, defaultWake: string) {
   const app = getApp(el);
   if (!app) return;
 
-  const raw = getDirective(el, 'use');
+  const raw = getDirective(el, 'island');
   if (!raw) return;
 
   const { key: name, rawPayload } = splitInjection(raw);
@@ -92,7 +92,7 @@ export function cleanupStoreElement(script: HTMLScriptElement) {
  * @returns A configured, unstarted MutationObserver instance.
  */
 export function initObserver(app: RouseApp) {
-  const sel = selector('use');
+  const sel = selector('island');
   const storeSel = `script${selector('store')}`;
   const fetchSel = selector('fetch');
   const wake = app.config.wake;
@@ -120,7 +120,7 @@ export function initObserver(app: RouseApp) {
           });
 
           // Check for controllers
-          if (hasDirective(node, 'use') && getApp(node) === app) {
+          if (hasDirective(node, 'island') && getApp(node) === app) {
             initControllerElement(node, wake);
           }
           qsa<HTMLElement>(node, sel).forEach((child) => {
@@ -139,7 +139,7 @@ export function initObserver(app: RouseApp) {
           }
           qsa<HTMLScriptElement>(node, storeSel).forEach(cleanupStoreElement);
 
-          if (hasDirective(node, 'use')) {
+          if (hasDirective(node, 'island')) {
             unmountInstance(node);
           }
           qsa<HTMLElement>(node, sel).forEach(unmountInstance);
