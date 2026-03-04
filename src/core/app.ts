@@ -167,7 +167,9 @@ export class RouseApp {
       `script${selector('store')}`,
     );
     storeScripts.forEach((script) => {
-      if (getApp(script) === this) initStoreElement(script);
+      if (getApp(script) === this) {
+        initStoreElement(script);
+      }
     });
 
     // Attach scoped fetch handling event listeners to app root

@@ -7,10 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- New `rz-state` directive for declarative mapping of global store data to an island's scope. Supports multiple stores and optional namespace aliasing.
+- Support for controller-less islands. `rz-island` no longer requires a controller name, allowing reactive global state binding to HTML with zero JavaScript boilerplate.
+
 ### Changed
 
-- The `rz-use` directive is now `rz-island`.
-- Rename the RouseApp `store()` method to `addStore()`.
+- **Breaking:** Rename `rz-use` directive to `rz-island`.
+- **Breaking:** Rename RouseApp `store()` method to `addStore()`.
 
 ## [0.1.1] - 2026-03-01
 
@@ -20,12 +25,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- RouseApp `register()` method now supports bulk registration via object shorthand – `app.register({ counter, cart })` – in addition to single string-based registration.
-- Improved runtime validation for `register()` with descriptive error messages and strict type checking for setup functions.
+- RouseApp `register()` method now supports bulk registration via object shorthand (`app.register({ counter, cart })`).
+- Improve runtime validation for `register()` with descriptive error messages and strict type checking for setup functions.
 
 ## [0.1.0] - 2026-02-28
 
-Initial pre-release of RouseJS.
+First pre-release of RouseJS.
 
 ### Added
 

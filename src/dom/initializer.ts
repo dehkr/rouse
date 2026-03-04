@@ -19,11 +19,13 @@ export function initControllerElement(el: HTMLElement, defaultWake: string) {
   if (!app) return;
 
   const raw = getDirective(el, 'island');
-  if (!raw) return;
+  if (raw === null) return;
 
   const { key: name, rawPayload } = splitInjection(raw);
 
-  const setup = app.registry.get(name);
+  // Empty setup function gets passed for islands w/out a controller
+  const setup = name === '' ? () => ({}) : app.registry.get(name);
+
   if (!setup) {
     console.warn(`[Rouse] Controller "${name}" is not registered.`);
     return;
