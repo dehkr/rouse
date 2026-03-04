@@ -8,7 +8,7 @@ const prevClasses = new WeakMap<HTMLElement, string>();
  */
 export function updateText(el: HTMLElement, value: BindableValue) {
   // Check equality to avoid cursor jumping in contenteditable
-  const strVal = String(value ?? '');
+  const strVal = displayString(value);
   if (el.textContent !== strVal) {
     el.textContent = strVal;
   }
@@ -18,7 +18,7 @@ export function updateText(el: HTMLElement, value: BindableValue) {
  * Handles innerHTML updates.
  */
 export function updateHtml(el: HTMLElement, value: BindableValue) {
-  const htmlVal = String(value ?? '');
+  const htmlVal = displayString(value);
   if (el.innerHTML !== htmlVal) {
     el.innerHTML = htmlVal;
   }
@@ -144,4 +144,37 @@ export function updateAttr(el: HTMLElement, attr: string, value: BindableValue) 
   } else {
     el.setAttribute(attr, value === true ? '' : String(value));
   }
+}
+
+/**
+ * Converts bindable values into strings for improved output of JSON/data.
+ */
+function displayString(value: BindableValue): string {
+  if (value == null) return '';
+
+  if (typeof value === 'object') {
+    // Handle dates
+    if (value instanceof Date) {
+      return Number.isNaN(value.getTime()) ? 'Invalid Date' : value.toLocaleString();
+    }
+
+    // Format flat arrays of primitives for readability
+    if (Array.isArray(value)) {
+      const isFlat = value.every((item) => item == null || typeof item !== 'object');
+
+      if (isFlat) {
+        return value.filter((v) => v != null).join(', ');
+      }
+    }
+
+    // Stringify objects and complex arrays
+    try {
+      return JSON.stringify(value, null, 2);
+    } catch {
+      return '[Circular reference]';
+    }
+  }
+
+  // Standard primitives
+  return String(value);
 }

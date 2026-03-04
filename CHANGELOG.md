@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Breaking:** Rename `rz-use` directive to `rz-island`.
 - **Breaking:** Rename RouseApp `store()` method to `addStore()`.
+- Text and HTML bindings (`rz-text`, `rz-html`) now auto-format values: primitive arrays render comma-separated, objects and nested arrays as formatted JSON.
 
 ## [0.1.1] - 2026-03-01
 
