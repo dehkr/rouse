@@ -1,5 +1,6 @@
+import { getNestedVal, setNestedVal } from '../core/path';
 import { getValue, updateValue } from '../dom/updater';
-import { getNestedVal, isInput, isSelect, setNestedVal } from '../dom/utils';
+import { isInput, isSelect } from '../dom/utils';
 import { effect } from '../reactivity';
 import type { RouseController } from '../types';
 

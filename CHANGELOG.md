@@ -7,7 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-No unreleased changes.
+### Changed
+
+- Extracted dot-notation path parsing logic into `src/core/path.ts`.
 
 ## [0.2.0] - 2026-03-04
 
@@ -32,7 +34,7 @@ No unreleased changes.
 
 ### Changed
 
-- RouseApp `register()` method now supports bulk registration via object shorthand (`app.register({ counter, cart })`).
+- RouseApp `register()` method now supports bulk registration via object shorthand: `app.register({ counter, cart })`.
 - Improve runtime validation for `register()` with descriptive error messages and strict type checking for setup functions.
 
 ## [0.1.0] - 2026-02-28
