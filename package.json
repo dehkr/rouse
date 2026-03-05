@@ -1,24 +1,9 @@
 {
   "name": "rousejs",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Lightweight JavaScript orchestrator for server-rendered HTML",
-  "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
-    },
-    "./min": {
-      "import": "./dist/index.min.js"
-    }
-  },
-  "scripts": {
-    "build": "tsup",
-    "check": "biome check",
-    "format": "biome format --write"
-  },
+  "author": "dehkr <dehkr25@gmail.com>",
+  "license": "MIT",
   "keywords": [
     "ssr",
     "server-rendered",
@@ -32,15 +17,30 @@
     "html-first",
     "no-build"
   ],
-  "author": "dehkr <dehkr25@gmail.com>",
-  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/dehkr/rouse.git"
   },
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./min": {
+      "import": "./dist/index.min.js"
+    }
+  },
   "files": [
     "dist"
   ],
+  "scripts": {
+    "build": "tsup",
+    "check": "biome check",
+    "format": "biome format --write"
+  },
   "devDependencies": {
     "alien-signals": "^3.1.2",
     "@biomejs/biome": "2.4.4",
