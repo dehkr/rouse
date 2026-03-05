@@ -1,6 +1,5 @@
 import { getApp } from '../core/app';
 import { getStateMappings } from '../directives';
-import { hasDirective } from '../directives/prefix';
 import { request } from '../net/request';
 import { effectScope } from '../reactivity';
 import type { SetupContext, SetupFn } from '../types';
