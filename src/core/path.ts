@@ -1,4 +1,4 @@
-import type { BindableValue } from '../types';
+import type { StoreManager } from './store';
 
 export const KEY_BLOCKLIST = new Set(['__proto__', 'constructor', 'prototype']);
 
@@ -8,7 +8,10 @@ const pathCache = new Map<string, string[]>();
 /**
  * Resolve a dot-notation path to a value.
  */
-export function getNestedVal(obj: any, path: string | undefined): BindableValue {
+export function getNestedVal<T = unknown>(
+  obj: any,
+  path: string | undefined,
+): T | undefined {
   if (!obj || !path) return undefined;
 
   const parts = getPathParts(path);
@@ -19,7 +22,7 @@ export function getNestedVal(obj: any, path: string | undefined): BindableValue 
     current = current[part];
   }
 
-  return current;
+  return current as T;
 }
 
 /**
@@ -69,4 +72,35 @@ function getPathParts(path: string): string[] {
   }
 
   return parts;
+}
+
+/**
+ * Rsolves a path against either a global store or a local controller.
+ */
+export function resolveState(
+  path: string,
+  controller: any,
+  storeManager?: StoreManager,
+): any {
+  if (path.startsWith('store:')) {
+    if (!storeManager) {
+      console.warn(`[Rouse] StoreManager required to resolve path: ${path}`);
+      return undefined;
+    }
+
+    const fullPath = path.slice(6); // removes "store:"
+    const dotIndex = fullPath.indexOf('.');
+
+    if (dotIndex === -1) {
+      return storeManager.get(fullPath);
+    }
+
+    const storeName = fullPath.slice(0, dotIndex);
+    const nestedPath = fullPath.slice(dotIndex + 1);
+
+    return getNestedVal(storeManager.get(storeName), nestedPath);
+  }
+
+  // Fallback to local controller state
+  return getNestedVal(controller, path);
 }

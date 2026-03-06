@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- The `store:` prefix can be used to route state lookups to global stores.
+
 ### Changed
 
 - **Breaking:** Update directive parsing to require comma + white space to separate multiple values.

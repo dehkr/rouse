@@ -14,9 +14,35 @@ export interface SyncConfig {
   refreshMethod?: string;
 }
 
+export const STORE_PREFIX = 'store:';
+
+export function isStoreLocator(value: string): boolean {
+  return typeof value === 'string' && value.startsWith(STORE_PREFIX);
+}
+
 /**
- * A highly optimized deep cloner that enforces serializable state and
- * protects against circular reference stack overflows.
+ * Extracts the store name and the nested path (if any)
+ */
+export function parseStoreLocator(value: string): {
+  storeName: string;
+  nestedPath: string;
+} {
+  const path = value.slice(STORE_PREFIX.length);
+  const dotIndex = path.indexOf('.');
+
+  if (dotIndex === -1) {
+    return { storeName: path, nestedPath: '' };
+  }
+
+  return {
+    storeName: path.slice(0, dotIndex),
+    nestedPath: path.slice(dotIndex + 1),
+  };
+}
+
+/**
+ * Deep oject cloner that enforces serializable state and
+ * protects against circular references.
  */
 function clone<T>(obj: T, seen = new WeakMap()): T {
   if (obj === null || typeof obj !== 'object') {
@@ -28,7 +54,8 @@ function clone<T>(obj: T, seen = new WeakMap()): T {
     return seen.get(obj as any);
   }
 
-  // Arrays: JSON converts functions/undefined to null to preserve indexes
+  // Arrays
+  // JSON converts functions/undefined to null to preserve indexes.
   // This also normalizes sparse arrays (holes become null).
   if (Array.isArray(obj)) {
     const arr = [] as any[];
@@ -40,9 +67,11 @@ function clone<T>(obj: T, seen = new WeakMap()): T {
     return arr as unknown as T;
   }
 
-  // Objects: JSON completely strips properties that are functions or undefined
+  // Objects
+  // JSON completely strips properties that are functions or undefined.
   const result = {} as Record<string, any>;
-  seen.set(obj as any, result); // Record before recursing
+  seen.set(obj as any, result);
+
   for (const key in obj) {
     if (Object.hasOwn(obj, key)) {
       const val = (obj as Record<string, any>)[key];
