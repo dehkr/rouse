@@ -64,13 +64,14 @@ function safeJSONParse(text: string): unknown {
 }
 
 /**
- * Splits a JSON injection string into its key and raw payload components.
+ * Splits a JSON injection string into its key and raw payload
+ * components using the `?` delimiter.
  */
 export function splitInjection(raw: string): {
   key: string;
   rawPayload: string | undefined;
 } {
-  const i = raw.indexOf('#');
+  const i = raw.indexOf('?');
   if (i === -1) {
     return { key: raw.trim(), rawPayload: undefined };
   }
