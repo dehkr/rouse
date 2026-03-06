@@ -1,11 +1,14 @@
 export type ParsedVal = [string, string, string[]][];
 
+const VALUE_DELIMITER = ',';
+const PAIR_DELIMITER = ':';
+
 /**
  * Handles string splitting for directive values.
- * 
+ *
  * rz-wake="visible, media: (min-width: 600px)" is parsed to:
  * [['visible', ''], ['media', '(min-width: 600px)']]
- * 
+ *
  * Values with modifiers (e.g. rz-tune="debounce.trailing: 500") are parsed to:
  * [['debounce', '500', ['trailing']]]
  */
@@ -15,13 +18,15 @@ export function parseDirective(value: string): ParsedVal {
   const parsed: ParsedVal = [];
   let start = 0;
 
-  // Scan for commas
+  // Scan for values separated by comma + space
   const scanResult = scan(value, (i, char) => {
-    if (char === ',') {
-      parseSegment(value.slice(start, i), parsed);
-      start = i + 1;
-      // Keep scanning
-      return false;
+    if (char === VALUE_DELIMITER) {
+      if (hasTrailingWhiteSpace(value, i)) {
+        parseSegment(value.slice(start, i), parsed);
+        start = i + 1;
+        // Keep scanning
+        return false;
+      }
     }
   });
 
@@ -46,12 +51,10 @@ function parseSegment(segment: string, acc: ParsedVal) {
 
   // Scan for the first colon followed by whitespace
   scan(trimmed, (i, char, text) => {
-    if (char === ':') {
-      // Check for whitespace character after the colon
-      const charAfterColon = text.charAt(i + 1);
-      if (i + 1 < text.length && /\s/.test(charAfterColon)) {
+    if (char === PAIR_DELIMITER) {
+      if (hasTrailingWhiteSpace(text, i)) {
         splitIndex = i;
-        // Stop scanning after finding the first separator
+        // Stop scan after finding the first separator
         return true;
       }
     }
@@ -117,4 +120,8 @@ function isInQuotes(val: string) {
   const first = val[0];
   const last = val[val.length - 1];
   return (first === '"' || first === "'") && first === last;
+}
+
+function hasTrailingWhiteSpace(text: string, index: number) {
+  return index + 1 < text.length && /\s/.test(text.charAt(index + 1));
 }

@@ -9,7 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Extracted dot-notation path parsing logic into `src/core/path.ts`.
+- **Breaking:** Update the parser to require comma + whitespace to separate directive values.
+- Extract dot-notation path parsing logic into `src/core/path.ts`.
 
 ## [0.2.0] - 2026-03-04
 
