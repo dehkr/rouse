@@ -10,16 +10,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - The `@` prefix provides an explicit and concise way to access global stores in HTML: `rz-model="value: @user-state.name"`.
+- New delimiters for injecting payloads into controllers and methods: `?` for URL params, `@` for store data, `#` for JSON script IDs, and `{` for inline JSON.
 
 ### Changed
 
 - **Breaking:** Update directive parsing to require comma + white space to separate multiple values.
-- **Breaking:** Change JSON injection delimiter from `#` to `?`.
+- **Breaking:** Rename `rz-island` directive to `rz-scope`.
+- **Breaking:** Inline JSON payloads now use the `{` delimiter instead of `#` (e.g., `rz-scope='counter{ "count": 5 }'`).
 - Extract dot-notation path parsing logic into `src/core/path.ts`.
 
 ### Removed
 
-- **Breaking:** `rz-state` previously allowed declarative scope mapping but is redundant with the new `@` prefix.
+- **Breaking:** Remove `rz-state` directive. The new `@` prefix for accessing global stores makes it redundant.
 
 ## [0.2.0] - 2026-03-04
 

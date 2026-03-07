@@ -16,10 +16,6 @@ export interface SyncConfig {
 
 export const STORE_PREFIX = '@';
 
-export function isStoreLocator(value: string): boolean {
-  return typeof value === 'string' && value.startsWith(STORE_PREFIX);
-}
-
 /**
  * Extracts the store name and the nested path (if any)
  */

@@ -33,7 +33,7 @@ export function initControllerElement(el: HTMLElement, defaultWake: string) {
 
   processWake(el, defaultWake, () => {
     // Lazy JSON parse
-    const props = resolvePayload(rawPayload) || {};
+    const props = resolvePayload(rawPayload, app?.stores) || {};
     mountInstance(el, setup, props);
   });
 }

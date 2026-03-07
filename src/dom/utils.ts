@@ -1,6 +1,6 @@
 import { getNestedVal, KEY_BLOCKLIST } from '../core/path';
 import type { StoreManager } from '../core/store';
-import { isStoreLocator, parseStoreLocator } from '../core/store';
+import { parseStoreLocator } from '../core/store';
 import type { InsertMethod } from '../directives/rz-insert';
 
 export const isElement = (el: unknown) => el instanceof HTMLElement;
@@ -66,41 +66,37 @@ function safeJSONParse(text: string): unknown {
 }
 
 /**
- * Splits a JSON injection string into its key and raw payload
- * components using the `?` delimiter.
+ * Splits an injection string into its key and raw payload components.
+ * Supports ?, #, @, and { as payload delimiters.
  */
 export function splitInjection(raw: string): {
   key: string;
   rawPayload: string | undefined;
 } {
-  const i = raw.indexOf('?');
-  if (i === -1) {
+  // Find the first index of ?, #, @, {
+  const match = raw.match(/[?#@{]/);
+
+  if (!match || match.index === undefined) {
     return { key: raw.trim(), rawPayload: undefined };
   }
+
+  const i = match.index;
   return {
     key: raw.slice(0, i).trim(),
-    rawPayload: raw.slice(i + 1).trim(),
+    rawPayload: raw.slice(i).trim(),
   };
 }
 
+/**
+ * Checks that a value is an object.
+ */
 function isObject(val: unknown): val is Record<string, any> {
   return typeof val === 'object' && val !== null && !Array.isArray(val);
 }
 
 /**
- * Validates that the parsed result is a plain object before returning value.
- */
-function validateJSONObject(parsed: unknown): Record<string, any> | undefined {
-  if (isObject(parsed)) {
-    return parsed as Record<string, any>;
-  }
-  console.warn(`[Rouse] Payload must be a JSON object. Received:`, parsed);
-  return undefined;
-}
-
-/**
  * Resolves a payload string into a JavaScript value. Uses heuristics to determine
- * if the payload is inline JSON, a DOM ID, or a path to a global store.
+ * if the payload is inline JSON, a DOM ID, a global store, or URL params.
  */
 export function resolvePayload(
   input: string | undefined | null,
@@ -109,18 +105,10 @@ export function resolvePayload(
   const value = input?.trim();
   if (!value) return undefined;
 
-  // Quick check for inline JSON object
-  if (value.startsWith('{')) {
-    try {
-      return validateJSONObject(safeJSONParse(value));
-    } catch (e) {
-      console.warn(`[Rouse] Invalid inline JSON.`, e);
-      return undefined;
-    }
-  }
+  let resolvedValue: any;
 
-  // Resolve store protocol (`store:`)
-  if (isStoreLocator(value)) {
+  // Store snapshot (@)
+  if (value.startsWith('@')) {
     if (!storeManager) {
       console.warn(`[Rouse] Cannot resolve "${value}" because StoreManager is missing.`);
       return undefined;
@@ -128,37 +116,59 @@ export function resolvePayload(
 
     const { storeName, nestedPath } = parseStoreLocator(value);
     const storeData = storeManager.get(storeName);
-    const resolvedValue = nestedPath ? getNestedVal(storeData, nestedPath) : storeData;
 
-    // Check to make sure the value is an object
-    if (isObject(resolvedValue)) {
-      return resolvedValue;
-    } else {
+    if (storeData === undefined) {
       console.warn(
-        `[Rouse] Invalid payload: "${value}". Payloads injected via '?' must resolve to a JSON object. Got ${typeof resolvedValue}.`,
+        `[Rouse] Store "${storeName}" not found. Cannot resolve payload: "${value}"`,
       );
       return undefined;
     }
+
+    resolvedValue = nestedPath ? getNestedVal(storeData, nestedPath) : storeData;
   }
 
-  // Check if it's an ID for <script type="application/json">
-  const el = document.getElementById(value);
-  if (el) {
-    if (el instanceof HTMLScriptElement && el.type === 'application/json') {
+  // URL query params (?)
+  else if (value.startsWith('?')) {
+    const params = new URLSearchParams(value.slice(1));
+    resolvedValue = Object.fromEntries(params.entries());
+  }
+
+  // DOM script ID (#)
+  else if (value.startsWith('#')) {
+    const id = value.slice(1);
+    const el = document.getElementById(id);
+    if (el && el instanceof HTMLScriptElement && el.type === 'application/json') {
       const content = el.textContent?.trim();
-      if (!content) return {};
-      try {
-        return validateJSONObject(safeJSONParse(content));
-      } catch (e) {
-        console.warn(`[Rouse] Invalid JSON in #${value}.`, e);
-        return undefined;
+      if (content) {
+        try {
+          resolvedValue = safeJSONParse(content);
+        } catch (e) {
+          console.warn(`[Rouse] Invalid JSON in #${id}.`, e);
+        }
       }
+    } else {
+      console.warn(`[Rouse] #${id} must be a <script type="application/json">.`);
     }
-    console.warn(`[Rouse] #${value} must be <script type="application/json">.`);
-    return undefined;
   }
 
-  // If none of the above
-  console.warn(`[Rouse] Unable to resolve payload: "${value}".`);
+  // Inline JSON object ({)
+  else if (value.startsWith('{')) {
+    try {
+      resolvedValue = safeJSONParse(value);
+    } catch (e) {
+      console.warn(`[Rouse] Invalid inline JSON.`, e);
+    }
+  }
+
+  // Final check
+  if (resolvedValue !== undefined) {
+    if (isObject(resolvedValue)) {
+      return resolvedValue;
+    }
+    console.warn(
+      `[Rouse] Invalid payload: "${value}". Data passed into controllers/methods must resolve to an object. Received type: ${Array.isArray(resolvedValue) ? 'array' : typeof resolvedValue}.`,
+    );
+  }
+
   return undefined;
 }
