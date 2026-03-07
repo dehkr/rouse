@@ -1,7 +1,7 @@
 {
   "name": "rousejs",
   "version": "0.2.0",
-  "description": "Lightweight JavaScript orchestrator for server-rendered HTML",
+  "description": "The JavaScript UI and state orchestrator for server-rendered HTML",
   "author": "dehkr <dehkr25@gmail.com>",
   "license": "MIT",
   "keywords": [

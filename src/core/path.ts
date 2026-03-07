@@ -1,4 +1,6 @@
+import type { RouseController } from '../types';
 import type { StoreManager } from './store';
+import { STORE_PREFIX } from './store';
 
 export const KEY_BLOCKLIST = new Set(['__proto__', 'constructor', 'prototype']);
 
@@ -75,21 +77,20 @@ function getPathParts(path: string): string[] {
 }
 
 /**
- * Rsolves a path against either a global store or a local controller.
+ * Resolves a path against either a global store or a local controller.
  */
-export function resolveState(
+export function resolveState<T = unknown>(
   path: string,
-  controller: any,
+  controller: RouseController,
   storeManager?: StoreManager,
-): any {
-  if (path.startsWith('store:')) {
+): T | undefined {
+  if (path.startsWith(STORE_PREFIX)) {
     if (!storeManager) {
       console.warn(`[Rouse] StoreManager required to resolve path: ${path}`);
       return undefined;
     }
 
-    const fullPath = path.slice(6); // removes "store:"
-    const dotIndex = fullPath.indexOf('.');
+    const { fullPath, dotIndex } = getStorePath(path);
 
     if (dotIndex === -1) {
       return storeManager.get(fullPath);
@@ -98,9 +99,49 @@ export function resolveState(
     const storeName = fullPath.slice(0, dotIndex);
     const nestedPath = fullPath.slice(dotIndex + 1);
 
-    return getNestedVal(storeManager.get(storeName), nestedPath);
+    return getNestedVal<T>(storeManager.get(storeName), nestedPath);
   }
 
   // Fallback to local controller state
-  return getNestedVal(controller, path);
+  return getNestedVal<T>(controller, path);
+}
+
+/**
+ * Writes a value to either a global store or a local controller.
+ */
+export function writeState(
+  path: string,
+  value: unknown,
+  controller: RouseController,
+  storeManager?: StoreManager,
+): void {
+  if (path.startsWith(STORE_PREFIX)) {
+    if (!storeManager) {
+      console.warn(`[Rouse] StoreManager required to write to path: ${path}`);
+      return;
+    }
+
+    const { fullPath, dotIndex } = getStorePath(path);
+
+    if (dotIndex === -1) {
+      console.warn(
+        `[Rouse] Cannot overwrite an entire store directly via model binding: "${path}"`,
+      );
+      return;
+    }
+
+    const storeName = fullPath.slice(0, dotIndex);
+    const nestedPath = fullPath.slice(dotIndex + 1);
+
+    setNestedVal(storeManager.get(storeName), nestedPath, value);
+    return;
+  }
+
+  // Fallback to local controller state
+  setNestedVal(controller, path, value);
+}
+
+function getStorePath(path: string) {
+  const fullPath = path.slice(STORE_PREFIX.length);
+  return { fullPath, dotIndex: fullPath.indexOf('.') };
 }

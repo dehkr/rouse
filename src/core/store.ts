@@ -14,7 +14,7 @@ export interface SyncConfig {
   refreshMethod?: string;
 }
 
-export const STORE_PREFIX = 'store:';
+export const STORE_PREFIX = '@';
 
 export function isStoreLocator(value: string): boolean {
   return typeof value === 'string' && value.startsWith(STORE_PREFIX);

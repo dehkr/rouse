@@ -1,7 +1,8 @@
-import { getNestedVal } from '../core/path';
+import { getApp } from '../core/app';
+import { resolveState } from '../core/path';
 import { updateAttr, updateClass, updateStyle } from '../dom/updater';
 import { effect } from '../reactivity';
-import type { RouseController } from '../types';
+import type { BindableValue, RouseController } from '../types';
 
 export const SLUG = 'bind' as const;
 
@@ -12,7 +13,7 @@ export function applyBind(
   path: string,
 ): () => void {
   return effect(() => {
-    const val = getNestedVal(instance, path);
+    const val = resolveState<BindableValue>(path, instance, getApp(el)?.stores);
 
     if (type === 'class') {
       updateClass(el, val);

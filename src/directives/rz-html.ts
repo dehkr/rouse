@@ -1,17 +1,18 @@
-import { getNestedVal } from '../core/path';
+import { getApp } from '../core/app';
+import { resolveState } from '../core/path';
 import { updateHtml } from '../dom/updater';
 import { effect } from '../reactivity';
-import type { RouseController } from '../types';
+import type { BindableValue, RouseController } from '../types';
 
 export const SLUG = 'html' as const;
 
 export function applyHtml(
   el: HTMLElement,
   instance: RouseController,
-  prop: string,
+  path: string,
 ): () => void {
   return effect(() => {
-    const val = getNestedVal(instance, prop);
+    const val = resolveState<BindableValue>(path, instance, getApp(el)?.stores);
     updateHtml(el, val);
   });
 }

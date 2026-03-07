@@ -9,13 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- The `store:` prefix can be used to route state lookups to global stores.
+- The `@` prefix provides an explicit and concise way to access global stores in HTML: `rz-model="value: @user-state.name"`.
 
 ### Changed
 
 - **Breaking:** Update directive parsing to require comma + white space to separate multiple values.
 - **Breaking:** Change JSON injection delimiter from `#` to `?`.
 - Extract dot-notation path parsing logic into `src/core/path.ts`.
+
+### Removed
+
+- **Breaking:** `rz-state` previously allowed declarative scope mapping but is redundant with the new `@` prefix.
 
 ## [0.2.0] - 2026-03-04
 

@@ -1,5 +1,4 @@
 import { getApp } from '../core/app';
-import { getStateMappings } from '../directives';
 import { request } from '../net/request';
 import { effectScope } from '../reactivity';
 import type { SetupContext, SetupFn } from '../types';
@@ -85,19 +84,8 @@ export function createController(
   // Wraps the effects that belong to the controller instance
   let instance: any;
   const stopSetupScope = effectScope(() => {
-    // If rz-island is controller-less the context will start empty
+    // Provide empty object if no controller provided
     instance = setup(context) || {};
-
-    const mappings = getStateMappings(el);
-    mappings.forEach(({ alias, storeName }) => {
-      if (alias in instance) {
-        console.warn(
-          `[Rouse] The property "${alias}" conflicts with the store name provided in rz-state. The controller property will take precedence.`
-        );
-      } else {
-        instance[alias] = app.stores.get(storeName);
-      }
-    });
   });
   cleanups.push(stopSetupScope);
 

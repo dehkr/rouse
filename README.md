@@ -2,7 +2,7 @@
 
 [![npm](https://img.shields.io/npm/v/rousejs)](https://www.npmjs.com/package/rousejs)
 
-**Lightweight JavaScript orchestrator for server-rendered HTML**
+**The JavaScript UI and state orchestrator for server-rendered HTML**
 
 > [!WARNING]  
 > This is a pre-release version. It is unstable and not intended for production use. Breaking changes may occur without notice.

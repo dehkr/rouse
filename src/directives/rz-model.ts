@@ -1,15 +1,18 @@
-import { getNestedVal, setNestedVal } from '../core/path';
+import { getApp } from '../core/app';
+import { resolveState, writeState } from '../core/path';
 import { getValue, updateValue } from '../dom/updater';
 import { isInput, isSelect } from '../dom/utils';
 import { effect } from '../reactivity';
-import type { RouseController } from '../types';
+import type { BindableValue, RouseController } from '../types';
 
 export const SLUG = 'model' as const;
 
 export function applyModel(el: HTMLElement, instance: RouseController, prop: string) {
+  const app = getApp(el);
+
   // State -> DOM
   const stopEffect = effect(() => {
-    const val = getNestedVal(instance, prop);
+    const val = resolveState<BindableValue>(prop, instance, app?.stores);
     updateValue(el, val);
   });
 
@@ -17,10 +20,10 @@ export function applyModel(el: HTMLElement, instance: RouseController, prop: str
   const isBinary = isInput(el) && (el.type === 'checkbox' || el.type === 'radio');
   const eventType = isSelect(el) || isBinary ? 'change' : 'input';
 
-  // DOM -> State
+  // State <- DOM
   const handler = () => {
     const newVal = getValue(el);
-    setNestedVal(instance, prop, newVal);
+    writeState(prop, newVal, instance, app?.stores);
   };
 
   el.addEventListener(eventType, handler);
