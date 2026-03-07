@@ -1,7 +1,7 @@
 import { splitInjection } from '../dom/utils';
 import { getDirective } from './prefix';
 
-export const SLUG = 'island' as const;
+export const SLUG = 'scope' as const;
 
 export function getControllerName(el: HTMLElement): string | null {
   const raw = getDirective(el, SLUG);

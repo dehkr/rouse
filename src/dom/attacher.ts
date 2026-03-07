@@ -77,14 +77,14 @@ export function attachController(root: HTMLElement, instance: RouseController) {
   }
 
   function scan(startEl: HTMLElement) {
-    const owner = startEl.closest(selector('island'));
+    const owner = startEl.closest(selector('scope'));
     if (!owner || owner !== root) return;
 
     const walker = document.createTreeWalker(startEl, NodeFilter.SHOW_ELEMENT, {
       acceptNode(node) {
         const el = node as HTMLElement;
         // Skip subtrees of nested controllers
-        if (el !== root && hasDirective(el, 'island')) {
+        if (el !== root && hasDirective(el, 'scope')) {
           return NodeFilter.FILTER_REJECT;
         }
         // Skip nodes that don't match but continue walking

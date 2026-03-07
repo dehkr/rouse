@@ -11,19 +11,19 @@ const storeCleanups = new WeakMap<HTMLScriptElement, Array<() => void>>();
  * setup function from the registry, and mounting the reactive instance.
  * Honors the specified `wake` strategy before executing the mount.
  *
- * @param el - The DOM element containing the `rz-island` directive.
+ * @param el - The DOM element containing the `rz-scope` directive.
  * @param defaultWake - The fallback wake strategy if the element doesn't specify one.
  */
 export function initControllerElement(el: HTMLElement, defaultWake: string) {
   const app = getApp(el);
   if (!app) return;
 
-  const raw = getDirective(el, 'island');
+  const raw = getDirective(el, 'scope');
   if (raw === null) return;
 
   const { key: name, rawPayload } = splitInjection(raw);
 
-  // Empty setup function gets passed for islands w/out a controller
+  // Empty setup function gets passed for scopes w/out a controller
   const setup = name === '' ? () => ({}) : app.registry.get(name);
 
   if (!setup) {
@@ -94,7 +94,7 @@ export function cleanupStoreElement(script: HTMLScriptElement) {
  * @returns A configured, unstarted MutationObserver instance.
  */
 export function initObserver(app: RouseApp) {
-  const sel = selector('island');
+  const sel = selector('scope');
   const storeSel = `script${selector('store')}`;
   const fetchSel = selector('fetch');
   const wake = app.config.wake;
@@ -122,7 +122,7 @@ export function initObserver(app: RouseApp) {
           });
 
           // Check for controllers
-          if (hasDirective(node, 'island') && getApp(node) === app) {
+          if (hasDirective(node, 'scope') && getApp(node) === app) {
             initControllerElement(node, wake);
           }
           qsa<HTMLElement>(node, sel).forEach((child) => {
@@ -141,7 +141,7 @@ export function initObserver(app: RouseApp) {
           }
           qsa<HTMLScriptElement>(node, storeSel).forEach(cleanupStoreElement);
 
-          if (hasDirective(node, 'island')) {
+          if (hasDirective(node, 'scope')) {
             unmountInstance(node);
           }
           qsa<HTMLElement>(node, sel).forEach(unmountInstance);

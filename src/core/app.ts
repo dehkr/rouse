@@ -221,11 +221,11 @@ export class RouseApp {
     this._observer.observe(this.root, { childList: true, subtree: true });
 
     // Initial scan for controllers
-    if (hasDirective(this.root, 'island') && getApp(this.root) === this) {
+    if (hasDirective(this.root, 'scope') && getApp(this.root) === this) {
       initControllerElement(this.root, wake);
     }
 
-    const controllers = this.root.querySelectorAll<HTMLElement>(selector('island'));
+    const controllers = this.root.querySelectorAll<HTMLElement>(selector('scope'));
     controllers.forEach((el) => {
       if (getApp(el) === this) {
         initControllerElement(el, wake);
@@ -274,9 +274,9 @@ export class RouseApp {
     }
 
     // Unmount all controllers
-    const controllers = this.root.querySelectorAll<HTMLElement>(selector('island'));
+    const controllers = this.root.querySelectorAll<HTMLElement>(selector('scope'));
     controllers.forEach(unmountInstance);
-    if (hasDirective(this.root, 'island')) {
+    if (hasDirective(this.root, 'scope')) {
       unmountInstance(this.root);
     }
 
