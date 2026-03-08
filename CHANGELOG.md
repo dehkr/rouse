@@ -17,9 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Breaking:** Update directive parsing to require comma + white space to separate multiple values.
 - **Breaking:** Rename `rz-island` directive to `rz-scope`.
-- **Breaking:** Inline JSON payloads now look for `{` as the delimiter instead of `#` (e.g., `rz-scope='counter{ "count": 5 }'`).
+- **Breaking:** Inline JSON payloads for controllers and methods now look for `{` as the delimiter instead of `#` (e.g., `rz-scope='counter{ "count": 5 }'`).
 - Extract dot-notation path parsing logic into `src/core/path.ts`.
 - Refactor the network engine to use dependency injection to avoid multiple app instances overwriting each other's network configuration.
+- Update `resolvePayload` to accept a `requireObject` flag, allowing it to resolve primitive values while maintaining strict object validation for data payloads.
 
 ### Removed
 

@@ -97,10 +97,13 @@ function isObject(val: unknown): val is Record<string, any> {
 /**
  * Resolves a payload string into a JavaScript value. Uses heuristics to determine
  * if the payload is inline JSON, a DOM ID, a global store, or URL params.
+ *
+ * @param requireObject - If true (default), enforces that the resolved value is an object.
  */
 export function resolvePayload(
   input: string | undefined | null,
   storeManager?: StoreManager,
+  requireObject = true,
 ): Record<string, any> | undefined {
   const value = input?.trim();
   if (!value) return undefined;
@@ -162,7 +165,7 @@ export function resolvePayload(
 
   // Final check
   if (resolvedValue !== undefined) {
-    if (isObject(resolvedValue)) {
+    if (!requireObject || isObject(resolvedValue)) {
       return resolvedValue;
     }
     console.warn(
