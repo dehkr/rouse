@@ -1,5 +1,5 @@
+import { defaultConfig, type RouseConfig } from '../core/app';
 import type { RequestResult, RouseReqOpts } from '../types';
-import { getClientConfig } from './config';
 import { preparePayload } from './payload';
 import { mapCatchError, normalizeResponse } from './response';
 import { xhrRequest } from './xhr';
@@ -17,10 +17,10 @@ const abortControllers = new Map<string | symbol, AbortEntry>();
 export async function request<T = any>(
   url: string,
   options: RouseReqOpts = {},
+  appConfig: RouseConfig = defaultConfig,
 ): Promise<RequestResult<T>> {
   let currentOptions = { ...options };
-  const config = getClientConfig();
-  const ci = config.interceptors;
+  const ci = appConfig.interceptors || {};
 
   // Run request interceptor
   if (!currentOptions.skipInterceptors && ci.onRequest) {
@@ -38,7 +38,7 @@ export async function request<T = any>(
   const { finalUrl, method, reqHeaders, finalBody, restOptions } = preparePayload(
     url,
     currentOptions,
-    config,
+    appConfig,
   );
 
   // Extract Rouse-specific execution options

@@ -1,3 +1,4 @@
+import type { RouseConfig } from '../core/app';
 import type { RouseReqOpts } from '../types';
 
 /**
@@ -6,9 +7,9 @@ import type { RouseReqOpts } from '../types';
 export function preparePayload(
   url: string,
   options: RouseReqOpts,
-  globalConfig: { baseUrl: string; headers: HeadersInit },
+  globalConfig: RouseConfig,
 ) {
-  const { method = 'GET', headers = {}, body, serializeForm, ...restOptions } = options;
+  const { method = 'GET', headers = {}, body, form, ...restOptions } = options;
 
   // Resolve URL
   let finalUrl = url;
@@ -17,7 +18,7 @@ export function preparePayload(
   }
 
   // Merge headers
-  const reqHeaders = new Headers(globalConfig.headers);
+  const reqHeaders = new Headers(globalConfig.request?.headers);
   new Headers(headers).forEach((val, key) => reqHeaders.set(key, val));
 
   reqHeaders.set('Rouse-Request', 'true');
@@ -26,52 +27,68 @@ export function preparePayload(
     reqHeaders.set('Accept', 'application/json, text/html, application/xhtml+xml');
   }
 
-  // Prepare body
-  let finalBody: BodyInit | null = body || null;
+  // Prepare request body
+  let finalBody: BodyInit | null = null;
 
-  if (serializeForm) {
+  if (form) {
+    // GET forms should append to the URL as query parameters
     if (method === 'GET' || method === 'HEAD') {
-      // GET forms should append to the URL as query parameters
-      const formData = new FormData(serializeForm);
+      const formData = new FormData(form);
       const urlObj = new URL(finalUrl, document.baseURI);
 
       formData.forEach((value, key) => {
         urlObj.searchParams.append(key, value.toString());
       });
+
       finalUrl = urlObj.toString();
-    } else {
-      // POST/PUT/PATCH -> send as FormData body
-      finalBody = new FormData(serializeForm);
     }
-  } else if (body instanceof FormData) {
-    // Already FormData, pass through
+    // POST/PUT/PATCH -> send as FormData body
+    else {
+      finalBody = new FormData(form);
+    }
+  }
+
+  // Pass through all native binary/stream BodyInit types
+  else if (
+    body instanceof FormData ||
+    body instanceof Blob ||
+    body instanceof File ||
+    body instanceof ArrayBuffer ||
+    (typeof ReadableStream !== 'undefined' && body instanceof ReadableStream)
+  ) {
     finalBody = body;
-    // Let browser set Content-Type
-  } else if (body instanceof URLSearchParams) {
-    // URLSearchParams -> application/x-www-form-urlencoded
+  }
+
+  // URLSearchParams -> application/x-www-form-urlencoded
+  else if (body instanceof URLSearchParams) {
     finalBody = body;
     if (!reqHeaders.has('Content-Type')) {
       reqHeaders.set('Content-Type', 'application/x-www-form-urlencoded');
     }
-  } else if (body instanceof Blob || body instanceof File) {
-    // Binary data, pass through
+  }
+
+  // Binary data, pass through
+  else if (body instanceof Blob || body instanceof File) {
     finalBody = body;
-    // Content-Type should be set by caller or already on Blob
-  } else if (
-    body &&
-    typeof body === 'object' &&
-    !(body instanceof ArrayBuffer) &&
-    !(body instanceof ReadableStream)
-  ) {
-    // Plain object -> JSON
+  }
+
+  // Plain object or array -> JSON
+  else if (body && typeof body === 'object') {
     finalBody = JSON.stringify(body);
+
     if (!reqHeaders.has('Content-Type')) {
       reqHeaders.set('Content-Type', 'application/json');
     }
-  } else if (typeof body === 'string') {
-    // String body, pass through
+  }
+
+  // String body, pass through
+  else if (typeof body === 'string') {
     finalBody = body;
-    // Caller should set Content-Type
+  }
+
+  // Catch primitives like numbers or booleans
+  else if (body != null) {
+    finalBody = String(body);
   }
 
   return { finalUrl, method, reqHeaders, finalBody, restOptions };

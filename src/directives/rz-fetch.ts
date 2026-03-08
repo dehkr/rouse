@@ -1,4 +1,4 @@
-import { getApp } from '../core/app';
+import { defaultConfig, getApp } from '../core/app';
 import { parseDirective } from '../dom/parser';
 import { dispatch, insert, isForm, isInput, isSelect, isTextArea } from '../dom/utils';
 import { request } from '../net/request';
@@ -157,6 +157,8 @@ async function executeFetch(
   options: RouseReqOpts,
   pollInterval: number,
 ) {
+  const app = getApp(el);
+
   // Check destroyed flag and bail out if marked for cleanup
   const state = timers.get(el);
   if (state?.destroyed) {
@@ -280,12 +282,16 @@ async function executeFetch(
   dispatch(el, 'rz:fetch:start', { config: options });
 
   try {
-    const result = await request(url, {
-      method,
-      triggerEl: el,
-      serializeForm: isForm(el) ? el : undefined,
-      ...options,
-    });
+    const result = await request(
+      url,
+      {
+        method,
+        triggerEl: el,
+        form: isForm(el) ? el : undefined,
+        ...options,
+      },
+      app?.config || defaultConfig,
+    );
 
     if (result.error) {
       if (result.error.status === 'CANCELED') {

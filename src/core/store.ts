@@ -1,6 +1,7 @@
 import { getStoreName } from '../directives';
 import { request } from '../net/request';
 import { reactive } from '../reactivity';
+import type { RouseConfig } from './app';
 
 export interface StoreStatus {
   loading: boolean;
@@ -182,11 +183,17 @@ function replaceState(target: Record<string, any>, source: Record<string, any>) 
  * Instantiated once per RouseApp to ensure isolation.
  */
 export class StoreManager {
+  private appConfig: RouseConfig;
+
   private _data = new Map<string, any>();
   private _status = new Map<string, StoreStatus>();
   private _configs = new Map<string, SyncConfig>();
   private _initial = new Map<string, any>();
   private _activeReqs = new Map<string, symbol>();
+
+  constructor(appConfig: RouseConfig) {
+    this.appConfig = appConfig;
+  }
 
   private _createStatus(): StoreStatus {
     return reactive({ loading: false, error: null, lastSync: 0 });
@@ -251,11 +258,15 @@ export class StoreManager {
     status.error = null;
 
     try {
-      const result = await request(url, {
-        method,
-        ...(operation === 'save' && { body: data }),
-        abortKey: `${operation}_${id}`,
-      });
+      const result = await request(
+        url,
+        {
+          method,
+          ...(operation === 'save' && { body: data }),
+          abortKey: `${operation}_${id}`,
+        },
+        this.appConfig,
+      );
 
       if (result.error) {
         if (result.error.status === 'CANCELED') return;

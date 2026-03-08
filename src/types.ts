@@ -49,7 +49,7 @@ export interface RequestResult<T = any> {
 export interface RouseReqOpts extends Omit<RequestInit, 'body'> {
   body?: BodyInit | Record<string, any> | any[] | null | undefined;
   triggerEl?: HTMLElement;
-  serializeForm?: HTMLFormElement;
+  form?: HTMLFormElement;
   skipInterceptors?: boolean;
   onUploadProgress?: (ev: ProgressEvent) => void;
   retry?: number;

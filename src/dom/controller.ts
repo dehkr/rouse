@@ -67,7 +67,7 @@ export function createController(
   const context: SetupContext = {
     el,
     props,
-    request: (url, opts) => request(url, opts),
+    request: (url, opts) => request(url, opts, app.config),
     dispatch: (evt, detail, opts) => dispatch(el, evt, detail, opts),
     bus: {
       publish: (event, data) => app.bus.publish(event, data),

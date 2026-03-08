@@ -7,7 +7,7 @@ import {
   initObserver,
   initStoreElement,
 } from '../dom/initializer';
-import type { NetworkInterceptors, SetupFn } from '../types';
+import type { NetworkInterceptors, RouseReqOpts, SetupFn } from '../types';
 import { EventBus } from './bus';
 import { Registry } from './registry';
 import { StoreManager } from './store';
@@ -16,7 +16,7 @@ export const defaultConfig = {
   loadingClass: 'rz-loading',
   wake: 'load',
   baseUrl: '',
-  headers: {} as HeadersInit,
+  request: {} as RouseReqOpts,
   interceptors: {} as NetworkInterceptors,
 };
 
@@ -72,18 +72,18 @@ export class RouseApp {
       throw new Error('[Rouse] An app instance is already attached to this element.');
     }
 
-    this.root = rootEl;
-    this.bus = new EventBus();
-    this.stores = new StoreManager();
-    this.registry = new Registry();
-
     this.config = {
       loadingClass: config.loadingClass ?? defaultConfig.loadingClass,
       wake: config.wake ?? defaultConfig.wake,
       baseUrl: config.baseUrl ?? defaultConfig.baseUrl,
-      headers: config.headers ?? defaultConfig.headers,
+      request: config.request ?? defaultConfig.request,
       interceptors: config.interceptors ?? defaultConfig.interceptors,
     };
+
+    this.root = rootEl;
+    this.bus = new EventBus();
+    this.stores = new StoreManager(this.config);
+    this.registry = new Registry();
 
     // Mark root so children can find parent app
     this.root.setAttribute('data-rouse-app', '');
@@ -139,7 +139,9 @@ export class RouseApp {
           : Array.isArray(nameOrControllers)
             ? 'an array'
             : typeof nameOrControllers;
-      fail(`Expected a string name or an object of controllers, but received ${received}.`);
+      fail(
+        `Expected a string name or an object of controllers, but received ${received}.`,
+      );
     }
 
     return this;
