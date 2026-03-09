@@ -19,7 +19,9 @@ export function preparePayload(
 
   // Merge headers
   const reqHeaders = new Headers(globalConfig.request?.headers);
-  new Headers(headers).forEach((val, key) => reqHeaders.set(key, val));
+  new Headers(headers).forEach((val, key) => {
+    reqHeaders.set(key, val);
+  });
 
   reqHeaders.set('Rouse-Request', 'true');
 
@@ -37,7 +39,12 @@ export function preparePayload(
       const urlObj = new URL(finalUrl, document.baseURI);
 
       formData.forEach((value, key) => {
-        urlObj.searchParams.append(key, value.toString());
+        if (typeof value === 'string') {
+          urlObj.searchParams.append(key, value);
+        } else if (value instanceof File) {
+          // Native HTML behavior is to send the filename in the query string
+          urlObj.searchParams.append(key, value.name);
+        }
       });
 
       finalUrl = urlObj.toString();
@@ -49,26 +56,12 @@ export function preparePayload(
   }
 
   // Pass through all native binary/stream BodyInit types
-  else if (
-    body instanceof FormData ||
-    body instanceof Blob ||
-    body instanceof File ||
-    body instanceof ArrayBuffer ||
-    (typeof ReadableStream !== 'undefined' && body instanceof ReadableStream)
-  ) {
+  else if (isNativeBinaryBody(body)) {
     finalBody = body;
   }
 
-  // URLSearchParams -> application/x-www-form-urlencoded
+  // URLSearchParams
   else if (body instanceof URLSearchParams) {
-    finalBody = body;
-    if (!reqHeaders.has('Content-Type')) {
-      reqHeaders.set('Content-Type', 'application/x-www-form-urlencoded');
-    }
-  }
-
-  // Binary data, pass through
-  else if (body instanceof Blob || body instanceof File) {
     finalBody = body;
   }
 
@@ -92,4 +85,17 @@ export function preparePayload(
   }
 
   return { finalUrl, method, reqHeaders, finalBody, restOptions };
+}
+
+/**
+ * Type guard to check for native binary/stream browser BodyInit types.
+ */
+function isNativeBinaryBody(body: unknown): body is BodyInit {
+  return (
+    body instanceof FormData ||
+    body instanceof Blob || // File inherits from Blob, so this catches both
+    body instanceof ArrayBuffer ||
+    ArrayBuffer.isView(body) || // Catches DataView and TypedArray
+    (typeof ReadableStream !== 'undefined' && body instanceof ReadableStream)
+  );
 }

@@ -12,20 +12,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The `@` prefix provides an explicit and concise way to access global stores in HTML: `rz-model="@user-state.name"`.
 - New delimiters for injecting payloads into controllers and methods: `?` for URL params, `@` for store data, `#` for JSON script IDs, and `{` for inline JSON.
 - Add `request` property to the app configuration to establish a baseline for Fetch API defaults (e.g., `mode`, `credentials`, `headers`).
+- New `rz-request` directive for declarative, DOM-scoped Fetch API configuration.
 
 ### Changed
 
 - **Breaking:** Update directive parsing to require comma + white space to separate multiple values.
 - **Breaking:** Rename `rz-island` directive to `rz-scope`.
 - **Breaking:** Inline JSON payloads for controllers and methods now look for `{` as the delimiter instead of `#` (e.g., `rz-scope='counter{ "count": 5 }'`).
-- Extract dot-notation path parsing logic into `src/core/path.ts`.
+- Extract dot-notation path parsing logic into separate module.
 - Refactor the network engine to use dependency injection to avoid multiple app instances overwriting each other's network configuration.
 - Update `resolvePayload` to accept a `requireObject` flag, allowing it to resolve primitive values while maintaining strict object validation for data payloads.
+
+### Fixed
+- Prevent accidental JSON serialization of `DataView` and `TypedArray` types in request bodies by enhancing native binary type checks.
 
 ### Removed
 
 - **Breaking:** Remove `rz-state` directive. The new `@` prefix for accessing global stores makes it redundant.
-- **Breaking:** Remove the top-level `headers` property from the app configuration. Global headers must now be configured inside the new `request` object.
+- **Breaking:** Remove the top-level `headers` property from the app configuration. Headers can now be configured inside the new `request` object.
 
 ## [0.2.0] - 2026-03-04
 
