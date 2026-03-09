@@ -8,6 +8,7 @@ import { applyModel, SLUG as MODEL_SLUG } from './rz-model';
 import { attachOn, SLUG as ON_SLUG } from './rz-on';
 import { SLUG as PUBLISH_SLUG } from './rz-publish';
 import { SLUG as REFRESH_SLUG } from './rz-refresh';
+import { SLUG as REQUEST_SLUG } from './rz-request';
 import { SLUG as SCOPE_SLUG } from './rz-scope';
 import { SLUG as STORE_SLUG } from './rz-store';
 import { applyText, SLUG as TEXT_SLUG } from './rz-text';
@@ -30,6 +31,7 @@ export type ConfigDirectiveSlug =
   | typeof SCOPE_SLUG
   | typeof PUBLISH_SLUG
   | typeof REFRESH_SLUG
+  | typeof REQUEST_SLUG
   | typeof STORE_SLUG
   | typeof TUNE_SLUG
   | typeof WAKE_SLUG;
@@ -70,6 +72,7 @@ export { applyModel } from './rz-model';
 export { attachOn } from './rz-on';
 export { getPublishTopic } from './rz-publish';
 export { attachRefresh } from './rz-refresh';
+export { getRequestConfig } from './rz-request';
 export { getControllerName } from './rz-scope';
 export { getStoreName } from './rz-store';
 export { applyText } from './rz-text';
