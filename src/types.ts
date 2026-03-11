@@ -46,16 +46,28 @@ export interface RequestResult<T = any> {
   response: Response | null;
 }
 
-export interface RouseReqOpts extends Omit<RequestInit, 'body'> {
+/** Framework orchestration and timing execution options */
+export interface RouseTuneOpts {
+  retry?: number;
+  timeout?: number;
+  abortKey?: string | symbol;
+  debounce?: number;
+  throttle?: number;
+  poll?: number;
+  trigger?: string[];
+}
+
+/** Internal framework context and payload overrides */
+export interface RouseInternalOpts {
   body?: BodyInit | Record<string, any> | any[] | null | undefined;
   triggerEl?: HTMLElement;
   form?: HTMLFormElement;
   skipInterceptors?: boolean;
   onUploadProgress?: (ev: ProgressEvent) => void;
-  retry?: number;
-  timeout?: number;
-  abortKey?: string | symbol;
 }
+
+/** The unified options object passed through the Rouse network engine */
+export type RouseReqOpts = Omit<RequestInit, 'body'> & RouseTuneOpts & RouseInternalOpts;
 
 export interface NetworkInterceptors {
   onRequest?: (config: RouseReqOpts) => RouseReqOpts | Promise<RouseReqOpts>;
@@ -69,7 +81,7 @@ export interface NetworkInterceptors {
 
 /**
  * The context object passed into every controller setup function.
- * @template P - The type of the props (rz-props).
+ * @template P - The type of the props.
  */
 export type SetupContext<P extends Record<string, any> = Record<string, any>> = {
   el: HTMLElement;
@@ -84,9 +96,7 @@ export type SetupContext<P extends Record<string, any> = Record<string, any>> = 
   stores: StoreManager;
 };
 
-/**
- * The definition of a setup function.
- */
+/** The definition of a setup function. */
 export type SetupFn<P extends Record<string, any> = Record<string, any>> = (
   ctx: SetupContext<P>,
 ) => RouseController;

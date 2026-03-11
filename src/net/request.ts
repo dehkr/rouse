@@ -41,6 +41,14 @@ export async function request<T = any>(
     appConfig,
   );
 
+  // Enforce no body on GET/HEAD
+  let safeBody: BodyInit | null | undefined = finalBody;
+
+  if ((method === 'GET' || method === 'HEAD') && safeBody != null) {
+    console.warn('[Rouse] Body is not allowed on GET/HEAD. Dropping body.');
+    safeBody = undefined;
+  }
+
   // Extract Rouse-specific execution options
   const {
     onUploadProgress,
@@ -101,7 +109,7 @@ export async function request<T = any>(
             finalUrl,
             method,
             reqHeaders,
-            finalBody,
+            safeBody,
             onUploadProgress,
             timeout,
             attemptController.signal,
@@ -110,9 +118,9 @@ export async function request<T = any>(
           response = await fetch(finalUrl, {
             method,
             headers: reqHeaders,
-            body: finalBody,
             signal: attemptController.signal,
             ...fetchOptions,
+            ...(safeBody != null ? { body: safeBody } : {}),
           });
         }
 

@@ -22,9 +22,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Extract dot-notation path parsing logic into separate module.
 - Refactor the network engine to use dependency injection to avoid multiple app instances overwriting each other's network configuration.
 - Update `resolvePayload` to accept a `requireObject` flag, allowing it to resolve primitive values while maintaining strict object validation for data payloads.
+- Incorporate request configuration overrides for network requests triggered by `rz-fetch`.
 
 ### Fixed
 - Prevent accidental JSON serialization of `DataView` and `TypedArray` types in request bodies by enhancing native binary type checks.
+- Strip body from GET requests to prevent errors.
 
 ### Removed
 

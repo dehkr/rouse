@@ -3,50 +3,37 @@ import { parseDirective } from '../dom/parser';
 import { dispatch, insert, isForm, isInput, isSelect, isTextArea } from '../dom/utils';
 import { request } from '../net/request';
 import type { RouseReqOpts } from '../types';
-import { getDirective } from './prefix';
+import { getDirective, selector } from './prefix';
 import { getInsertConfig } from './rz-insert';
 import { getPublishTopic } from './rz-publish';
+import { getRequestConfig } from './rz-request';
 import { getTuningStrategy } from './rz-tune';
 
-export const SLUG = 'fetch' as const;
+type TimeoutId = ReturnType<typeof setTimeout>;
 
 type TimerState = {
-  debounce?: any;
-  throttle?: any;
-  poll?: any;
+  debounce?: TimeoutId;
+  throttle?: TimeoutId;
+  throttlePending?: boolean;
+  poll?: TimeoutId;
   abortKey?: string;
   destroyed?: boolean;
 };
 
+export const SLUG = 'fetch' as const;
+
 const timers = new WeakMap<HTMLElement, TimerState>();
 
-function updateTimer(el: HTMLElement, key: keyof TimerState, value: any) {
-  const current = timers.get(el) || {};
-  timers.set(el, { ...current, [key]: value });
-}
-
-function clearTimer(el: HTMLElement, key: 'debounce' | 'throttle' | 'poll') {
-  const current = timers.get(el);
-  if (current && current[key]) {
-    clearTimeout(current[key]);
-    updateTimer(el, key, undefined);
-  }
-}
-
-/**
- * Explicit timer cleanup handled by global MutationObserver
- */
-export function cleanupFetch(el: HTMLElement) {
-  clearTimer(el, 'poll');
-  clearTimer(el, 'debounce');
-  clearTimer(el, 'throttle');
-
-  // Mark as destroyed to prevent callbacks from rescheduling
-  const current = timers.get(el);
-  if (current) {
-    timers.set(el, { ...current, destroyed: true });
-  }
-}
+const EVENTS = {
+  CONFIG: 'rz:fetch:config',
+  START: 'rz:fetch:start',
+  SUCCESS: 'rz:fetch:success',
+  ERROR: 'rz:fetch:error',
+  ABORT: 'rz:fetch:abort',
+  INSERT_BEFORE: 'rz:fetch:insert:before',
+  INSERT: 'rz:fetch:insert',
+  END: 'rz:fetch:end',
+} as const;
 
 /**
  * This function acts as the gatekeeper before a network request is fired. It parses
@@ -61,10 +48,9 @@ export function cleanupFetch(el: HTMLElement) {
  * clean request options to `executeFetch`.
  *
  * @param el - The DOM element triggering the network request.
- * @param loadingClass - The CSS class applied to the element while the request is in-flight.
  */
-export async function handleFetch(el: HTMLElement, loadingClass = 'rz-loading') {
-  const config = getTuningStrategy(el) as Record<string, any>;
+export async function handleFetch(el: HTMLElement) {
+  const config = getTuningStrategy(el);
   const pollInterval = Math.max(0, Number(config.poll) || 0);
 
   let debounce = 0;
@@ -86,15 +72,24 @@ export async function handleFetch(el: HTMLElement, loadingClass = 'rz-loading') 
   // THROTTLE
 
   if (throttle > 0) {
-    if (existing.throttle) return;
+    if (!existing.throttle) {
+      executeFetch(el, reqOpts, pollInterval);
 
-    executeFetch(el, loadingClass, reqOpts, pollInterval);
+      const timerId = setTimeout(() => {
+        const state = timers.get(el);
+        if (state?.destroyed) return;
 
-    const timerId = setTimeout(() => {
-      updateTimer(el, 'throttle', undefined);
-    }, throttle);
+        if (state?.throttlePending) {
+          executeFetch(el, reqOpts, pollInterval);
+          updateTimer(el, 'throttlePending', false);
+        }
+        updateTimer(el, 'throttle', undefined);
+      }, throttle);
 
-    updateTimer(el, 'throttle', timerId);
+      updateTimer(el, 'throttle', timerId);
+    } else {
+      updateTimer(el, 'throttlePending', true);
+    }
     return;
   }
 
@@ -106,7 +101,7 @@ export async function handleFetch(el: HTMLElement, loadingClass = 'rz-loading') 
       clearTimer(el, 'debounce');
 
       if (canFire) {
-        executeFetch(el, loadingClass, reqOpts, pollInterval);
+        executeFetch(el, reqOpts, pollInterval);
       }
 
       const timerId = setTimeout(() => {
@@ -120,7 +115,8 @@ export async function handleFetch(el: HTMLElement, loadingClass = 'rz-loading') 
 
       const timerId = setTimeout(() => {
         updateTimer(el, 'debounce', undefined);
-        executeFetch(el, loadingClass, reqOpts, pollInterval);
+        if (timers.get(el)?.destroyed) return;
+        executeFetch(el, reqOpts, pollInterval);
       }, debounce);
 
       updateTimer(el, 'debounce', timerId);
@@ -131,7 +127,7 @@ export async function handleFetch(el: HTMLElement, loadingClass = 'rz-loading') 
   // IMMEDIATE
 
   clearTimer(el, 'debounce');
-  executeFetch(el, loadingClass, reqOpts, pollInterval);
+  executeFetch(el, reqOpts, pollInterval);
 }
 
 /**
@@ -147,45 +143,37 @@ export async function handleFetch(el: HTMLElement, loadingClass = 'rz-loading') 
  * - Enables polling timers to continue through network errors and abort cancellations
  *
  * @param el - The DOM element triggering the network request.
- * @param loadingClass - The CSS class applied to the element while the request is in-flight.
  * @param options - The sanitized request configuration passed to the network orchestrator.
  * @param pollInterval - The polling interval in milliseconds (0 if polling is disabled).
  */
 async function executeFetch(
   el: HTMLElement,
-  loadingClass: string,
   options: RouseReqOpts,
   pollInterval: number,
 ) {
   const app = getApp(el);
+  const appConfig = app?.config || defaultConfig;
+  const loadingClass = appConfig.loadingClass;
 
   // Check destroyed flag and bail out if marked for cleanup
   const state = timers.get(el);
-  if (state?.destroyed) {
-    return;
-  }
+  if (state?.destroyed) return;
 
-  // Circuit breaker for edge cases where the element is removed while the
-  // network request is actively in the air
-  if (!document.body.contains(el)) {
+  // If the element is removed while the network request is actively in the air
+  if (!el.isConnected) {
     cleanupFetch(el);
     return;
   }
 
   // Allow pausing execution while keeping polling scheduled
   if (el.hasAttribute('disabled') || el.getAttribute('aria-disabled') === 'true') {
-    if (pollInterval > 0 && !state?.destroyed) {
-      const timer = setTimeout(
-        () => executeFetch(el, loadingClass, options, pollInterval),
-        pollInterval,
-      );
-      updateTimer(el, 'poll', timer);
-    }
+    schedulePoll(el, options, pollInterval);
     return;
   }
 
   let url: string | null = null;
-  let method = 'GET';
+  let explicitMethod: string | undefined;
+  let formMethod: string | undefined;
 
   // Parse URL and method from directive
   const fetchRaw = getDirective(el, SLUG);
@@ -194,7 +182,7 @@ async function executeFetch(
     if (parsed[0]) {
       const [key, val] = parsed[0];
       if (val) {
-        method = key.toUpperCase();
+        explicitMethod = key;
         url = val;
       } else {
         url = key;
@@ -202,19 +190,58 @@ async function executeFetch(
     }
   }
 
-  // Fallback to URL in href or action attributes
-  if (!url) {
-    if (el instanceof HTMLAnchorElement) {
-      url = el.href;
-    } else if (isForm(el)) {
+  // Fallbacks for URL and capture native form method
+  if (isForm(el)) {
+    if (!url) {
       url = el.action;
+    }
+    formMethod = el.getAttribute('method') || undefined;
+  } else if (el instanceof HTMLAnchorElement) {
+    if (!url) {
+      url = el.href;
     }
   }
 
-  if (!url) return;
+  if (!url) {
+    const error = new Error('No URL specified for rz-fetch');
+    console.warn('[Rouse] No URL found for rz-fetch directive on element:', el);
+    dispatch(el, EVENTS.ERROR, { error, config: options });
+    return;
+  }
 
-  // Handle standalone inputs since they aren't serialized like forms
-  if (isInput(el) || isSelect(el) || isTextArea(el)) {
+  // Grab rz-request fetch configuration overrides
+  const reqEl = el.closest<HTMLElement>(selector('request'));
+  const requestOverrides = reqEl ? getRequestConfig(reqEl, app) : {};
+
+  // Merge native fetch configuration
+  const finalRequestInit = {
+    ...appConfig.request,
+    ...requestOverrides,
+  };
+
+  // Resolve method
+  const method = (
+    explicitMethod ||
+    options.method ||
+    finalRequestInit.method ||
+    formMethod ||
+    'GET'
+  ).toUpperCase();
+
+  const isFormEl = isForm(el);
+  const hasExplicitBody =
+    finalRequestInit.body !== undefined || options.body !== undefined;
+
+  // A body added to the request config takes precedence over form data
+  if (hasExplicitBody && isFormEl) {
+    console.warn(
+      `[Rouse] Explicit body config overrides form serialization on element:`,
+      el,
+    );
+  }
+
+  // Process standalone inputs to build the body or modify URL
+  if (!hasExplicitBody && (isInput(el) || isSelect(el) || isTextArea(el))) {
     const field = el;
 
     if (field.name) {
@@ -226,16 +253,23 @@ async function executeFetch(
         const checked = root.querySelector(
           `input[type="radio"][name="${CSS.escape(field.name)}"]:checked`,
         ) as HTMLInputElement | null;
+
         if (checked) {
           values = [checked.value];
         }
-      } else if (field.type === 'checkbox') {
+      }
+      // Checkbox
+      else if (field.type === 'checkbox') {
         if ((field as HTMLInputElement).checked) {
           values = [field.value];
         }
-      } else if (isSelect(field) && field.multiple) {
+      }
+      // Multi-select
+      else if (isSelect(field) && field.multiple) {
         values = Array.from(field.selectedOptions).map((opt) => opt.value);
-      } else {
+      }
+      // Default
+      else {
         values = [field.value];
       }
 
@@ -246,32 +280,51 @@ async function executeFetch(
           values.forEach((val) => {
             urlObj.searchParams.append(field.name, val);
           });
+
+          // Use relative path only for same-origin http(s) URLs
+          const isSameOrigin = urlObj.origin === window.location.origin;
+          const isHttp = url.startsWith('http') || url.startsWith('//');
+
           url =
-            url.startsWith('http') || url.startsWith('//')
-              ? urlObj.toString()
-              : urlObj.pathname + urlObj.search + urlObj.hash;
-        } else if (!options.body) {
-          options.body =
+            isSameOrigin && isHttp
+              ? urlObj.pathname + urlObj.search + urlObj.hash
+              : urlObj.toString();
+        } else {
+          // Non-GET methods: add to body
+          finalRequestInit.body =
             values.length > 1 ? { [field.name]: values } : { [field.name]: values[0] };
         }
       }
     }
   }
 
-  // Automatically generate abort key if one not provided
+  // Automatically generate abort key if one isn't provided
   // Guarantees an element can never have conflicting requests
   let autoAbortKey = timers.get(el)?.abortKey;
   if (!autoAbortKey) {
-    autoAbortKey = `rzKey_${Math.random().toString(36).slice(2, 11)}`;
+    autoAbortKey =
+      typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `rzAbort_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
     updateTimer(el, 'abortKey', autoAbortKey);
   }
-  options.abortKey = options.abortKey || autoAbortKey;
 
-  // Lifecycle config
+  // Final unified config object
+  const finalOptions: RouseReqOpts = {
+    ...finalRequestInit,
+    ...appConfig.tune,
+    ...options,
+    method,
+    abortKey: options.abortKey || autoAbortKey,
+    triggerEl: el,
+    form: hasExplicitBody ? undefined : isFormEl ? (el as HTMLFormElement) : undefined,
+  };
+
+  // LIFECYCLE: config (cancelable)
   const configEvent = dispatch(
     el,
-    'rz:fetch:config',
-    { config: options, url, method },
+    EVENTS.CONFIG,
+    { config: finalOptions, url, method },
     { cancelable: true },
   );
 
@@ -279,69 +332,128 @@ async function executeFetch(
 
   el.classList.add(loadingClass);
   el.setAttribute('aria-busy', 'true');
-  dispatch(el, 'rz:fetch:start', { config: options });
+
+  // LIFECYCLE: start
+  dispatch(el, EVENTS.START, { config: finalOptions });
 
   try {
-    const result = await request(
-      url,
-      {
-        method,
-        triggerEl: el,
-        form: isForm(el) ? el : undefined,
-        ...options,
-      },
-      app?.config || defaultConfig,
-    );
+    const result = await request(url, finalOptions, appConfig);
 
     if (result.error) {
       if (result.error.status === 'CANCELED') {
-        dispatch(el, 'rz:fetch:abort');
+        dispatch(el, EVENTS.ABORT, { config: finalOptions });
         return;
       }
       throw result.error;
     }
 
-    const { data } = result;
+    const { data, response } = result;
 
+    // LIFECYCLE: success (fired on trigger element)
+    dispatch(el, EVENTS.SUCCESS, { data, response, config: finalOptions });
+
+    // HTML
     if (typeof data === 'string') {
-      // HTML
       const operations = getInsertConfig(el);
-      // Iterate over every operation in the list
+
       operations.forEach(({ targets, strategy }) => {
         if (targets.length > 0) {
           targets.forEach((target) => {
-            insert(target, data, strategy);
-            // Dispatch success on each target
-            dispatch(target, 'rz:fetch:success', { content: data });
+            // LIFECYCLE: before insert (fired on target, cancelable)
+            const beforeInsertEvent = dispatch(
+              target,
+              EVENTS.INSERT_BEFORE,
+              {
+                data,
+                triggerEl: el,
+                targetEl: target,
+                strategy,
+                response,
+              },
+              { cancelable: true },
+            );
+
+            if (beforeInsertEvent.defaultPrevented) return;
+
+            let dispatcherEl = target;
+
+            if (strategy === 'outerHTML' || strategy === 'delete') {
+              // Cache parent to fire the lifecycle event
+              dispatcherEl = target.parentElement || document.body;
+            }
+
+            insert(target, beforeInsertEvent.detail.data, strategy);
+
+            // LIFECYCLE: insert completion (fired on target or parent)
+            dispatch(dispatcherEl, EVENTS.INSERT, {
+              triggerEl: el,
+              targetEl: target,
+              strategy,
+            });
           });
         }
       });
-    } else {
-      // JSON
-      dispatch(el, 'rz:fetch:success', { data });
+    }
+    // JSON
+    else {
       const topic = getPublishTopic(el);
       if (topic) {
-        getApp(el)?.bus.publish(topic, data);
+        app?.bus.publish(topic, data);
       }
     }
-  } catch (err: any) {
-    console.error('[Rouse] Fetch failed:', err);
-    dispatch(el, 'rz:fetch:error', { error: err });
+  } catch (error: any) {
+    console.error('[Rouse] Fetch failed:', error);
+    // LIFECYCLE: error
+    dispatch(el, EVENTS.ERROR, { error, config: finalOptions });
   } finally {
     el.classList.remove(loadingClass);
-    el.setAttribute('aria-busy', 'false');
-    dispatch(el, 'rz:fetch:end');
+    el.removeAttribute('aria-busy');
 
-    // Check destroyed flag before scheduling next poll
-    const state = timers.get(el);
+    // LIFECYCLE: end
+    dispatch(el, EVENTS.END, { config: finalOptions });
 
     // Poll timers should continue even if request aborted or after network errors
-    if (pollInterval > 0 && !state?.destroyed) {
-      const timer = setTimeout(
-        () => executeFetch(el, loadingClass, options, pollInterval),
-        pollInterval,
-      );
-      updateTimer(el, 'poll', timer);
-    }
+    schedulePoll(el, options, pollInterval);
+  }
+}
+
+/**
+ * Explicit timer cleanup handled by global MutationObserver
+ */
+export function cleanupFetch(el: HTMLElement) {
+  clearTimer(el, 'poll');
+  clearTimer(el, 'debounce');
+  clearTimer(el, 'throttle');
+
+  // Mark as destroyed to prevent callbacks from rescheduling
+  const current = timers.get(el);
+  if (current) {
+    timers.set(el, { ...current, destroyed: true });
+  }
+}
+
+function updateTimer<K extends keyof TimerState>(
+  el: HTMLElement,
+  key: K,
+  value: TimerState[K],
+) {
+  const current = timers.get(el) || {};
+  timers.set(el, { ...current, [key]: value });
+}
+
+function clearTimer(el: HTMLElement, key: 'debounce' | 'throttle' | 'poll') {
+  const current = timers.get(el);
+  if (current?.[key]) {
+    clearTimeout(current[key]);
+    updateTimer(el, key, undefined);
+  }
+}
+
+function schedulePoll(el: HTMLElement, options: RouseReqOpts, pollInterval: number) {
+  const state = timers.get(el);
+  if (pollInterval > 0 && !state?.destroyed) {
+    clearTimer(el, 'poll');
+    const timer = setTimeout(() => executeFetch(el, options, pollInterval), pollInterval);
+    updateTimer(el, 'poll', timer);
   }
 }

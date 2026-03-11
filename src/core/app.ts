@@ -7,7 +7,7 @@ import {
   initObserver,
   initStoreElement,
 } from '../dom/initializer';
-import type { NetworkInterceptors, RouseReqOpts, SetupFn } from '../types';
+import type { NetworkInterceptors, RouseReqOpts, RouseTuneOpts, SetupFn } from '../types';
 import { EventBus } from './bus';
 import { Registry } from './registry';
 import { StoreManager } from './store';
@@ -16,6 +16,7 @@ export const defaultConfig = {
   loadingClass: 'rz-loading',
   wake: 'load',
   baseUrl: '',
+  tune: {} as RouseTuneOpts,
   request: {} as RouseReqOpts,
   interceptors: {} as NetworkInterceptors,
 };
@@ -76,6 +77,7 @@ export class RouseApp {
       loadingClass: config.loadingClass ?? defaultConfig.loadingClass,
       wake: config.wake ?? defaultConfig.wake,
       baseUrl: config.baseUrl ?? defaultConfig.baseUrl,
+      tune: config.tune ?? defaultConfig.tune,
       request: config.request ?? defaultConfig.request,
       interceptors: config.interceptors ?? defaultConfig.interceptors,
     };
@@ -162,7 +164,7 @@ export class RouseApp {
     }
     this._hasStarted = true;
 
-    const { loadingClass, wake } = this.config;
+    const { wake } = this.config;
 
     // Initialize global stores
     const storeScripts = this.root.querySelectorAll<HTMLScriptElement>(
@@ -186,7 +188,7 @@ export class RouseApp {
         if (tune.trigger && tune.trigger.length > 0) {
           if (tune.trigger.includes(e.type)) {
             e.preventDefault();
-            handleFetch(target, loadingClass);
+            handleFetch(target);
           }
           return;
         }
@@ -198,18 +200,18 @@ export class RouseApp {
 
         if (isForm && e.type === 'submit') {
           e.preventDefault();
-          handleFetch(target, loadingClass);
+          handleFetch(target);
           return;
         }
 
         if (isInput && (e.type === 'input' || e.type === 'change')) {
-          handleFetch(target, loadingClass);
+          handleFetch(target);
           return;
         }
 
         if (!isForm && !isInput && e.type === 'click') {
           e.preventDefault();
-          handleFetch(target, loadingClass);
+          handleFetch(target);
         }
       }
     };
@@ -243,14 +245,14 @@ export class RouseApp {
       if (tune.trigger && tune.trigger.length > 0) {
         // Auto-start on 'load'
         if (tune.trigger.includes('load')) {
-          handleFetch(el, loadingClass);
+          handleFetch(el);
         }
         // Attach direct listeners for custom events
         tune.trigger.forEach((evt) => {
           if (evt !== 'load' && evt !== 'none' && !this._events.includes(evt)) {
             el.addEventListener(evt, (e) => {
               e.preventDefault();
-              handleFetch(el, loadingClass);
+              handleFetch(el);
             });
           }
         });
