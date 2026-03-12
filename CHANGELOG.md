@@ -7,36 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+No unreleased changes.
+
+## [0.3.0] - 2026-03-11
+
 ### Added
 
-- Provide an explicit and concise way to access global stores in HTML with the `@` prefix: `rz-model="@user-state.name"`.
-- New delimiters for injecting payloads into controllers and methods: `?` for URL params, `@` for store data, `#` for JSON script IDs, and `{` for inline JSON.
-- Add `request` property to the app configuration to establish a baseline for Fetch API defaults (e.g., `mode`, `credentials`, `headers`).
-- Add `rz-request` directive for declarative, DOM-scoped Fetch API configuration.
+- Enable explicit access to global stores in HTML with the `@` prefix: `rz-model="@user-state.name"`.
+- Introduce new delimiters for passing data into controllers and methods: `?` for URL params and `@` for store data.
+- Support a `request` property in the app configuration to establish Fetch API defaults (e.g., `mode`, `credentials`, `headers`).
+- Add the `rz-request` directive for declarative, DOM-scoped Fetch API configuration.
 
 ### Changed
 
-- **Breaking:** Update directive parsing to require comma + white space to separate multiple values.
+- **Breaking:** Update directive parsing to require a comma and white space to separate multiple values.
 - **Breaking:** Rename `rz-island` directive to `rz-scope`.
-- **Breaking:** Inline JSON payloads for controllers and methods now look for `{` as the delimiter instead of `#` (e.g., `rz-scope='counter{ "count": 5 }'`).
+- **Breaking:** Remove the `#` delimiter for inline JSON payloads. Use the JSON object directly after the name: `rz-scope='counter{ "count": 5 }'`.
 - **Breaking:** Replace `request()` with `fetch()` in programmatic API to trigger network requests while retaining lifecycle events and DOM mutations.
 - Decouple `rz-fetch` execution logic into a centralized network engine to support both declarative and programmatic APIs.
-- Refine fetch method resolution to follow a strict priority cascade (explicit > programmatic > global config > form attribute > default GET).
+- Refine fetch method resolution to follow a strict priority cascade for configuration.
 - Improve fetch lifecycle events by including helpful details when dispatched.
 - Refactor the network engine to use dependency injection to avoid multiple app instances overwriting each other's network configuration.
-- Update `resolvePayload` to accept a `requireObject` flag, allowing it to resolve primitive values while maintaining strict object validation for data payloads.
 - Extract dot-notation path parsing logic into separate module.
 
 ### Fixed
-- Prevent accidental JSON serialization of `DataView` and `TypedArray` types in request bodies by enhancing native binary type checks.
-- Remove body from GET requests to prevent errors.
-- Warn and dispatch `rz:fetch:error` when a request is missing a URL, instead of failing silently.
-- Respect the native `method` attribute on `<form>` elements, preventing it from being overwritten by the default GET fallback.
+- Prevent accidental JSON serialization of `DataView` and `TypedArray` types in request bodies by enhancing binary type checks.
+- Prevent GET requests from including a body to avoid server-side errors.
+- Warn and dispatch `rz:fetch:error` when a request is missing a URL instead of failing silently.
+- Respect the native `method` attribute on `<form>` elements.
 
 ### Removed
 
 - **Breaking:** Remove `rz-state` directive. The new `@` prefix for accessing global stores makes it redundant.
-- **Breaking:** Remove the top-level `headers` property from the app configuration. Headers can now be configured inside the new `request` object.
+- **Breaking:** Remove top-level `headers` property from app configuration (moved to `request` object).
 
 ## [0.2.0] - 2026-03-04
 
