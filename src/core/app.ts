@@ -1,4 +1,4 @@
-import { cleanupFetch, getTuningStrategy, handleFetch } from '../directives';
+import { getTuningStrategy } from '../directives';
 import { hasDirective, selector } from '../directives/prefix';
 import { unmountInstance } from '../dom/controller';
 import {
@@ -7,6 +7,7 @@ import {
   initObserver,
   initStoreElement,
 } from '../dom/initializer';
+import { cleanupFetch, handleFetch } from '../net/engine';
 import type { NetworkInterceptors, RouseReqOpts, RouseTuneOpts, SetupFn } from '../types';
 import { EventBus } from './bus';
 import { Registry } from './registry';
@@ -149,9 +150,38 @@ export class RouseApp {
     return this;
   }
 
+  /**
+   * Creates a new reactive store.
+   */
   addStore(name: string, state: object, config?: any) {
     this.stores.define(name, state, config);
     return this;
+  }
+
+  /**
+   * Trigger a Rouse network request.
+   *
+   * @param resource - The URL to fetch.
+   * @param options - Network configuration, including the DOM `target`.
+   */
+  public async fetch(resource: string, options: RouseReqOpts = {}) {
+    const targetRef = options.target || document.body;
+    const el =
+      typeof targetRef === 'string'
+        ? document.querySelector<HTMLElement>(targetRef)
+        : targetRef;
+
+    if (!el) {
+      console.error(
+        `[Rouse] Fetch failed. Target element not found:`,
+        targetRef,
+      );
+      return;
+    }
+
+    options.url = resource;
+
+    return handleFetch(el, options);
   }
 
   /**

@@ -59,8 +59,10 @@ export interface RouseTuneOpts {
 
 /** Internal framework context and payload overrides */
 export interface RouseInternalOpts {
-  body?: BodyInit | Record<string, any> | any[] | null | undefined;
+  url?: string;
+  target?: HTMLElement | string;
   triggerEl?: HTMLElement;
+  body?: BodyInit | Record<string, any> | any[] | null | undefined;
   form?: HTMLFormElement;
   skipInterceptors?: boolean;
   onUploadProgress?: (ev: ProgressEvent) => void;
@@ -87,7 +89,7 @@ export type SetupContext<P extends Record<string, any> = Record<string, any>> = 
   el: HTMLElement;
   props: P;
   dispatch: (name: string, detail?: any, options?: CustomEventInit) => CustomEvent;
-  request: <T = any>(url: string, options?: RouseReqOpts) => Promise<RequestResult<T>>;
+  fetch: (resource: string, options?: RouseReqOpts) => Promise<void>;
   bus: {
     publish: (event: string, data?: any) => void;
     subscribe: (event: string, cb: BusCallback) => void;

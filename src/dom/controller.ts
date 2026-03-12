@@ -1,7 +1,6 @@
 import { getApp } from '../core/app';
-import { request } from '../net/request';
 import { effectScope } from '../reactivity';
-import type { SetupContext, SetupFn } from '../types';
+import type { RouseReqOpts, SetupContext, SetupFn } from '../types';
 import { attachController } from './attacher';
 import { dispatch } from './utils';
 
@@ -67,7 +66,7 @@ export function createController(
   const context: SetupContext = {
     el,
     props,
-    request: (url, opts) => request(url, opts, app.config),
+    stores: app.stores,
     dispatch: (evt, detail, opts) => dispatch(el, evt, detail, opts),
     bus: {
       publish: (event, data) => app.bus.publish(event, data),
@@ -77,7 +76,14 @@ export function createController(
       },
       unsubscribe: (event, cb) => app.bus.unsubscribe(event, cb),
     },
-    stores: app.stores,
+    fetch: (resource: string, options: RouseReqOpts = {}) => {
+      // Target defaults to the controller root element unless provided
+      const finalOptions: RouseReqOpts = {
+        target: el,
+        ...options,
+      };
+      return app.fetch(resource, finalOptions);
+    },
   };
 
   // Setup effect scope

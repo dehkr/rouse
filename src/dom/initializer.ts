@@ -1,7 +1,8 @@
 import { getApp, type RouseApp } from '../core/app';
-import { attachAutosave, attachRefresh, cleanupFetch, processWake } from '../directives';
+import { attachAutosave, attachRefresh, processWake } from '../directives';
 import { getDirective, hasDirective, selector } from '../directives/prefix';
 import { mountInstance, unmountInstance } from '../dom/controller';
+import { cleanupFetch } from '../net/engine';
 import { isElement, resolvePayload, splitInjection } from './utils';
 
 const storeCleanups = new WeakMap<HTMLScriptElement, Array<() => void>>();
