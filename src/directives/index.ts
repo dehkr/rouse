@@ -1,7 +1,7 @@
 import type { RouseController } from '../types';
 import { SLUG as AUTOSAVE_SLUG } from './rz-autosave';
 import { applyBind, SLUG as BIND_SLUG } from './rz-bind';
-import { SLUG as FETCH_SLUG, getFetchDirective } from './rz-fetch';
+import { SLUG as FETCH_SLUG } from './rz-fetch';
 import { applyHtml, SLUG as HTML_SLUG } from './rz-html';
 import { SLUG as INSERT_SLUG } from './rz-insert';
 import { applyModel, SLUG as MODEL_SLUG } from './rz-model';
@@ -78,4 +78,3 @@ export { getStoreName } from './rz-store';
 export { applyText } from './rz-text';
 export { getTuningStrategy } from './rz-tune';
 export { processWake } from './rz-wake';
-

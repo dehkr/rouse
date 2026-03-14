@@ -65,6 +65,7 @@ export function createController(
 
   const context: SetupContext = {
     el,
+    appRoot: app.root,
     props,
     stores: app.stores,
     dispatch: (evt, detail, opts) => dispatch(el, evt, detail, opts),

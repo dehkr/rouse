@@ -87,6 +87,7 @@ export interface NetworkInterceptors {
  */
 export type SetupContext<P extends Record<string, any> = Record<string, any>> = {
   el: HTMLElement;
+  appRoot: HTMLElement;
   props: P;
   dispatch: (name: string, detail?: any, options?: CustomEventInit) => CustomEvent;
   fetch: (resource: string, options?: RouseReqOpts) => Promise<void>;
