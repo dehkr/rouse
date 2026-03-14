@@ -6,8 +6,8 @@ import { dispatch } from './utils';
 
 const instanceMap = new WeakMap<HTMLElement, any>();
 
-// Initializes a controller on a specific element
-export function mountInstance(
+// Initializes a controller instance on a specific element
+export function initInstance(
   el: HTMLElement,
   setup: SetupFn,
   props: Record<string, any> = {},
@@ -16,12 +16,14 @@ export function mountInstance(
   instanceMap.set(el, createController(el, setup, props));
 }
 
-export function unmountInstance(el: HTMLElement) {
+export function destroyInstance(el: HTMLElement) {
   const inst = instanceMap.get(el);
   if (inst) {
-    // Trigger disconnect() lifecycle and cleanup
-    inst._unmount();
+    // Trigger disconnect() and cleanup
+    inst._destroy();
     instanceMap.delete(el);
+
+    dispatch(el, 'rz:controller:destroy');
   }
 }
 
@@ -42,14 +44,14 @@ export function createController(
   setup: SetupFn,
   props: Record<string, any> = {},
 ) {
-  let isUnmounted = false;
+  let isDestroyed = false;
   const cleanups: (() => void)[] = [];
 
   const handle = {
     instance: null as any,
-    _unmount: () => {
-      if (isUnmounted) return;
-      isUnmounted = true;
+    _destroy: () => {
+      if (isDestroyed) return;
+      isDestroyed = true;
       // Teardown child effects (DOM) before parent state
       cleanups.reverse().forEach((fn) => {
         fn();
@@ -63,6 +65,7 @@ export function createController(
     return handle;
   }
 
+  // Context object passed into the controller setup function
   const context: SetupContext = {
     el,
     appRoot: app.root,
@@ -91,7 +94,7 @@ export function createController(
   // Wraps the effects that belong to the controller instance
   let instance: any;
   const stopSetupScope = effectScope(() => {
-    // Provide empty object if no controller provided
+    // Assign empty object if no controller provided
     instance = setup(context) || {};
   });
   cleanups.push(stopSetupScope);
@@ -100,11 +103,14 @@ export function createController(
   // which will cause memory leaks. Controllers should be initialized synchronously,
   // then populated asynchronously (data should be fetched as side effect).
   if (instance instanceof Promise) {
-    handle._unmount();
+    handle._destroy();
     throw new Error(
       `[Rouse] Controller setup must be synchronous. Fetch data as a side effect.`,
     );
   }
+
+  // State exists but not bound to DOM yet
+  dispatch(el, 'rz:controller:init', { context, instance });
 
   // Binding effect scope
   // Wraps the logic that connects the reactive state to the DOM

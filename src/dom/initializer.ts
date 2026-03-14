@@ -1,7 +1,7 @@
 import { getApp, type RouseApp } from '../core/app';
 import { attachAutosave, attachRefresh, processWake } from '../directives';
 import { getDirective, hasDirective, selector } from '../directives/prefix';
-import { mountInstance, unmountInstance } from '../dom/controller';
+import { destroyInstance, initInstance } from '../dom/controller';
 import { cleanupFetch } from '../net/engine';
 import { isElement, resolvePayload, splitInjection } from './utils';
 
@@ -35,7 +35,7 @@ export function initControllerElement(el: HTMLElement, defaultWake: string) {
   processWake(el, defaultWake, () => {
     // Lazy JSON parse
     const props = resolvePayload(rawPayload, app?.stores) || {};
-    mountInstance(el, setup, props);
+    initInstance(el, setup, props);
   });
 }
 
@@ -143,9 +143,9 @@ export function initObserver(app: RouseApp) {
           qsa<HTMLScriptElement>(node, storeSel).forEach(cleanupStoreElement);
 
           if (hasDirective(node, 'scope')) {
-            unmountInstance(node);
+            destroyInstance(node);
           }
-          qsa<HTMLElement>(node, sel).forEach(unmountInstance);
+          qsa<HTMLElement>(node, sel).forEach(destroyInstance);
 
           if (hasDirective(node, 'fetch')) {
             cleanupFetch(node);

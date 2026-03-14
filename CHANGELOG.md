@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Expose the root element of app instances in controllers via `ctx.appRoot`.
+- Dispatch DOM events for the application and controller lifecycles:
+  - App: `rz:app:start`, `rz:app:ready`, and `rz:app:destroy`
+  - Controllers: `rz:controller:init`, `rz:controller:connect`, `rz:controller:disconnect`, and `rz:controller:destroy`
 
 ## [0.3.0] - 2026-03-11
 

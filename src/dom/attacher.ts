@@ -3,7 +3,7 @@ import { DOM_DIRECTIVES } from '../directives';
 import { getDirective, hasDirective, selector } from '../directives/prefix';
 import type { RouseController } from '../types';
 import { parseDirective } from './parser';
-import { isElement } from './utils';
+import { dispatch, isElement } from './utils';
 
 /**
  * Binds the controller instance to the DOM.
@@ -17,7 +17,7 @@ export function attachController(root: HTMLElement, instance: RouseController) {
     DomDirectiveSlug,
     DirectiveDef,
   ][];
-  // prettier-ignore
+  // biome-ignore lint: formatting
   const DIRECTIVES_SELECTOR = DIRECTIVES_ENTRIES
     .map(([key, _val]) => selector(key))
     .join(', ');
@@ -138,6 +138,9 @@ export function attachController(root: HTMLElement, instance: RouseController) {
     instance.connect();
   }
 
+  // The DOM is bound and the controller is fully active
+  dispatch(root, 'rz:controller:connect', { instance });
+
   // Return global disconnect function
   return () => {
     observer.disconnect();
@@ -149,5 +152,7 @@ export function attachController(root: HTMLElement, instance: RouseController) {
     if (typeof instance.disconnect === 'function') {
       instance.disconnect();
     }
+
+    dispatch(root, 'rz:controller:disconnect', { instance });
   };
 }

@@ -1,6 +1,6 @@
 import { getTuningStrategy } from '../directives';
 import { hasDirective, selector } from '../directives/prefix';
-import { unmountInstance } from '../dom/controller';
+import { destroyInstance } from '../dom/controller';
 import {
   cleanupStoreElement,
   initControllerElement,
@@ -172,10 +172,7 @@ export class RouseApp {
         : targetRef;
 
     if (!el) {
-      console.error(
-        `[Rouse] Fetch failed. Target element not found:`,
-        targetRef,
-      );
+      console.error(`[Rouse] Fetch failed. Target element not found:`, targetRef);
       return;
     }
 
@@ -193,6 +190,13 @@ export class RouseApp {
       return;
     }
     this._hasStarted = true;
+
+    this.root.dispatchEvent(
+      new CustomEvent('rz:app:start', {
+        bubbles: true,
+        detail: { app: this },
+      }),
+    );
 
     const { wake } = this.config;
 
@@ -288,6 +292,15 @@ export class RouseApp {
         });
       }
     });
+
+    requestAnimationFrame(() => {
+      this.root.dispatchEvent(
+        new CustomEvent('rz:app:ready', {
+          bubbles: true,
+          detail: { app: this },
+        }),
+      );
+    });
   }
 
   /**
@@ -309,9 +322,9 @@ export class RouseApp {
 
     // Unmount all controllers
     const controllers = this.root.querySelectorAll<HTMLElement>(selector('scope'));
-    controllers.forEach(unmountInstance);
+    controllers.forEach(destroyInstance);
     if (hasDirective(this.root, 'scope')) {
-      unmountInstance(this.root);
+      destroyInstance(this.root);
     }
 
     // Clear all active fetch polling timers
@@ -332,9 +345,14 @@ export class RouseApp {
 
     // Remove the root indicator
     this.root.removeAttribute('data-rouse-app');
-
     this._hasStarted = false;
-    console.log('[Rouse] App destroyed:', this.root);
+
+    this.root.dispatchEvent(
+      new CustomEvent('rz:app:destroy', {
+        bubbles: true,
+        detail: { app: this },
+      }),
+    );
   }
 }
 
