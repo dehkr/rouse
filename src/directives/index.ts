@@ -1,17 +1,17 @@
 import type { RouseController } from '../types';
 import { SLUG as AUTOSAVE_SLUG } from './rz-autosave';
-import { applyBind, SLUG as BIND_SLUG } from './rz-bind';
+import { attachBind, SLUG as BIND_SLUG } from './rz-bind';
 import { SLUG as FETCH_SLUG } from './rz-fetch';
-import { applyHtml, SLUG as HTML_SLUG } from './rz-html';
+import { attachHtml, SLUG as HTML_SLUG } from './rz-html';
 import { SLUG as INSERT_SLUG } from './rz-insert';
-import { applyModel, SLUG as MODEL_SLUG } from './rz-model';
+import { attachModel, SLUG as MODEL_SLUG } from './rz-model';
 import { attachOn, SLUG as ON_SLUG } from './rz-on';
 import { SLUG as PUBLISH_SLUG } from './rz-publish';
 import { SLUG as REFRESH_SLUG } from './rz-refresh';
 import { SLUG as REQUEST_SLUG } from './rz-request';
 import { SLUG as SCOPE_SLUG } from './rz-scope';
 import { SLUG as STORE_SLUG } from './rz-store';
-import { applyText, SLUG as TEXT_SLUG } from './rz-text';
+import { attachText, SLUG as TEXT_SLUG } from './rz-text';
 import { SLUG as TUNE_SLUG } from './rz-tune';
 import { SLUG as WAKE_SLUG } from './rz-wake';
 
@@ -42,12 +42,18 @@ type Cleanup = (() => void) | void;
 
 interface SimpleDirective {
   multi: false;
-  apply: (el: HTMLElement, inst: RouseController, val: string) => Cleanup;
+  attach: (el: HTMLElement, inst: RouseController, val: string) => Cleanup;
 }
 
 interface MultiDirective {
   multi: true;
-  apply: (el: HTMLElement, inst: RouseController, val1: string, val2: string) => Cleanup;
+  attach: (
+    el: HTMLElement,
+    inst: RouseController,
+    val1: string,
+    val2: string,
+    modifiers: string[],
+  ) => Cleanup;
 }
 
 export type DirectiveDef = SimpleDirective | MultiDirective;
@@ -56,25 +62,25 @@ export type DirectiveDef = SimpleDirective | MultiDirective;
  * Registry of "active" directives that run during DOM attachment.
  */
 export const DOM_DIRECTIVES: Record<DomDirectiveSlug, DirectiveDef> = {
-  [BIND_SLUG]: { multi: true, apply: applyBind },
-  [ON_SLUG]: { multi: true, apply: attachOn },
-  [TEXT_SLUG]: { multi: false, apply: applyText },
-  [HTML_SLUG]: { multi: false, apply: applyHtml },
-  [MODEL_SLUG]: { multi: false, apply: applyModel },
+  [BIND_SLUG]: { multi: true, attach: attachBind },
+  [ON_SLUG]: { multi: true, attach: attachOn },
+  [TEXT_SLUG]: { multi: false, attach: attachText },
+  [HTML_SLUG]: { multi: false, attach: attachHtml },
+  [MODEL_SLUG]: { multi: false, attach: attachModel },
 };
 
 export { attachAutosave } from './rz-autosave';
-export { applyBind } from './rz-bind';
+export { attachBind } from './rz-bind';
 export { getFetchDirective } from './rz-fetch';
-export { applyHtml } from './rz-html';
+export { attachHtml } from './rz-html';
 export { getInsertConfig } from './rz-insert';
-export { applyModel } from './rz-model';
+export { attachModel } from './rz-model';
 export { attachOn } from './rz-on';
 export { getPublishTopic } from './rz-publish';
 export { attachRefresh } from './rz-refresh';
 export { getRequestConfig } from './rz-request';
 export { getControllerName } from './rz-scope';
 export { getStoreName } from './rz-store';
-export { applyText } from './rz-text';
+export { attachText } from './rz-text';
 export { getTuningStrategy } from './rz-tune';
 export { processWake } from './rz-wake';

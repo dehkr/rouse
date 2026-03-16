@@ -6,7 +6,7 @@ import type { BindableValue, RouseController } from '../types';
 
 export const SLUG = 'bind' as const;
 
-export function applyBind(
+export function attachBind(
   el: HTMLElement,
   instance: RouseController,
   type: string,

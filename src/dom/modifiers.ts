@@ -51,7 +51,6 @@ export function resolveListenerTarget(el: HTMLElement, modifiers: string[]): Eve
  * By default, modifiers are matched exactly (e.g., `.enter` fires only on bare Enter,
  * not Shift+Enter). Use `.loose` to allow extra modifiers.
  */
-
 export function applyModifiers(e: Event, el: HTMLElement, modifiers: string[]): boolean {
   // Target/UI filtering
   if (modifiers.includes('self') && e.target !== e.currentTarget) {

@@ -6,7 +6,7 @@ import type { BindableValue, RouseController } from '../types';
 
 export const SLUG = 'html' as const;
 
-export function applyHtml(
+export function attachHtml(
   el: HTMLElement,
   instance: RouseController,
   path: string,

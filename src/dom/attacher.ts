@@ -47,7 +47,7 @@ export function attachController(root: HTMLElement, instance: RouseController) {
     }
   }
 
-  function apply(el: HTMLElement) {
+  function attachDirectives(el: HTMLElement) {
     if (boundNodes.has(el)) return;
     boundNodes.add(el);
 
@@ -60,15 +60,15 @@ export function attachController(root: HTMLElement, instance: RouseController) {
       if (def.multi) {
         // Multi-value directive
         const pairs = parseDirective(rawValue);
-        pairs.forEach(([key, val]) => {
-          const cleanup = def.apply(el, instance, key, val);
+        pairs.forEach(([key, val, modifiers]) => {
+          const cleanup = def.attach(el, instance, key, val, modifiers);
           if (cleanup) {
             addCleanup(el, cleanup);
           }
         });
       } else {
         // Simple directives take the whole trimmed value
-        const cleanup = def.apply(el, instance, rawValue.trim());
+        const cleanup = def.attach(el, instance, rawValue.trim());
         if (cleanup) {
           addCleanup(el, cleanup);
         }
@@ -96,12 +96,12 @@ export function attachController(root: HTMLElement, instance: RouseController) {
 
     // Check startEl manually
     if (startEl.matches(DIRECTIVES_SELECTOR)) {
-      apply(startEl);
+      attachDirectives(startEl);
     }
 
     // Apply accepted nodes
     while (walker.nextNode()) {
-      apply(walker.currentNode as HTMLElement);
+      attachDirectives(walker.currentNode as HTMLElement);
     }
   }
 

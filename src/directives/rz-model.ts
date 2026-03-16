@@ -7,7 +7,7 @@ import type { BindableValue, RouseController } from '../types';
 
 export const SLUG = 'model' as const;
 
-export function applyModel(el: HTMLElement, instance: RouseController, prop: string) {
+export function attachModel(el: HTMLElement, instance: RouseController, prop: string) {
   const app = getApp(el);
 
   // State -> DOM
