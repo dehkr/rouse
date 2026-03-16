@@ -1,3 +1,5 @@
+import { getApp } from '../core/app';
+
 const keyMap: Record<string, string> = {
   enter: 'Enter',
   esc: 'Escape',
@@ -41,6 +43,9 @@ export function resolveListenerTarget(el: HTMLElement, modifiers: string[]): Eve
   }
   if (modifiers.includes('document')) {
     return document;
+  }
+  if (modifiers.includes('root')) {
+    return getApp(el)?.root || el;
   }
 
   return el;
