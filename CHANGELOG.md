@@ -10,14 +10,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Expose the root element of app instances in controllers via `ctx.appRoot`.
-- Lifecycle DOM events for applications and controllers.
-  - App: `rz:app:start`, `rz:app:ready`, and `rz:app:destroy`
-  - Controllers: `rz:controller:init`, `rz:controller:connect`, `rz:controller:disconnect`, and `rz:controller:destroy`
-- Support for declarative event modifiers in the `rz-on` directive to control event flow, targeting, and filtering (e.g., `rz-on="keydown.esc.window: dismiss"`).
-  - Native mapping: `.prevent`, `.stop`, `.self`, `.once`, `.passive`, `.capture`
-  - Target resolution: `.window`, `.document`, `.root`, and `.outside`
-  - Keyboard filtering: `.enter`, `.esc`, `.space`, `.up`, `.down`, `.left`, `.right`, `.tab`, `.delete`, `.backspace`, as well as support for any single-character key (e.g., `.a`, `.x`, `.1`)
-  - System key filtering: `.ctrl`, `.alt`, `.shift`, `.meta` (strict by default, opt-out with `.loose`)
+- Lifecycle DOM events for applications and controllers:
+  - **App:** `rz:app:start`, `rz:app:ready`, and `rz:app:destroy`
+  - **Controllers:** `rz:controller:init`, `rz:controller:connect`, `rz:controller:disconnect`, and `rz:controller:destroy`
+- Support for declarative event modifiers in the `rz-on` directive:
+  - **Event control:** `.prevent`, `.stop`, `.once`, `.passive`, `.capture`
+  - **Target filtering:** `.self`, `.outside`, `.window`, `.document`, `.root`
+  - **Keyboard keys:** `.enter`, `.esc`, `.space`, `.up`, `.down`, `.left`, `.right`, `.tab`, `.delete`, `.backspace`, plus any single character (e.g., `.a`, `.1`)
+  - **System modifiers:** `.ctrl`, `.alt`, `.shift`, `.meta`
+  - **Matching mode:** All modifiers are matched exactly by default (e.g., `.enter` fires only on bare Enter, not Shift+Enter). Use `.loose` to match when additional modifier keys are pressed.
 
 ## [0.3.0] - 2026-03-11
 
@@ -41,6 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Extract dot-notation path parsing logic into separate module.
 
 ### Fixed
+
 - Prevent accidental JSON serialization of `DataView` and `TypedArray` types in request bodies by enhancing binary type checks.
 - Prevent GET requests from including a body to avoid server-side errors.
 - Warn and dispatch `rz:fetch:error` when a request is missing a URL instead of failing silently.

@@ -1,7 +1,7 @@
 import type { CustomErrorStatus, RequestError, RequestResult } from '../types';
 
 /**
- * Normalizes a fetch response (parses JSON/Text and flags HTTP errors).
+ * Normalizes a fetch response (parses JSON/Text/Blob and flags HTTP errors).
  */
 export async function normalizeResponse(response: Response): Promise<RequestResult> {
   let data: any = null;
@@ -17,17 +17,28 @@ export async function normalizeResponse(response: Response): Promise<RequestResu
       };
     }
 
-    const text = await response.text();
     const contentType = response.headers.get('Content-Type') || '';
+    const contentLength = response.headers.get('Content-Length');
+    const isEmpty =
+      response.status === 204 || response.status === 205 || contentLength === '0';
 
-    if (contentType.includes('application/json') && text) {
-      try {
-        data = JSON.parse(text);
-      } catch {
-        data = text;
+    if (!isEmpty) {
+      if (contentType.includes('application/json')) {
+        const text = await response.text();
+        if (text) {
+          try {
+            data = JSON.parse(text);
+          } catch {
+            // Throw so the outer catch block flags it as a PARSE_ERROR
+            throw new Error('Invalid JSON response');
+          }
+        }
+      } else if (contentType.includes('text/')) {
+        data = await response.text();
+      } else {
+        // Safe binary fallback for images, PDFs, etc.
+        data = await response.blob();
       }
-    } else {
-      data = text;
     }
   } catch (e) {
     const errorMessage = e instanceof Error ? e.message : String(e);
@@ -35,6 +46,8 @@ export async function normalizeResponse(response: Response): Promise<RequestResu
     error = { message: errorMessage, status: 'PARSE_ERROR' };
   }
 
+  // HTTP errors (4xx/5xx) overwrite PARSE_ERRORs here,
+  // because bad JSON is usually a symptom of a server crash
   if (!response.ok) {
     error = {
       message: response.statusText || 'Request failed',

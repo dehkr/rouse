@@ -1,13 +1,7 @@
 import { defaultConfig, getApp } from '../core/app';
-import {
-  getFetchDirective,
-  getInsertConfig,
-  getPublishTopic,
-  getRequestConfig,
-  getTuningStrategy,
-} from '../directives';
+import { getFetchDirective, getRequestConfig, getTuningStrategy } from '../directives';
 import { selector } from '../directives/prefix';
-import { dispatch, insert, isForm, isInput, isSelect, isTextArea } from '../dom/utils';
+import { dispatch, isForm, isInput, isSelect, isTextArea } from '../dom/utils';
 import type { RouseReqOpts } from '../types';
 import { request } from './request';
 
@@ -30,10 +24,11 @@ const EVENTS = {
   CONFIG: 'rz:fetch:config',
   START: 'rz:fetch:start',
   SUCCESS: 'rz:fetch:success',
+  SUCCESS_JSON: 'rz:fetch:success:json',
+  SUCCESS_HTML: 'rz:fetch:success:html',
+  SUCCESS_FILE: 'rz:fetch:success:file',
   ERROR: 'rz:fetch:error',
   ABORT: 'rz:fetch:abort',
-  INSERT_BEFORE: 'rz:fetch:insert:before',
-  INSERT: 'rz:fetch:insert',
   END: 'rz:fetch:end',
 } as const;
 
@@ -131,20 +126,12 @@ export async function handleFetch(el: HTMLElement, programmaticOpts: RouseReqOpt
 }
 
 /**
- * The core execution engine for the `rz-fetch` directive. Handles the complete lifecycle
- * of a network request once timing conditions (throttle/debounce) have been satisfied.
- *
- * - Garbage-collects timers if the element is removed from the DOM
- * - Pauses polling if `disabled` or `aria-disabled="true"` attributes are present
- * - Extracts target URLs and serializes standalone inputs
- * - Dispatches state events that can be intercepted
- * - Injects returned HTML payloads into the DOM via `rz-insert`
- * - Broadcasts returned JSON payloads to the event bus via `rz-publish`
- * - Enables polling timers to continue through network errors and abort cancellations
+ * Handles the complete lifecycle of a network request once timing
+ * conditions (throttle/debounce) have been satisfied.
  *
  * @param el - The DOM element triggering the network request.
- * @param options - The sanitized request configuration passed to the network orchestrator.
- * @param pollInterval - The polling interval in milliseconds (0 if polling is disabled).
+ * @param options - The sanitized request config passed to the network orchestrator.
+ * @param pollInterval - The polling interval in milliseconds (0 if disabled).
  */
 async function executeFetch(
   el: HTMLElement,
@@ -342,53 +329,20 @@ async function executeFetch(
     }
 
     const { data, response } = result;
+    const payload = { data, response, config: finalOptions };
 
-    dispatch(el, EVENTS.SUCCESS, { data, response, config: finalOptions });
+    dispatch(el, EVENTS.SUCCESS, payload);
 
-    // HTML
-    if (typeof data === 'string') {
-      const operations = getInsertConfig(el);
+    if (response) {
+      const contentType = response.headers.get('Content-Type') || '';
 
-      operations.forEach(({ targets, strategy }) => {
-        if (targets.length > 0) {
-          targets.forEach((target) => {
-            const beforeInsertEvent = dispatch(
-              target,
-              EVENTS.INSERT_BEFORE,
-              {
-                data,
-                triggerEl: el,
-                targetEl: target,
-                strategy,
-                response,
-              },
-              { cancelable: true },
-            );
-
-            if (beforeInsertEvent.defaultPrevented) return;
-
-            let dispatcherEl = target;
-
-            if (strategy === 'outerHTML' || strategy === 'delete') {
-              dispatcherEl = target.parentElement || document.body;
-            }
-
-            insert(target, beforeInsertEvent.detail.data, strategy);
-
-            dispatch(dispatcherEl, EVENTS.INSERT, {
-              triggerEl: el,
-              targetEl: target,
-              strategy,
-            });
-          });
-        }
-      });
-    }
-    // JSON
-    else {
-      const topic = getPublishTopic(el);
-      if (topic) {
-        app?.bus.publish(topic, data);
+      // Payload routing
+      if (contentType.includes('application/json')) {
+        dispatch(el, EVENTS.SUCCESS_JSON, payload);
+      } else if (contentType.includes('text/html')) {
+        dispatch(el, EVENTS.SUCCESS_HTML, payload);
+      } else if (data instanceof Blob || data instanceof ArrayBuffer) {
+        dispatch(el, EVENTS.SUCCESS_FILE, payload);
       }
     }
   } catch (error: any) {
