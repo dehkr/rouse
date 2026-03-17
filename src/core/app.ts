@@ -7,6 +7,7 @@ import {
   initObserver,
   initStoreElement,
 } from '../dom/initializer';
+import { initDomMutator } from '../dom/mutator';
 import { cleanupFetch, handleFetch } from '../net/engine';
 import type { NetworkInterceptors, RouseReqOpts, RouseTuneOpts, SetupFn } from '../types';
 import { EventBus } from './bus';
@@ -197,6 +198,9 @@ export class RouseApp {
         detail: { app: this },
       }),
     );
+
+    // Initialize the DOM mutator that watches for HTML fetch responses
+    initDomMutator(this.root);
 
     const { wake } = this.config;
 
