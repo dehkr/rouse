@@ -1,3 +1,8 @@
+import {
+  applyModifiers,
+  getListenerOptions,
+  resolveListenerTarget,
+} from '../dom/modifiers';
 import { resolvePayload, splitInjection } from '../dom/utils';
 import type { RouseController } from '../types';
 
@@ -8,23 +13,32 @@ export function attachOn(
   instance: RouseController,
   evtName: string,
   rawMethod: string,
+  modifiers: string[] = [],
 ): () => void {
   const { key: methodName, rawPayload } = splitInjection(rawMethod);
 
-  // Validate that the method actually exists on the controller instance
-  if (typeof instance[methodName] !== 'function') {
-    console.warn(`[Rouse] Method "${methodName}" not found.`);
+  // Validate that the method actually exists
+  const method = instance[methodName];
+
+  if (typeof method !== 'function') {
+    console.warn(`[Rouse] Method "${methodName}" not found on controller.`);
     return () => {};
   }
 
+  // Resolve target and options
+  const target = resolveListenerTarget(el, modifiers);
+  const options = getListenerOptions(modifiers);
+
   const handler = (e: Event) => {
+    if (!applyModifiers(e, el, modifiers)) return;
+
     // Resolve payload lazily when event is triggered
     const payload = rawPayload !== undefined ? resolvePayload(rawPayload) : undefined;
-    instance[methodName](payload, e);
+    method.call(instance, payload, e);
   };
 
-  el.addEventListener(evtName, handler);
+  target.addEventListener(evtName, handler, options);
 
   // Return the cleanup
-  return () => el.removeEventListener(evtName, handler);
+  return () => target.removeEventListener(evtName, handler, options);
 }

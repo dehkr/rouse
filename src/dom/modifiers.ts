@@ -48,6 +48,12 @@ export function resolveListenerTarget(el: HTMLElement, modifiers: string[]): Eve
     return getApp(el)?.root || el;
   }
 
+  // To detect outside clicks, we must listen on the document
+  // Or window or root if specified
+  if (modifiers.includes('outside')) {
+    return document;
+  }
+
   return el;
 }
 
@@ -55,6 +61,8 @@ export function resolveListenerTarget(el: HTMLElement, modifiers: string[]): Eve
  * Applies event modifiers and determines if the handler should execute.
  * By default, modifiers are matched exactly (e.g., `.enter` fires only on bare Enter,
  * not Shift+Enter). Use `.loose` to allow extra modifiers.
+ * 
+ * @returns `true` if the handler should execute, `false` otherwise
  */
 export function applyModifiers(e: Event, el: HTMLElement, modifiers: string[]): boolean {
   // Target/UI filtering
