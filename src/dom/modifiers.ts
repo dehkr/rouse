@@ -61,7 +61,7 @@ export function resolveListenerTarget(el: HTMLElement, modifiers: string[]): Eve
  * Applies event modifiers and determines if the handler should execute.
  * By default, modifiers are matched exactly (e.g., `.enter` fires only on bare Enter,
  * not Shift+Enter). Use `.loose` to allow extra modifiers.
- * 
+ *
  * @returns `true` if the handler should execute, `false` otherwise
  */
 export function applyModifiers(e: Event, el: HTMLElement, modifiers: string[]): boolean {
@@ -71,14 +71,6 @@ export function applyModifiers(e: Event, el: HTMLElement, modifiers: string[]): 
   }
   if (modifiers.includes('outside') && el.contains(e.target as Node)) {
     return false;
-  }
-
-  // Native API
-  if (modifiers.includes('prevent')) {
-    e.preventDefault();
-  }
-  if (modifiers.includes('stop')) {
-    e.stopPropagation();
   }
 
   // System modifier and key checks
@@ -124,6 +116,14 @@ export function applyModifiers(e: Event, el: HTMLElement, modifiers: string[]): 
     if (specifiedKeys.length > 0 && !specifiedKeys.includes(e.key.toLowerCase())) {
       return false;
     }
+  }
+
+  // Native API
+  if (modifiers.includes('prevent')) {
+    e.preventDefault();
+  }
+  if (modifiers.includes('stop')) {
+    e.stopPropagation();
   }
 
   return true;
