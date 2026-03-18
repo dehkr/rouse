@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+No unreleased changes.
+
+## [0.4.0] - 2026-03-18
+
 ### Added
 
 - Expose the root element of app instances in controllers via `ctx.appRoot`.
