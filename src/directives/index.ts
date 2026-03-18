@@ -6,7 +6,7 @@ import { attachHtml, SLUG as HTML_SLUG } from './rz-html';
 import { SLUG as INSERT_SLUG } from './rz-insert';
 import { attachModel, SLUG as MODEL_SLUG } from './rz-model';
 import { attachOn, SLUG as ON_SLUG } from './rz-on';
-import { SLUG as PUBLISH_SLUG } from './rz-publish';
+import { attachPublish, SLUG as PUBLISH_SLUG } from './rz-publish';
 import { SLUG as REFRESH_SLUG } from './rz-refresh';
 import { SLUG as REQUEST_SLUG } from './rz-request';
 import { SLUG as SCOPE_SLUG } from './rz-scope';
@@ -21,6 +21,7 @@ export type DomDirectiveSlug =
   | typeof HTML_SLUG
   | typeof MODEL_SLUG
   | typeof ON_SLUG
+  | typeof PUBLISH_SLUG
   | typeof TEXT_SLUG;
 
 // Directive types used mainly for config
@@ -29,7 +30,6 @@ export type ConfigDirectiveSlug =
   | typeof FETCH_SLUG
   | typeof INSERT_SLUG
   | typeof SCOPE_SLUG
-  | typeof PUBLISH_SLUG
   | typeof REFRESH_SLUG
   | typeof REQUEST_SLUG
   | typeof STORE_SLUG
@@ -64,6 +64,7 @@ export type DirectiveDef = SimpleDirective | MultiDirective;
 export const DOM_DIRECTIVES: Record<DomDirectiveSlug, DirectiveDef> = {
   [BIND_SLUG]: { multi: true, attach: attachBind },
   [ON_SLUG]: { multi: true, attach: attachOn },
+  [PUBLISH_SLUG]: { multi: true, attach: attachPublish },
   [TEXT_SLUG]: { multi: false, attach: attachText },
   [HTML_SLUG]: { multi: false, attach: attachHtml },
   [MODEL_SLUG]: { multi: false, attach: attachModel },
@@ -76,7 +77,7 @@ export { attachHtml } from './rz-html';
 export { getInsertConfig } from './rz-insert';
 export { attachModel } from './rz-model';
 export { attachOn } from './rz-on';
-export { getPublishTopic } from './rz-publish';
+export { attachPublish } from './rz-publish';
 export { attachRefresh } from './rz-refresh';
 export { getRequestConfig } from './rz-request';
 export { getControllerName } from './rz-scope';
