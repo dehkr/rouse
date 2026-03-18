@@ -80,15 +80,21 @@ function parseSegment(segment: string, acc: ParsedVal) {
   }
 }
 
+const openers: Record<string, boolean> = { '(': true, '{': true, '[': true };
+const closers: Record<string, string> = { ')': '(', '}': '{', ']': '[' };
+
+type BoundaryOpener = '(' | '{' | '[';
+
 /**
  * Iterates through text and fires callback when safe (i.e. not inside
- * quotes or parentheses).
+ * quotes, parentheses, or curly braces).
  */
 function scan(
   text: string,
   callback: (index: number, char: string, fullText: string) => boolean | undefined,
 ) {
-  let depth = 0;
+  const depths: Record<BoundaryOpener, number> = { '(': 0, '{': 0, '[': 0 };
+  let totalDepth = 0;
   let quote: string | null = null;
 
   for (let i = 0; i < text.length; i++) {
@@ -102,17 +108,22 @@ function scan(
       }
     } else if (char === "'" || char === '"') {
       quote = char;
-    } else if (char === '(') {
-      depth++;
-    } else if (char === ')') {
-      depth = Math.max(0, depth - 1);
-    } else if (depth === 0) {
-      // At the top level so fire callback
+    } else if (openers[char]) {
+      depths[char as BoundaryOpener]++;
+      totalDepth++;
+    } else if (closers[char]) {
+      const opener = closers[char] as BoundaryOpener;
+      if (depths[opener] > 0) {
+        depths[opener]--;
+        totalDepth--;
+      }
+    } else if (totalDepth === 0) {
       const shouldStop = callback(i, char, text);
-      if (shouldStop) return;
+      if (shouldStop) return { depth: totalDepth, quote };
     }
   }
-  return { depth, quote };
+
+  return { depth: totalDepth, quote };
 }
 
 function isInQuotes(val: string) {

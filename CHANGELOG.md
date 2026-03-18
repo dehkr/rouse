@@ -20,6 +20,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **System modifiers:** `.ctrl`, `.alt`, `.shift`, `.meta`
   - **Matching mode:** All modifiers are matched exactly by default (e.g., `.enter` fires only on bare Enter, not Shift+Enter). Use `.loose` to match when additional modifier keys are pressed.
 
+### Changed
+
+- **Breaking:** Rebuild `rz-publish` as a standalone event-broadcasting directive, decoupled from `rz-fetch`. This allows for native DOM event support and custom payloads independent of network requests.
+
+### Fixed
+
+- Prevent erroneous splitting of inline JSON in directive values by ignoring commas located within curly braces.
+- Fix a bug where fetching binary files (like images or PDFs) corrupted the data by coercing the response to text.
+
 ## [0.3.0] - 2026-03-11
 
 ### Added
