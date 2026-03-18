@@ -20,18 +20,6 @@ export const SLUG = 'fetch' as const;
 
 const timers = new WeakMap<HTMLElement, TimerState>();
 
-const EVENTS = {
-  CONFIG: 'rz:fetch:config',
-  START: 'rz:fetch:start',
-  SUCCESS: 'rz:fetch:success',
-  SUCCESS_JSON: 'rz:fetch:success:json',
-  SUCCESS_HTML: 'rz:fetch:success:html',
-  SUCCESS_FILE: 'rz:fetch:success:file',
-  ERROR: 'rz:fetch:error',
-  ABORT: 'rz:fetch:abort',
-  END: 'rz:fetch:end',
-} as const;
-
 /**
  * This function acts as the gatekeeper before a network request is fired. It parses
  * the `rz-tune` directive to determine the execution strategy:
@@ -189,7 +177,7 @@ async function executeFetch(
   if (!url) {
     const error = new Error('No URL specified for rz-fetch');
     console.warn('[Rouse] No URL found for rz-fetch directive on element:', el);
-    dispatch(el, EVENTS.ERROR, { error, config: options });
+    dispatch(el, 'rz:fetch:error', { error, config: options });
     return;
   }
 
@@ -305,7 +293,7 @@ async function executeFetch(
 
   const configEvent = dispatch(
     el,
-    EVENTS.CONFIG,
+    'rz:fetch:config',
     { config: finalOptions, url, method },
     { cancelable: true },
   );
@@ -315,14 +303,14 @@ async function executeFetch(
   el.classList.add(loadingClass);
   el.setAttribute('aria-busy', 'true');
 
-  dispatch(el, EVENTS.START, { config: finalOptions });
+  dispatch(el, 'rz:fetch:start', { config: finalOptions });
 
   try {
     const result = await request(url, finalOptions, appConfig);
 
     if (result.error) {
       if (result.error.status === 'CANCELED') {
-        dispatch(el, EVENTS.ABORT, { config: finalOptions });
+        dispatch(el, 'rz:fetch:abort', { config: finalOptions });
         return;
       }
       throw result.error;
@@ -331,28 +319,28 @@ async function executeFetch(
     const { data, response } = result;
     const payload = { data, response, config: finalOptions };
 
-    dispatch(el, EVENTS.SUCCESS, payload);
+    dispatch(el, 'rz:fetch:success', payload);
 
     if (response) {
       const contentType = response.headers.get('Content-Type') || '';
 
       // Payload routing
       if (contentType.includes('application/json')) {
-        dispatch(el, EVENTS.SUCCESS_JSON, payload);
+        dispatch(el, 'rz:fetch:success:json', payload);
       } else if (contentType.includes('text/html')) {
-        dispatch(el, EVENTS.SUCCESS_HTML, payload);
+        dispatch(el, 'rz:fetch:success:html', payload);
       } else if (data instanceof Blob || data instanceof ArrayBuffer) {
-        dispatch(el, EVENTS.SUCCESS_FILE, payload);
+        dispatch(el, 'rz:fetch:success:file', payload);
       }
     }
   } catch (error: any) {
     console.error('[Rouse] Fetch failed:', error);
-    dispatch(el, EVENTS.ERROR, { error, config: finalOptions });
+    dispatch(el, 'rz:fetch:error', { error, config: finalOptions });
   } finally {
     el.classList.remove(loadingClass);
     el.removeAttribute('aria-busy');
 
-    dispatch(el, EVENTS.END, { config: finalOptions });
+    dispatch(el, 'rz:fetch:end', { config: finalOptions });
 
     // Poll timers should continue even if request aborted or after network errors
     schedulePoll(el, options, pollInterval);

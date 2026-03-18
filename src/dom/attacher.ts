@@ -17,7 +17,7 @@ export function attachController(root: HTMLElement, instance: RouseController) {
     DomDirectiveSlug,
     DirectiveDef,
   ][];
-  // biome-ignore lint: formatting
+
   const DIRECTIVES_SELECTOR = DIRECTIVES_ENTRIES
     .map(([key, _val]) => selector(key))
     .join(', ');

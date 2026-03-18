@@ -1,22 +1,15 @@
 import { getInsertConfig } from '../directives/rz-insert';
 import { dispatch, insert } from './utils';
 
-const EVENTS = {
-  SUCCESS_HTML: 'rz:fetch:success:html',
-  INSERT_BEFORE: 'rz:fetch:insert:before',
-  INSERT: 'rz:fetch:insert',
-} as const;
-
 /**
- * Listens globally for HTML fetch responses and securely executes DOM mutations
- * based on the element's rz-insert directive configuration.
+ * Listens globally for HTML fetch responses and mutates the DOM
+ * based on the element's `rz-insert` configuration.
  */
 export function initDomMutator(appRoot: HTMLElement) {
-  appRoot.addEventListener(EVENTS.SUCCESS_HTML, (e: Event) => {
+  appRoot.addEventListener('rz:fetch:success:html', (e: Event) => {
     const customEvent = e as CustomEvent;
     const triggerEl = customEvent.target as HTMLElement;
 
-    // The fetch engine passes these details in the custom event
     const { data, response } = customEvent.detail;
 
     const operations = getInsertConfig(triggerEl);
@@ -28,7 +21,7 @@ export function initDomMutator(appRoot: HTMLElement) {
         // Dispatch cancelable 'before' event (allows for intercepting/modifying data)
         const beforeInsertEvent = dispatch(
           target,
-          EVENTS.INSERT_BEFORE,
+          'rz:fetch:insert:before',
           {
             data,
             triggerEl,
@@ -50,7 +43,7 @@ export function initDomMutator(appRoot: HTMLElement) {
 
         insert(target, beforeInsertEvent.detail.data, strategy);
 
-        dispatch(dispatcherEl, EVENTS.INSERT, {
+        dispatch(dispatcherEl, 'rz:fetch:insert', {
           triggerEl,
           targetEl: target,
           strategy,

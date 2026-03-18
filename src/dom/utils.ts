@@ -2,6 +2,7 @@ import { getNestedVal, KEY_BLOCKLIST } from '../core/path';
 import type { StoreManager } from '../core/store';
 import { parseStoreLocator } from '../core/store';
 import type { InsertMethod } from '../directives/rz-insert';
+import type { LifecycleEvent } from '../types';
 
 export const isElement = (el: unknown) => el instanceof HTMLElement;
 export const isForm = (el: unknown) => el instanceof HTMLFormElement;
@@ -17,9 +18,9 @@ export const isTextArea = (el: unknown) => el instanceof HTMLTextAreaElement;
  * @param detail - The event data
  * @param options - Allows overriding cancelable/bubbles
  */
-export function dispatch(
-  el: HTMLElement,
-  name: string,
+export function dispatch<T extends string>(
+  el: EventTarget,
+  name: T | LifecycleEvent,
   detail: any = {},
   options: CustomEventInit = {},
 ): CustomEvent {

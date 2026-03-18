@@ -103,3 +103,23 @@ export type SetupContext<P extends Record<string, any> = Record<string, any>> = 
 export type SetupFn<P extends Record<string, any> = Record<string, any>> = (
   ctx: SetupContext<P>,
 ) => RouseController;
+
+export type LifecycleEvent =
+  | 'rz:app:start'
+  | 'rz:app:ready'
+  | 'rz:app:destroy'
+  | 'rz:controller:init'
+  | 'rz:controller:connect'
+  | 'rz:controller:disconnect'
+  | 'rz:controller:destroy'
+  | 'rz:fetch:config'
+  | 'rz:fetch:start'
+  | 'rz:fetch:success'
+  | 'rz:fetch:success:json'
+  | 'rz:fetch:success:html'
+  | 'rz:fetch:success:file'
+  | 'rz:fetch:error'
+  | 'rz:fetch:abort'
+  | 'rz:fetch:end'
+  | 'rz:fetch:insert:before'
+  | 'rz:fetch:insert';
