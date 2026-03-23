@@ -43,6 +43,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.4",
+    "@tanstack/pacer-lite": "^0.2.1",
     "alien-signals": "^3.1.2",
     "tsup": "^8.5.1",
     "typescript": "~5.9.3"
