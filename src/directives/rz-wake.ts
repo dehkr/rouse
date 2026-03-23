@@ -1,4 +1,4 @@
-import { parseDirective } from '../dom/parser';
+import { parseDirective } from '../core/parser';
 import * as scheduler from '../dom/scheduler';
 import { getDirective } from './prefix';
 

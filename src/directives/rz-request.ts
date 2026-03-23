@@ -1,5 +1,5 @@
 import type { RouseApp } from '../core/app';
-import { parseDirective } from '../dom/parser';
+import { parseDirective } from '../core/parser';
 import { resolvePayload } from '../dom/utils';
 import { getDirective } from './prefix';
 

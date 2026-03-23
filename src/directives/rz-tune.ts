@@ -1,4 +1,4 @@
-import { parseDirective } from '../dom/parser';
+import { parseDirective } from '../core/parser';
 import type { RouseReqOpts } from '../types';
 import { getDirective } from './prefix';
 

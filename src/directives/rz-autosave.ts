@@ -1,5 +1,5 @@
 import { getApp } from '../core/app';
-import { parseDirective } from '../dom/parser';
+import { parseDirective } from '../core/parser';
 import { effect } from '../reactivity';
 import { getDirective } from './prefix';
 

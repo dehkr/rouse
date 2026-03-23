@@ -1,5 +1,5 @@
 import { getApp } from '../core/app';
-import { parseDirective } from '../dom/parser';
+import { parseDirective } from '../core/parser';
 import { getDirective } from './prefix';
 
 export const SLUG = 'refresh' as const;
