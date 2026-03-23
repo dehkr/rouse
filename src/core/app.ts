@@ -9,22 +9,37 @@ import {
 } from '../dom/initializer';
 import { initDomMutator } from '../dom/mutator';
 import { cleanupFetch, handleFetch } from '../net/engine';
-import type { NetworkInterceptors, RouseReqOpts, RouseTuneOpts, SetupFn } from '../types';
+import type {
+  GlobalFetchOpts,
+  NetworkInterceptors,
+  RouseReqOpts,
+  SetupFn,
+} from '../types';
 import { EventBus } from './bus';
 import { Registry } from './registry';
 import { StoreManager } from './store';
 
 export const defaultConfig = {
-  loadingClass: 'rz-loading',
-  wake: 'load',
-  baseUrl: '',
-  tune: {} as RouseTuneOpts,
-  request: {} as RouseReqOpts,
-  interceptors: {} as NetworkInterceptors,
+  timing: {
+    debounceWait: 300,
+    throttleDelay: 150,
+  },
+  network: {
+    baseUrl: '',
+    fetch: {} as GlobalFetchOpts, 
+    interceptors: {} as NetworkInterceptors,
+  },
+  ui: {
+    loadingClass: 'rz-loading',
+    wakeStrategy: 'load',
+  },
 };
 
-export type RouseConfig = Partial<typeof defaultConfig> & {
+export type RouseConfig = {
   root?: string | HTMLElement;
+  timing?: Partial<typeof defaultConfig.timing>;
+  network?: Partial<typeof defaultConfig.network>;
+  ui?: Partial<typeof defaultConfig.ui>;
 };
 
 // Private map for isolating Rouse instances
@@ -75,13 +90,11 @@ export class RouseApp {
       throw new Error('[Rouse] An app instance is already attached to this element.');
     }
 
+    // Merge defaults with user-provided config
     this.config = {
-      loadingClass: config.loadingClass ?? defaultConfig.loadingClass,
-      wake: config.wake ?? defaultConfig.wake,
-      baseUrl: config.baseUrl ?? defaultConfig.baseUrl,
-      tune: config.tune ?? defaultConfig.tune,
-      request: config.request ?? defaultConfig.request,
-      interceptors: config.interceptors ?? defaultConfig.interceptors,
+      timing: { ...defaultConfig.timing, ...config.timing },
+      network: { ...defaultConfig.network, ...config.network },
+      ui: { ...defaultConfig.ui, ...config.ui },
     };
 
     this.root = rootEl;
@@ -202,7 +215,7 @@ export class RouseApp {
     // Initialize the DOM mutator that watches for HTML fetch responses
     initDomMutator(this.root);
 
-    const { wake } = this.config;
+    const { wakeStrategy } = this.config.ui;
 
     // Initialize global stores
     const storeScripts = this.root.querySelectorAll<HTMLScriptElement>(
@@ -264,13 +277,13 @@ export class RouseApp {
 
     // Initial scan for controllers
     if (hasDirective(this.root, 'scope') && getApp(this.root) === this) {
-      initControllerElement(this.root, wake);
+      initControllerElement(this.root, wakeStrategy);
     }
 
     const controllers = this.root.querySelectorAll<HTMLElement>(selector('scope'));
     controllers.forEach((el) => {
       if (getApp(el) === this) {
-        initControllerElement(el, wake);
+        initControllerElement(el, wakeStrategy);
       }
     });
 

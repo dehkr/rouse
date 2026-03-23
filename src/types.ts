@@ -71,6 +71,13 @@ export interface RouseInternalOpts {
 /** The unified options object passed through the Rouse network engine */
 export type RouseReqOpts = Omit<RequestInit, 'body'> & RouseTuneOpts & RouseInternalOpts;
 
+/** Global fetch configuration. Limited to safe, non-mutating properties. */
+export interface GlobalFetchOpts {
+  headers?: HeadersInit;
+  credentials?: RequestCredentials;
+  mode?: RequestMode;
+}
+
 export interface NetworkInterceptors {
   onRequest?: (config: RouseReqOpts) => RouseReqOpts | Promise<RouseReqOpts>;
   onResponse?: (
