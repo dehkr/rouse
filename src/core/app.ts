@@ -18,11 +18,12 @@ import type {
 import { EventBus } from './bus';
 import { Registry } from './registry';
 import { StoreManager } from './store';
+import { DEFAULT_DEBOUNCE_WAIT, DEFAULT_THROTTLE_WAIT } from './timing';
 
 export const defaultConfig = {
   timing: {
-    debounceWait: 300,
-    throttleDelay: 150,
+    debounceWait: DEFAULT_DEBOUNCE_WAIT,
+    throttleDelay: DEFAULT_THROTTLE_WAIT,
   },
   network: {
     baseUrl: '',
