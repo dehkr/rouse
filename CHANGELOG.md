@@ -7,7 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-No unreleased changes.
+### Added
+
+- Support declarative timing modifiers (e.g., `.debounce`, `.throttle.500ms`, `.leading`) for event-driven DOM directives (`rz-on` and `rz-publish`).
+- Expose native `debounce` and `throttle` helper functions from the core library for programmatic use in custom controller logic.
+
+### Changed
+
+- **Breaking:** Refactor global app configuration into a domain-driven schema (`timing`, `network`, `ui`). 
+  - Move native fetch defaults from `app.config.request` to `app.config.network.fetch` and restrict allowed properties to `headers`, `credentials`, and `mode`.
+  - Remove global `retry` and `timeout` settings to prevent dangerous side effects (like accidental retries on POST requests); configure these explicitly per-request or per-directive instead.
 
 ## [0.4.0] - 2026-03-18
 

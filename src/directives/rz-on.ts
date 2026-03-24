@@ -1,3 +1,5 @@
+import { getApp } from '../core/app';
+import { applyTiming } from '../core/timing';
 import {
   applyModifiers,
   getListenerOptions,
@@ -25,20 +27,42 @@ export function attachOn(
     return () => {};
   }
 
+  const app = getApp(el);
+
+  const pacedMethod = applyTiming(
+    (payload: any, e: Event) => {
+      try {
+        method.call(instance, payload, e);
+      } catch (error) {
+        console.error(`[Rouse] Failed to execute ${methodName}().`, error);
+      }
+    },
+    modifiers,
+    app?.config.timing,
+  );
+
   // Resolve target and options
   const target = resolveListenerTarget(el, modifiers);
   const options = getListenerOptions(modifiers);
 
   const handler = (e: Event) => {
+    // Synchronous event modifiers (.prevent, .stop, key matching)
     if (!applyModifiers(e, el, modifiers)) return;
 
-    // Resolve payload lazily when event is triggered
-    const payload = rawPayload !== undefined ? resolvePayload(rawPayload) : undefined;
-    method.call(instance, payload, e);
+    // Synchronous payload resolution (captures state when the event fires)
+    const payload =
+      rawPayload !== undefined ? resolvePayload(rawPayload, app?.stores) : undefined;
+
+    // Pass the captured data to the paced function
+    pacedMethod(payload, e);
   };
 
   target.addEventListener(evtName, handler, options);
 
   // Return the cleanup
-  return () => target.removeEventListener(evtName, handler, options);
+  return () => {
+    target.removeEventListener(evtName, handler, options);
+    // Cancel pending delayed executions
+    pacedMethod.cancel();
+  };
 }

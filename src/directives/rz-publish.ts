@@ -1,4 +1,5 @@
 import { getApp } from '../core/app';
+import { applyTiming } from '../core/timing';
 import {
   applyModifiers,
   getListenerOptions,
@@ -21,28 +22,37 @@ export function attachPublish(
   const target = resolveListenerTarget(el, modifiers);
   const options = getListenerOptions(modifiers);
 
-  const handler = (e: Event) => {
-    if (!applyModifiers(e, el, modifiers)) return;
+  const app = getApp(el);
 
-    const app = getApp(el);
+  const pacedPublish = applyTiming(
+    (payload: any) => app?.bus.publish(topic, payload),
+    modifiers,
+    app?.config.timing,
+  );
+
+  const handler = (e: Event) => {
+    // Synchronous event modifiers (.prevent, .stop, key matching)
+    if (!applyModifiers(e, el, modifiers)) return;
 
     let payload: unknown;
 
+    // Synchronous payload resolution (captures state when the event fires)
     if (rawPayload !== undefined) {
-      // Use explicit payload if provided: @store, {json}, ?query, #id
       payload = resolvePayload(rawPayload, app?.stores);
     } else if (e instanceof CustomEvent && e.detail && 'data' in e.detail) {
       // Capture data from event (like rz:fetch:success:json)
       payload = e.detail.data;
     }
-    
-    if (app) {
-      app.bus.publish(topic, payload);
-    }
+
+    pacedPublish(payload);
   };
 
   target.addEventListener(evtName, handler, options);
 
   // Return the cleanup
-  return () => target.removeEventListener(evtName, handler, options);
+  return () => {
+    target.removeEventListener(evtName, handler, options);
+    // Cancel pending delayed executions
+    pacedPublish.cancel();
+  };
 }
