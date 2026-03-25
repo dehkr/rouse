@@ -1,17 +1,14 @@
 import { defaultConfig, getApp } from '../core/app';
+import { applyTiming, getTimingConfig, type PacedFunction } from '../core/timing';
 import { getFetchDirective, getRequestConfig, getTuningStrategy } from '../directives';
 import { selector } from '../directives/prefix';
 import { dispatch, isForm, isInput, isSelect, isTextArea } from '../dom/utils';
 import type { RouseReqOpts } from '../types';
 import { request } from './request';
 
-type TimeoutId = ReturnType<typeof setTimeout>;
-
 type TimerState = {
-  debounce?: TimeoutId;
-  throttle?: TimeoutId;
-  throttlePending?: boolean;
-  poll?: TimeoutId;
+  pacedFetch?: PacedFunction<any>;
+  poll?: ReturnType<typeof setTimeout>;
   abortKey?: string;
   destroyed?: boolean;
 };
@@ -21,96 +18,54 @@ export const SLUG = 'fetch' as const;
 const timers = new WeakMap<HTMLElement, TimerState>();
 
 /**
- * This function acts as the gatekeeper before a network request is fired. It parses
- * the `rz-tune` directive to determine the execution strategy:
- *
- * - Throttle: executes immediately, then ignores subsequent triggers for `n` ms
- * - Debounce (trailing): waits for `n` ms of inactivity before executing (default)
- * - Debounce (leading): executes immediately, then locks until `n` ms of inactivity
- * - Immediate: bypasses all timers and executes immediately
- *
- * Once timing conditions are met, it strips the timing modifiers and forwards the
- * clean request options to `executeFetch`.
- *
- * @param el - The DOM element triggering the network request.
+ * Handles the preparation, pacing, and execution of a network request.
  */
 export async function handleFetch(el: HTMLElement, programmaticOpts: RouseReqOpts = {}) {
-  // Merge declarative tuning strategy with any programmatic overrides
-  const config = { ...getTuningStrategy(el), ...programmaticOpts };
-  const pollInterval = Math.max(0, Number(config.poll) || 0);
+  const app = getApp(el);
+  const tuneConfig = getTuningStrategy(el);
+  const timingMods = tuneConfig.timingModifiers || [];
 
-  let debounce = 0;
-  let isLeading = false;
+  // Parse the modifiers to check if we are doing network-level polling or timeouts
+  const timingConfig = getTimingConfig(timingMods, app?.config.timing);
 
-  if (config.debounce !== undefined) {
-    debounce = Number(config.debounce);
-    const mods = config.modifiers?.debounce || [];
-    isLeading = mods.includes('leading');
+  let state = timers.get(el);
+  if (!state) {
+    state = {};
+    timers.set(el, state);
   }
 
-  const throttle = Number(config.throttle) || 0;
+  if (state.destroyed) return;
 
-  // Strip timing keys to keep reqOpts clean
-  const { poll: _p, debounce: _d, throttle: _t, modifiers: _m, ...reqOpts } = config;
+  const reqOpts: RouseReqOpts = {
+    retry: tuneConfig.retry,
+    abortKey: tuneConfig.abortKey,
+    ...programmaticOpts,
+  };
 
-  const existing = timers.get(el) || {};
+  // Explicitly attach timeout to the fetch config if requested
+  if (timingConfig.strategy === 'timeout') {
+    reqOpts.timeout = timingConfig.wait;
+  }
 
-  // Throttle
-  if (throttle > 0) {
-    if (!existing.throttle) {
-      executeFetch(el, reqOpts, pollInterval);
+  const pollInterval = timingConfig.strategy === 'poll' ? timingConfig.wait : 0;
 
-      const timerId = setTimeout(() => {
-        const state = timers.get(el);
-        if (state?.destroyed) return;
-
-        if (state?.throttlePending) {
-          executeFetch(el, reqOpts, pollInterval);
-          updateTimer(el, 'throttlePending', false);
+  // Lazily create and cache the PacedFunction to preserve its
+  // internal debounce/throttle state.
+  if (!state.pacedFetch) {
+    state.pacedFetch = applyTiming(
+      (opts: RouseReqOpts, pollInt: number) => {
+        try {
+          executeFetch(el, opts, pollInt);
+        } catch (error) {
+          console.error(`[Rouse] Error executing fetch on element:`, el, error);
         }
-        updateTimer(el, 'throttle', undefined);
-      }, throttle);
-
-      updateTimer(el, 'throttle', timerId);
-    } else {
-      updateTimer(el, 'throttlePending', true);
-    }
-    return;
+      },
+      timingMods,
+      app?.config.timing,
+    );
   }
 
-  // Debounce
-  if (debounce > 0) {
-    if (isLeading) {
-      const canFire = !existing.debounce;
-      clearTimer(el, 'debounce');
-
-      if (canFire) {
-        executeFetch(el, reqOpts, pollInterval);
-      }
-
-      const timerId = setTimeout(() => {
-        updateTimer(el, 'debounce', undefined);
-      }, debounce);
-
-      updateTimer(el, 'debounce', timerId);
-    } else {
-      // Trailing edge
-      clearTimer(el, 'debounce');
-
-      const timerId = setTimeout(() => {
-        updateTimer(el, 'debounce', undefined);
-        if (timers.get(el)?.destroyed) return;
-        executeFetch(el, reqOpts, pollInterval);
-      }, debounce);
-
-      updateTimer(el, 'debounce', timerId);
-    }
-    return;
-  }
-
-  // Immediate
-  clearTimer(el, 'debounce');
-  executeFetch(el, reqOpts, pollInterval);
+  state.pacedFetch(reqOpts, pollInterval);
 }
 
 /**
@@ -128,7 +83,7 @@ async function executeFetch(
 ) {
   const app = getApp(el);
   const appConfig = app?.config || defaultConfig;
-  const loadingClass = appConfig.loadingClass;
+  const loadingClass = appConfig.ui.loadingClass;
 
   // Check destroyed flag and bail out if marked for cleanup
   const state = timers.get(el);
@@ -186,8 +141,8 @@ async function executeFetch(
   const requestOverrides = reqEl ? getRequestConfig(reqEl, app) : {};
 
   // Merge native fetch configuration
-  const finalRequestInit = {
-    ...appConfig.request,
+  const finalRequestInit: RouseReqOpts = {
+    ...appConfig.network.fetch,
     ...requestOverrides,
   };
 
@@ -283,7 +238,6 @@ async function executeFetch(
   // Final unified config object
   const finalOptions: RouseReqOpts = {
     ...finalRequestInit,
-    ...appConfig.tune,
     ...options,
     method,
     abortKey: options.abortKey || autoAbortKey,
@@ -351,14 +305,15 @@ async function executeFetch(
  * Explicit timer cleanup handled by global MutationObserver
  */
 export function cleanupFetch(el: HTMLElement) {
-  clearTimer(el, 'poll');
-  clearTimer(el, 'debounce');
-  clearTimer(el, 'throttle');
-
-  // Mark as destroyed to prevent callbacks from rescheduling
-  const current = timers.get(el);
-  if (current) {
-    timers.set(el, { ...current, destroyed: true });
+  const state = timers.get(el);
+  if (state) {
+    if (state.poll) {
+      clearTimeout(state.poll);
+    }
+    if (state.pacedFetch) {
+      state.pacedFetch.cancel();
+    }
+    timers.set(el, { ...state, destroyed: true });
   }
 }
 
@@ -371,18 +326,14 @@ function updateTimer<K extends keyof TimerState>(
   timers.set(el, { ...current, [key]: value });
 }
 
-function clearTimer(el: HTMLElement, key: 'debounce' | 'throttle' | 'poll') {
-  const current = timers.get(el);
-  if (current?.[key]) {
-    clearTimeout(current[key]);
-    updateTimer(el, key, undefined);
-  }
-}
-
 function schedulePoll(el: HTMLElement, options: RouseReqOpts, pollInterval: number) {
   const state = timers.get(el);
+  if (!state) return;
+
   if (pollInterval > 0 && !state?.destroyed) {
-    clearTimer(el, 'poll');
+    if (state.poll) {
+      clearTimeout(state.poll);
+    }
     const timer = setTimeout(() => executeFetch(el, options, pollInterval), pollInterval);
     updateTimer(el, 'poll', timer);
   }

@@ -51,9 +51,6 @@ export interface RouseTuneOpts {
   retry?: number;
   timeout?: number;
   abortKey?: string | symbol;
-  debounce?: number;
-  throttle?: number;
-  poll?: number;
   trigger?: string[];
 }
 

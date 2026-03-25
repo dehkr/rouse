@@ -1,5 +1,6 @@
 import { getApp } from '../core/app';
 import { parseDirective } from '../core/parser';
+import { applyTiming } from '../core/timing';
 import { effect } from '../reactivity';
 import { getDirective } from './prefix';
 
@@ -15,13 +16,18 @@ export function attachAutosave(el: HTMLScriptElement) {
   if (!storeName || !raw) return;
 
   const parsed = parseDirective(raw);
+  const timingModifiers: string[] = [];
   let url = '';
   let method = 'POST';
-  let debounce = 500;
 
-  for (const [key, val] of parsed) {
-    if (key === 'debounce') {
-      debounce = parseInt(val, 10) || 500;
+  for (const [key, val, modifiers] of parsed) {
+    if (['debounce', 'throttle', 'poll', 'timeout'].includes(key)) {
+      if (val) {
+        console.warn(
+          `[Rouse] Invalid syntax for timing behavior '${key}'. Use dot-notation (e.g., 'debounce.500ms') instead of a key-value pair.`,
+        );
+      }
+      timingModifiers.push(key, ...modifiers);
     } else if (!url) {
       method = val ? key.toUpperCase() : 'POST';
       url = val || key;
@@ -33,14 +39,21 @@ export function attachAutosave(el: HTMLScriptElement) {
     app.stores._setConfig(storeName, { url, saveMethod: method });
   }
 
-  let timeout: number;
   let isInitial = true;
+
+  const save = applyTiming(
+    () => {
+      app.stores.save(storeName, url ? { url, method } : undefined);
+    },
+    timingModifiers,
+    app.config.timing,
+  );
 
   const stopEffect = effect(() => {
     const data = app.stores.get(storeName);
     if (!data) return;
 
-    // Deep-read the proxy to register all nested dependencies
+    // Deep-read to register dependencies
     JSON.stringify(data);
 
     // Skip the first run when the store is initialized
@@ -49,14 +62,11 @@ export function attachAutosave(el: HTMLScriptElement) {
       return;
     }
 
-    clearTimeout(timeout);
-    timeout = window.setTimeout(() => {
-      app.stores.save(storeName, url ? { url, method } : undefined);
-    }, debounce);
+    save();
   });
 
   return () => {
-    clearTimeout(timeout);
+    save.cancel();
     if (typeof stopEffect === 'function') {
       stopEffect();
     }

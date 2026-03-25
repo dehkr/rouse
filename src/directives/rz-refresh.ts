@@ -1,5 +1,6 @@
 import { getApp } from '../core/app';
 import { parseDirective } from '../core/parser';
+import { getTimingConfig } from '../core/timing';
 import { getDirective } from './prefix';
 
 export const SLUG = 'refresh' as const;
@@ -14,21 +15,33 @@ export function attachRefresh(el: HTMLScriptElement) {
   if (!storeName || !raw) return;
 
   const parsed = parseDirective(raw);
+  const timingModifiers: string[] = [];
   let url = '';
   let method = 'GET';
   let focus = false;
   let reconnect = false;
-  let interval = 0;
 
-  for (const [key, val] of parsed) {
-    if (key === 'focus') focus = true;
-    else if (key === 'reconnect') reconnect = true;
-    else if (key === 'interval') interval = parseInt(val, 10) || 0;
-    else if (!url) {
+  for (const [key, val, modifiers] of parsed) {
+    if (key === 'focus') {
+      focus = true;
+    } else if (key === 'reconnect') {
+      reconnect = true;
+    } else if (['poll', 'debounce', 'throttle', 'timeout'].includes(key)) {
+      if (val) {
+        console.warn(
+          `[Rouse] Invalid syntax for timing behavior '${key}'. Use dot-notation (e.g., 'debounce.500ms') instead of a key-value pair.`,
+        );
+      }
+      timingModifiers.push(key, ...modifiers);
+    } else if (!url) {
       method = val ? key.toUpperCase() : 'GET';
       url = val || key;
     }
   }
+
+  // Extract the poll interval if defined
+  const timingConfig = getTimingConfig(timingModifiers, app.config.timing);
+  const interval = timingConfig.strategy === 'poll' ? timingConfig.wait : 0;
 
   // Register the URL globally
   if (url) {
