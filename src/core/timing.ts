@@ -23,7 +23,7 @@ export interface PacedFunction<T extends AnyFunction> {
 }
 
 /**
- * Parses an array of timing modifiers (e.g., 'debounce', '500ms', 'leading') 
+ * Parses an array of timing modifiers (e.g., 'debounce', '500ms', 'leading')
  * into a structured configuration object.
  */
 export function getTimingConfig(
@@ -79,7 +79,7 @@ export function getTimingConfig(
 }
 
 /**
- * Creates a debounced function that delays execution until after a specified 
+ * Creates a debounced function that delays execution until after a specified
  * wait time has elapsed since the last invocation.
  */
 export function debounce<T extends AnyFunction>(
@@ -97,7 +97,7 @@ export function debounce<T extends AnyFunction>(
 }
 
 /**
- * Creates a throttled function that limits execution to at most once 
+ * Creates a throttled function that limits execution to at most once
  * within the specified wait time.
  */
 export function throttle<T extends AnyFunction>(
@@ -115,7 +115,7 @@ export function throttle<T extends AnyFunction>(
 }
 
 /**
- * Wraps a function with a timing strategy (debounce or throttle) based on the 
+ * Wraps a function with a timing strategy (debounce or throttle) based on the
  * provided modifiers. Returns an augmented raw function if no strategy is matched.
  */
 export function applyTiming<T extends AnyFunction>(
@@ -145,4 +145,34 @@ export function applyTiming<T extends AnyFunction>(
   paced.flush = () => {};
 
   return paced as PacedFunction<T>;
+}
+
+/**
+ * Converts a string with time suffixes (s, ms) or a raw number into milliseconds.
+ * Defaults to milliseconds if no suffix is provided.
+ *
+ * @example
+ * parseTime(500)     // 500
+ * parseTime('500')   // 500
+ * parseTime('500ms') // 500
+ * parseTime('5s')    // 5000
+ * parseTime('1.5s')  // 1500
+ */
+export function parseTime(val?: string | number): number {
+  if (!val) return 0;
+  if (typeof val === 'number') return val;
+
+  const match = String(val)
+    .trim()
+    .toLowerCase()
+    .match(/^([\d.]+)(ms|s)?$/);
+    
+  if (!match) return 0;
+
+  const [, amountStr = '0', unit] = match;
+  const amount = parseFloat(amountStr);
+
+  if (isNaN(amount)) return 0;
+
+  return unit === 's' ? amount * 1000 : amount;
 }
