@@ -9,10 +9,13 @@ const PAIR_DELIMITER = ':';
  * rz-wake="visible, media: (min-width: 600px)" is parsed to:
  * [['visible', ''], ['media', '(min-width: 600px)']]
  *
- * Values with modifiers (e.g. rz-tune="debounce.trailing: 500") are parsed to:
- * [['debounce', '500', ['trailing']]]
+ * If parseModifiers is true (e.g., rz-trigger="input.debounce.500ms"):
+ * [['input', '', ['debounce', '500ms']]]
  */
-export function parseDirective(value: string): ParsedVal {
+export function parseDirective(
+  value: string,
+  parseModifiers: boolean = false,
+): ParsedVal {
   if (!value) return [];
 
   const parsed: ParsedVal = [];
@@ -22,7 +25,7 @@ export function parseDirective(value: string): ParsedVal {
   const scanResult = scan(value, (i, char) => {
     if (char === VALUE_DELIMITER) {
       if (hasTrailingWhiteSpace(value, i)) {
-        parseSegment(value.slice(start, i), parsed);
+        parseSegment(value.slice(start, i), parsed, parseModifiers);
         start = i + 1;
         // Keep scanning
         return false;
@@ -35,7 +38,7 @@ export function parseDirective(value: string): ParsedVal {
   }
 
   // Process the final segment
-  parseSegment(value.slice(start), parsed);
+  parseSegment(value.slice(start), parsed, parseModifiers);
 
   return parsed;
 }
@@ -43,7 +46,7 @@ export function parseDirective(value: string): ParsedVal {
 /**
  * Parse a single segment into [key, value, [modifiers]].
  */
-function parseSegment(segment: string, acc: ParsedVal) {
+function parseSegment(segment: string, acc: ParsedVal, parseModifiers: boolean) {
   const trimmed = segment.trim();
   if (!trimmed) return;
 
@@ -61,9 +64,15 @@ function parseSegment(segment: string, acc: ParsedVal) {
   });
 
   const processKey = (str: string, val: string) => {
-    const [key, ...modifiers] = str.split('.');
-    if (key) {
-      acc.push([key, val, modifiers]);
+    if (parseModifiers) {
+      const [key, ...modifiers] = str.split('.');
+      if (key) {
+        acc.push([key, val, modifiers]);
+      }
+    } else {
+      if (str) {
+        acc.push([str, val, []]);
+      }
     }
   };
 
