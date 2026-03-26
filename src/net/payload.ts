@@ -13,12 +13,12 @@ export function preparePayload(
 
   // Resolve URL
   let finalUrl = url;
-  if (globalConfig.baseUrl && !url.startsWith('http') && !url.startsWith('//')) {
-    finalUrl = `${globalConfig.baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
+  if (globalConfig.network?.baseUrl && !url.startsWith('http') && !url.startsWith('//')) {
+    finalUrl = `${globalConfig.network?.baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
   }
 
   // Merge headers
-  const reqHeaders = new Headers(globalConfig.request?.headers);
+  const reqHeaders = new Headers(globalConfig.network?.fetch?.headers);
   new Headers(headers).forEach((val, key) => {
     reqHeaders.set(key, val);
   });
@@ -32,7 +32,38 @@ export function preparePayload(
   // Prepare request body
   let finalBody: BodyInit | null = null;
 
-  if (form) {
+  if (body != null) {
+    // Pass through all native binary/stream BodyInit types
+    if (isNativeBinaryBody(body)) {
+      finalBody = body;
+    }
+
+    // URLSearchParams
+    else if (body instanceof URLSearchParams) {
+      finalBody = body;
+    }
+
+    // Plain object or array -> JSON
+    else if (body && typeof body === 'object') {
+      finalBody = JSON.stringify(body);
+      if (!reqHeaders.has('Content-Type')) {
+        reqHeaders.set('Content-Type', 'application/json');
+      }
+    }
+
+    // String body, pass through
+    else if (typeof body === 'string') {
+      finalBody = body;
+    }
+
+    // Catch primitives like numbers or booleans
+    else {
+      finalBody = String(body);
+    }
+  }
+
+  // Fall back to form serialization if no explicit body was provided
+  else if (form) {
     // GET forms should append to the URL as query parameters
     if (method === 'GET' || method === 'HEAD') {
       const formData = new FormData(form);
@@ -49,39 +80,11 @@ export function preparePayload(
 
       finalUrl = urlObj.toString();
     }
+
     // POST/PUT/PATCH -> send as FormData body
     else {
       finalBody = new FormData(form);
     }
-  }
-
-  // Pass through all native binary/stream BodyInit types
-  else if (isNativeBinaryBody(body)) {
-    finalBody = body;
-  }
-
-  // URLSearchParams
-  else if (body instanceof URLSearchParams) {
-    finalBody = body;
-  }
-
-  // Plain object or array -> JSON
-  else if (body && typeof body === 'object') {
-    finalBody = JSON.stringify(body);
-
-    if (!reqHeaders.has('Content-Type')) {
-      reqHeaders.set('Content-Type', 'application/json');
-    }
-  }
-
-  // String body, pass through
-  else if (typeof body === 'string') {
-    finalBody = body;
-  }
-
-  // Catch primitives like numbers or booleans
-  else if (body != null) {
-    finalBody = String(body);
   }
 
   return { finalUrl, method, reqHeaders, finalBody, restOptions };

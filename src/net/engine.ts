@@ -1,32 +1,36 @@
 import { defaultConfig, getApp } from '../core/app';
-import { applyTiming, getTimingConfig, type PacedFunction } from '../core/timing';
-import { getFetchDirective, getRequestConfig, getTuningStrategy } from '../directives';
+import { applyTiming, type PacedFunction } from '../core/timing';
+import {
+  getFetchDirective,
+  getFetchTriggers,
+  getRequestConfig,
+  getTuningStrategy,
+} from '../directives';
 import { selector } from '../directives/prefix';
 import { dispatch, isForm, isInput, isSelect, isTextArea } from '../dom/utils';
 import type { RouseReqOpts } from '../types';
 import { request } from './request';
 
 type TimerState = {
-  pacedFetch?: PacedFunction<any>;
+  pacedExecutors?: Record<string, PacedFunction<any>>;
   poll?: ReturnType<typeof setTimeout>;
   abortKey?: string;
   destroyed?: boolean;
 };
-
-export const SLUG = 'fetch' as const;
 
 const timers = new WeakMap<HTMLElement, TimerState>();
 
 /**
  * Handles the preparation, pacing, and execution of a network request.
  */
-export async function handleFetch(el: HTMLElement, programmaticOpts: RouseReqOpts = {}) {
+export async function handleFetch(
+  el: HTMLElement,
+  programmaticOpts: RouseReqOpts = {},
+  triggeringEvent?: Event,
+) {
   const app = getApp(el);
-  const tuneConfig = getTuningStrategy(el);
-  const timingMods = tuneConfig.timingModifiers || [];
-
-  // Parse the modifiers to check if we are doing network-level polling or timeouts
-  const timingConfig = getTimingConfig(timingMods, app?.config.timing);
+  const tuneStrategy = getTuningStrategy(el);
+  const triggers = getFetchTriggers(el);
 
   let state = timers.get(el);
   if (!state) {
@@ -36,23 +40,38 @@ export async function handleFetch(el: HTMLElement, programmaticOpts: RouseReqOpt
 
   if (state.destroyed) return;
 
+  // Determine timing modifiers based on the event that fired
+  let timingMods: string[] = [];
+  const eventType = triggeringEvent?.type || 'default';
+
+  if (triggers.length > 0 && triggeringEvent) {
+    const activeTrigger = triggers.find((t) => t.event === eventType);
+    if (activeTrigger) {
+      timingMods = activeTrigger.modifiers;
+    }
+  }
+
   const reqOpts: RouseReqOpts = {
-    retry: tuneConfig.retry,
-    abortKey: tuneConfig.abortKey,
+    retries: tuneStrategy.retries,
+    abortKey: tuneStrategy.abortKey,
     ...programmaticOpts,
   };
 
-  // Explicitly attach timeout to the fetch config if requested
-  if (timingConfig.strategy === 'timeout') {
-    reqOpts.timeout = timingConfig.wait;
+  // Map timeout and poll from the rz-tune config
+  if (tuneStrategy.timeout) {
+    reqOpts.timeout = tuneStrategy.timeout;
   }
 
-  const pollInterval = timingConfig.strategy === 'poll' ? timingConfig.wait : 0;
+  const pollInterval = tuneStrategy.poll || 0;
 
-  // Lazily create and cache the PacedFunction to preserve its
-  // internal debounce/throttle state.
-  if (!state.pacedFetch) {
-    state.pacedFetch = applyTiming(
+  if (!state.pacedExecutors) {
+    state.pacedExecutors = {};
+  }
+
+  // Lazily create and cache the PacedFunction per event type to preserve distinct
+  // debounce/throttle states for different triggers on the same element.
+  if (!state.pacedExecutors[eventType]) {
+    state.pacedExecutors[eventType] = applyTiming(
       (opts: RouseReqOpts, pollInt: number) => {
         try {
           executeFetch(el, opts, pollInt);
@@ -65,7 +84,7 @@ export async function handleFetch(el: HTMLElement, programmaticOpts: RouseReqOpt
     );
   }
 
-  state.pacedFetch(reqOpts, pollInterval);
+  state.pacedExecutors[eventType](reqOpts, pollInterval);
 }
 
 /**
@@ -310,8 +329,10 @@ export function cleanupFetch(el: HTMLElement) {
     if (state.poll) {
       clearTimeout(state.poll);
     }
-    if (state.pacedFetch) {
-      state.pacedFetch.cancel();
+    if (state.pacedExecutors) {
+      Object.values(state.pacedExecutors).forEach((executor) => {
+        executor.cancel();
+      });
     }
     timers.set(el, { ...state, destroyed: true });
   }

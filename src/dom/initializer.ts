@@ -98,7 +98,7 @@ export function initObserver(app: RouseApp) {
   const sel = selector('scope');
   const storeSel = `script${selector('store')}`;
   const fetchSel = selector('fetch');
-  const wake = app.config.wake;
+  const wake = app.config.ui.wakeStrategy;
 
   const qsa = <T extends Element>(el: Element, s: string): NodeListOf<T> =>
     el.querySelectorAll(s) as NodeListOf<T>;

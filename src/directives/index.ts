@@ -12,6 +12,7 @@ import { SLUG as REQUEST_SLUG } from './rz-request';
 import { SLUG as SCOPE_SLUG } from './rz-scope';
 import { SLUG as STORE_SLUG } from './rz-store';
 import { attachText, SLUG as TEXT_SLUG } from './rz-text';
+import { SLUG as TRIGGER_SLUG } from './rz-trigger';
 import { SLUG as TUNE_SLUG } from './rz-tune';
 import { SLUG as WAKE_SLUG } from './rz-wake';
 
@@ -33,6 +34,7 @@ export type ConfigDirectiveSlug =
   | typeof REFRESH_SLUG
   | typeof REQUEST_SLUG
   | typeof STORE_SLUG
+  | typeof TRIGGER_SLUG
   | typeof TUNE_SLUG
   | typeof WAKE_SLUG;
 
@@ -83,5 +85,6 @@ export { getRequestConfig } from './rz-request';
 export { getControllerName } from './rz-scope';
 export { getStoreName } from './rz-store';
 export { attachText } from './rz-text';
+export { getFetchTriggers } from './rz-trigger';
 export { getTuningStrategy } from './rz-tune';
 export { processWake } from './rz-wake';

@@ -48,7 +48,7 @@ export interface RequestResult<T = any> {
 
 /** Framework orchestration and timing execution options */
 export interface RouseTuneOpts {
-  retry?: number;
+  retries?: number;
   timeout?: number;
   abortKey?: string | symbol;
   trigger?: string[];

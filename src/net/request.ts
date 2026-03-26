@@ -20,7 +20,7 @@ export async function request<T = any>(
   appConfig: RouseConfig = defaultConfig,
 ): Promise<RequestResult<T>> {
   let currentOptions = { ...options };
-  const ci = appConfig.interceptors || {};
+  const ci = appConfig.network?.interceptors || {};
 
   // Run request interceptor
   if (!currentOptions.skipInterceptors && ci.onRequest) {
@@ -52,7 +52,7 @@ export async function request<T = any>(
   // Extract Rouse-specific execution options
   const {
     onUploadProgress,
-    retry = 0,
+    retries = 0,
     timeout = 0,
     abortKey,
     triggerEl,
@@ -130,7 +130,7 @@ export async function request<T = any>(
 
         // If the server is overloaded (503) or if rate-limited (429),
         // check the 'Retry-After' header to avoid further hammering the server.
-        if (!response.ok && attempt < retry && [429, 503].includes(response.status)) {
+        if (!response.ok && attempt < retries && [429, 503].includes(response.status)) {
           // Don't retry if it was explicitly aborted during the request
           if (mainSignal?.aborted) {
             throw new Error('Aborted');
@@ -196,7 +196,7 @@ export async function request<T = any>(
       }
 
       // Retry on network errors or timeouts (but not explicit cancels)
-      if (attempt < retry && errorPayload.status !== 'CANCELED') {
+      if (attempt < retries && errorPayload.status !== 'CANCELED') {
         // Exponential backoff: 200ms, 400ms, 800ms... cap at 10s
         const backoff = Math.min(2 ** attempt * 200, 10000);
         await new Promise((r) => setTimeout(r, backoff));

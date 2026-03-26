@@ -39,7 +39,8 @@
   "scripts": {
     "build": "tsup",
     "check": "biome check",
-    "format": "biome format --write"
+    "format": "biome format --write",
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.4",

@@ -1,4 +1,4 @@
-import { getTuningStrategy } from '../directives';
+import { getFetchTriggers } from '../directives';
 import { hasDirective, selector } from '../directives/prefix';
 import { destroyInstance } from '../dom/controller';
 import {
@@ -27,7 +27,7 @@ export const defaultConfig = {
   },
   network: {
     baseUrl: '',
-    fetch: {} as GlobalFetchOpts, 
+    fetch: {} as GlobalFetchOpts,
     interceptors: {} as NetworkInterceptors,
   },
   ui: {
@@ -134,7 +134,7 @@ export class RouseApp {
       if (typeof setup === 'function') {
         this.registry.register(nameOrControllers, setup);
       } else {
-        fail(`A valid setup function is required for "${nameOrControllers}".`);
+        fail(`A valid setup function is required for '${nameOrControllers}'.`);
       }
     } else if (
       // Handle bulk registration using object shorthand
@@ -146,7 +146,7 @@ export class RouseApp {
         if (typeof fn === 'function') {
           this.registry.register(name, fn);
         } else {
-          fail(`Controller "${name}" must be a setup function.`);
+          fail(`Controller '${name}' must be a setup function.`);
         }
       }
     } else {
@@ -201,7 +201,7 @@ export class RouseApp {
    */
   start() {
     if (this._hasStarted) {
-      console.warn('[Rouse] Rouse.start() called multiple times. Ignoring.');
+      console.warn(`[Rouse] 'start()' called multiple times. Ignoring.`);
       return;
     }
     this._hasStarted = true;
@@ -235,12 +235,12 @@ export class RouseApp {
       if (target) {
         if (getApp(target) !== this) return;
 
-        const tune = getTuningStrategy(target);
+        const triggers = getFetchTriggers(target);
 
-        if (tune.trigger && tune.trigger.length > 0) {
-          if (tune.trigger.includes(e.type)) {
+        if (triggers.length > 0) {
+          if (triggers.some((t) => t.event === e.type)) {
             e.preventDefault();
-            handleFetch(target);
+            handleFetch(target, {}, e);
           }
           return;
         }
@@ -252,25 +252,29 @@ export class RouseApp {
 
         if (isForm && e.type === 'submit') {
           e.preventDefault();
-          handleFetch(target);
+          handleFetch(target, {}, e);
           return;
         }
 
         if (isInput && (e.type === 'input' || e.type === 'change')) {
-          handleFetch(target);
+          handleFetch(target, {}, e);
           return;
         }
 
         if (!isForm && !isInput && e.type === 'click') {
           e.preventDefault();
-          handleFetch(target);
+          handleFetch(target, {}, e);
         }
       }
     };
 
-    this._events.forEach((evt) => {
-      this.root.addEventListener(evt, this._handleGlobalFetch!);
-    });
+    // Add global event handlers
+    const handler = this._handleGlobalFetch;
+    if (handler) {
+      this._events.forEach((evt) => {
+        this.root.addEventListener(evt, handler);
+      });
+    }
 
     // Start the scoped mutation observer
     this._observer = initObserver(this);
@@ -293,18 +297,22 @@ export class RouseApp {
     fetchNodes.forEach((el) => {
       if (getApp(el) !== this) return;
 
-      const tune = getTuningStrategy(el);
-      if (tune.trigger && tune.trigger.length > 0) {
+      const triggers = getFetchTriggers(el);
+      if (triggers.length > 0) {
         // Auto-start on 'load'
-        if (tune.trigger.includes('load')) {
-          handleFetch(el);
+        if (triggers.some((t) => t.event === 'load')) {
+          handleFetch(el, {}, new CustomEvent('load'));
         }
         // Attach direct listeners for custom events
-        tune.trigger.forEach((evt) => {
-          if (evt !== 'load' && evt !== 'none' && !this._events.includes(evt)) {
-            el.addEventListener(evt, (e) => {
+        triggers.forEach((t) => {
+          if (
+            t.event !== 'load' &&
+            t.event !== 'none' &&
+            !this._events.includes(t.event)
+          ) {
+            el.addEventListener(t.event, (e) => {
               e.preventDefault();
-              handleFetch(el);
+              handleFetch(el, {}, e);
             });
           }
         });
@@ -332,9 +340,10 @@ export class RouseApp {
     this._observer?.disconnect();
 
     // Remove global event listeners
-    if (this._handleGlobalFetch) {
+    const handler = this._handleGlobalFetch;
+    if (handler) {
       this._events.forEach((evt) => {
-        this.root.removeEventListener(evt, this._handleGlobalFetch!);
+        this.root.removeEventListener(evt, handler);
       });
     }
 
