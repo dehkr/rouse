@@ -24,6 +24,7 @@ export const defaultConfig = {
   timing: {
     debounceWait: DEFAULT_DEBOUNCE_WAIT,
     throttleWait: DEFAULT_THROTTLE_WAIT,
+    autoSaveWait: 1000,
   },
   network: {
     baseUrl: '',

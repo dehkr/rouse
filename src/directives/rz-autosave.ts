@@ -16,22 +16,15 @@ export function attachAutosave(el: HTMLScriptElement) {
   if (!storeName || !raw) return;
 
   const parsed = parseDirective(raw);
-  const timingModifiers: string[] = [];
+  const [firstSegment] = parsed;
+  
   let url = '';
   let method = 'POST';
 
-  for (const [key, val, modifiers] of parsed) {
-    if (['debounce', 'throttle', 'poll', 'timeout'].includes(key)) {
-      if (val) {
-        console.warn(
-          `[Rouse] Invalid syntax for timing behavior '${key}'. Use dot-notation (e.g., 'debounce.500ms') instead of a key-value pair.`,
-        );
-      }
-      timingModifiers.push(key, ...modifiers);
-    } else if (!url) {
-      method = val ? key.toUpperCase() : 'POST';
-      url = val || key;
-    }
+  if (firstSegment) {
+    const [key, val] = firstSegment;
+    method = val ? key.toUpperCase() : 'POST';
+    url = val || key;
   }
 
   // Register the URL globally
@@ -45,8 +38,8 @@ export function attachAutosave(el: HTMLScriptElement) {
     () => {
       app.stores.save(storeName, url ? { url, method } : undefined);
     },
-    timingModifiers,
-    app.config.timing,
+    ['debounce'],
+    { ...app.config.timing, debounceWait: app.config.timing.autoSaveWait },
   );
 
   const stopEffect = effect(() => {
