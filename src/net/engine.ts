@@ -1,24 +1,33 @@
-import { defaultConfig, getApp } from '../core/app';
+import { defaultConfig, getApp, type RouseApp } from '../core/app';
 import { applyTiming, type PacedFunction } from '../core/timing';
-import {
-  getFetchDirective,
-  getFetchTriggers,
-  getRequestConfig,
-  getTuningStrategy,
-} from '../directives';
-import { selector } from '../directives/prefix';
+import { getFetchDirective, getFetchTriggers, getRequestConfig } from '../directives';
 import { dispatch, isForm, isInput, isSelect, isTextArea } from '../dom/utils';
 import type { RouseRequestOpts } from '../types';
 import { request } from './request';
 
 type TimerState = {
   pacedExecutors?: Record<string, PacedFunction<any>>;
-  poll?: ReturnType<typeof setTimeout>;
   abortKey?: string;
   destroyed?: boolean;
 };
 
 const timers = new WeakMap<HTMLElement, TimerState>();
+
+/**
+ * Resolves the final network configuration by merging global and local config.
+ */
+function resolveRequestConfig(
+  el: HTMLElement,
+  app: RouseApp | undefined,
+): Partial<RouseRequestOpts> {
+  const globalConfig = app?.config.network.fetch || {};
+  const localConfig = getRequestConfig(el, app);
+
+  return {
+    ...globalConfig,
+    ...localConfig,
+  };
+}
 
 /**
  * Handles the preparation, pacing, and execution of a network request.
@@ -29,7 +38,6 @@ export async function handleFetch(
   triggeringEvent?: Event,
 ) {
   const app = getApp(el);
-  const tuneStrategy = getTuningStrategy(el);
   const triggers = getFetchTriggers(el);
 
   let state = timers.get(el);
@@ -51,19 +59,6 @@ export async function handleFetch(
     }
   }
 
-  const reqOpts: RouseRequestOpts = {
-    retries: tuneStrategy.retries,
-    abortKey: tuneStrategy.abortKey,
-    ...programmaticOpts,
-  };
-
-  // Map timeout and poll from the rz-tune config
-  if (tuneStrategy.timeout) {
-    reqOpts.timeout = tuneStrategy.timeout;
-  }
-
-  const pollInterval = tuneStrategy.poll || 0;
-
   if (!state.pacedExecutors) {
     state.pacedExecutors = {};
   }
@@ -72,9 +67,9 @@ export async function handleFetch(
   // debounce/throttle states for different triggers on the same element.
   if (!state.pacedExecutors[eventType]) {
     state.pacedExecutors[eventType] = applyTiming(
-      (opts: RouseRequestOpts, pollInt: number) => {
+      (opts: RouseRequestOpts) => {
         try {
-          executeFetch(el, opts, pollInt);
+          executeFetch(el, opts);
         } catch (error) {
           console.error(`[Rouse] Error executing fetch on element:`, el, error);
         }
@@ -84,7 +79,7 @@ export async function handleFetch(
     );
   }
 
-  state.pacedExecutors[eventType](reqOpts, pollInterval);
+  state.pacedExecutors[eventType](programmaticOpts);
 }
 
 /**
@@ -93,13 +88,8 @@ export async function handleFetch(
  *
  * @param el - The DOM element triggering the network request.
  * @param options - The sanitized request config passed to the network orchestrator.
- * @param pollInterval - The polling interval in milliseconds (0 if disabled).
  */
-async function executeFetch(
-  el: HTMLElement,
-  options: RouseRequestOpts,
-  pollInterval: number,
-) {
+async function executeFetch(el: HTMLElement, options: RouseRequestOpts) {
   const app = getApp(el);
   const appConfig = app?.config || defaultConfig;
   const loadingClass = appConfig.ui.loadingClass;
@@ -114,9 +104,9 @@ async function executeFetch(
     return;
   }
 
-  // Allow pausing execution while keeping polling scheduled
+  // Bail out if disabled
+  // TODO: confirm this behavior
   if (el.hasAttribute('disabled') || el.getAttribute('aria-disabled') === 'true') {
-    schedulePoll(el, options, pollInterval);
     return;
   }
 
@@ -155,15 +145,8 @@ async function executeFetch(
     return;
   }
 
-  // Grab rz-request fetch configuration overrides
-  const reqEl = el.closest<HTMLElement>(selector('request'));
-  const requestOverrides = reqEl ? getRequestConfig(reqEl, app) : {};
-
-  // Merge native fetch configuration
-  const finalRequestInit: RouseRequestOpts = {
-    ...appConfig.network.fetch,
-    ...requestOverrides,
-  };
+  // Resolve request inheritance overrides
+  const finalRequestInit = resolveRequestConfig(el, app);
 
   // Resolve method
   const method = (
@@ -176,14 +159,6 @@ async function executeFetch(
   const isFormEl = isForm(el);
   const hasExplicitBody =
     finalRequestInit.body !== undefined || options.body !== undefined;
-
-  // A body added to the request config takes precedence over form data
-  if (hasExplicitBody && isFormEl) {
-    console.warn(
-      `[Rouse] Explicit body config overrides form serialization on element:`,
-      el,
-    );
-  }
 
   // Process standalone inputs to build the body or modify URL
   if (!hasExplicitBody && (isInput(el) || isSelect(el) || isTextArea(el))) {
@@ -259,7 +234,7 @@ async function executeFetch(
     ...finalRequestInit,
     ...options,
     method,
-    abortKey: options.abortKey || autoAbortKey,
+    abortKey: options.abortKey || finalRequestInit.abortKey || autoAbortKey,
     triggerEl: el,
     form: hasExplicitBody ? undefined : isFormEl ? (el as HTMLFormElement) : undefined,
   };
@@ -314,9 +289,6 @@ async function executeFetch(
     el.removeAttribute('aria-busy');
 
     dispatch(el, 'rz:fetch:end', { config: finalOptions });
-
-    // Poll timers should continue even if request aborted or after network errors
-    schedulePoll(el, options, pollInterval);
   }
 }
 
@@ -326,9 +298,6 @@ async function executeFetch(
 export function cleanupFetch(el: HTMLElement) {
   const state = timers.get(el);
   if (state) {
-    if (state.poll) {
-      clearTimeout(state.poll);
-    }
     if (state.pacedExecutors) {
       Object.values(state.pacedExecutors).forEach((executor) => {
         executor.cancel();
@@ -345,17 +314,4 @@ function updateTimer<K extends keyof TimerState>(
 ) {
   const current = timers.get(el) || {};
   timers.set(el, { ...current, [key]: value });
-}
-
-function schedulePoll(el: HTMLElement, options: RouseRequestOpts, pollInterval: number) {
-  const state = timers.get(el);
-  if (!state) return;
-
-  if (pollInterval > 0 && !state?.destroyed) {
-    if (state.poll) {
-      clearTimeout(state.poll);
-    }
-    const timer = setTimeout(() => executeFetch(el, options, pollInterval), pollInterval);
-    updateTimer(el, 'poll', timer);
-  }
 }
