@@ -1,6 +1,6 @@
 import { getApp } from '../core/app';
 import { effectScope } from '../reactivity';
-import type { RouseReqOpts, SetupContext, SetupFn } from '../types';
+import type { RouseRequestOpts, SetupContext, SetupFn } from '../types';
 import { attachController } from './attacher';
 import { dispatch } from './utils';
 
@@ -80,9 +80,9 @@ export function createController(
       },
       unsubscribe: (event, cb) => app.bus.unsubscribe(event, cb),
     },
-    fetch: (resource: string, options: RouseReqOpts = {}) => {
+    fetch: (resource: string, options: RouseRequestOpts = {}) => {
       // Target defaults to the controller root element unless provided
-      const finalOptions: RouseReqOpts = {
+      const finalOptions: RouseRequestOpts = {
         target: el,
         ...options,
       };

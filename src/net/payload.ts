@@ -1,12 +1,12 @@
 import type { RouseConfig } from '../core/app';
-import type { RouseReqOpts } from '../types';
+import type { RouseRequestOpts } from '../types';
 
 /**
  * Prepares the URL, headers, and body for a network request.
  */
 export function preparePayload(
   url: string,
-  options: RouseReqOpts,
+  options: RouseRequestOpts,
   globalConfig: RouseConfig,
 ) {
   const { method = 'GET', headers = {}, body, form, ...restOptions } = options;

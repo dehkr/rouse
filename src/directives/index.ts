@@ -13,7 +13,6 @@ import { SLUG as SCOPE_SLUG } from './rz-scope';
 import { SLUG as STORE_SLUG } from './rz-store';
 import { attachText, SLUG as TEXT_SLUG } from './rz-text';
 import { SLUG as TRIGGER_SLUG } from './rz-trigger';
-import { SLUG as TUNE_SLUG } from './rz-tune';
 import { SLUG as WAKE_SLUG } from './rz-wake';
 
 // Directive types that are bound to DOM by attacher
@@ -31,11 +30,10 @@ export type ConfigDirectiveSlug =
   | typeof FETCH_SLUG
   | typeof INSERT_SLUG
   | typeof SCOPE_SLUG
-  | typeof REFRESH_SLUG
   | typeof REQUEST_SLUG
+  | typeof REFRESH_SLUG
   | typeof STORE_SLUG
   | typeof TRIGGER_SLUG
-  | typeof TUNE_SLUG
   | typeof WAKE_SLUG;
 
 export type DirectiveSlug = DomDirectiveSlug | ConfigDirectiveSlug;
@@ -86,5 +84,4 @@ export { getControllerName } from './rz-scope';
 export { getStoreName } from './rz-store';
 export { attachText } from './rz-text';
 export { getFetchTriggers } from './rz-trigger';
-export { getTuningStrategy } from './rz-tune';
 export { processWake } from './rz-wake';

@@ -1,5 +1,5 @@
 import { getApp, type RouseApp } from '../core/app';
-import { attachAutosave, attachRefresh, processWake } from '../directives';
+import { attachAutosave, processWake } from '../directives';
 import { getDirective, hasDirective, selector } from '../directives/prefix';
 import { destroyInstance, initInstance } from '../dom/controller';
 import { cleanupFetch } from '../net/engine';
@@ -60,11 +60,6 @@ export function initStoreElement(script: HTMLScriptElement) {
   const autoCleanup = attachAutosave(script);
   if (autoCleanup) {
     cleanups.push(autoCleanup);
-  }
-
-  const refreshCleanup = attachRefresh(script);
-  if (refreshCleanup) {
-    cleanups.push(refreshCleanup);
   }
 
   storeCleanups.set(script, cleanups);

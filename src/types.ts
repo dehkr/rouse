@@ -66,7 +66,7 @@ export interface RouseInternalOpts {
 }
 
 /** The unified options object passed through the Rouse network engine */
-export type RouseReqOpts = Omit<RequestInit, 'body'> & RouseTuneOpts & RouseInternalOpts;
+export type RouseRequestOpts = Omit<RequestInit, 'body'> & RouseTuneOpts & RouseInternalOpts;
 
 /** Global fetch configuration. Limited to safe, non-mutating properties. */
 export interface GlobalFetchOpts {
@@ -76,13 +76,13 @@ export interface GlobalFetchOpts {
 }
 
 export interface NetworkInterceptors {
-  onRequest?: (config: RouseReqOpts) => RouseReqOpts | Promise<RouseReqOpts>;
+  onRequest?: (config: RouseRequestOpts) => RouseRequestOpts | Promise<RouseRequestOpts>;
   onResponse?: (
     data: any,
     response: Response,
-    config: RouseReqOpts,
+    config: RouseRequestOpts,
   ) => any | Promise<any>;
-  onError?: (error: any, config: RouseReqOpts) => void;
+  onError?: (error: any, config: RouseRequestOpts) => void;
 }
 
 /**
@@ -94,7 +94,7 @@ export type SetupContext<P extends Record<string, any> = Record<string, any>> = 
   appRoot: HTMLElement;
   props: P;
   dispatch: (name: string, detail?: any, options?: CustomEventInit) => CustomEvent;
-  fetch: (resource: string, options?: RouseReqOpts) => Promise<void>;
+  fetch: (resource: string, options?: RouseRequestOpts) => Promise<void>;
   bus: {
     publish: (event: string, data?: any) => void;
     subscribe: (event: string, cb: BusCallback) => void;

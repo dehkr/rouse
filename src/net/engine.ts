@@ -8,7 +8,7 @@ import {
 } from '../directives';
 import { selector } from '../directives/prefix';
 import { dispatch, isForm, isInput, isSelect, isTextArea } from '../dom/utils';
-import type { RouseReqOpts } from '../types';
+import type { RouseRequestOpts } from '../types';
 import { request } from './request';
 
 type TimerState = {
@@ -25,7 +25,7 @@ const timers = new WeakMap<HTMLElement, TimerState>();
  */
 export async function handleFetch(
   el: HTMLElement,
-  programmaticOpts: RouseReqOpts = {},
+  programmaticOpts: RouseRequestOpts = {},
   triggeringEvent?: Event,
 ) {
   const app = getApp(el);
@@ -51,7 +51,7 @@ export async function handleFetch(
     }
   }
 
-  const reqOpts: RouseReqOpts = {
+  const reqOpts: RouseRequestOpts = {
     retries: tuneStrategy.retries,
     abortKey: tuneStrategy.abortKey,
     ...programmaticOpts,
@@ -72,7 +72,7 @@ export async function handleFetch(
   // debounce/throttle states for different triggers on the same element.
   if (!state.pacedExecutors[eventType]) {
     state.pacedExecutors[eventType] = applyTiming(
-      (opts: RouseReqOpts, pollInt: number) => {
+      (opts: RouseRequestOpts, pollInt: number) => {
         try {
           executeFetch(el, opts, pollInt);
         } catch (error) {
@@ -97,7 +97,7 @@ export async function handleFetch(
  */
 async function executeFetch(
   el: HTMLElement,
-  options: RouseReqOpts,
+  options: RouseRequestOpts,
   pollInterval: number,
 ) {
   const app = getApp(el);
@@ -160,7 +160,7 @@ async function executeFetch(
   const requestOverrides = reqEl ? getRequestConfig(reqEl, app) : {};
 
   // Merge native fetch configuration
-  const finalRequestInit: RouseReqOpts = {
+  const finalRequestInit: RouseRequestOpts = {
     ...appConfig.network.fetch,
     ...requestOverrides,
   };
@@ -255,7 +255,7 @@ async function executeFetch(
   }
 
   // Final unified config object
-  const finalOptions: RouseReqOpts = {
+  const finalOptions: RouseRequestOpts = {
     ...finalRequestInit,
     ...options,
     method,
@@ -347,7 +347,7 @@ function updateTimer<K extends keyof TimerState>(
   timers.set(el, { ...current, [key]: value });
 }
 
-function schedulePoll(el: HTMLElement, options: RouseReqOpts, pollInterval: number) {
+function schedulePoll(el: HTMLElement, options: RouseRequestOpts, pollInterval: number) {
   const state = timers.get(el);
   if (!state) return;
 

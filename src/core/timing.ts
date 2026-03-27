@@ -136,7 +136,7 @@ export function applyTiming<T extends AnyFunction>(
     });
   }
 
-  // Fallback for immediate execution, poll, or timeout
+  // Fallback for immediate execution
   const paced = (...args: Parameters<T>) => fn(...args);
   paced.cancel = () => {};
   paced.flush = () => {};

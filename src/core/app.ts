@@ -1,5 +1,5 @@
 import { getFetchTriggers } from '../directives';
-import { hasDirective, selector } from '../directives/prefix';
+import { getDirective, hasDirective, selector } from '../directives/prefix';
 import { destroyInstance } from '../dom/controller';
 import {
   cleanupStoreElement,
@@ -12,7 +12,7 @@ import { cleanupFetch, handleFetch } from '../net/engine';
 import type {
   GlobalFetchOpts,
   NetworkInterceptors,
-  RouseReqOpts,
+  RouseRequestOpts,
   SetupFn,
 } from '../types';
 import { EventBus } from './bus';
@@ -30,6 +30,8 @@ export const defaultConfig = {
     baseUrl: '',
     fetch: {} as GlobalFetchOpts,
     interceptors: {} as NetworkInterceptors,
+    refreshOnFocus: true,
+    refreshOnReconnect: true,
   },
   ui: {
     loadingClass: 'rz-loading',
@@ -60,7 +62,7 @@ export class RouseApp {
 
   private _hasStarted = false;
   private _observer?: MutationObserver;
-  private _handleGlobalFetch?: (e: Event) => void;
+  private _appController?: AbortController;
   private _events = [
     'change',
     'click',
@@ -180,7 +182,7 @@ export class RouseApp {
    * @param resource - The URL to fetch.
    * @param options - Network configuration, including the DOM `target`.
    */
-  public async fetch(resource: string, options: RouseReqOpts = {}) {
+  public async fetch(resource: string, options: RouseRequestOpts = {}) {
     const targetRef = options.target || document.body;
     const el =
       typeof targetRef === 'string'
@@ -205,7 +207,10 @@ export class RouseApp {
       console.warn(`[Rouse] 'start()' called multiple times. Ignoring.`);
       return;
     }
+
     this._hasStarted = true;
+    this._appController = new AbortController();
+    const { signal } = this._appController;
 
     this.root.dispatchEvent(
       new CustomEvent('rz:app:start', {
@@ -230,7 +235,7 @@ export class RouseApp {
     });
 
     // Attach scoped fetch handling event listeners to app root
-    this._handleGlobalFetch = (e: Event) => {
+    const handleGlobalFetch = (e: Event) => {
       const target = (e.target as HTMLElement).closest<HTMLElement>(selector('fetch'));
 
       if (target) {
@@ -269,12 +274,42 @@ export class RouseApp {
       }
     };
 
-    // Add global event handlers
-    const handler = this._handleGlobalFetch;
-    if (handler) {
-      this._events.forEach((evt) => {
-        this.root.addEventListener(evt, handler);
+    this._events.forEach((evt) => {
+      this.root.addEventListener(evt, handleGlobalFetch, { signal });
+    });
+
+    // Set up smart defaults for keeping store data fresh
+    const handleGlobalRefresh = () => {
+      const storeScripts = this.root.querySelectorAll<HTMLScriptElement>(
+        `script${selector('store')}`,
+      );
+
+      storeScripts.forEach((script) => {
+        if (getApp(script) === this) {
+          const storeName = getDirective(script, 'store');
+          // Only refresh if not actively loading/saving
+          if (storeName && !this.stores.status(storeName)?.loading) {
+            this.stores.refresh(storeName);
+          }
+        }
       });
+    };
+
+    if (this.config.network.refreshOnFocus) {
+      window.addEventListener('focus', handleGlobalRefresh, { signal });
+      window.addEventListener(
+        'visibilitychange',
+        () => {
+          if (document.visibilityState === 'visible') {
+            handleGlobalRefresh();
+          }
+        },
+        { signal },
+      );
+    }
+
+    if (this.config.network.refreshOnReconnect) {
+      window.addEventListener('online', handleGlobalRefresh, { signal });
     }
 
     // Start the scoped mutation observer
@@ -311,10 +346,14 @@ export class RouseApp {
             t.event !== 'none' &&
             !this._events.includes(t.event)
           ) {
-            el.addEventListener(t.event, (e) => {
-              e.preventDefault();
-              handleFetch(el, {}, e);
-            });
+            el.addEventListener(
+              t.event,
+              (e) => {
+                e.preventDefault();
+                handleFetch(el, {}, e);
+              },
+              { signal },
+            );
           }
         });
       }
@@ -341,12 +380,7 @@ export class RouseApp {
     this._observer?.disconnect();
 
     // Remove global event listeners
-    const handler = this._handleGlobalFetch;
-    if (handler) {
-      this._events.forEach((evt) => {
-        this.root.removeEventListener(evt, handler);
-      });
-    }
+    this._appController?.abort();
 
     // Unmount all controllers
     const controllers = this.root.querySelectorAll<HTMLElement>(selector('scope'));
