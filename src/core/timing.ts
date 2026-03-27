@@ -6,7 +6,7 @@ export const DEFAULT_DEBOUNCE_WAIT = 300;
 export const DEFAULT_THROTTLE_WAIT = 150;
 
 export interface TimingConfig {
-  strategy?: 'debounce' | 'throttle' | 'poll' | 'timeout';
+  strategy?: 'debounce' | 'throttle';
   wait: number;
   leading?: boolean;
   trailing?: boolean;
@@ -37,7 +37,7 @@ export function getTimingConfig(
   let trailing: boolean | undefined;
 
   for (const mod of modifiers) {
-    if (['debounce', 'throttle', 'poll', 'timeout'].includes(mod)) {
+    if (['debounce', 'throttle'].includes(mod)) {
       strategy = mod as TimingConfig['strategy'];
     } else if (mod === 'leading') {
       leading = true;
@@ -49,11 +49,8 @@ export function getTimingConfig(
       leading = true;
       trailing = true;
     } else {
-      const match = mod.match(/^(\d+)(ms|s)$/);
-      if (match) {
-        const [, rawValue = '', unit = 'ms'] = match;
-        const value = parseInt(rawValue, 10);
-        explicitWait = unit === 's' ? value * 1000 : value;
+      if (/^([\d.]+)(ms|s|m)?$/.test(mod)) {
+        explicitWait = parseTime(mod);
       }
     }
   }
@@ -157,22 +154,24 @@ export function applyTiming<T extends AnyFunction>(
  * parseTime('500ms') // 500
  * parseTime('5s')    // 5000
  * parseTime('1.5s')  // 1500
+ * parseTime('0.5m')  // 30000
  */
 export function parseTime(val?: string | number): number {
-  if (!val) return 0;
+  if (!val && val !== 0 && val !== '0') return 0;
   if (typeof val === 'number') return val;
 
   const match = String(val)
     .trim()
     .toLowerCase()
-    .match(/^([\d.]+)(ms|s)?$/);
+    .match(/^([\d.]+)(ms|s|m)?$/);
     
   if (!match) return 0;
 
   const [, amountStr = '0', unit] = match;
   const amount = parseFloat(amountStr);
 
-  if (isNaN(amount)) return 0;
+  if (Number.isNaN(amount)) return 0;
 
+  if (unit === 'm') return amount * 60000;
   return unit === 's' ? amount * 1000 : amount;
 }
