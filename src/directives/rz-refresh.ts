@@ -1,6 +1,6 @@
 import { getApp } from '../core/app';
 import { parseDirective } from '../core/parser';
-import { getTimingConfig } from '../core/timing';
+import { parseTime } from '../core/timing';
 import { getDirective } from './prefix';
 
 export const SLUG = 'refresh' as const;
@@ -12,69 +12,64 @@ export function attachRefresh(el: HTMLScriptElement) {
   const storeName = getDirective(el, 'store');
   const raw = getDirective(el, SLUG);
 
-  if (!storeName || !raw) return;
+  if (!storeName || raw === null) return;
 
-  const parsed = parseDirective(raw);
-  const timingModifiers: string[] = [];
-  let url = '';
-  let method = 'GET';
-  let focus = false;
-  let reconnect = false;
+  const ac = new AbortController();
+  const { signal } = ac;
 
-  for (const [key, val, modifiers] of parsed) {
-    if (key === 'focus') {
-      focus = true;
-    } else if (key === 'reconnect') {
-      reconnect = true;
-    } else if (['poll', 'debounce', 'throttle', 'timeout'].includes(key)) {
-      if (val) {
-        console.warn(
-          `[Rouse] Invalid syntax for timing behavior '${key}'. Use dot-notation (e.g., 'debounce.500ms') instead of a key-value pair.`,
-        );
-      }
-      timingModifiers.push(key, ...modifiers);
-    } else if (!url) {
-      method = val ? key.toUpperCase() : 'GET';
-      url = val || key;
-    }
-  }
-
-  // Extract the poll interval if defined
-  const timingConfig = getTimingConfig(timingModifiers, app.config.timing);
-  const interval = timingConfig.strategy === 'poll' ? timingConfig.wait : 0;
-
-  // Register the URL globally
-  if (url) {
-    app.stores._setConfig(storeName, { url, refreshMethod: method });
-  }
+  // Inherit from global config first
+  let focus = app.config.network.refreshOnFocus ?? true;
+  let reconnect = app.config.network.refreshOnReconnect ?? true;
+  let pollInterval = 0;
 
   const triggerRefresh = () => {
-    // Only refresh if we aren't already actively saving/loading
     if (!app.stores.status(storeName)?.loading) {
-      app.stores.refresh(storeName, url ? { url, method } : undefined);
+      app.stores.refresh(storeName);
     }
   };
 
-  if (focus) {
-    window.addEventListener('focus', triggerRefresh);
+  // Layer on specific modifiers or custom events
+  if (raw.trim() !== '') {
+    const parsed = parseDirective(raw, true);
+    for (const [key, _val, modifiers] of parsed) {
+      if (key === 'focus') {
+        focus = true;
+      } else if (key === 'reconnect') {
+        reconnect = true;
+      } else if (key === 'poll' && modifiers.length > 0) {
+        pollInterval = parseTime(modifiers[0]);
+      } else if (key) {
+        // Custom events scoped to the app instance root
+        app.root.addEventListener(key, triggerRefresh, { signal });
+      }
+    }
   }
+
+  // Attach listeners
+  if (focus) {
+    window.addEventListener('focus', triggerRefresh, { signal });
+    window.addEventListener(
+      'visibilitychange',
+      () => {
+        if (document.visibilityState === 'visible') {
+          triggerRefresh();
+        }
+      },
+      { signal },
+    );
+  }
+
   if (reconnect) {
-    window.addEventListener('online', triggerRefresh);
+    window.addEventListener('online', triggerRefresh, { signal });
   }
 
   let timer: number | undefined;
-  if (interval > 0) {
-    timer = window.setInterval(triggerRefresh, interval);
+  if (pollInterval > 0) {
+    timer = window.setInterval(triggerRefresh, pollInterval);
   }
 
-  // Cleanup
   return () => {
-    if (focus) {
-      window.removeEventListener('focus', triggerRefresh);
-    }
-    if (reconnect) {
-      window.removeEventListener('online', triggerRefresh);
-    }
+    ac.abort();
     if (timer) {
       clearInterval(timer);
     }

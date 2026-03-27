@@ -232,7 +232,7 @@ export class StoreManager {
   private async _request(
     id: string,
     operation: 'save' | 'refresh',
-    manualConfig?: { url: string; method?: string },
+    manualConfig?: { url?: string; method?: string },
   ) {
     const store = this._getStore(id);
     if (!store) return;
@@ -327,7 +327,7 @@ export class StoreManager {
     try {
       newJson = JSON.parse(el.textContent || '{}');
     } catch (_e: any) {
-      console.error(`[Rouse] Invalid JSON in "${name}". Store not initialized.`);
+      console.error(`[Rouse] Invalid JSON in '${name}'. Store not initialized.`);
       return;
     }
 
@@ -356,11 +356,19 @@ export class StoreManager {
     return this._status.get(name);
   }
 
-  async save(name: string, config?: { url: string; method?: string }): Promise<void> {
+  config(name: string, config: Partial<SyncConfig>) {
+    if (!this.has(name)) {
+      console.warn(`[Rouse] Cannot configure '${name}'. Store not found.`);
+      return;
+    }
+    this._setConfig(name, config);
+  }
+
+  async save(name: string, config?: { url?: string; method?: string }): Promise<void> {
     return this._request(name, 'save', config);
   }
 
-  async refresh(name: string, config?: { url: string; method?: string }): Promise<void> {
+  async refresh(name: string, config?: { url?: string; method?: string }): Promise<void> {
     return this._request(name, 'refresh', config);
   }
 

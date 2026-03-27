@@ -10,6 +10,7 @@ import { attachPublish, SLUG as PUBLISH_SLUG } from './rz-publish';
 import { SLUG as REFRESH_SLUG } from './rz-refresh';
 import { SLUG as REQUEST_SLUG } from './rz-request';
 import { SLUG as SCOPE_SLUG } from './rz-scope';
+import { SLUG as SOURCE_SLUG } from './rz-source';
 import { SLUG as STORE_SLUG } from './rz-store';
 import { attachText, SLUG as TEXT_SLUG } from './rz-text';
 import { SLUG as TRIGGER_SLUG } from './rz-trigger';
@@ -29,9 +30,10 @@ export type ConfigDirectiveSlug =
   | typeof AUTOSAVE_SLUG
   | typeof FETCH_SLUG
   | typeof INSERT_SLUG
-  | typeof SCOPE_SLUG
-  | typeof REQUEST_SLUG
   | typeof REFRESH_SLUG
+  | typeof REQUEST_SLUG
+  | typeof SCOPE_SLUG
+  | typeof SOURCE_SLUG
   | typeof STORE_SLUG
   | typeof TRIGGER_SLUG
   | typeof WAKE_SLUG;
@@ -81,6 +83,7 @@ export { attachPublish } from './rz-publish';
 export { attachRefresh } from './rz-refresh';
 export { getRequestConfig } from './rz-request';
 export { getControllerName } from './rz-scope';
+export { getStoreSource } from './rz-source';
 export { getStoreName } from './rz-store';
 export { attachText } from './rz-text';
 export { getFetchTriggers } from './rz-trigger';

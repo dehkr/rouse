@@ -1,10 +1,11 @@
 import { getApp } from '../core/app';
 import { parseDirective } from '../core/parser';
-import { applyTiming } from '../core/timing';
+import { applyTiming, parseTime } from '../core/timing';
 import { effect } from '../reactivity';
 import { getDirective } from './prefix';
 
 export const SLUG = 'autosave' as const;
+const METHODS = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']);
 
 export function attachAutosave(el: HTMLScriptElement) {
   const app = getApp(el);
@@ -13,35 +14,48 @@ export function attachAutosave(el: HTMLScriptElement) {
   const storeName = getDirective(el, 'store');
   const raw = getDirective(el, SLUG);
 
-  if (!storeName || !raw) return;
+  if (!storeName || raw == null) return;
 
-  const parsed = parseDirective(raw);
-  const [firstSegment] = parsed;
-  
-  let url = '';
-  let method = 'POST';
+  let method = 'POST'; // Default autosave method
+  let wait: number | undefined;
 
-  if (firstSegment) {
-    const [key, val] = firstSegment;
-    method = val ? key.toUpperCase() : 'POST';
-    url = val || key;
+  // Parse order-independent comma-separated values (e.g., "PUT, 500ms")
+  if (raw) {
+    const parsed = parseDirective(raw);
+    for (const [key] of parsed) {
+      if (!key) continue;
+
+      const upper = key.toUpperCase();
+      if (METHODS.has(upper)) {
+        method = upper;
+      } else {
+        // If it's not a method, assume it's a timing string
+        const time = parseTime(key);
+        if (time > 0) {
+          wait = time;
+        }
+      }
+    }
   }
 
-  // Register the URL globally
-  if (url) {
-    app.stores._setConfig(storeName, { url, saveMethod: method });
-  }
+  // Register the method globally for the store
+  app.stores._setConfig(storeName, { saveMethod: method });
 
   let isInitial = true;
 
   const save = applyTiming(
     () => {
-      app.stores.save(storeName, url ? { url, method } : undefined);
+      app.stores.save(storeName, { method });
     },
     ['debounce'],
-    { ...app.config.timing, debounceWait: app.config.timing.autoSaveWait },
+    {
+      ...app.config.timing,
+      // Prioritize the custom wait time, fallback to global autosaveWait
+      debounceWait: wait ?? app.config.timing.autosaveWait,
+    },
   );
 
+  // Bind the effect to watch for store changes
   const stopEffect = effect(() => {
     const data = app.stores.get(storeName);
     if (!data) return;

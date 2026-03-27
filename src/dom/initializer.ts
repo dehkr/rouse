@@ -1,8 +1,12 @@
-import { getApp, type RouseApp } from '../core/app';
-import { attachAutosave, processWake } from '../directives';
+import {
+  getApp,
+  initFetchElement,
+  teardownFetchElement,
+  type RouseApp,
+} from '../core/app';
+import { attachAutosave, attachRefresh, processWake } from '../directives';
 import { getDirective, hasDirective, selector } from '../directives/prefix';
 import { destroyInstance, initInstance } from '../dom/controller';
-import { cleanupFetch } from '../net/engine';
 import { isElement, resolvePayload, splitInjection } from './utils';
 
 const storeCleanups = new WeakMap<HTMLScriptElement, Array<() => void>>();
@@ -42,7 +46,7 @@ export function initControllerElement(el: HTMLElement, defaultWake: string) {
 /**
  * Bootstraps a global reactive store from a `<script>` tag.
  * Initializes the reactive data registry and attaches any declared
- * networking behaviors (`rz-autosave`, `rz-refresh`).
+ * networking behaviors (`rz-autosave`, `rz-refresh`, `rz-source`).
  *
  * @param script - The `<script>` element containing the JSON state and directives.
  */
@@ -56,10 +60,22 @@ export function initStoreElement(script: HTMLScriptElement) {
 
   const cleanups: Array<() => void> = [];
 
+  // Configure the store URL if rz-source is present
+  const storeName = getDirective(script, 'store');
+  const source = getDirective(script, 'source');
+  if (storeName && source) {
+    app.stores.config(storeName, { url: source });
+  }
+
   // Attach behaviors and save their cleanup functions
-  const autoCleanup = attachAutosave(script);
-  if (autoCleanup) {
-    cleanups.push(autoCleanup);
+  const autosaveCleanup = attachAutosave(script);
+  if (autosaveCleanup) {
+    cleanups.push(autosaveCleanup);
+  }
+
+  const refreshCleanup = attachRefresh(script);
+  if (refreshCleanup) {
+    cleanups.push(refreshCleanup);
   }
 
   storeCleanups.set(script, cleanups);
@@ -83,10 +99,9 @@ export function cleanupStoreElement(script: HTMLScriptElement) {
 
 /**
  * Creates a MutationObserver scoped to the provided app instance.
- * Watches for new controller and store elements. Also handles cleanup
- * for rz-fetch polling timers.
+ * Watches for new controller, store, and fetch elements. Also handles cleanup
+ * for synthetic polling timers and DOM instances.
  *
- * @param wake - The framework-level default wake strategy.
  * @returns A configured, unstarted MutationObserver instance.
  */
 export function initObserver(app: RouseApp) {
@@ -126,26 +141,39 @@ export function initObserver(app: RouseApp) {
               initControllerElement(child, wake);
             }
           });
+
+          // Check for new fetch elements to bind polling/custom triggers
+          if (hasDirective(node, 'fetch') && getApp(node) === app) {
+            initFetchElement(node as HTMLElement, app);
+          }
+          qsa<HTMLElement>(node, fetchSel).forEach((child) => {
+            if (getApp(child) === app) {
+              initFetchElement(child, app);
+            }
+          });
         }
       });
 
       // Removed
       m.removedNodes.forEach((node) => {
         if (isElement(node)) {
+          // Cleanup stores
           if (node.tagName === 'SCRIPT' && hasDirective(node, 'store')) {
             cleanupStoreElement(node as HTMLScriptElement);
           }
           qsa<HTMLScriptElement>(node, storeSel).forEach(cleanupStoreElement);
 
+          // Cleanup controllers
           if (hasDirective(node, 'scope')) {
             destroyInstance(node);
           }
           qsa<HTMLElement>(node, sel).forEach(destroyInstance);
 
+          // Cleanup fetch elements (pacing engines and polling intervals)
           if (hasDirective(node, 'fetch')) {
-            cleanupFetch(node);
+            teardownFetchElement(node as HTMLElement);
           }
-          qsa<HTMLElement>(node, fetchSel).forEach(cleanupFetch);
+          qsa<HTMLElement>(node, fetchSel).forEach(teardownFetchElement);
         }
       });
     });

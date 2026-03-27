@@ -1,5 +1,5 @@
 import { getFetchTriggers } from '../directives';
-import { getDirective, hasDirective, selector } from '../directives/prefix';
+import { hasDirective, selector } from '../directives/prefix';
 import { destroyInstance } from '../dom/controller';
 import {
   cleanupStoreElement,
@@ -18,13 +18,13 @@ import type {
 import { EventBus } from './bus';
 import { Registry } from './registry';
 import { StoreManager } from './store';
-import { DEFAULT_DEBOUNCE_WAIT, DEFAULT_THROTTLE_WAIT } from './timing';
+import { DEFAULT_DEBOUNCE_WAIT, DEFAULT_THROTTLE_WAIT, parseTime } from './timing';
 
 export const defaultConfig = {
   timing: {
     debounceWait: DEFAULT_DEBOUNCE_WAIT,
     throttleWait: DEFAULT_THROTTLE_WAIT,
-    autoSaveWait: 1000,
+    autosaveWait: 1000,
   },
   network: {
     baseUrl: '',
@@ -46,8 +46,8 @@ export type RouseConfig = {
   ui?: Partial<typeof defaultConfig.ui>;
 };
 
-// Private map for isolating Rouse instances
 const appInstances = new WeakMap<HTMLElement, RouseApp>();
+const fetchCleanups = new WeakMap<HTMLElement, Array<() => void>>();
 
 const fail = (reason: string): never => {
   throw new Error(`[Rouse] Registration failed: ${reason}`);
@@ -60,10 +60,7 @@ export class RouseApp {
   public registry: Registry;
   public config: typeof defaultConfig;
 
-  private _hasStarted = false;
-  private _observer?: MutationObserver;
-  private _appController?: AbortController;
-  private _events = [
+  public standardEvents = [
     'change',
     'click',
     'dblclick',
@@ -78,6 +75,10 @@ export class RouseApp {
     'pointerup',
     'submit',
   ];
+
+  private _hasStarted = false;
+  private _observer?: MutationObserver;
+  private _ac?: AbortController;
 
   constructor(config: RouseConfig = {}) {
     const rootEl =
@@ -209,8 +210,8 @@ export class RouseApp {
     }
 
     this._hasStarted = true;
-    this._appController = new AbortController();
-    const { signal } = this._appController;
+    this._ac = new AbortController();
+    const { signal } = this._ac;
 
     this.root.dispatchEvent(
       new CustomEvent('rz:app:start', {
@@ -274,43 +275,9 @@ export class RouseApp {
       }
     };
 
-    this._events.forEach((evt) => {
+    this.standardEvents.forEach((evt) => {
       this.root.addEventListener(evt, handleGlobalFetch, { signal });
     });
-
-    // Set up smart defaults for keeping store data fresh
-    const handleGlobalRefresh = () => {
-      const storeScripts = this.root.querySelectorAll<HTMLScriptElement>(
-        `script${selector('store')}`,
-      );
-
-      storeScripts.forEach((script) => {
-        if (getApp(script) === this) {
-          const storeName = getDirective(script, 'store');
-          // Only refresh if not actively loading/saving
-          if (storeName && !this.stores.status(storeName)?.loading) {
-            this.stores.refresh(storeName);
-          }
-        }
-      });
-    };
-
-    if (this.config.network.refreshOnFocus) {
-      window.addEventListener('focus', handleGlobalRefresh, { signal });
-      window.addEventListener(
-        'visibilitychange',
-        () => {
-          if (document.visibilityState === 'visible') {
-            handleGlobalRefresh();
-          }
-        },
-        { signal },
-      );
-    }
-
-    if (this.config.network.refreshOnReconnect) {
-      window.addEventListener('online', handleGlobalRefresh, { signal });
-    }
 
     // Start the scoped mutation observer
     this._observer = initObserver(this);
@@ -331,31 +298,8 @@ export class RouseApp {
     // Initial scan for auto-fetching elements and custom triggers
     const fetchNodes = this.root.querySelectorAll<HTMLElement>(selector('fetch'));
     fetchNodes.forEach((el) => {
-      if (getApp(el) !== this) return;
-
-      const triggers = getFetchTriggers(el);
-      if (triggers.length > 0) {
-        // Auto-start on 'load'
-        if (triggers.some((t) => t.event === 'load')) {
-          handleFetch(el, {}, new CustomEvent('load'));
-        }
-        // Attach direct listeners for custom events
-        triggers.forEach((t) => {
-          if (
-            t.event !== 'load' &&
-            t.event !== 'none' &&
-            !this._events.includes(t.event)
-          ) {
-            el.addEventListener(
-              t.event,
-              (e) => {
-                e.preventDefault();
-                handleFetch(el, {}, e);
-              },
-              { signal },
-            );
-          }
-        });
+      if (getApp(el) === this) {
+        initFetchElement(el, this);
       }
     });
 
@@ -380,7 +324,7 @@ export class RouseApp {
     this._observer?.disconnect();
 
     // Remove global event listeners
-    this._appController?.abort();
+    this._ac?.abort();
 
     // Unmount all controllers
     const controllers = this.root.querySelectorAll<HTMLElement>(selector('scope'));
@@ -391,9 +335,9 @@ export class RouseApp {
 
     // Clear all active fetch polling timers
     const fetchNodes = this.root.querySelectorAll<HTMLElement>(selector('fetch'));
-    fetchNodes.forEach(cleanupFetch);
+    fetchNodes.forEach(teardownFetchElement);
     if (hasDirective(this.root, 'fetch')) {
-      cleanupFetch(this.root);
+      teardownFetchElement(this.root);
     }
 
     // Cleanup store directive side-effects
@@ -415,6 +359,65 @@ export class RouseApp {
         detail: { app: this },
       }),
     );
+  }
+}
+
+/**
+ * Attaches synthetic events (like polling) and custom non-standard events
+ * to an element and stores their cleanup functions.
+ */
+export function initFetchElement(el: HTMLElement, app: RouseApp) {
+  if (fetchCleanups.has(el)) return;
+
+  const triggers = getFetchTriggers(el);
+  if (triggers.length === 0) return;
+
+  const cleanups: Array<() => void> = [];
+
+  triggers.forEach((t) => {
+    if (t.event === 'load') {
+      handleFetch(el, {}, new CustomEvent('load'));
+    }
+    // Handle polling
+    else if (t.event === 'poll') {
+      const waitStr = t.modifiers[0];
+      const ms = waitStr ? parseTime(waitStr) : 5000;
+      if (ms > 0) {
+        // Fire synthetic 'poll' event into handleFetch on a loop
+        const timer = setInterval(() => {
+          handleFetch(el, {}, new CustomEvent('poll'));
+        }, ms);
+        cleanups.push(() => clearInterval(timer));
+      }
+    }
+    // Attach direct listeners for non-standard events (like 'intersect' or 'hover')
+    else if (t.event !== 'none' && !app.standardEvents.includes(t.event)) {
+      const handler = (e: Event) => {
+        e.preventDefault();
+        handleFetch(el, {}, e);
+      };
+      el.addEventListener(t.event, handler);
+      cleanups.push(() => el.removeEventListener(t.event, handler));
+    }
+  });
+
+  if (cleanups.length > 0) {
+    fetchCleanups.set(el, cleanups);
+  }
+}
+
+/**
+ * Tears down pacing engines and synthetic polling intervals.
+ */
+export function teardownFetchElement(el: HTMLElement) {
+  // Cleans up timers from network engine
+  cleanupFetch(el);
+
+  const cleanups = fetchCleanups.get(el);
+  if (cleanups) {
+    // Cleans up poll intervals/listeners
+    cleanups.forEach((fn) => fn()); 
+    fetchCleanups.delete(el);
   }
 }
 
