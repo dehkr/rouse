@@ -9,14 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Support declarative timing modifiers (e.g., `.debounce`, `.throttle.500ms`, `.leading`) for event-driven DOM directives (`rz-on` and `rz-publish`).
-- Expose native `debounce` and `throttle` helper functions from the core library for programmatic use in custom controller logic.
+- Support declarative timing modifiers (e.g., `.debounce`, `.throttle.500ms`, `.leading`) for `rz-on` and `rz-publish`.
+- Expose `debounce` and `throttle` utilities from the core library for programmatic use.
+- Introduce `rz-trigger` to provide explicit event triggers with modifiers for `rz-fetch`.
+- Support minutes (`m`) in time values (e.g., `poll.2m`).
+- Introduce `rz-source` directive for declarative configuration of store endpoints.
+- Provide synthetic `poll` event (e.g., `poll.5s`) for event-driven network directives (`rz-trigger`, `rz-refresh`).
 
 ### Changed
 
-- **Breaking:** Refactor global app configuration into a domain-driven schema (`timing`, `network`, `ui`). 
-  - Move native fetch defaults from `app.config.request` to `app.config.network.fetch` and restrict allowed properties to `headers`, `credentials`, and `mode`.
-  - Remove global `retry` and `timeout` settings to prevent dangerous side effects (like accidental retries on POST requests); configure these explicitly per-request or per-directive instead.
+- **Breaking:** Refactor global configuration into a domain-driven schema (`timing`, `network`, `ui`): 
+  - Move fetch defaults to `app.config.network.fetch` and restrict properties to `headers`, `credentials`, and `mode`.
+  - Remove global `retry` and `timeout` settings; these must now be configured per-request.
+- **Breaking:** Update `rz-fetch` and `rz-autosave` syntax to use comma-separated values.
+- **Breaking:** Update `rz-autosave` to require `rz-source` to configure store endpoints. It now accepts an HTTP method and debounce override (e.g., `rz-autosave="PUT, 800ms"`).
+- Refactor `rz-refresh` to support any event trigger plus modifiers with defaults for window focus and network reconnection.
+
+### Removed
+
+- **Breaking:** Remove `rz-tune` directive. Transfer network options (`retries`, `timeout`, `abortKey`) to `rz-request`. Move `poll` to `rz-trigger`.
 
 ## [0.4.0] - 2026-03-18
 
