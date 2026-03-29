@@ -109,6 +109,8 @@ export function createController(
     );
   }
 
+  handle.instance = instance;
+
   // State exists but not bound to DOM yet
   dispatch(el, 'rz:controller:init', { context, instance });
 
