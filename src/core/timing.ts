@@ -1,6 +1,5 @@
 import { LiteDebouncer, LiteThrottler } from '@tanstack/pacer-lite';
-
-export type AnyFunction = (...args: any[]) => any;
+import type { AnyFunction } from '../types';
 
 export const DEFAULT_DEBOUNCE_WAIT = 300;
 export const DEFAULT_THROTTLE_WAIT = 150;
@@ -145,7 +144,7 @@ export function applyTiming<T extends AnyFunction>(
 }
 
 /**
- * Converts a string with time suffixes (s, ms) or a raw number into milliseconds.
+ * Converts a string with time suffixes (ms, s, m) or a raw number into milliseconds.
  * Defaults to milliseconds if no suffix is provided.
  *
  * @example
@@ -157,21 +156,24 @@ export function applyTiming<T extends AnyFunction>(
  * parseTime('0.5m')  // 30000
  */
 export function parseTime(val?: string | number): number {
+  // Treat empty or falsy values as valid zero states
   if (!val && val !== 0 && val !== '0') return 0;
+  // Return immediately if it's a valid number
   if (typeof val === 'number') return val;
 
-  const match = String(val)
-    .trim()
-    .toLowerCase()
-    .match(/^([\d.]+)(ms|s|m)?$/);
-    
-  if (!match) return 0;
+  const normalized = String(val).trim().toLowerCase();
+  const match = normalized.match(/^(\d*\.?\d+)(ms|s|m)?$/);
+
+  if (!match) {
+    console.warn(`[Rouse] Invalid time value: '${val}'.`);
+    return 0;
+  }
 
   const [, amountStr = '0', unit] = match;
   const amount = parseFloat(amountStr);
 
-  if (Number.isNaN(amount)) return 0;
-
-  if (unit === 'm') return amount * 60000;
+  if (unit === 'm') {
+    return amount * 60000;
+  }
   return unit === 's' ? amount * 1000 : amount;
 }
