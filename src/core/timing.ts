@@ -3,6 +3,7 @@ import type { AnyFunction } from '../types';
 
 export const DEFAULT_DEBOUNCE_WAIT = 300;
 export const DEFAULT_THROTTLE_WAIT = 150;
+export const TIMING_REGEX = /^(\d*\.?\d+)(ms|s|m)?$/;
 
 export interface TimingConfig {
   strategy?: 'debounce' | 'throttle';
@@ -48,8 +49,10 @@ export function getTimingConfig(
       leading = true;
       trailing = true;
     } else {
-      if (/^([\d.]+)(ms|s|m)?$/.test(mod)) {
+      if (TIMING_REGEX.test(mod)) {
         explicitWait = parseTime(mod);
+      } else {
+        console.warn(`[Rouse] Invalid modifier: '${mod}'.`);
       }
     }
   }
@@ -162,7 +165,7 @@ export function parseTime(val?: string | number): number {
   if (typeof val === 'number') return val;
 
   const normalized = String(val).trim().toLowerCase();
-  const match = normalized.match(/^(\d*\.?\d+)(ms|s|m)?$/);
+  const match = normalized.match(TIMING_REGEX);
 
   if (!match) {
     console.warn(`[Rouse] Invalid time value: '${val}'.`);
