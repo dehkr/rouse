@@ -4,8 +4,8 @@ import {
   teardownFetchElement,
   type RouseApp,
 } from '../core/app';
-import { attachAutosave, attachRefresh, processWake } from '../directives';
-import { getDirective, hasDirective, selector } from '../directives/prefix';
+import { rzAutosave, rzRefresh, rzWake } from '../directives';
+import { directiveSelector, getDirectiveValue, hasDirective } from '../directives/utils';
 import { destroyInstance, initInstance } from '../dom/controller';
 import { isElement, resolvePayload, splitInjection } from './utils';
 
@@ -23,7 +23,7 @@ export function initControllerElement(el: HTMLElement, defaultWake: string) {
   const app = getApp(el);
   if (!app) return;
 
-  const raw = getDirective(el, 'scope');
+  const raw = getDirectiveValue(el, 'scope');
   if (raw === null) return;
 
   const { key: name, rawPayload } = splitInjection(raw);
@@ -36,7 +36,7 @@ export function initControllerElement(el: HTMLElement, defaultWake: string) {
     return;
   }
 
-  processWake(el, defaultWake, () => {
+  rzWake.handler(el, defaultWake, () => {
     // Lazy JSON parse
     const props = resolvePayload(rawPayload, app?.stores) || {};
     initInstance(el, setup, props);
@@ -61,19 +61,19 @@ export function initStoreElement(script: HTMLScriptElement) {
   const cleanups: Array<() => void> = [];
 
   // Configure the store URL if rz-source is present
-  const storeName = getDirective(script, 'store');
-  const source = getDirective(script, 'source');
+  const storeName = getDirectiveValue(script, 'store');
+  const source = getDirectiveValue(script, 'source');
   if (storeName && source) {
     app.stores.config(storeName, { url: source });
   }
 
   // Attach behaviors and save their cleanup functions
-  const autosaveCleanup = attachAutosave(script);
+  const autosaveCleanup = rzAutosave.handler(script);
   if (autosaveCleanup) {
     cleanups.push(autosaveCleanup);
   }
 
-  const refreshCleanup = attachRefresh(script);
+  const refreshCleanup = rzRefresh.handler(script);
   if (refreshCleanup) {
     cleanups.push(refreshCleanup);
   }
@@ -105,9 +105,9 @@ export function cleanupStoreElement(script: HTMLScriptElement) {
  * @returns A configured, unstarted MutationObserver instance.
  */
 export function initObserver(app: RouseApp) {
-  const sel = selector('scope');
-  const storeSel = `script${selector('store')}`;
-  const fetchSel = selector('fetch');
+  const sel = directiveSelector('scope');
+  const storeSel = `script${directiveSelector('store')}`;
+  const fetchSel = directiveSelector('fetch');
   const wake = app.config.ui.wakeStrategy;
 
   const qsa = <T extends Element>(el: Element, s: string): NodeListOf<T> =>

@@ -1,4 +1,4 @@
-import { getStoreName } from '../directives';
+import { rzStore } from '../directives';
 import { request } from '../net/request';
 import { reactive } from '../reactivity';
 import type { RouseConfig } from './app';
@@ -319,7 +319,7 @@ export class StoreManager {
    * Initializes a global store directly from a <script> tag.
    */
   initScript(el: HTMLScriptElement) {
-    const name = getStoreName(el);
+    const name = rzStore.handler(el);
     if (!name) return;
     if (this._data.has(name) && !el.textContent) return;
 

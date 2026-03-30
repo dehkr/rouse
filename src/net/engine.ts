@@ -1,6 +1,6 @@
 import { defaultConfig, getApp, type RouseApp } from '../core/app';
 import { applyTiming, type PacedFunction } from '../core/timing';
-import { getFetchDirective, getFetchTriggers, getRequestConfig } from '../directives';
+import { rzFetch, rzRequest, rzTrigger } from '../directives';
 import { dispatch, isForm, isInput, isSelect, isTextArea } from '../dom/utils';
 import type { RouseRequestOpts } from '../types';
 import { request } from './request';
@@ -21,7 +21,7 @@ function resolveRequestConfig(
   app: RouseApp | undefined,
 ): Partial<RouseRequestOpts> {
   const globalConfig = app?.config.network.fetch || {};
-  const localConfig = getRequestConfig(el, app);
+  const localConfig = rzRequest.handler(el, app);
 
   return {
     ...globalConfig,
@@ -38,7 +38,7 @@ export async function handleFetch(
   triggeringEvent?: Event,
 ) {
   const app = getApp(el);
-  const triggers = getFetchTriggers(el);
+  const triggers = rzTrigger.handler(el);
 
   let state = timers.get(el);
   if (!state) {
@@ -115,7 +115,7 @@ async function executeFetch(el: HTMLElement, options: RouseRequestOpts) {
 
   // Parse URL and method from rz-fetch directive
   if (!url) {
-    const parsed = getFetchDirective(el);
+    const parsed = rzFetch.handler(el);
     if (parsed.url) {
       url = parsed.url;
     }

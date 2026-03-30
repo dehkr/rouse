@@ -1,5 +1,5 @@
-import { getFetchTriggers } from '../directives';
-import { hasDirective, selector } from '../directives/prefix';
+import { rzTrigger } from '../directives';
+import { directiveSelector, hasDirective } from '../directives/utils';
 import { destroyInstance } from '../dom/controller';
 import {
   cleanupStoreElement,
@@ -227,7 +227,7 @@ export class RouseApp {
 
     // Initialize global stores
     const storeScripts = this.root.querySelectorAll<HTMLScriptElement>(
-      `script${selector('store')}`,
+      `script${directiveSelector('store')}`,
     );
     storeScripts.forEach((script) => {
       if (getApp(script) === this) {
@@ -237,12 +237,12 @@ export class RouseApp {
 
     // Attach scoped fetch handling event listeners to app root
     const handleGlobalFetch = (e: Event) => {
-      const target = (e.target as HTMLElement).closest<HTMLElement>(selector('fetch'));
+      const target = (e.target as HTMLElement).closest<HTMLElement>(directiveSelector('fetch'));
 
       if (target) {
         if (getApp(target) !== this) return;
 
-        const triggers = getFetchTriggers(target);
+        const triggers = rzTrigger.handler(target);
 
         if (triggers.length > 0) {
           if (triggers.some((t) => t.event === e.type)) {
@@ -288,7 +288,7 @@ export class RouseApp {
       initControllerElement(this.root, wakeStrategy);
     }
 
-    const controllers = this.root.querySelectorAll<HTMLElement>(selector('scope'));
+    const controllers = this.root.querySelectorAll<HTMLElement>(directiveSelector('scope'));
     controllers.forEach((el) => {
       if (getApp(el) === this) {
         initControllerElement(el, wakeStrategy);
@@ -296,7 +296,7 @@ export class RouseApp {
     });
 
     // Initial scan for auto-fetching elements and custom triggers
-    const fetchNodes = this.root.querySelectorAll<HTMLElement>(selector('fetch'));
+    const fetchNodes = this.root.querySelectorAll<HTMLElement>(directiveSelector('fetch'));
     fetchNodes.forEach((el) => {
       if (getApp(el) === this) {
         initFetchElement(el, this);
@@ -327,14 +327,14 @@ export class RouseApp {
     this._ac?.abort();
 
     // Unmount all controllers
-    const controllers = this.root.querySelectorAll<HTMLElement>(selector('scope'));
+    const controllers = this.root.querySelectorAll<HTMLElement>(directiveSelector('scope'));
     controllers.forEach(destroyInstance);
     if (hasDirective(this.root, 'scope')) {
       destroyInstance(this.root);
     }
 
     // Clear all active fetch polling timers
-    const fetchNodes = this.root.querySelectorAll<HTMLElement>(selector('fetch'));
+    const fetchNodes = this.root.querySelectorAll<HTMLElement>(directiveSelector('fetch'));
     fetchNodes.forEach(teardownFetchElement);
     if (hasDirective(this.root, 'fetch')) {
       teardownFetchElement(this.root);
@@ -342,7 +342,7 @@ export class RouseApp {
 
     // Cleanup store directive side-effects
     const storeScripts = this.root.querySelectorAll<HTMLScriptElement>(
-      `script${selector('store')}`,
+      `script${directiveSelector('store')}`,
     );
     storeScripts.forEach(cleanupStoreElement);
 
@@ -369,7 +369,7 @@ export class RouseApp {
 export function initFetchElement(el: HTMLElement, app: RouseApp) {
   if (fetchCleanups.has(el)) return;
 
-  const triggers = getFetchTriggers(el);
+  const triggers = rzTrigger.handler(el);
   if (triggers.length === 0) return;
 
   const cleanups: Array<() => void> = [];
