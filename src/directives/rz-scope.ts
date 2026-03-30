@@ -1,9 +1,13 @@
 import { splitInjection } from '../dom/utils';
-import { getDirective } from './prefix';
+import type { DirectiveSchema } from '../types';
+import { getDirectiveValue } from './utils';
 
-export const SLUG = 'scope' as const;
+export const rzScope = {
+  slug: 'scope',
+  handler: getControllerName,
+} as const satisfies DirectiveSchema;
 
 export function getControllerName(el: HTMLElement): string | null {
-  const raw = getDirective(el, SLUG);
-  return raw ? splitInjection(raw).key : null;
+  const rawValue = getDirectiveValue(el, 'scope');
+  return rawValue ? splitInjection(rawValue).key : null;
 }

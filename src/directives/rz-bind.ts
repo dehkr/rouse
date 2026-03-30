@@ -1,19 +1,28 @@
 import { getApp } from '../core/app';
 import { resolveState } from '../core/path';
 import { updateAttr, updateClass, updateStyle } from '../dom/updater';
+import { cleanup } from '../dom/utils';
 import { effect } from '../reactivity';
-import type { BindableValue, RouseController } from '../types';
+import type {
+  BindableValue,
+  CleanupFunction,
+  DirectiveSchema,
+  RouseController,
+} from '../types';
 
-export const SLUG = 'bind' as const;
+export const rzBind = {
+  slug: 'bind',
+  handler: attachBind,
+} as const satisfies DirectiveSchema;
 
 export function attachBind(
   el: HTMLElement,
-  instance: RouseController,
+  scope: RouseController,
   type: string,
   path: string,
-): () => void {
-  return effect(() => {
-    const val = resolveState<BindableValue>(path, instance, getApp(el)?.stores);
+): CleanupFunction {
+  const stopEffect = effect(() => {
+    const val = resolveState<BindableValue>(path, scope, getApp(el)?.stores);
 
     if (type === 'class') {
       updateClass(el, val);
@@ -23,4 +32,6 @@ export function attachBind(
       updateAttr(el, type, val);
     }
   });
+
+  return cleanup(stopEffect);
 }

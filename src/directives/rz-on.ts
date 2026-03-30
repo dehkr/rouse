@@ -1,30 +1,33 @@
 import { getApp } from '../core/app';
+import { parseModifiers } from '../core/parser';
 import { applyTiming } from '../core/timing';
 import {
   applyModifiers,
   getListenerOptions,
   resolveListenerTarget,
 } from '../dom/modifiers';
-import { resolvePayload, splitInjection } from '../dom/utils';
-import type { RouseController } from '../types';
+import { cleanup, resolvePayload, splitInjection } from '../dom/utils';
+import type { CleanupFunction, DirectiveSchema, RouseController } from '../types';
 
-export const SLUG = 'on' as const;
+export const rzOn = {
+  slug: 'on',
+  handler: attachOn,
+} as const satisfies DirectiveSchema;
 
 export function attachOn(
   el: HTMLElement,
-  instance: RouseController,
-  evtName: string,
+  scope: RouseController,
+  rawEvent: string,
   rawMethod: string,
-  modifiers: string[] = [],
-): () => void {
+): CleanupFunction {
+  const { key: event, modifiers } = parseModifiers(rawEvent);
   const { key: methodName, rawPayload } = splitInjection(rawMethod);
 
   // Validate that the method actually exists
-  const method = instance[methodName];
-
+  const method = scope[methodName];
   if (typeof method !== 'function') {
-    console.warn(`[Rouse] Method "${methodName}" not found on controller.`);
-    return () => {};
+    console.warn(`[Rouse] Method '${methodName}' not found on controller.`);
+    return cleanup(() => {});
   }
 
   const app = getApp(el);
@@ -32,7 +35,7 @@ export function attachOn(
   const pacedMethod = applyTiming(
     (payload: any, e: Event) => {
       try {
-        method.call(instance, payload, e);
+        method.call(scope, payload, e);
       } catch (error) {
         console.error(`[Rouse] Failed to execute ${methodName}().`, error);
       }
@@ -41,28 +44,22 @@ export function attachOn(
     app?.config.timing,
   );
 
-  // Resolve target and options
   const target = resolveListenerTarget(el, modifiers);
   const options = getListenerOptions(modifiers);
 
   const handler = (e: Event) => {
-    // Synchronous event modifiers (.prevent, .stop, key matching)
     if (!applyModifiers(e, el, modifiers)) return;
-
     // Synchronous payload resolution (captures state when the event fires)
     const payload =
       rawPayload !== undefined ? resolvePayload(rawPayload, app?.stores) : undefined;
-
     // Pass the captured data to the paced function
     pacedMethod(payload, e);
   };
 
-  target.addEventListener(evtName, handler, options);
+  target.addEventListener(event, handler, options);
 
-  // Return the cleanup
-  return () => {
-    target.removeEventListener(evtName, handler, options);
-    // Cancel pending delayed executions
+  return cleanup(() => {
+    target.removeEventListener(event, handler, options);
     pacedMethod.cancel();
-  };
+  });
 }

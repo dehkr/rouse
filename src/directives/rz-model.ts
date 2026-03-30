@@ -1,18 +1,33 @@
 import { getApp } from '../core/app';
 import { resolveState, writeState } from '../core/path';
 import { getValue, updateValue } from '../dom/updater';
-import { isInput, isSelect } from '../dom/utils';
+import { cleanup, isInput, isSelect } from '../dom/utils';
 import { effect } from '../reactivity';
-import type { BindableValue, RouseController } from '../types';
+import type {
+  BindableValue,
+  CleanupFunction,
+  DirectiveSchema,
+  RouseController,
+} from '../types';
 
-export const SLUG = 'model' as const;
+export const rzModel = {
+  slug: 'model',
+  handler: attachModel,
+} as const satisfies DirectiveSchema;
 
-export function attachModel(el: HTMLElement, instance: RouseController, prop: string) {
+/**
+ * Two-way binding for form elements
+ */
+export function attachModel(
+  el: HTMLElement,
+  scope: RouseController,
+  prop: string,
+): CleanupFunction {
   const app = getApp(el);
 
   // State -> DOM
   const stopEffect = effect(() => {
-    const val = resolveState<BindableValue>(prop, instance, app?.stores);
+    const val = resolveState<BindableValue>(prop, scope, app?.stores);
     updateValue(el, val);
   });
 
@@ -23,14 +38,13 @@ export function attachModel(el: HTMLElement, instance: RouseController, prop: st
   // State <- DOM
   const handler = () => {
     const newVal = getValue(el);
-    writeState(prop, newVal, instance, app?.stores);
+    writeState(prop, newVal, scope, app?.stores);
   };
 
   el.addEventListener(eventType, handler);
 
-  // Return cleanup
-  return () => {
+  return cleanup(() => {
     stopEffect();
     el.removeEventListener(eventType, handler);
-  };
+  });
 }

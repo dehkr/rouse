@@ -2,7 +2,7 @@ import { getNestedVal, KEY_BLOCKLIST } from '../core/path';
 import type { StoreManager } from '../core/store';
 import { parseStoreLocator } from '../core/store';
 import type { InsertMethod } from '../directives/rz-insert';
-import type { LifecycleEvent } from '../types';
+import type { CleanupFunction, LifecycleEvent } from '../types';
 
 export const isElement = (el: unknown) => el instanceof HTMLElement;
 export const isForm = (el: unknown) => el instanceof HTMLFormElement;
@@ -175,4 +175,11 @@ export function resolvePayload(
   }
 
   return undefined;
+}
+
+/**
+ * Factory function to wrap cleanup logic and apply 'CLEANUP' identifier.
+ */
+export function cleanup(fn: () => void): CleanupFunction {
+  return fn as CleanupFunction;
 }

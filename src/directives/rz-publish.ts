@@ -1,22 +1,26 @@
 import { getApp } from '../core/app';
+import { parseModifiers } from '../core/parser';
 import { applyTiming } from '../core/timing';
 import {
   applyModifiers,
   getListenerOptions,
   resolveListenerTarget,
 } from '../dom/modifiers';
-import { resolvePayload, splitInjection } from '../dom/utils';
-import type { RouseController } from '../types';
+import { cleanup, resolvePayload, splitInjection } from '../dom/utils';
+import type { CleanupFunction, DirectiveSchema, RouseController } from '../types';
 
-export const SLUG = 'publish' as const;
+export const rzPublish = {
+  slug: 'publish',
+  handler: attachPublish,
+} as const satisfies DirectiveSchema;
 
 export function attachPublish(
   el: HTMLElement,
-  _instance: RouseController,
-  evtName: string,
+  _scope: RouseController,
+  rawEvent: string,
   rawTopic: string,
-  modifiers: string[] = [],
-): () => void {
+): CleanupFunction {
+  const { key: event, modifiers } = parseModifiers(rawEvent);
   const { key: topic, rawPayload } = splitInjection(rawTopic);
 
   const target = resolveListenerTarget(el, modifiers);
@@ -47,12 +51,12 @@ export function attachPublish(
     pacedPublish(payload);
   };
 
-  target.addEventListener(evtName, handler, options);
+  target.addEventListener(event, handler, options);
 
   // Return the cleanup
-  return () => {
-    target.removeEventListener(evtName, handler, options);
+  return cleanup(() => {
+    target.removeEventListener(event, handler, options);
     // Cancel pending delayed executions
     pacedPublish.cancel();
-  };
+  });
 }

@@ -1,18 +1,25 @@
 import { getApp } from '../core/app';
-import { parseDirective } from '../core/parser';
+import { parseDirectiveValue, parseModifiers } from '../core/parser';
 import { parseTime } from '../core/timing';
-import { getDirective } from './prefix';
+import type { DirectiveSchema } from '../types';
+import { getDirectiveValue } from './utils';
 
-export const SLUG = 'refresh' as const;
+export const rzRefresh = {
+  slug: 'refresh',
+  handler: attachRefresh,
+} as const satisfies DirectiveSchema<HTMLScriptElement>;
 
+/**
+ * Configures store refresh strategy.
+ */
 export function attachRefresh(el: HTMLScriptElement) {
   const app = getApp(el);
   if (!app) return;
 
-  const storeName = getDirective(el, 'store');
-  const raw = getDirective(el, SLUG);
+  const storeName = getDirectiveValue(el, 'store');
+  const rawValue = getDirectiveValue(el, 'refresh');
 
-  if (!storeName || raw === null) return;
+  if (!storeName || rawValue === null) return;
 
   const ac = new AbortController();
   const { signal } = ac;
@@ -29,16 +36,19 @@ export function attachRefresh(el: HTMLScriptElement) {
   };
 
   // Layer on specific modifiers or custom events
-  if (raw.trim() !== '') {
-    const parsed = parseDirective(raw, true);
-    for (const [key, _val, modifiers] of parsed) {
-      if (key === 'focus') {
+  if (rawValue.trim() !== '') {
+    const parsed = parseDirectiveValue(rawValue);
+
+    for (const [key, _val] of parsed) {
+      const { key: event, modifiers } = parseModifiers(key);
+      
+      if (event === 'focus') {
         focus = true;
-      } else if (key === 'reconnect') {
+      } else if (event === 'reconnect') {
         reconnect = true;
-      } else if (key === 'poll' && modifiers.length > 0) {
+      } else if (event === 'poll' && modifiers.length > 0) {
         pollInterval = parseTime(modifiers[0]);
-      } else if (key) {
+      } else if (event) {
         // Custom events scoped to the app instance root
         app.root.addEventListener(key, triggerRefresh, { signal });
       }

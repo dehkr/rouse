@@ -1,26 +1,30 @@
 import type { RouseApp } from '../core/app';
-import { parseDirective } from '../core/parser';
+import { parseDirectiveValue } from '../core/parser';
 import { parseTime } from '../core/timing';
 import { resolvePayload } from '../dom/utils';
-import type { RouseRequestOpts } from '../types';
-import { getDirective } from './prefix';
+import type { DirectiveSchema, RouseRequestOpts } from '../types';
+import { getDirectiveValue } from './utils';
 
-export const SLUG = 'request' as const;
+export const rzRequest = {
+  slug: 'request',
+  handler: getRequestConfig,
+} as const satisfies DirectiveSchema;
+
 const BOOLEAN_KEYS = new Set(['keepalive']);
 
 /**
- * Parses the rz-request directive to build a native Fetch API configuration object.
+ * Parses the `rz-request`` directive to build a native Fetch API configuration object.
  * Handles native Fetch API properties (mode, credentials, etc.) alongside
- * Rouse-specific network tuning (timeout, retries, abortKey).
+ * Rouse-specific network configuration (timeout, retries, abortKey).
  */
 export function getRequestConfig(
   el: HTMLElement,
   app?: RouseApp,
 ): Partial<RouseRequestOpts> {
-  const raw = getDirective(el, SLUG);
-  if (!raw) return {};
+  const rawValue = getDirectiveValue(el, 'request');
+  if (!rawValue) return {};
 
-  const parsed = parseDirective(raw);
+  const parsed = parseDirectiveValue(rawValue);
   const config: Record<string, any> = {};
 
   for (const [key, val] of parsed) {
@@ -31,26 +35,31 @@ export function getRequestConfig(
     if (val.match(/^[?#@{]/)) {
       config[key] = resolvePayload(val, app?.stores, false);
     }
-    // Booleans
+
+    // Native RequestInit (fetch): booleans
     else if (BOOLEAN_KEYS.has(key)) {
       config[key] = val === 'true' || val === '';
     }
-    // Rouse Tuning: Timeout
+
+    // Custom Rouse config: timeout
     else if (key === 'timeout') {
       config[key] = parseTime(val);
     }
-    // Rouse Tuning: Retries
+
+    // Custom Rouse config: retries
     else if (key === 'retries') {
       const parsedRetries = parseInt(val, 10);
       if (!Number.isNaN(parsedRetries)) {
         config[key] = parsedRetries;
       }
     }
-    // Rouse Tuning: Concurrency Abort Key
+
+    // Custom Rouse config: concurrency abort key
     else if (key === 'abortKey') {
       config[key] = val;
     }
-    // Strings (default native Fetch properties)
+    
+    // Native RequestInit (fetch): strings
     else {
       config[key] = val;
     }

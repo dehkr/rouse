@@ -1,16 +1,20 @@
-import { parseDirective } from '../core/parser';
+import { parseDirectiveValue } from '../core/parser';
 import * as scheduler from '../dom/scheduler';
-import { getDirective } from './prefix';
+import type { DirectiveSchema } from '../types';
+import { getDirectiveValue } from './utils';
 
-export const SLUG = 'wake' as const;
+export const rzWake = {
+  slug: 'wake',
+  handler: processWake,
+} as const satisfies DirectiveSchema;
 
 export function processWake(
   el: HTMLElement,
   defaultStrategy: string,
   onWake: () => void,
 ) {
-  const rawWake = getDirective(el, 'wake');
-  const strategies = rawWake ? parseDirective(rawWake) : parseDirective(defaultStrategy);
+  const rawWake = getDirectiveValue(el, 'wake');
+  const strategies = parseDirectiveValue(rawWake || defaultStrategy);
 
   let pending = strategies.length;
   if (pending === 0) {

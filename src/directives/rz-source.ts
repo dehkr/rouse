@@ -1,10 +1,14 @@
-import { getDirective } from './prefix';
+import type { DirectiveSchema } from '../types';
+import { getDirectiveValue } from './utils';
 
-export const SLUG = 'source' as const;
+export const rzSource = {
+  slug: 'source',
+  handler: getStoreSource,
+} as const satisfies DirectiveSchema<HTMLScriptElement>;
 
 /**
- * Gets the rz-source attribute, which defines the endpoint URL for a reactive store.
+ * Gets the `rz-source` attribute, which defines the endpoint URL for a store.
  */
-export function getStoreSource(el: HTMLElement): string | null {
-  return getDirective(el, SLUG);
+export function getStoreSource(el: HTMLScriptElement): string | null {
+  return getDirectiveValue(el, 'source');
 }

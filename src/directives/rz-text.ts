@@ -1,18 +1,29 @@
 import { getApp } from '../core/app';
 import { resolveState } from '../core/path';
 import { updateText } from '../dom/updater';
+import { cleanup } from '../dom/utils';
 import { effect } from '../reactivity';
-import type { BindableValue, RouseController } from '../types';
+import type {
+  BindableValue,
+  CleanupFunction,
+  DirectiveSchema,
+  RouseController,
+} from '../types';
 
-export const SLUG = 'text' as const;
+export const rzText = {
+  slug: 'text',
+  handler: attachText,
+} as const satisfies DirectiveSchema;
 
 export function attachText(
   el: HTMLElement,
-  instance: RouseController,
+  scope: RouseController,
   path: string,
-): () => void {
-  return effect(() => {
-    const val = resolveState<BindableValue>(path, instance, getApp(el)?.stores);
+): CleanupFunction {
+  const stopEffect = effect(() => {
+    const val = resolveState<BindableValue>(path, scope, getApp(el)?.stores);
     updateText(el, val);
   });
+
+  return cleanup(stopEffect);
 }

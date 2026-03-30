@@ -1,7 +1,11 @@
-import { parseDirective } from '../core/parser';
-import { getDirective } from './prefix';
+import { parseDirectiveValue } from '../core/parser';
+import type { DirectiveSchema } from '../types';
+import { getDirectiveValue } from './utils';
 
-export const SLUG = 'insert' as const;
+export const rzInsert = {
+  slug: 'insert',
+  handler: getInsertConfig,
+} as const satisfies DirectiveSchema;
 
 const DEFAULT_METHOD = 'innerHTML';
 const INSERT_METHODS = [
@@ -16,15 +20,16 @@ const INSERT_METHODS = [
 
 export type InsertMethod = (typeof INSERT_METHODS)[number];
 
-const STRATEGIES = new Set<InsertMethod>(INSERT_METHODS);
+const strategies = new Set<InsertMethod>(INSERT_METHODS);
 
+// TODO: confirm if targets should be array type (allow multiple els per strategy?)
 export interface InsertOperation {
   targets: HTMLElement[];
   strategy: InsertMethod;
 }
 
 function isInsertMethod(key: string): key is InsertMethod {
-  return STRATEGIES.has(key as InsertMethod);
+  return strategies.has(key as InsertMethod);
 }
 
 function warn(val: string) {
@@ -36,14 +41,14 @@ function warn(val: string) {
  * Returns an array of operations to support multi-target updates.
  */
 export function getInsertConfig(el: HTMLElement): InsertOperation[] {
-  const raw = getDirective(el, SLUG);
+  const rawValue = getDirectiveValue(el, 'insert');
 
   // Default behavior updates innerHTML of self
-  if (!raw) {
+  if (!rawValue) {
     return [{ targets: [el], strategy: DEFAULT_METHOD }];
   }
 
-  const parsed = parseDirective(raw);
+  const parsed = parseDirectiveValue(rawValue);
   if (parsed.length === 0) {
     return [{ targets: [el], strategy: DEFAULT_METHOD }];
   }

@@ -1,5 +1,10 @@
 import type { StoreManager } from './core/store';
 
+declare const CLEANUP: unique symbol;
+export type CleanupFunction = (() => void) & { [CLEANUP]: true };
+
+export type AnyFunction = (...args: any[]) => any;
+
 export type BindableValue =
   | string
   | string[]
@@ -20,6 +25,29 @@ export type BusCallback<T = any> = (data?: T) => void;
 export type RouseController = Record<string, any> & {
   connect?: () => void;
   disconnect?: () => void;
+};
+
+export type DirectiveSlug =
+  | 'autosave'
+  | 'bind'
+  | 'fetch'
+  | 'html'
+  | 'insert'
+  | 'model'
+  | 'on'
+  | 'publish'
+  | 'refresh'
+  | 'request'
+  | 'scope'
+  | 'source'
+  | 'store'
+  | 'text'
+  | 'trigger'
+  | 'wake';
+
+export type DirectiveSchema<T = HTMLElement> = {
+  slug: DirectiveSlug;
+  handler: (el: T, ...args: any[]) => unknown;
 };
 
 /** Custom error statuses for non-HTTP failures */
@@ -66,7 +94,9 @@ export interface RouseInternalOpts {
 }
 
 /** The unified options object passed through the Rouse network engine */
-export type RouseRequestOpts = Omit<RequestInit, 'body'> & RouseTuneOpts & RouseInternalOpts;
+export type RouseRequestOpts = Omit<RequestInit, 'body'> &
+  RouseTuneOpts &
+  RouseInternalOpts;
 
 /** Global fetch configuration. Limited to safe, non-mutating properties. */
 export interface GlobalFetchOpts {
