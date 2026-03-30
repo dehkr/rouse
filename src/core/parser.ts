@@ -1,31 +1,40 @@
-export type ParsedVal = [string, string, string[]][];
+export type ParsedDirectiveValue = [string, string][];
 
 const VALUE_DELIMITER = ',';
 const PAIR_DELIMITER = ':';
+
+/**
+ * Utility for parsing a value that might have modifiers.
+ * 
+ * `click.debounce.400ms` returns `{ key: 'click', modifiers: ['debounce', '400ms']}`
+ */ 
+export function parseModifiers(rawValue: string): { key: string, modifiers: string[] } {
+  const dotIndex = rawValue.indexOf('.');
+  if (dotIndex !== -1) {
+    const key = rawValue.slice(0, dotIndex);
+    const modifiers = rawValue.slice(dotIndex + 1).split('.');
+    return { key, modifiers };
+  }
+  return { key: rawValue, modifiers: [] };
+}
 
 /**
  * Handles string splitting for directive values.
  *
  * rz-wake="visible, media: (min-width: 600px)" is parsed to:
  * [['visible', ''], ['media', '(min-width: 600px)']]
- *
- * If parseModifiers is true (e.g., rz-trigger="input.debounce.500ms"):
- * [['input', '', ['debounce', '500ms']]]
  */
-export function parseDirective(
-  value: string,
-  parseModifiers: boolean = false,
-): ParsedVal {
-  if (!value) return [];
+export function parseDirectiveValue(val: string): ParsedDirectiveValue {
+  if (!val) return [];
 
-  const parsed: ParsedVal = [];
+  const parsed: ParsedDirectiveValue = [];
   let start = 0;
 
   // Scan for values separated by comma + space
-  const scanResult = scan(value, (i, char) => {
+  const scanResult = scan(val, (i, char) => {
     if (char === VALUE_DELIMITER) {
-      if (hasTrailingWhiteSpace(value, i)) {
-        parseSegment(value.slice(start, i), parsed, parseModifiers);
+      if (hasTrailingWhiteSpace(val, i)) {
+        parseSegment(val.slice(start, i), parsed);
         start = i + 1;
         // Keep scanning
         return false;
@@ -34,19 +43,19 @@ export function parseDirective(
   });
 
   if (scanResult && (scanResult.depth > 0 || scanResult.quote)) {
-    console.warn(`[Rouse] Malformed directive value: "${value}"`);
+    console.warn(`[Rouse] Malformed directive value: '${val}'`);
   }
 
   // Process the final segment
-  parseSegment(value.slice(start), parsed, parseModifiers);
+  parseSegment(val.slice(start), parsed);
 
   return parsed;
 }
 
 /**
- * Parse a single segment into [key, value, [modifiers]].
+ * Parse a single segment into [key, value].
  */
-function parseSegment(segment: string, acc: ParsedVal, parseModifiers: boolean) {
+function parseSegment(segment: string, acc: ParsedDirectiveValue) {
   const trimmed = segment.trim();
   if (!trimmed) return;
 
@@ -64,15 +73,8 @@ function parseSegment(segment: string, acc: ParsedVal, parseModifiers: boolean) 
   });
 
   const processKey = (str: string, val: string) => {
-    if (parseModifiers) {
-      const [key, ...modifiers] = str.split('.');
-      if (key) {
-        acc.push([key, val, modifiers]);
-      }
-    } else {
-      if (str) {
-        acc.push([str, val, []]);
-      }
+    if (str) {
+      acc.push([str, val]);
     }
   };
 
