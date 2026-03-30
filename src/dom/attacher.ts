@@ -1,8 +1,7 @@
-import { parseDirective } from '../core/parser';
-import type { DirectiveDef, DomDirectiveSlug } from '../directives';
-import { DOM_DIRECTIVES } from '../directives';
-import { getDirective, hasDirective, selector } from '../directives/prefix';
-import type { RouseController } from '../types';
+import { parseDirectiveValue } from '../core/parser';
+import { rzBind, rzHtml, rzModel, rzOn, rzPublish, rzText } from '../directives';
+import { directiveSelector, getDirectiveValue, hasDirective } from '../directives/utils';
+import type { CleanupFunction, RouseController } from '../types';
 import { dispatch, isElement } from './utils';
 
 /**
@@ -13,16 +12,14 @@ export function attachController(root: HTMLElement, instance: RouseController) {
   const elementCleanups = new Map<HTMLElement, (() => void)[]>();
   const boundNodes = new WeakSet<HTMLElement>();
 
-  const DIRECTIVES_ENTRIES = Object.entries(DOM_DIRECTIVES) as [
-    DomDirectiveSlug,
-    DirectiveDef,
-  ][];
+  const domDirectives = [rzBind, rzHtml, rzModel, rzOn, rzPublish, rzText];
 
-  const DIRECTIVES_SELECTOR = DIRECTIVES_ENTRIES
-    .map(([key, _val]) => selector(key))
+  // Selector string of all DOM directives ([rz-bind], [data-rz-bind]...)
+  const directivesSelector = domDirectives
+    .map((directive) => directiveSelector(directive.slug))
     .join(', ');
 
-  function addCleanup(el: HTMLElement, fn: () => void) {
+  function addCleanup(el: HTMLElement, fn: CleanupFunction) {
     const cleanups = elementCleanups.get(el) ?? [];
     if (!elementCleanups.has(el)) {
       elementCleanups.set(el, cleanups);
@@ -33,12 +30,12 @@ export function attachController(root: HTMLElement, instance: RouseController) {
   function runCleanup(el: HTMLElement) {
     boundNodes.delete(el);
 
-    const fns = elementCleanups.get(el);
-    if (!fns) return;
+    const functions = elementCleanups.get(el);
+    if (!functions) return;
 
     elementCleanups.delete(el);
 
-    for (const fn of fns) {
+    for (const fn of functions) {
       try {
         fn();
       } catch (err) {
@@ -47,37 +44,35 @@ export function attachController(root: HTMLElement, instance: RouseController) {
     }
   }
 
+  /**
+   * Process each of the dom directives and register their cleanup functions
+   */
   function attachDirectives(el: HTMLElement) {
     if (boundNodes.has(el)) return;
     boundNodes.add(el);
 
-    for (const [key, def] of DIRECTIVES_ENTRIES) {
-      const rawValue = getDirective(el, key);
+    for (const directive of domDirectives) {
+      const { slug, handler } = directive;
+      const rawValue = getDirectiveValue(el, slug);
 
       // Strict check to allow empty/boolean directives
       if (rawValue === null) continue;
 
-      if (def.multi) {
-        // Multi-value directive
-        const pairs = parseDirective(rawValue);
-        pairs.forEach(([key, val, modifiers]) => {
-          const cleanup = def.attach(el, instance, key, val, modifiers);
-          if (cleanup) {
-            addCleanup(el, cleanup);
-          }
-        });
-      } else {
-        // Simple directives take the whole trimmed value
-        const cleanup = def.attach(el, instance, rawValue.trim());
+      const registerCleanup = (cleanup: CleanupFunction) => {
         if (cleanup) {
           addCleanup(el, cleanup);
         }
+      };
+
+      const parsed = parseDirectiveValue(rawValue);
+      for (const [key, value] of parsed) {
+        registerCleanup(handler(el, instance, key, value));
       }
     }
   }
 
   function scan(startEl: HTMLElement) {
-    const owner = startEl.closest(selector('scope'));
+    const owner = startEl.closest(directiveSelector('scope'));
     if (!owner || owner !== root) return;
 
     const walker = document.createTreeWalker(startEl, NodeFilter.SHOW_ELEMENT, {
@@ -88,14 +83,14 @@ export function attachController(root: HTMLElement, instance: RouseController) {
           return NodeFilter.FILTER_REJECT;
         }
         // Skip nodes that don't match but continue walking
-        return el.matches(DIRECTIVES_SELECTOR)
+        return el.matches(directivesSelector)
           ? NodeFilter.FILTER_ACCEPT
           : NodeFilter.FILTER_SKIP;
       },
     });
 
     // Check startEl manually
-    if (startEl.matches(DIRECTIVES_SELECTOR)) {
+    if (startEl.matches(directivesSelector)) {
       attachDirectives(startEl);
     }
 
