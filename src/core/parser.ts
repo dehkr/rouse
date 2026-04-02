@@ -1,3 +1,5 @@
+import { warn } from './shared';
+
 export type ParsedDirectiveValue = [string, string][];
 
 const VALUE_DELIMITER = ',';
@@ -5,10 +7,10 @@ const PAIR_DELIMITER = ':';
 
 /**
  * Utility for parsing a value that might have modifiers.
- * 
+ *
  * `click.debounce.400ms` returns `{ key: 'click', modifiers: ['debounce', '400ms']}`
- */ 
-export function parseModifiers(rawValue: string): { key: string, modifiers: string[] } {
+ */
+export function parseModifiers(rawValue: string): { key: string; modifiers: string[] } {
   const dotIndex = rawValue.indexOf('.');
   if (dotIndex !== -1) {
     const key = rawValue.slice(0, dotIndex);
@@ -43,7 +45,7 @@ export function parseDirectiveValue(val: string): ParsedDirectiveValue {
   });
 
   if (scanResult && (scanResult.depth > 0 || scanResult.quote)) {
-    console.warn(`[Rouse] Malformed directive value: '${val}'`);
+    warn(`Malformed directive value: '${val}'`);
   }
 
   // Process the final segment

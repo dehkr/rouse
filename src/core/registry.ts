@@ -1,13 +1,13 @@
-import type { SetupFn } from '../types';
+import type { SetupFunction } from '../types';
 
 export class Registry {
-  private controllers = new Map<string, SetupFn<any>>();
+  private controllers = new Map<string, SetupFunction<any>>();
 
-  register(name: string, setup: SetupFn<any>) {
+  register(name: string, setup: SetupFunction<any>) {
     this.controllers.set(name, setup);
   }
 
-  get(name: string): SetupFn<any> | undefined {
+  get(name: string): SetupFunction<any> | undefined {
     return this.controllers.get(name);
   }
 

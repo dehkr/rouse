@@ -1,4 +1,5 @@
 import type { RouseController } from '../types';
+import { warn } from './shared';
 import type { StoreManager } from './store';
 import { STORE_PREFIX } from './store';
 
@@ -86,7 +87,7 @@ export function resolveState<T = unknown>(
 ): T | undefined {
   if (path.startsWith(STORE_PREFIX)) {
     if (!storeManager) {
-      console.warn(`[Rouse] StoreManager required to resolve path: ${path}`);
+      warn(`StoreManager required to resolve path: ${path}`);
       return undefined;
     }
 
@@ -117,7 +118,7 @@ export function writeState(
 ): void {
   if (path.startsWith(STORE_PREFIX)) {
     if (!storeManager) {
-      console.warn(`[Rouse] StoreManager required to write to path: ${path}`);
+      warn(`StoreManager required to write to path: ${path}`);
       return;
     }
 

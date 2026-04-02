@@ -2,6 +2,7 @@ import { rzStore } from '../directives';
 import { request } from '../net/request';
 import { reactive } from '../reactivity';
 import type { RouseConfig } from './app';
+import { err, warn } from './shared';
 
 export interface StoreStatus {
   loading: boolean;
@@ -219,7 +220,7 @@ export class StoreManager {
     const config = this._configs.get(id);
 
     if (!data || !status) {
-      console.warn(`[Rouse] Store "${id}" not found.`);
+      warn(`Store "${id}" not found.`);
       return undefined;
     }
 
@@ -244,7 +245,7 @@ export class StoreManager {
     const method = manualConfig?.method || storeMethod || defaultMethod;
 
     if (!url) {
-      console.warn(`[Rouse] Cannot ${operation} store "${id}": No URL configured.`);
+      warn(`Cannot ${operation} store "${id}": No URL configured.`);
       return;
     }
 
@@ -327,7 +328,7 @@ export class StoreManager {
     try {
       newJson = JSON.parse(el.textContent || '{}');
     } catch (_e: any) {
-      console.error(`[Rouse] Invalid JSON in '${name}'. Store not initialized.`);
+      err(`Invalid JSON in '${name}'. Store not initialized.`);
       return;
     }
 
@@ -358,7 +359,7 @@ export class StoreManager {
 
   config(name: string, config: Partial<SyncConfig>) {
     if (!this.has(name)) {
-      console.warn(`[Rouse] Cannot configure '${name}'. Store not found.`);
+      warn(`Cannot configure '${name}'. Store not found.`);
       return;
     }
     this._setConfig(name, config);
@@ -376,7 +377,7 @@ export class StoreManager {
     const data = this._data.get(name);
     const initial = this._initial.get(name);
     if (!data) {
-      return console.warn(`[Rouse] Cannot reset store "${name}": Store not found.`);
+      return warn(`Cannot reset store "${name}": Store not found.`);
     }
     if (!initial) {
       return console.warn(
