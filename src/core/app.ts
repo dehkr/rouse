@@ -1,5 +1,5 @@
+import { directiveSelector, err, hasDirective, warn } from '../core/shared';
 import { rzTrigger } from '../directives';
-import { directiveSelector, hasDirective } from '../directives/utils';
 import { destroyInstance } from '../dom/controller';
 import {
   cleanupStoreElement,
@@ -13,17 +13,16 @@ import type {
   GlobalFetchOpts,
   NetworkInterceptors,
   RouseRequestOpts,
-  SetupFn,
+  SetupFunction,
 } from '../types';
-import { EventBus } from './bus';
 import { Registry } from './registry';
 import { StoreManager } from './store';
-import { DEFAULT_DEBOUNCE_WAIT, DEFAULT_THROTTLE_WAIT, parseTime } from './timing';
+import { DEFAULT_TIMING, parseTime } from './timing';
 
 export const defaultConfig = {
   timing: {
-    debounceWait: DEFAULT_DEBOUNCE_WAIT,
-    throttleWait: DEFAULT_THROTTLE_WAIT,
+    debounceWait: DEFAULT_TIMING.DEBOUNCE,
+    throttleWait: DEFAULT_TIMING.THROTTLE,
     autosaveWait: 1000,
   },
   network: {
@@ -55,7 +54,6 @@ const fail = (reason: string): never => {
 
 export class RouseApp {
   public root: HTMLElement;
-  public bus: EventBus;
   public stores: StoreManager;
   public registry: Registry;
   public config: typeof defaultConfig;
@@ -103,7 +101,6 @@ export class RouseApp {
     };
 
     this.root = rootEl;
-    this.bus = new EventBus();
     this.stores = new StoreManager(this.config);
     this.registry = new Registry();
 
@@ -127,11 +124,11 @@ export class RouseApp {
    * @param nameOrControllers - Either the unique string name of a controller, or an object mapping names to setup functions.
    * @param setup - The setup function (only required when the first argument is a string).
    */
-  register<P extends Record<string, any>>(name: string, setup: SetupFn<P>): this;
-  register(controllers: Record<string, SetupFn<any>>): this;
+  register<P extends Record<string, any>>(name: string, setup: SetupFunction<P>): this;
+  register(controllers: Record<string, SetupFunction<any>>): this;
   register(
-    nameOrControllers: string | Record<string, SetupFn<any>>,
-    setup?: SetupFn<any>,
+    nameOrControllers: string | Record<string, SetupFunction<any>>,
+    setup?: SetupFunction<any>,
   ): this {
     if (typeof nameOrControllers === 'string') {
       // Handle single registration
@@ -191,7 +188,7 @@ export class RouseApp {
         : targetRef;
 
     if (!el) {
-      console.error(`[Rouse] Fetch failed. Target element not found:`, targetRef);
+      err(`Fetch failed. Target element not found:`, targetRef);
       return;
     }
 
@@ -205,7 +202,7 @@ export class RouseApp {
    */
   start() {
     if (this._hasStarted) {
-      console.warn(`[Rouse] 'start()' called multiple times. Ignoring.`);
+      warn(`'start()' called multiple times. Ignoring.`);
       return;
     }
 
@@ -237,7 +234,9 @@ export class RouseApp {
 
     // Attach scoped fetch handling event listeners to app root
     const handleGlobalFetch = (e: Event) => {
-      const target = (e.target as HTMLElement).closest<HTMLElement>(directiveSelector('fetch'));
+      const target = (e.target as HTMLElement).closest<HTMLElement>(
+        directiveSelector('fetch'),
+      );
 
       if (target) {
         if (getApp(target) !== this) return;
@@ -288,7 +287,9 @@ export class RouseApp {
       initControllerElement(this.root, wakeStrategy);
     }
 
-    const controllers = this.root.querySelectorAll<HTMLElement>(directiveSelector('scope'));
+    const controllers = this.root.querySelectorAll<HTMLElement>(
+      directiveSelector('scope'),
+    );
     controllers.forEach((el) => {
       if (getApp(el) === this) {
         initControllerElement(el, wakeStrategy);
@@ -296,7 +297,9 @@ export class RouseApp {
     });
 
     // Initial scan for auto-fetching elements and custom triggers
-    const fetchNodes = this.root.querySelectorAll<HTMLElement>(directiveSelector('fetch'));
+    const fetchNodes = this.root.querySelectorAll<HTMLElement>(
+      directiveSelector('fetch'),
+    );
     fetchNodes.forEach((el) => {
       if (getApp(el) === this) {
         initFetchElement(el, this);
@@ -327,14 +330,18 @@ export class RouseApp {
     this._ac?.abort();
 
     // Unmount all controllers
-    const controllers = this.root.querySelectorAll<HTMLElement>(directiveSelector('scope'));
+    const controllers = this.root.querySelectorAll<HTMLElement>(
+      directiveSelector('scope'),
+    );
     controllers.forEach(destroyInstance);
     if (hasDirective(this.root, 'scope')) {
       destroyInstance(this.root);
     }
 
     // Clear all active fetch polling timers
-    const fetchNodes = this.root.querySelectorAll<HTMLElement>(directiveSelector('fetch'));
+    const fetchNodes = this.root.querySelectorAll<HTMLElement>(
+      directiveSelector('fetch'),
+    );
     fetchNodes.forEach(teardownFetchElement);
     if (hasDirective(this.root, 'fetch')) {
       teardownFetchElement(this.root);
@@ -345,9 +352,6 @@ export class RouseApp {
       `script${directiveSelector('store')}`,
     );
     storeScripts.forEach(cleanupStoreElement);
-
-    // Clear the EventBus
-    this.bus.clear();
 
     // Remove the root indicator
     this.root.removeAttribute('data-rouse-app');
@@ -416,7 +420,7 @@ export function teardownFetchElement(el: HTMLElement) {
   const cleanups = fetchCleanups.get(el);
   if (cleanups) {
     // Cleans up poll intervals/listeners
-    cleanups.forEach((fn) => fn()); 
+    cleanups.forEach((fn) => fn());
     fetchCleanups.delete(el);
   }
 }
@@ -427,7 +431,7 @@ export function teardownFetchElement(el: HTMLElement) {
 export function getApp(el: HTMLElement): RouseApp | undefined {
   const root = el.closest<HTMLElement>('[data-rouse-app]');
   if (!root) {
-    console.warn('[Rouse] Element is not inside a Rouse app instance.', el);
+    warn('Element is not inside a Rouse app instance:', el);
     return undefined;
   }
   return appInstances.get(root);

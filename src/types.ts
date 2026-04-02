@@ -15,9 +15,6 @@ export type BindableValue =
   | Record<string, boolean> // For class bindings
   | Record<string, string>; // For style bindings
 
-/** Callback signature for the global event bus */
-export type BusCallback<T = any> = (data?: T) => void;
-
 /**
  * The object returned by a setup function.
  * Includes standard lifecycle hooks and any custom state/methods.
@@ -79,7 +76,6 @@ export interface RouseTuneOpts {
   retries?: number;
   timeout?: number;
   abortKey?: string | symbol;
-  trigger?: string[];
 }
 
 /** Internal framework context and payload overrides */
@@ -121,20 +117,28 @@ export interface NetworkInterceptors {
  */
 export type SetupContext<P extends Record<string, any> = Record<string, any>> = {
   el: HTMLElement;
-  appRoot: HTMLElement;
+  root: HTMLElement;
   props: P;
-  dispatch: (name: string, detail?: any, options?: CustomEventInit) => CustomEvent;
+  abortSignal: AbortSignal;
+  on: <D = any>(
+    target: EventTarget,
+    name: string,
+    callback: (ev: CustomEvent<D>) => void,
+    modifiers?: string[],
+    customSignal?: AbortSignal,
+  ) => () => void;
+  dispatch: <T extends string, D = any>(
+    target: EventTarget,
+    name: T | LifecycleEvent,
+    detail?: D,
+    options?: CustomEventInit,
+  ) => CustomEvent<D>;
   fetch: (resource: string, options?: RouseRequestOpts) => Promise<void>;
-  bus: {
-    publish: (event: string, data?: any) => void;
-    subscribe: (event: string, cb: BusCallback) => void;
-    unsubscribe: (event: string, cb: BusCallback) => void;
-  };
   stores: StoreManager;
 };
 
 /** The definition of a setup function. */
-export type SetupFn<P extends Record<string, any> = Record<string, any>> = (
+export type SetupFunction<P extends Record<string, any> = Record<string, any>> = (
   ctx: SetupContext<P>,
 ) => RouseController;
 

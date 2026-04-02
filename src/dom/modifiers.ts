@@ -1,4 +1,5 @@
 import { getApp } from '../core/app';
+import { isElement } from './utils';
 
 const keyMap: Record<string, string> = {
   enter: 'Enter',
@@ -64,13 +65,20 @@ export function resolveListenerTarget(el: HTMLElement, modifiers: string[]): Eve
  *
  * @returns `true` if the handler should execute, `false` otherwise
  */
-export function applyModifiers(e: Event, el: HTMLElement, modifiers: string[]): boolean {
+export function applyModifiers(
+  e: Event,
+  target: EventTarget,
+  modifiers: string[],
+): boolean {
   // Target/UI filtering
   if (modifiers.includes('self') && e.target !== e.currentTarget) {
     return false;
   }
-  if (modifiers.includes('outside') && el.contains(e.target as Node)) {
-    return false;
+
+  if (modifiers.includes('outside') && isElement(target)) {
+    if (target.contains(e.target as Node)) {
+      return false;
+    }
   }
 
   // System modifier and key checks

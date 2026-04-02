@@ -1,9 +1,13 @@
 import { LiteDebouncer, LiteThrottler } from '@tanstack/pacer-lite';
 import type { AnyFunction } from '../types';
+import { warn } from './shared';
 
-export const DEFAULT_DEBOUNCE_WAIT = 300;
-export const DEFAULT_THROTTLE_WAIT = 150;
-export const TIMING_REGEX = /^(\d*\.?\d+)(ms|s|m)?$/;
+export const DEFAULT_TIMING = {
+  DEBOUNCE: 300,
+  THROTTLE: 150,
+};
+
+export const TIME_REGEX = /^(\d*\.?\d+)(ms|s|m)?$/;
 
 export interface TimingConfig {
   strategy?: 'debounce' | 'throttle';
@@ -28,7 +32,10 @@ export interface PacedFunction<T extends AnyFunction> {
  */
 export function getTimingConfig(
   modifiers: string[],
-  defaults = { debounceWait: DEFAULT_DEBOUNCE_WAIT, throttleWait: DEFAULT_THROTTLE_WAIT },
+  defaults = {
+    debounceWait: DEFAULT_TIMING.DEBOUNCE,
+    throttleWait: DEFAULT_TIMING.THROTTLE,
+  },
 ): TimingConfig {
   let strategy: TimingConfig['strategy'];
   let explicitWait: number | undefined;
@@ -49,10 +56,9 @@ export function getTimingConfig(
       leading = true;
       trailing = true;
     } else {
-      if (TIMING_REGEX.test(mod)) {
+      // TODO: consider making this check looser so parseTime can warn if invalid
+      if (TIME_REGEX.test(mod)) {
         explicitWait = parseTime(mod);
-      } else {
-        console.warn(`[Rouse] Invalid modifier: '${mod}'.`);
       }
     }
   }
@@ -84,13 +90,17 @@ export function getTimingConfig(
 export function debounce<T extends AnyFunction>(
   fn: T,
   wait: number,
-  options: { leading?: boolean; trailing?: boolean } = {},
+  options: { leading?: boolean; trailing?: boolean; signal?: AbortSignal } = {},
 ): PacedFunction<T> {
   const instance = new LiteDebouncer(fn, { wait, ...options });
   const paced = (...args: Parameters<T>) => instance.maybeExecute(...args);
 
   paced.cancel = () => instance.cancel();
   paced.flush = () => instance.flush();
+
+  if (options.signal) {
+    options.signal.addEventListener('abort', () => paced.cancel(), { once: true });
+  }
 
   return paced as PacedFunction<T>;
 }
@@ -102,13 +112,17 @@ export function debounce<T extends AnyFunction>(
 export function throttle<T extends AnyFunction>(
   fn: T,
   wait: number,
-  options: { leading?: boolean; trailing?: boolean } = {},
+  options: { leading?: boolean; trailing?: boolean; signal?: AbortSignal } = {},
 ): PacedFunction<T> {
   const instance = new LiteThrottler(fn, { wait, ...options });
   const paced = (...args: Parameters<T>) => instance.maybeExecute(...args);
 
   paced.cancel = () => instance.cancel();
   paced.flush = () => instance.flush();
+
+  if (options.signal) {
+    options.signal.addEventListener('abort', () => paced.cancel(), { once: true });
+  }
 
   return paced as PacedFunction<T>;
 }
@@ -120,19 +134,50 @@ export function throttle<T extends AnyFunction>(
 export function applyTiming<T extends AnyFunction>(
   fn: T,
   modifiers: string[],
-  defaults = { debounceWait: DEFAULT_DEBOUNCE_WAIT, throttleWait: DEFAULT_THROTTLE_WAIT },
+  defaults = {
+    debounceWait: DEFAULT_TIMING.DEBOUNCE,
+    throttleWait: DEFAULT_TIMING.THROTTLE,
+  },
 ): PacedFunction<T> {
   const config = getTimingConfig(modifiers, defaults);
+  const debounced = config.strategy === 'debounce';
+  const throttled = config.strategy === 'throttle';
 
-  if (config.strategy === 'debounce') {
-    return debounce(fn, config.wait, {
+  // Monkey-patch wrapper to warn about native prevent/stop methods
+  // being used with timing modifiers.
+  // TODO: too much?
+  const wrappedFn = ((...args: any[]) => {
+    const e = args[0];
+
+    if (e && e instanceof Event && (debounced || throttled)) {
+      const stoppers = [
+        'preventDefault',
+        'stopPropagation',
+        'stopImmediatePropagation',
+      ] as const;
+
+      stoppers.forEach((method) => {
+        const original = e[method].bind(e);
+        e[method] = () => {
+          warn(
+            `${method}() called inside a ${config.strategy} callback. Use modifiers instead.`,
+          );
+          original();
+        };
+      });
+    }
+    return fn(...args);
+  }) as T;
+
+  if (debounced) {
+    return debounce(wrappedFn, config.wait, {
       leading: config.leading,
       trailing: config.trailing,
     });
   }
 
-  if (config.strategy === 'throttle') {
-    return throttle(fn, config.wait, {
+  if (throttled) {
+    return throttle(wrappedFn, config.wait, {
       leading: config.leading,
       trailing: config.trailing,
     });
@@ -165,10 +210,10 @@ export function parseTime(val?: string | number): number {
   if (typeof val === 'number') return val;
 
   const normalized = String(val).trim().toLowerCase();
-  const match = normalized.match(TIMING_REGEX);
+  const match = normalized.match(TIME_REGEX);
 
   if (!match) {
-    console.warn(`[Rouse] Invalid time value: '${val}'.`);
+    warn(`Invalid time value: '${val}'.`);
     return 0;
   }
 

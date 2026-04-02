@@ -1,8 +1,11 @@
 import { getNestedVal, KEY_BLOCKLIST } from '../core/path';
+import { warn } from '../core/shared';
 import type { StoreManager } from '../core/store';
 import { parseStoreLocator } from '../core/store';
+import { applyTiming } from '../core/timing';
 import type { InsertMethod } from '../directives/rz-insert';
 import type { CleanupFunction, LifecycleEvent } from '../types';
+import { applyModifiers, getListenerOptions, resolveListenerTarget } from './modifiers';
 
 export const isElement = (el: unknown) => el instanceof HTMLElement;
 export const isForm = (el: unknown) => el instanceof HTMLFormElement;
@@ -13,25 +16,72 @@ export const isTextArea = (el: unknown) => el instanceof HTMLTextAreaElement;
 /**
  * Dispatches a custom event from an element.
  *
- * @param el - The element to dispatch from
+ * @param target - The element to dispatch from
  * @param name - The event name
  * @param detail - The event data
  * @param options - Allows overriding cancelable/bubbles
  */
-export function dispatch<T extends string>(
-  el: EventTarget,
+export function dispatch<T extends string, D = any>(
+  target: EventTarget,
   name: T | LifecycleEvent,
-  detail: any = {},
+  detail: D = {} as D,
   options: CustomEventInit = {},
-): CustomEvent {
+): CustomEvent<D> {
   const event = new CustomEvent(name, {
     bubbles: true,
     cancelable: false,
     ...options,
     detail,
   });
-  el.dispatchEvent(event);
+  target.dispatchEvent(event);
   return event;
+}
+
+/**
+ * Event listener utility that returns a cleanup function.
+ */
+export function on<D = any>(
+  el: EventTarget,
+  name: string,
+  callback: (ev: CustomEvent<D>) => void,
+  modifiers: string[] = [],
+  signal?: AbortSignal
+): () => void {
+  const paced = applyTiming(callback, modifiers);
+  const options = { ...getListenerOptions(modifiers), signal };
+
+  const listener = (e: Event) => {
+    if (applyModifiers(e, el, modifiers)) {
+      paced(e as CustomEvent<D>);
+    }
+  };
+
+  // Only respect 'window', 'document', and 'root' modifiers if 'outside' is present
+  // because target element is explicitly provided as first argument.
+  const actualTarget = modifiers.includes('outside')
+    ? resolveListenerTarget(el as HTMLElement, modifiers)
+    : el;
+
+  actualTarget.addEventListener(name, listener, options);
+
+  // If a signal is provided, cancel paced functions on abort
+  const onAbort = () => paced.cancel();
+  if (signal) {
+    signal.addEventListener('abort', onAbort, { once: true });
+  }
+
+  // Returns a traditional cleanup function
+  // Unnecessary in controller context because abort signal is injected and
+  // aborted automatically. But this can be used safely for manual cleanup.
+  return () => {
+    actualTarget.removeEventListener(name, listener, options);
+    paced.cancel();
+    
+    // Prevent memory leaks if manual cleanup is called before the signal aborts
+    if (signal) {
+      signal.removeEventListener('abort', onAbort);
+    }
+  };
 }
 
 /**
@@ -59,7 +109,7 @@ export function insert(target: HTMLElement, content: string, method: InsertMetho
 function safeJSONParse(text: string): unknown {
   return JSON.parse(text, (key, value) => {
     if (KEY_BLOCKLIST.has(key)) {
-      console.warn(`[Rouse] Blocked forbidden key in JSON: "${key}".`);
+      warn(`Blocked forbidden key in JSON: "${key}".`);
       return undefined;
     }
     return value;
@@ -114,7 +164,7 @@ export function resolvePayload(
   // Store snapshot (@)
   if (value.startsWith('@')) {
     if (!storeManager) {
-      console.warn(`[Rouse] Cannot resolve "${value}" because StoreManager is missing.`);
+      warn(`Cannot resolve "${value}" because StoreManager is missing.`);
       return undefined;
     }
 
@@ -147,11 +197,11 @@ export function resolvePayload(
         try {
           resolvedValue = safeJSONParse(content);
         } catch (e) {
-          console.warn(`[Rouse] Invalid JSON in #${id}.`, e);
+          warn(`Invalid JSON in #${id}.`, e);
         }
       }
     } else {
-      console.warn(`[Rouse] #${id} must be a <script type="application/json">.`);
+      warn(`#${id} must be a <script type="application/json">.`);
     }
   }
 
@@ -160,7 +210,7 @@ export function resolvePayload(
     try {
       resolvedValue = safeJSONParse(value);
     } catch (e) {
-      console.warn(`[Rouse] Invalid inline JSON.`, e);
+      warn(`Invalid inline JSON.`, e);
     }
   }
 
