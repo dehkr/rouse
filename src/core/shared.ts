@@ -1,5 +1,15 @@
 import type { DirectiveSlug } from '../types';
 
+export const HTTP_METHODS = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']);
+
+export const warn = (msg: string, ...args: any[]) => {
+  console.warn(`[Rouse] ${msg}`, ...args);
+};
+
+export const err = (msg: string, ...args: any[]) => {
+  console.error(`[Rouse] ${msg}`, ...args);
+};
+
 /**
  * Generates a CSS selector that matches both prefix styles.
  * Example: "[rz-bind], [data-rz-bind]"
