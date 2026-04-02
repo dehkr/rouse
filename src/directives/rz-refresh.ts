@@ -1,8 +1,8 @@
 import { getApp } from '../core/app';
 import { parseDirectiveValue, parseModifiers } from '../core/parser';
+import { getDirectiveValue } from '../core/shared';
 import { parseTime } from '../core/timing';
 import type { DirectiveSchema } from '../types';
-import { getDirectiveValue } from './utils';
 
 export const rzRefresh = {
   slug: 'refresh',

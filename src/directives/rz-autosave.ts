@@ -1,16 +1,14 @@
 import { getApp } from '../core/app';
 import { parseDirectiveValue } from '../core/parser';
+import { getDirectiveValue, HTTP_METHODS } from '../core/shared';
 import { applyTiming, parseTime } from '../core/timing';
 import { effect } from '../reactivity';
 import type { DirectiveSchema } from '../types';
-import { getDirectiveValue } from './utils';
 
 export const rzAutosave = {
   slug: 'autosave',
   handler: attachAutosave,
 } as const satisfies DirectiveSchema<HTMLScriptElement>;
-
-const METHODS = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']);
 
 export function attachAutosave(el: HTMLScriptElement) {
   const app = getApp(el);
@@ -31,7 +29,7 @@ export function attachAutosave(el: HTMLScriptElement) {
       if (!key) continue;
 
       const upper = key.toUpperCase();
-      if (METHODS.has(upper)) {
+      if (HTTP_METHODS.has(upper)) {
         method = upper;
       } else {
         // If it's not a method, assume it's a timing string

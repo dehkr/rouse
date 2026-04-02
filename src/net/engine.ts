@@ -1,4 +1,5 @@
 import { defaultConfig, getApp, type RouseApp } from '../core/app';
+import { err, warn } from '../core/shared';
 import { applyTiming, type PacedFunction } from '../core/timing';
 import { rzFetch, rzRequest, rzTrigger } from '../directives';
 import { dispatch, isForm, isInput, isSelect, isTextArea } from '../dom/utils';
@@ -71,7 +72,7 @@ export async function handleFetch(
         try {
           executeFetch(el, opts);
         } catch (error) {
-          console.error(`[Rouse] Error executing fetch on element:`, el, error);
+          err(`Error executing fetch on element:`, el, error);
         }
       },
       timingMods,
@@ -140,7 +141,7 @@ async function executeFetch(el: HTMLElement, options: RouseRequestOpts) {
 
   if (!url) {
     const error = new Error('No URL specified for rz-fetch');
-    console.warn('[Rouse] No URL found for rz-fetch directive on element:', el);
+    warn('No URL found for rz-fetch directive on element:', el);
     dispatch(el, 'rz:fetch:error', { error, config: options });
     return;
   }
@@ -282,7 +283,7 @@ async function executeFetch(el: HTMLElement, options: RouseRequestOpts) {
       }
     }
   } catch (error: any) {
-    console.error('[Rouse] Fetch failed:', error);
+    err('Fetch failed:', error);
     dispatch(el, 'rz:fetch:error', { error, config: finalOptions });
   } finally {
     el.classList.remove(loadingClass);

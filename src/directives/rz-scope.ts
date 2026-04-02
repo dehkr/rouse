@@ -1,6 +1,6 @@
+import { getDirectiveValue } from '../core/shared';
 import { splitInjection } from '../dom/utils';
 import type { DirectiveSchema } from '../types';
-import { getDirectiveValue } from './utils';
 
 export const rzScope = {
   slug: 'scope',

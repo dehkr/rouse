@@ -1,13 +1,11 @@
 import { parseDirectiveValue } from '../core/parser';
+import { getDirectiveValue, HTTP_METHODS } from '../core/shared';
 import type { DirectiveSchema } from '../types';
-import { getDirectiveValue } from './utils';
 
 export const rzFetch = {
   slug: 'fetch',
   handler: getFetchDirective,
 } as const satisfies DirectiveSchema;
-
-const METHODS = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']);
 
 type FetchValue = { url?: string; method?: string };
 
@@ -32,7 +30,7 @@ export function getFetchDirective(el: HTMLElement): FetchValue {
     if (!key) continue;
 
     const upper = key.toUpperCase();
-    if (METHODS.has(upper)) {
+    if (HTTP_METHODS.has(upper)) {
       result.method = upper;
     } else {
       result.url = key;

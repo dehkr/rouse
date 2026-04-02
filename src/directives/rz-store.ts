@@ -1,5 +1,5 @@
+import { getDirectiveValue } from '../core/shared';
 import type { DirectiveSchema } from '../types';
-import { getDirectiveValue } from './utils';
 
 export const rzStore = {
   slug: 'store',

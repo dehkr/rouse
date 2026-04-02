@@ -1,5 +1,6 @@
 import { getApp } from '../core/app';
 import { parseModifiers } from '../core/parser';
+import { err, warn } from '../core/shared';
 import { applyTiming } from '../core/timing';
 import {
   applyModifiers,
@@ -26,7 +27,7 @@ export function attachOn(
   // Validate that the method actually exists
   const method = scope[methodName];
   if (typeof method !== 'function') {
-    console.warn(`[Rouse] Method '${methodName}' not found on controller.`);
+    warn(`Method '${methodName}' not found on controller.`);
     return cleanup(() => {});
   }
 
@@ -37,7 +38,7 @@ export function attachOn(
       try {
         method.call(scope, payload, e);
       } catch (error) {
-        console.error(`[Rouse] Failed to execute ${methodName}().`, error);
+        err(`Failed to execute ${methodName}().`, error);
       }
     },
     modifiers,

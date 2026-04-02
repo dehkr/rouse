@@ -1,9 +1,9 @@
 import type { RouseApp } from '../core/app';
 import { parseDirectiveValue } from '../core/parser';
+import { getDirectiveValue } from '../core/shared';
 import { parseTime } from '../core/timing';
 import { resolvePayload } from '../dom/utils';
 import type { DirectiveSchema, RouseRequestOpts } from '../types';
-import { getDirectiveValue } from './utils';
 
 export const rzRequest = {
   slug: 'request',

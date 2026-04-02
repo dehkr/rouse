@@ -1,6 +1,6 @@
 import { parseDirectiveValue, parseModifiers } from '../core/parser';
+import { getDirectiveValue } from '../core/shared';
 import type { DirectiveSchema } from '../types';
-import { getDirectiveValue } from './utils';
 
 export const rzTrigger = {
   slug: 'trigger',

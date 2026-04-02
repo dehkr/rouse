@@ -1,6 +1,6 @@
 import { parseDirectiveValue } from '../core/parser';
+import { getDirectiveValue, warn } from '../core/shared';
 import type { DirectiveSchema } from '../types';
-import { getDirectiveValue } from './utils';
 
 export const rzInsert = {
   slug: 'insert',
@@ -32,10 +32,6 @@ function isInsertMethod(key: string): key is InsertMethod {
   return strategies.has(key as InsertMethod);
 }
 
-function warn(val: string) {
-  console.warn(`[Rouse] No targets found for "${val}".`);
-}
-
 /**
  * Parse value of rz-insert directive.
  * Returns an array of operations to support multi-target updates.
@@ -63,7 +59,7 @@ export function getInsertConfig(el: HTMLElement): InsertOperation[] {
       const nodeList = document.querySelectorAll(val);
 
       if (nodeList.length === 0) {
-        warn(val);
+        warn(`No targets found for "${val}".`);
         // Push empty op to maintain index but do nothing
         operations.push({ strategy, targets: [] });
       } else {
@@ -84,7 +80,7 @@ export function getInsertConfig(el: HTMLElement): InsertOperation[] {
     // Case 3: "SELECTOR" (e.g. "#output")
     const nodeList = document.querySelectorAll(key);
     if (nodeList.length === 0) {
-      warn(key);
+      warn(`No targets found for "${key}".`);
       operations.push({ targets: [], strategy: DEFAULT_METHOD });
     } else {
       operations.push({

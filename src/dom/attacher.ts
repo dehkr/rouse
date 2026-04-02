@@ -1,6 +1,6 @@
 import { parseDirectiveValue } from '../core/parser';
-import { rzBind, rzHtml, rzModel, rzOn, rzPublish, rzText } from '../directives';
-import { directiveSelector, getDirectiveValue, hasDirective } from '../directives/utils';
+import { directiveSelector, err, getDirectiveValue, hasDirective } from '../core/shared';
+import { rzBind, rzHtml, rzModel, rzOn, rzText } from '../directives';
 import type { CleanupFunction, RouseController } from '../types';
 import { dispatch, isElement } from './utils';
 
@@ -12,7 +12,7 @@ export function attachController(root: HTMLElement, instance: RouseController) {
   const elementCleanups = new Map<HTMLElement, (() => void)[]>();
   const boundNodes = new WeakSet<HTMLElement>();
 
-  const domDirectives = [rzBind, rzHtml, rzModel, rzOn, rzPublish, rzText];
+  const domDirectives = [rzBind, rzHtml, rzModel, rzOn, rzText];
 
   // Selector string of all DOM directives ([rz-bind], [data-rz-bind]...)
   const directivesSelector = domDirectives
@@ -38,8 +38,8 @@ export function attachController(root: HTMLElement, instance: RouseController) {
     for (const fn of functions) {
       try {
         fn();
-      } catch (err) {
-        console.error('[Rouse] Cleanup failed for element:', el, err);
+      } catch (error) {
+        err('Cleanup failed for element:', el, error);
       }
     }
   }

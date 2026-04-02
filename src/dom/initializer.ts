@@ -4,8 +4,8 @@ import {
   teardownFetchElement,
   type RouseApp,
 } from '../core/app';
+import { directiveSelector, getDirectiveValue, hasDirective, warn } from '../core/shared';
 import { rzAutosave, rzRefresh, rzWake } from '../directives';
-import { directiveSelector, getDirectiveValue, hasDirective } from '../directives/utils';
 import { destroyInstance, initInstance } from '../dom/controller';
 import { isElement, resolvePayload, splitInjection } from './utils';
 
@@ -32,7 +32,7 @@ export function initControllerElement(el: HTMLElement, defaultWake: string) {
   const setup = name === '' ? () => ({}) : app.registry.get(name);
 
   if (!setup) {
-    console.warn(`[Rouse] Controller "${name}" is not registered.`);
+    warn(`Controller "${name}" is not registered.`);
     return;
   }
 

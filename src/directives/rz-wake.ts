@@ -1,7 +1,7 @@
 import { parseDirectiveValue } from '../core/parser';
+import { getDirectiveValue } from '../core/shared';
 import * as scheduler from '../dom/scheduler';
 import type { DirectiveSchema } from '../types';
-import { getDirectiveValue } from './utils';
 
 export const rzWake = {
   slug: 'wake',

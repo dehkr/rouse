@@ -5,7 +5,6 @@ export { rzHtml } from './rz-html';
 export { rzInsert } from './rz-insert';
 export { rzModel } from './rz-model';
 export { rzOn } from './rz-on';
-export { rzPublish } from './rz-publish';
 export { rzRefresh } from './rz-refresh';
 export { rzRequest } from './rz-request';
 export { rzScope } from './rz-scope';
