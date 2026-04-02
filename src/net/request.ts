@@ -1,8 +1,8 @@
 import { defaultConfig, type RouseConfig } from '../core/app';
+import { warn } from '../core/shared';
 import type { RequestResult, RouseRequestOpts } from '../types';
 import { preparePayload } from './payload';
 import { mapCatchError, normalizeResponse } from './response';
-import { xhrRequest } from './xhr';
 
 interface AbortEntry {
   controller: AbortController;
@@ -45,7 +45,7 @@ export async function request<T = any>(
   let safeBody: BodyInit | null | undefined = finalBody;
 
   if ((method === 'GET' || method === 'HEAD') && safeBody != null) {
-    console.warn('[Rouse] Body is not allowed on GET/HEAD. Dropping body.');
+    warn('Body is not allowed on GET/HEAD. Dropping body.');
     safeBody = undefined;
   }
 
@@ -101,28 +101,13 @@ export async function request<T = any>(
         timeout > 0 ? setTimeout(() => attemptController.abort(), timeout) : null;
 
       try {
-        let response: Response;
-
-        // Route through XHR or Fetch
-        if (onUploadProgress && method !== 'GET' && method !== 'HEAD') {
-          response = await xhrRequest(
-            finalUrl,
-            method,
-            reqHeaders,
-            safeBody,
-            onUploadProgress,
-            timeout,
-            attemptController.signal,
-          );
-        } else {
-          response = await fetch(finalUrl, {
-            method,
-            headers: reqHeaders,
-            signal: attemptController.signal,
-            ...fetchOptions,
-            ...(safeBody != null ? { body: safeBody } : {}),
-          });
-        }
+        const response = await fetch(finalUrl, {
+          method,
+          headers: reqHeaders,
+          signal: attemptController.signal,
+          ...fetchOptions,
+          ...(safeBody != null ? { body: safeBody } : {}),
+        });
 
         if (timeoutId) {
           clearTimeout(timeoutId);
