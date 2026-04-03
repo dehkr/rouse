@@ -7,8 +7,6 @@ export const DEFAULT_TIMING = {
   THROTTLE: 150,
 };
 
-export const TIME_REGEX = /^(\d*\.?\d+)(ms|s|m)?$/;
-
 export interface TimingConfig {
   strategy?: 'debounce' | 'throttle';
   wait: number;
@@ -56,8 +54,9 @@ export function getTimingConfig(
       leading = true;
       trailing = true;
     } else {
-      // TODO: consider making this check looser so parseTime can warn if invalid
-      if (TIME_REGEX.test(mod)) {
+      // Suffix required in this regex. Time value must have an explicit suffix.
+      // This prevents collisions with keyboard key modifiers (e.g., 'keydown.debounce.5').
+      if (/^(\d*\.?\d+)(ms|s|m)$/.test(mod)) {
         explicitWait = parseTime(mod);
       }
     }
@@ -182,7 +181,10 @@ export function parseTime(val?: string | number): number {
   if (typeof val === 'number') return val;
 
   const normalized = String(val).trim().toLowerCase();
-  const match = normalized.match(TIME_REGEX);
+
+  // Suffix optional in this regex. This allows key-value config
+  // objects to accept plain numbers (e.g., `timeout: 5000`).
+  const match = normalized.match(/^(\d*\.?\d+)(ms|s|m)?$/);
 
   if (!match) {
     warn(`Invalid time value: '${val}'.`);
