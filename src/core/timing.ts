@@ -140,44 +140,16 @@ export function applyTiming<T extends AnyFunction>(
   },
 ): PacedFunction<T> {
   const config = getTimingConfig(modifiers, defaults);
-  const debounced = config.strategy === 'debounce';
-  const throttled = config.strategy === 'throttle';
 
-  // Monkey-patch wrapper to warn about native prevent/stop methods
-  // being used with timing modifiers.
-  // TODO: too much?
-  const wrappedFn = ((...args: any[]) => {
-    const e = args[0];
-
-    if (e && e instanceof Event && (debounced || throttled)) {
-      const stoppers = [
-        'preventDefault',
-        'stopPropagation',
-        'stopImmediatePropagation',
-      ] as const;
-
-      stoppers.forEach((method) => {
-        const original = e[method].bind(e);
-        e[method] = () => {
-          warn(
-            `${method}() called inside a ${config.strategy} callback. Use modifiers instead.`,
-          );
-          original();
-        };
-      });
-    }
-    return fn(...args);
-  }) as T;
-
-  if (debounced) {
-    return debounce(wrappedFn, config.wait, {
+  if (config.strategy === 'debounce') {
+    return debounce(fn, config.wait, {
       leading: config.leading,
       trailing: config.trailing,
     });
   }
 
-  if (throttled) {
-    return throttle(wrappedFn, config.wait, {
+  if (config.strategy === 'throttle') {
+    return throttle(fn, config.wait, {
       leading: config.leading,
       trailing: config.trailing,
     });

@@ -133,6 +133,9 @@ export function applyModifiers(
   if (modifiers.includes('stop')) {
     e.stopPropagation();
   }
+  if (modifiers.includes('stopImmediate')) {
+    e.stopImmediatePropagation();
+  }
 
   return true;
 }
