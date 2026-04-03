@@ -1,13 +1,7 @@
 import { getApp } from '../core/app';
 import { parseModifiers } from '../core/parser';
 import { err, warn } from '../core/shared';
-import { applyTiming } from '../core/timing';
-import {
-  applyModifiers,
-  getListenerOptions,
-  resolveListenerTarget,
-} from '../dom/modifiers';
-import { cleanup, resolvePayload, splitInjection } from '../dom/utils';
+import { cleanup, on, resolvePayload, splitInjection } from '../dom/utils';
 import type { CleanupFunction, DirectiveSchema, RouseController } from '../types';
 
 export const rzOn = {
@@ -27,40 +21,26 @@ export function attachOn(
   // Validate that the method actually exists
   const method = scope[methodName];
   if (typeof method !== 'function') {
-    warn(`Method '${methodName}' not found on controller.`);
+    warn(`Method '${methodName}' not found.`);
     return cleanup(() => {});
   }
 
   const app = getApp(el);
 
-  const pacedMethod = applyTiming(
-    (payload: any, e: Event) => {
+  const removeListener = on(
+    el,
+    event,
+    (e: Event) => {
       try {
+        const payload =
+          rawPayload !== undefined ? resolvePayload(rawPayload, app?.stores) : undefined;
         method.call(scope, payload, e);
       } catch (error) {
         err(`Failed to execute ${methodName}().`, error);
       }
     },
     modifiers,
-    app?.config.timing,
   );
 
-  const target = resolveListenerTarget(el, modifiers);
-  const options = getListenerOptions(modifiers);
-
-  const handler = (e: Event) => {
-    if (!applyModifiers(e, el, modifiers)) return;
-    // Synchronous payload resolution (captures state when the event fires)
-    const payload =
-      rawPayload !== undefined ? resolvePayload(rawPayload, app?.stores) : undefined;
-    // Pass the captured data to the paced function
-    pacedMethod(payload, e);
-  };
-
-  target.addEventListener(event, handler, options);
-
-  return cleanup(() => {
-    target.removeEventListener(event, handler, options);
-    pacedMethod.cancel();
-  });
+  return cleanup(removeListener);
 }
