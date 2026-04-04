@@ -1,86 +1,42 @@
 import { defaultConfig, getApp, type RouseApp } from '../core/app';
 import { err, warn } from '../core/shared';
-import { applyTiming, type PacedFunction } from '../core/timing';
-import { rzFetch, rzRequest, rzTrigger } from '../directives';
-import { dispatch, isForm, isInput, isSelect, isTextArea } from '../dom/utils';
-import type { RouseRequestOpts } from '../types';
+import { rzFetch, rzRequest } from '../directives';
+import { dispatch, isAnchor, isForm, isInput, isSelect, isTextArea } from '../dom/utils';
+import type { RouseRequest, RouseResponse } from '../types';
 import { request } from './request';
+import { fallbackResponse } from './response';
 
-type TimerState = {
-  pacedExecutors?: Record<string, PacedFunction<any>>;
-  abortKey?: string;
-  destroyed?: boolean;
-};
-
-const timers = new WeakMap<HTMLElement, TimerState>();
-
-/**
- * Resolves the final network configuration by merging global and local config.
- */
-function resolveRequestConfig(
-  el: HTMLElement,
-  app: RouseApp | undefined,
-): Partial<RouseRequestOpts> {
-  const globalConfig = app?.config.network.fetch || {};
-  const localConfig = rzRequest.handler(el, app);
-
-  return {
-    ...globalConfig,
-    ...localConfig,
-  };
-}
+type RequestState = { abortKey?: string; destroyed?: boolean };
+const activeRequests = new WeakMap<HTMLElement, RequestState>();
 
 /**
  * Handles the preparation, pacing, and execution of a network request.
  */
 export async function handleFetch(
   el: HTMLElement,
-  programmaticOpts: RouseRequestOpts = {},
-  triggeringEvent?: Event,
-) {
-  const app = getApp(el);
-  const triggers = rzTrigger.handler(el);
-
-  let state = timers.get(el);
+  programmaticOpts: RouseRequest = {},
+): Promise<RouseResponse> {
+  let state = activeRequests.get(el);
   if (!state) {
     state = {};
-    timers.set(el, state);
+    activeRequests.set(el, state);
   }
 
-  if (state.destroyed) return;
-
-  // Determine timing modifiers based on the event that fired
-  let timingMods: string[] = [];
-  const eventType = triggeringEvent?.type || 'default';
-
-  if (triggers.length > 0 && triggeringEvent) {
-    const activeTrigger = triggers.find((t) => t.event === eventType);
-    if (activeTrigger) {
-      timingMods = activeTrigger.modifiers;
-    }
+  if (state.destroyed) {
+    return fallbackResponse(programmaticOpts, 'Element destroyed');
   }
 
-  if (!state.pacedExecutors) {
-    state.pacedExecutors = {};
-  }
+  try {
+    return await executeFetch(el, programmaticOpts);
+  } catch (error: any) {
+    err(`Error executing fetch on element:`, el, error);
 
-  // Lazily create and cache the PacedFunction per event type to preserve distinct
-  // debounce/throttle states for different triggers on the same element.
-  if (!state.pacedExecutors[eventType]) {
-    state.pacedExecutors[eventType] = applyTiming(
-      (opts: RouseRequestOpts) => {
-        try {
-          executeFetch(el, opts);
-        } catch (error) {
-          err(`Error executing fetch on element:`, el, error);
-        }
-      },
-      timingMods,
-      app?.config.timing,
+    return fallbackResponse(
+      programmaticOpts,
+      error.message || 'Internal error',
+      'INTERNAL_ERROR',
     );
   }
-
-  state.pacedExecutors[eventType](programmaticOpts);
 }
 
 /**
@@ -90,25 +46,27 @@ export async function handleFetch(
  * @param el - The DOM element triggering the network request.
  * @param options - The sanitized request config passed to the network orchestrator.
  */
-async function executeFetch(el: HTMLElement, options: RouseRequestOpts) {
+async function executeFetch(el: HTMLElement, options: RouseRequest) {
   const app = getApp(el);
   const appConfig = app?.config || defaultConfig;
   const loadingClass = appConfig.ui.loadingClass;
 
   // Check destroyed flag and bail out if marked for cleanup
-  const state = timers.get(el);
-  if (state?.destroyed) return;
+  const state = activeRequests.get(el);
+  if (state?.destroyed) {
+    return fallbackResponse(options, 'Element destroyed');
+  }
 
   // If the element is removed while the network request is actively in the air
   if (!el.isConnected) {
     cleanupFetch(el);
-    return;
+    return fallbackResponse(options, 'Element disconnected from DOM');
   }
 
   // Bail out if disabled
   // TODO: confirm this behavior
   if (el.hasAttribute('disabled') || el.getAttribute('aria-disabled') === 'true') {
-    return;
+    return fallbackResponse(options, 'Element is disabled');
   }
 
   let url: string | null = options.url || null;
@@ -133,7 +91,7 @@ async function executeFetch(el: HTMLElement, options: RouseRequestOpts) {
       url = el.action;
     }
     formMethod = el.getAttribute('method') || undefined;
-  } else if (el instanceof HTMLAnchorElement) {
+  } else if (isAnchor(el)) {
     if (!url) {
       url = el.href;
     }
@@ -143,7 +101,7 @@ async function executeFetch(el: HTMLElement, options: RouseRequestOpts) {
     const error = new Error('No URL specified for rz-fetch');
     warn('No URL found for rz-fetch directive on element:', el);
     dispatch(el, 'rz:fetch:error', { error, config: options });
-    return;
+    return fallbackResponse(options, error.message, 'INTERNAL_ERROR');
   }
 
   // Resolve request inheritance overrides
@@ -221,17 +179,18 @@ async function executeFetch(el: HTMLElement, options: RouseRequestOpts) {
 
   // Automatically generate abort key if one isn't provided
   // Guarantees an element can never have conflicting requests
-  let autoAbortKey = timers.get(el)?.abortKey;
+  let autoAbortKey = activeRequests.get(el)?.abortKey;
   if (!autoAbortKey) {
     autoAbortKey =
       typeof crypto !== 'undefined' && crypto.randomUUID
         ? crypto.randomUUID()
         : `rzAbort_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
-    updateTimer(el, 'abortKey', autoAbortKey);
+    const current = activeRequests.get(el) || {};
+    activeRequests.set(el, { ...current, abortKey: autoAbortKey });
   }
 
   // Final unified config object
-  const finalOptions: RouseRequestOpts = {
+  const finalOptions: RouseRequest = {
     ...finalRequestInit,
     ...options,
     method,
@@ -240,79 +199,107 @@ async function executeFetch(el: HTMLElement, options: RouseRequestOpts) {
     form: hasExplicitBody ? undefined : isFormEl ? (el as HTMLFormElement) : undefined,
   };
 
-  const configEvent = dispatch(
-    el,
-    'rz:fetch:config',
-    { config: finalOptions, url, method },
-    { cancelable: true },
-  );
+  const shouldDispatch = finalOptions.dispatchEvents !== false;
 
-  if (configEvent.defaultPrevented) return;
+  if (shouldDispatch) {
+    const configEvent = dispatch(
+      el,
+      'rz:fetch:config',
+      { config: finalOptions, url, method },
+      { cancelable: true },
+    );
+    if (configEvent.defaultPrevented) {
+      return fallbackResponse(finalOptions, 'Prevented by rz:fetch:config listener');
+    }
+  }
 
   el.classList.add(loadingClass);
   el.setAttribute('aria-busy', 'true');
 
-  dispatch(el, 'rz:fetch:start', { config: finalOptions });
+  if (shouldDispatch) {
+    dispatch(el, 'rz:fetch:start', { config: finalOptions });
+  }
 
   try {
     const result = await request(url, finalOptions, appConfig);
 
     if (result.error) {
       if (result.error.status === 'CANCELED') {
-        dispatch(el, 'rz:fetch:abort', { config: finalOptions });
-        return;
+        if (shouldDispatch) {
+          dispatch(el, 'rz:fetch:abort', { config: finalOptions });
+        }
+        return result;
       }
-      throw result.error;
+      // It's an HTTP error (4xx/5xx) or parse error.
+      // Dispatch the error event and return the result object.
+      if (shouldDispatch) {
+        dispatch(el, 'rz:fetch:error', { error: result.error, config: finalOptions });
+      }
+      return result;
     }
 
     const { data, response } = result;
-    const payload = { data, response, config: finalOptions };
 
-    dispatch(el, 'rz:fetch:success', payload);
+    if (shouldDispatch) {
+      dispatch(el, 'rz:fetch:success', result);
 
-    if (response) {
-      const contentType = response.headers.get('Content-Type') || '';
+      if (response) {
+        const contentType = response.headers.get('Content-Type') || '';
 
-      // Payload routing
-      if (contentType.includes('application/json')) {
-        dispatch(el, 'rz:fetch:success:json', payload);
-      } else if (contentType.includes('text/html')) {
-        dispatch(el, 'rz:fetch:success:html', payload);
-      } else if (data instanceof Blob || data instanceof ArrayBuffer) {
-        dispatch(el, 'rz:fetch:success:file', payload);
+        // Payload routing
+        if (contentType.includes('application/json')) {
+          dispatch(el, 'rz:fetch:success:json', result);
+        } else if (contentType.includes('text/html')) {
+          dispatch(el, 'rz:fetch:success:html', result);
+        } else if (data instanceof Blob || data instanceof ArrayBuffer) {
+          dispatch(el, 'rz:fetch:success:file', result);
+        }
       }
     }
+
+    return result;
   } catch (error: any) {
-    err('Fetch failed:', error);
-    dispatch(el, 'rz:fetch:error', { error, config: finalOptions });
+    if (shouldDispatch) {
+      dispatch(el, 'rz:fetch:error', { error, config: finalOptions });
+    }
+
+    return fallbackResponse(
+      finalOptions,
+      error.message || 'Internal Error',
+      'INTERNAL_ERROR',
+    );
   } finally {
     el.classList.remove(loadingClass);
     el.removeAttribute('aria-busy');
 
-    dispatch(el, 'rz:fetch:end', { config: finalOptions });
+    if (shouldDispatch) {
+      dispatch(el, 'rz:fetch:end', { config: finalOptions });
+    }
   }
 }
 
 /**
- * Explicit timer cleanup handled by global MutationObserver
+ * Explicit cleanup for active requests
  */
 export function cleanupFetch(el: HTMLElement) {
-  const state = timers.get(el);
+  const state = activeRequests.get(el);
   if (state) {
-    if (state.pacedExecutors) {
-      Object.values(state.pacedExecutors).forEach((executor) => {
-        executor.cancel();
-      });
-    }
-    timers.set(el, { ...state, destroyed: true });
+    activeRequests.set(el, { ...state, destroyed: true });
   }
 }
 
-function updateTimer<K extends keyof TimerState>(
+/**
+ * Resolves the final network configuration by merging global and local config.
+ */
+function resolveRequestConfig(
   el: HTMLElement,
-  key: K,
-  value: TimerState[K],
-) {
-  const current = timers.get(el) || {};
-  timers.set(el, { ...current, [key]: value });
+  app: RouseApp | undefined,
+): Partial<RouseRequest> {
+  const globalConfig = app?.config.network.fetch || {};
+  const localConfig = rzRequest.handler(el, app);
+
+  return {
+    ...globalConfig,
+    ...localConfig,
+  };
 }
