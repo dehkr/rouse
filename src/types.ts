@@ -79,7 +79,7 @@ export interface FetchConfig {
   triggerEl?: HTMLElement;
   body?: BodyInit | Record<string, any> | any[] | null | undefined;
   form?: HTMLFormElement;
-  params?: Record<string, string>;
+  params?: Record<string, string | number | boolean | null | undefined>;
   mutate?: boolean;
   dispatchEvents?: boolean;
   skipInterceptors?: boolean;

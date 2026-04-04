@@ -9,26 +9,35 @@ export function preparePayload(
   options: RouseRequest,
   globalConfig: RouseConfig,
 ) {
-  const { method = 'GET', headers = {}, body, form, params, ...restOptions } = options;
+  const { headers = {}, body, form, params, ...restOptions } = options;
+  const method = (options.method || 'GET').toUpperCase();
 
-  // Resolve URL
-  let finalUrl = url;
-  if (globalConfig.network?.baseUrl && !url.startsWith('http') && !url.startsWith('//')) {
-    finalUrl = `${globalConfig.network?.baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
+  // Resolve the base URL
+  let workingUrl = url;
+  const baseUrl = globalConfig.network?.baseUrl;
+  const isAbsoluteFromStart = url.startsWith('http') || url.startsWith('//');
+
+  if (baseUrl && !isAbsoluteFromStart) {
+    // Join baseUrl and url without double slashes
+    const base = baseUrl.replace(/\/+$/, '');
+    const path = url.replace(/^\/+/, '');
+    workingUrl = `${base}/${path}`;
   }
 
-  // Serialize and append query parameters
+  // Determine if the final intended output should be an absolute URL
+  const isTargetAbsolute = workingUrl.startsWith('http') || workingUrl.startsWith('//');
+
+  // Instantiate a single native URL object
+  const baseURI = typeof document !== 'undefined' ? document.baseURI : 'http://localhost';
+  const urlObj = new URL(workingUrl, baseURI);
+
+  // Append programmatic params
   if (params) {
-    const urlObj = new URL(finalUrl, document.baseURI);
     Object.entries(params).forEach(([key, val]) => {
       if (val !== undefined && val !== null) {
-        urlObj.searchParams.append(key, String(val));
+        urlObj.searchParams.set(key, String(val));
       }
     });
-    
-    // Preserve relative paths if the original was relative
-    const isHttp = finalUrl.startsWith('http') || finalUrl.startsWith('//');
-    finalUrl = isHttp ? urlObj.toString() : urlObj.pathname + urlObj.search + urlObj.hash;
   }
 
   // Merge headers
@@ -71,8 +80,12 @@ export function preparePayload(
     }
 
     // Catch primitives like numbers or booleans
+    // Set sensible default content-type so server knows how to parse
     else {
       finalBody = String(body);
+      if (!reqHeaders.has('Content-Type')) {
+        reqHeaders.set('Content-Type', 'text/plain');
+      }
     }
   }
 
@@ -81,8 +94,6 @@ export function preparePayload(
     // GET forms should append to the URL as query parameters
     if (method === 'GET' || method === 'HEAD') {
       const formData = new FormData(form);
-      const urlObj = new URL(finalUrl, document.baseURI);
-
       formData.forEach((value, key) => {
         if (typeof value === 'string') {
           urlObj.searchParams.append(key, value);
@@ -91,8 +102,6 @@ export function preparePayload(
           urlObj.searchParams.append(key, value.name);
         }
       });
-
-      finalUrl = urlObj.toString();
     }
 
     // POST/PUT/PATCH -> send as FormData body
@@ -100,6 +109,11 @@ export function preparePayload(
       finalBody = new FormData(form);
     }
   }
+
+  // Final output
+  const finalUrl = isTargetAbsolute
+    ? urlObj.toString()
+    : urlObj.pathname + urlObj.search + urlObj.hash;
 
   return { finalUrl, method, reqHeaders, finalBody, restOptions };
 }
