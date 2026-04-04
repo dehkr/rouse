@@ -8,11 +8,13 @@ import {
   initStoreElement,
 } from '../dom/initializer';
 import { initDomMutator } from '../dom/mutator';
+import { isAnchor, isForm, isInput, isSelect, isTextArea, on } from '../dom/utils';
 import { cleanupFetch, handleFetch } from '../net/engine';
+import { fallbackResponse } from '../net/response';
 import type {
-  GlobalFetchOpts,
-  NetworkInterceptors,
-  RouseRequestOpts,
+  FetchInterceptors,
+  GlobalFetchConfig,
+  RouseRequest,
   SetupFunction,
 } from '../types';
 import { Registry } from './registry';
@@ -27,8 +29,8 @@ export const defaultConfig = {
   },
   network: {
     baseUrl: '',
-    fetch: {} as GlobalFetchOpts,
-    interceptors: {} as NetworkInterceptors,
+    fetch: {} as GlobalFetchConfig,
+    interceptors: {} as FetchInterceptors,
     refreshOnFocus: true,
     refreshOnReconnect: true,
   },
@@ -58,25 +60,9 @@ export class RouseApp {
   public registry: Registry;
   public config: typeof defaultConfig;
 
-  public standardEvents = [
-    'change',
-    'click',
-    'dblclick',
-    'focusin',
-    'focusout',
-    'input',
-    'keydown',
-    'keyup',
-    'mouseout',
-    'mouseover',
-    'pointerdown',
-    'pointerup',
-    'submit',
-  ];
-
   private _hasStarted = false;
   private _observer?: MutationObserver;
-  private _ac?: AbortController;
+  private _abortController?: AbortController;
 
   constructor(config: RouseConfig = {}) {
     const rootEl =
@@ -180,8 +166,8 @@ export class RouseApp {
    * @param resource - The URL to fetch.
    * @param options - Network configuration, including the DOM `target`.
    */
-  public async fetch(resource: string, options: RouseRequestOpts = {}) {
-    const targetRef = options.target || document.body;
+  async fetch(resource: string, options: RouseRequest = {}) {
+    const targetRef = options.target || this.root;
     const el =
       typeof targetRef === 'string'
         ? document.querySelector<HTMLElement>(targetRef)
@@ -189,7 +175,7 @@ export class RouseApp {
 
     if (!el) {
       err(`Fetch failed. Target element not found:`, targetRef);
-      return;
+      return fallbackResponse(options, 'Target element not found', 'INTERNAL_ERROR');
     }
 
     options.url = resource;
@@ -207,8 +193,7 @@ export class RouseApp {
     }
 
     this._hasStarted = true;
-    this._ac = new AbortController();
-    const { signal } = this._ac;
+    this._abortController = new AbortController();
 
     this.root.dispatchEvent(
       new CustomEvent('rz:app:start', {
@@ -218,7 +203,7 @@ export class RouseApp {
     );
 
     // Initialize the DOM mutator that watches for HTML fetch responses
-    initDomMutator(this.root);
+    initDomMutator(this.root, this._abortController.signal);
 
     const { wakeStrategy } = this.config.ui;
 
@@ -230,52 +215,6 @@ export class RouseApp {
       if (getApp(script) === this) {
         initStoreElement(script);
       }
-    });
-
-    // Attach scoped fetch handling event listeners to app root
-    const handleGlobalFetch = (e: Event) => {
-      const target = (e.target as HTMLElement).closest<HTMLElement>(
-        directiveSelector('fetch'),
-      );
-
-      if (target) {
-        if (getApp(target) !== this) return;
-
-        const triggers = rzTrigger.handler(target);
-
-        if (triggers.length > 0) {
-          if (triggers.some((t) => t.event === e.type)) {
-            e.preventDefault();
-            handleFetch(target, {}, e);
-          }
-          return;
-        }
-
-        const tagName = target.tagName;
-        const isForm = tagName === 'FORM';
-        const isInput =
-          tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT';
-
-        if (isForm && e.type === 'submit') {
-          e.preventDefault();
-          handleFetch(target, {}, e);
-          return;
-        }
-
-        if (isInput && (e.type === 'input' || e.type === 'change')) {
-          handleFetch(target, {}, e);
-          return;
-        }
-
-        if (!isForm && !isInput && e.type === 'click') {
-          e.preventDefault();
-          handleFetch(target, {}, e);
-        }
-      }
-    };
-
-    this.standardEvents.forEach((evt) => {
-      this.root.addEventListener(evt, handleGlobalFetch, { signal });
     });
 
     // Start the scoped mutation observer
@@ -302,7 +241,7 @@ export class RouseApp {
     );
     fetchNodes.forEach((el) => {
       if (getApp(el) === this) {
-        initFetchElement(el, this);
+        initFetchElement(el);
       }
     });
 
@@ -327,7 +266,7 @@ export class RouseApp {
     this._observer?.disconnect();
 
     // Remove global event listeners
-    this._ac?.abort();
+    this._abortController?.abort();
 
     // Unmount all controllers
     const controllers = this.root.querySelectorAll<HTMLElement>(
@@ -370,38 +309,58 @@ export class RouseApp {
  * Attaches synthetic events (like polling) and custom non-standard events
  * to an element and stores their cleanup functions.
  */
-export function initFetchElement(el: HTMLElement, app: RouseApp) {
+export function initFetchElement(el: HTMLElement) {
   if (fetchCleanups.has(el)) return;
 
-  const triggers = rzTrigger.handler(el);
-  if (triggers.length === 0) return;
+  const isFormEl = isForm(el);
+  const isAnchorEl = isAnchor(el);
+  const isFieldEl = isInput(el) || isSelect(el) || isTextArea(el);
+
+  let triggers = rzTrigger.handler(el);
+  
+  // Logical defaults if no `rz-trigger` directive exists
+  if (triggers.length === 0) {
+    const defaultEvent = isFormEl ? 'submit' : isFieldEl ? 'change' : 'click';
+    triggers = [{ event: defaultEvent, modifiers: [] }];
+  }
 
   const cleanups: Array<() => void> = [];
 
-  triggers.forEach((t) => {
-    if (t.event === 'load') {
-      handleFetch(el, {}, new CustomEvent('load'));
+  triggers.forEach((trigger) => {
+    if (trigger.event === 'load') {
+      handleFetch(el);
     }
-    // Handle polling
-    else if (t.event === 'poll') {
-      const waitStr = t.modifiers[0];
+
+    // Handle synthetic poll event
+    else if (trigger.event === 'poll') {
+      const waitStr = trigger.modifiers[0];
       const ms = waitStr ? parseTime(waitStr) : 5000;
       if (ms > 0) {
-        // Fire synthetic 'poll' event into handleFetch on a loop
         const timer = setInterval(() => {
-          handleFetch(el, {}, new CustomEvent('poll'));
+          handleFetch(el);
         }, ms);
         cleanups.push(() => clearInterval(timer));
       }
     }
-    // Attach direct listeners for non-standard events (like 'intersect' or 'hover')
-    else if (t.event !== 'none' && !app.standardEvents.includes(t.event)) {
-      const handler = (e: Event) => {
-        e.preventDefault();
-        handleFetch(el, {}, e);
-      };
-      el.addEventListener(t.event, handler);
-      cleanups.push(() => el.removeEventListener(t.event, handler));
+
+    // Attach event listeners
+    else if (trigger.event !== 'none') {
+      const removeListener = on(
+        el,
+        trigger.event,
+        (e: Event) => {
+          // Prevent defaults
+          if ((isFormEl && e.type === 'submit') || (isAnchorEl && e.type === 'click')) {
+            if (!trigger.modifiers.includes('prevent')) {
+              e.preventDefault();
+            }
+          }
+          handleFetch(el);
+        },
+        trigger.modifiers,
+      );
+
+      cleanups.push(removeListener);
     }
   });
 
@@ -414,13 +373,14 @@ export function initFetchElement(el: HTMLElement, app: RouseApp) {
  * Tears down pacing engines and synthetic polling intervals.
  */
 export function teardownFetchElement(el: HTMLElement) {
-  // Cleans up timers from network engine
   cleanupFetch(el);
 
   const cleanups = fetchCleanups.get(el);
   if (cleanups) {
     // Cleans up poll intervals/listeners
-    cleanups.forEach((fn) => fn());
+    cleanups.forEach((fn) => {
+      fn();
+    });
     fetchCleanups.delete(el);
   }
 }
