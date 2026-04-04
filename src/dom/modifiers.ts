@@ -49,8 +49,7 @@ export function resolveListenerTarget(el: HTMLElement, modifiers: string[]): Eve
     return getApp(el)?.root || el;
   }
 
-  // To detect outside clicks, we must listen on the document
-  // Or window or root if specified
+  // To detect outside clicks, listen on the document
   if (modifiers.includes('outside')) {
     return document;
   }

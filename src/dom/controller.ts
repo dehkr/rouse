@@ -3,12 +3,12 @@ import { warn } from '../core/shared';
 import { effectScope } from '../reactivity';
 import type {
   LifecycleEvent,
-  RouseRequestOpts,
+  RouseRequest,
   SetupContext,
   SetupFunction,
 } from '../types';
 import { attachController } from './attacher';
-import { dispatch, on } from './utils';
+import { dispatch, insert, on } from './utils';
 
 const instanceMap = new WeakMap<HTMLElement, any>();
 
@@ -83,6 +83,7 @@ export function createController(
     props,
     stores: app.stores,
     abortSignal: abortCtrl.signal,
+    insert,
 
     // Bound wrapper for auto-cleanup
     on: <D = any>(
@@ -97,7 +98,6 @@ export function createController(
         ? AbortSignal.any([abortCtrl.signal, customSignal])
         : abortCtrl.signal;
 
-      // Automatically inject the controller's abort signal plus optional customSignal
       return on(target, name, callback, modifiers, activeSignal);
     },
 
@@ -108,19 +108,17 @@ export function createController(
       detail?: D,
       options?: CustomEventInit,
     ) => {
-      // Pure passthrough, perfectly symmetrical with ctx.on
       return dispatch(target, name, detail, options);
     },
 
     // Inject abort signal to avoid background request if controller is destroyed
     // User can override by adding `signal: undefined` option
     // `keepalive: true` option allows a request to finish even if tab closes
-    fetch: (resource: string, options: RouseRequestOpts = {}) => {
-      // Target defaults to the controller root element unless provided
-      // TODO: change root element behavior
-      const finalOptions: RouseRequestOpts = {
+    fetch: (resource: string, options: RouseRequest = {}) => {
+      const finalOptions: RouseRequest = {
         target: el,
         signal: abortCtrl.signal,
+        mutate: false,
         ...options,
       };
       return app.fetch(resource, finalOptions);
