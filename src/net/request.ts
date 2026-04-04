@@ -1,8 +1,8 @@
 import { defaultConfig, type RouseConfig } from '../core/app';
 import { warn } from '../core/shared';
-import type { RequestResult, RouseRequestOpts } from '../types';
+import type { RouseRequest, RouseResponse } from '../types';
 import { preparePayload } from './payload';
-import { mapCatchError, normalizeResponse } from './response';
+import { fallbackResponse, mapCatchError, normalizeResponse } from './response';
 
 interface AbortEntry {
   controller: AbortController;
@@ -16,19 +16,19 @@ const abortControllers = new Map<string | symbol, AbortEntry>();
  */
 export async function request<T = any>(
   url: string,
-  options: RouseRequestOpts = {},
+  options: RouseRequest = {},
   appConfig: RouseConfig = defaultConfig,
-): Promise<RequestResult<T>> {
+): Promise<RouseResponse<T>> {
   let currentOptions = { ...options };
-  const ci = appConfig.network?.interceptors || {};
+  const interceptors = appConfig.network?.interceptors || {};
 
   // Run request interceptor
-  if (!currentOptions.skipInterceptors && ci.onRequest) {
+  if (!currentOptions.skipInterceptors && interceptors.onRequest) {
     try {
-      currentOptions = await ci.onRequest(currentOptions);
+      currentOptions = await interceptors.onRequest(currentOptions);
     } catch (e) {
-      if (ci.onError) {
-        ci.onError(e, currentOptions);
+      if (interceptors.onError) {
+        interceptors.onError(e, currentOptions);
       }
       throw e;
     }
@@ -50,14 +50,7 @@ export async function request<T = any>(
   }
 
   // Extract Rouse-specific execution options
-  const {
-    onUploadProgress,
-    retries = 0,
-    timeout = 0,
-    abortKey,
-    triggerEl,
-    ...fetchOptions
-  } = restOptions;
+  const { retries = 0, timeout = 0, abortKey, triggerEl, ...fetchOptions } = restOptions;
 
   // Handle concurrency
   let mainSignal: AbortSignal | null = null;
@@ -78,14 +71,10 @@ export async function request<T = any>(
     mainSignal = fetchOptions.signal;
   }
 
-  const execute = async (attempt: number): Promise<RequestResult<T>> => {
+  const execute = async (attempt: number): Promise<RouseResponse<T>> => {
     // Check if already aborted before starting this attempt
     if (mainSignal?.aborted) {
-      return {
-        data: null,
-        response: null,
-        error: { message: 'Request canceled', status: 'CANCELED' },
-      };
+      return fallbackResponse(currentOptions, 'Request canceled', 'CANCELED');
     }
 
     try {
@@ -144,16 +133,16 @@ export async function request<T = any>(
           return execute(attempt + 1);
         }
 
-        const normalized = await normalizeResponse(response);
+        const normalized = await normalizeResponse(response, currentOptions);
 
         // Run response/error interceptors
         if (!currentOptions.skipInterceptors) {
-          if (normalized.error && ci.onError) {
+          if (normalized.error && interceptors.onError) {
             // Error (e.g. 404, 500, parse error)
-            ci.onError(normalized.error, currentOptions);
-          } else if (!normalized.error && ci.onResponse) {
+            interceptors.onError(normalized.error, currentOptions);
+          } else if (!normalized.error && interceptors.onResponse) {
             // Success (parsed data can safely be mutated)
-            normalized.data = await ci.onResponse(
+            normalized.data = await interceptors.onResponse(
               normalized.data,
               normalized.response as Response,
               currentOptions,
@@ -176,8 +165,8 @@ export async function request<T = any>(
       const errorPayload = mapCatchError(err, !!mainSignal?.aborted);
 
       // Error interceptor
-      if (!currentOptions.skipInterceptors && ci.onError) {
-        ci.onError(errorPayload, currentOptions);
+      if (!currentOptions.skipInterceptors && interceptors.onError) {
+        interceptors.onError(errorPayload, currentOptions);
       }
 
       // Retry on network errors or timeouts (but not explicit cancels)
@@ -188,11 +177,7 @@ export async function request<T = any>(
         return execute(attempt + 1);
       }
 
-      return {
-        data: null,
-        response: null,
-        error: errorPayload,
-      };
+      return fallbackResponse(currentOptions, errorPayload.message, errorPayload.status);
     }
   };
 

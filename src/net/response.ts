@@ -1,11 +1,22 @@
-import type { CustomErrorStatus, RequestError, RequestResult } from '../types';
+import type {
+  CustomErrorStatus,
+  ErrorStatus,
+  RequestError,
+  RouseRequest,
+  RouseResponse,
+} from '../types';
 
 /**
  * Normalizes a fetch response (parses JSON/Text/Blob and flags HTTP errors).
  */
-export async function normalizeResponse(response: Response): Promise<RequestResult> {
+export async function normalizeResponse(
+  response: Response,
+  config: RouseRequest,
+): Promise<RouseResponse> {
   let data: any = null;
   let error: RequestError | null = null;
+
+  const parsedHeaders = Object.fromEntries(response.headers.entries());
 
   try {
     // Safety check to make sure the body hasn't been consumed
@@ -14,6 +25,9 @@ export async function normalizeResponse(response: Response): Promise<RequestResu
         data: null,
         error: { message: 'Stream already consumed', status: 'INTERNAL_ERROR' },
         response,
+        headers: parsedHeaders,
+        status: response.status,
+        config,
       };
     }
 
@@ -36,7 +50,6 @@ export async function normalizeResponse(response: Response): Promise<RequestResu
       } else if (contentType.includes('text/')) {
         data = await response.text();
       } else {
-        // Safe binary fallback for images, PDFs, etc.
         data = await response.blob();
       }
     }
@@ -55,14 +68,21 @@ export async function normalizeResponse(response: Response): Promise<RequestResu
     };
   }
 
-  return { data, error, response };
+  return {
+    data,
+    error,
+    response,
+    headers: parsedHeaders,
+    status: response.status,
+    config,
+  };
 }
 
 /**
  * Maps native DOM exceptions into standardized RequestError objects.
  */
-export function mapCatchError(err: any, isMainAborted: boolean): RequestError {
-  const isAbort = err.name === 'AbortError';
+export function mapCatchError(error: any, isMainAborted: boolean): RequestError {
+  const isAbort = error.name === 'AbortError';
 
   // Distinguish between timeout and explicit cancel
   const status: CustomErrorStatus = isAbort
@@ -76,7 +96,25 @@ export function mapCatchError(err: any, isMainAborted: boolean): RequestError {
       ? 'Request timed out'
       : status === 'CANCELED'
         ? 'Request canceled'
-        : err.message || 'Network Error';
+        : error.message || 'Network error';
 
-  return { message, status, original: err };
+  return { message, status, original: error };
+}
+
+/**
+ * Helper to return a structured response for early bailouts.
+ */
+export function fallbackResponse(
+  config: RouseRequest,
+  message: string,
+  status: ErrorStatus = 'CANCELED',
+): RouseResponse {
+  return {
+    data: null,
+    error: { message, status },
+    response: null,
+    headers: null,
+    status: null,
+    config,
+  };
 }
