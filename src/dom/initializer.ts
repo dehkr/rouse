@@ -144,11 +144,11 @@ export function initObserver(app: RouseApp) {
 
           // Check for new fetch elements to bind polling/custom triggers
           if (hasDirective(node, 'fetch') && getApp(node) === app) {
-            initFetchElement(node as HTMLElement, app);
+            initFetchElement(node as HTMLElement);
           }
           qsa<HTMLElement>(node, fetchSel).forEach((child) => {
             if (getApp(child) === app) {
-              initFetchElement(child, app);
+              initFetchElement(child);
             }
           });
         }
