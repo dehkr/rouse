@@ -317,7 +317,7 @@ export function initFetchElement(el: HTMLElement) {
   const isFieldEl = isInput(el) || isSelect(el) || isTextArea(el);
 
   let triggers = rzTrigger.handler(el);
-  
+
   // Logical defaults if no `rz-trigger` directive exists
   if (triggers.length === 0) {
     const defaultEvent = isFormEl ? 'submit' : isFieldEl ? 'change' : 'click';
@@ -400,6 +400,6 @@ export function getApp(el: HTMLElement): RouseApp | undefined {
 /**
  * Main entry point for the framework.
  */
-export function createApp(config: RouseConfig = {}): RouseApp {
+export function rouse(config: RouseConfig = {}): RouseApp {
   return new RouseApp(config);
 }
