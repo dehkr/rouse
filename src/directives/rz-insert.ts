@@ -7,7 +7,6 @@ export const rzInsert = {
   handler: getInsertConfig,
 } as const satisfies DirectiveSchema;
 
-const DEFAULT_METHOD = 'innerHTML';
 const INSERT_METHODS = [
   'innerHTML',
   'outerHTML',
@@ -20,6 +19,7 @@ const INSERT_METHODS = [
 
 export type InsertMethod = (typeof INSERT_METHODS)[number];
 
+const DEFAULT_METHOD: InsertMethod = 'innerHTML';
 const strategies = new Set<InsertMethod>(INSERT_METHODS);
 
 // TODO: confirm if targets should be array type (allow multiple els per strategy?)

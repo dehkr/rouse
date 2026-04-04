@@ -1,4 +1,5 @@
 import type { StoreManager } from './core/store';
+import type { InsertMethod } from './directives/rz-insert';
 
 declare const CLEANUP: unique symbol;
 export type CleanupFunction = (() => void) & { [CLEANUP]: true };
@@ -32,7 +33,6 @@ export type DirectiveSlug =
   | 'insert'
   | 'model'
   | 'on'
-  | 'publish'
   | 'refresh'
   | 'request'
   | 'scope'
@@ -65,50 +65,51 @@ export interface RequestError {
   original?: any;
 }
 
-export interface RequestResult<T = any> {
-  data: T | null;
-  error: RequestError | null;
-  response: Response | null;
-}
-
-/** Framework orchestration and timing execution options */
-export interface RouseTuneOpts {
-  retries?: number;
-  timeout?: number;
-  abortKey?: string | symbol;
-}
-
-/** Internal framework context and payload overrides */
-export interface RouseInternalOpts {
-  url?: string;
-  target?: HTMLElement | string;
-  triggerEl?: HTMLElement;
-  body?: BodyInit | Record<string, any> | any[] | null | undefined;
-  form?: HTMLFormElement;
-  skipInterceptors?: boolean;
-  onUploadProgress?: (ev: ProgressEvent) => void;
-}
-
-/** The unified options object passed through the Rouse network engine */
-export type RouseRequestOpts = Omit<RequestInit, 'body'> &
-  RouseTuneOpts &
-  RouseInternalOpts;
-
-/** Global fetch configuration. Limited to safe, non-mutating properties. */
-export interface GlobalFetchOpts {
+/** Global fetch configuration */
+export interface GlobalFetchConfig {
   headers?: HeadersInit;
   credentials?: RequestCredentials;
   mode?: RequestMode;
 }
 
-export interface NetworkInterceptors {
-  onRequest?: (config: RouseRequestOpts) => RouseRequestOpts | Promise<RouseRequestOpts>;
+/** Framework-specific execution and UI options */
+export interface FetchConfig {
+  url?: string;
+  target?: HTMLElement | string;
+  triggerEl?: HTMLElement;
+  body?: BodyInit | Record<string, any> | any[] | null | undefined;
+  form?: HTMLFormElement;
+  params?: Record<string, string>;
+  mutate?: boolean;
+  dispatchEvents?: boolean;
+  skipInterceptors?: boolean;
+  retries?: number;
+  timeout?: number;
+  abortKey?: string | symbol;
+}
+
+/** The final unified options object passed into ctx.fetch */
+export type RouseRequest = Omit<RequestInit, 'body'> & FetchConfig;
+
+/** The enhanced response object returned by ctx.fetch and request() */
+export interface RouseResponse<T = any> {
+  data: T | null;
+  error: RequestError | null;
+  response: Response | null;
+  headers: Record<string, string> | null;
+  status: number | null;
+  config: RouseRequest;
+}
+
+/** Network interceptors */
+export interface FetchInterceptors {
+  onRequest?: (config: RouseRequest) => RouseRequest | Promise<RouseRequest>;
   onResponse?: (
     data: any,
     response: Response,
-    config: RouseRequestOpts,
+    config: RouseRequest,
   ) => any | Promise<any>;
-  onError?: (error: any, config: RouseRequestOpts) => void;
+  onError?: (error: any, config: RouseRequest) => void;
 }
 
 /**
@@ -133,7 +134,8 @@ export type SetupContext<P extends Record<string, any> = Record<string, any>> = 
     detail?: D,
     options?: CustomEventInit,
   ) => CustomEvent<D>;
-  fetch: (resource: string, options?: RouseRequestOpts) => Promise<void>;
+  fetch: (resource: string, options?: RouseRequest) => Promise<RouseResponse>;
+  insert: (content: string, target: HTMLElement, method: InsertMethod) => void;
   stores: StoreManager;
 };
 

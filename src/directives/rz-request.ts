@@ -3,7 +3,7 @@ import { parseDirectiveValue } from '../core/parser';
 import { getDirectiveValue } from '../core/shared';
 import { parseTime } from '../core/timing';
 import { resolvePayload } from '../dom/utils';
-import type { DirectiveSchema, RouseRequestOpts } from '../types';
+import type { DirectiveSchema, RouseRequest } from '../types';
 
 export const rzRequest = {
   slug: 'request',
@@ -20,7 +20,7 @@ const BOOLEAN_KEYS = new Set(['keepalive']);
 export function getRequestConfig(
   el: HTMLElement,
   app?: RouseApp,
-): Partial<RouseRequestOpts> {
+): Partial<RouseRequest> {
   const rawValue = getDirectiveValue(el, 'request');
   if (!rawValue) return {};
 
@@ -65,5 +65,5 @@ export function getRequestConfig(
     }
   }
 
-  return config as Partial<RouseRequestOpts>;
+  return config as Partial<RouseRequest>;
 }
