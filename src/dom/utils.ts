@@ -7,6 +7,7 @@ import type { InsertMethod } from '../directives/rz-insert';
 import type { CleanupFunction, LifecycleEvent } from '../types';
 import { applyModifiers, getListenerOptions, resolveListenerTarget } from './modifiers';
 
+export const isAnchor = (el: unknown) => el instanceof HTMLAnchorElement;
 export const isElement = (el: unknown) => el instanceof HTMLElement;
 export const isForm = (el: unknown) => el instanceof HTMLFormElement;
 export const isInput = (el: unknown) => el instanceof HTMLInputElement;
@@ -45,10 +46,10 @@ export function on<D = any>(
   name: string,
   callback: (ev: CustomEvent<D>) => void,
   modifiers: string[] = [],
-  signal?: AbortSignal
+  abortSignal?: AbortSignal,
 ): () => void {
   const paced = applyTiming(callback, modifiers);
-  const options = { ...getListenerOptions(modifiers), signal };
+  const options = { ...getListenerOptions(modifiers), abortSignal };
 
   const listener = (e: Event) => {
     if (applyModifiers(e, el, modifiers)) {
@@ -56,30 +57,25 @@ export function on<D = any>(
     }
   };
 
-  // Only respect 'window', 'document', and 'root' modifiers if 'outside' is present
-  // because target element is explicitly provided as first argument.
-  const actualTarget = modifiers.includes('outside')
-    ? resolveListenerTarget(el as HTMLElement, modifiers)
-    : el;
-
-  actualTarget.addEventListener(name, listener, options);
+  const target = resolveListenerTarget(el as HTMLElement, modifiers);
+  target.addEventListener(name, listener, options);
 
   // If a signal is provided, cancel paced functions on abort
   const onAbort = () => paced.cancel();
-  if (signal) {
-    signal.addEventListener('abort', onAbort, { once: true });
+  if (abortSignal) {
+    abortSignal.addEventListener('abort', onAbort, { once: true });
   }
 
   // Returns a traditional cleanup function
   // Unnecessary in controller context because abort signal is injected and
   // aborted automatically. But this can be used safely for manual cleanup.
   return () => {
-    actualTarget.removeEventListener(name, listener, options);
+    target.removeEventListener(name, listener, options);
     paced.cancel();
-    
+
     // Prevent memory leaks if manual cleanup is called before the signal aborts
-    if (signal) {
-      signal.removeEventListener('abort', onAbort);
+    if (abortSignal) {
+      abortSignal.removeEventListener('abort', onAbort);
     }
   };
 }
@@ -87,7 +83,11 @@ export function on<D = any>(
 /**
  * Handles inserting HTML partials into document
  */
-export function insert(target: HTMLElement, content: string, method: InsertMethod) {
+export function insert(
+  content: string,
+  target: HTMLElement,
+  method: InsertMethod = 'innerHTML',
+) {
   switch (method) {
     case 'delete':
       target.remove();
