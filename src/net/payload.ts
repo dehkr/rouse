@@ -1,20 +1,34 @@
 import type { RouseConfig } from '../core/app';
-import type { RouseRequestOpts } from '../types';
+import type { RouseRequest } from '../types';
 
 /**
  * Prepares the URL, headers, and body for a network request.
  */
 export function preparePayload(
   url: string,
-  options: RouseRequestOpts,
+  options: RouseRequest,
   globalConfig: RouseConfig,
 ) {
-  const { method = 'GET', headers = {}, body, form, ...restOptions } = options;
+  const { method = 'GET', headers = {}, body, form, params, ...restOptions } = options;
 
   // Resolve URL
   let finalUrl = url;
   if (globalConfig.network?.baseUrl && !url.startsWith('http') && !url.startsWith('//')) {
     finalUrl = `${globalConfig.network?.baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
+  }
+
+  // Serialize and append query parameters
+  if (params) {
+    const urlObj = new URL(finalUrl, document.baseURI);
+    Object.entries(params).forEach(([key, val]) => {
+      if (val !== undefined && val !== null) {
+        urlObj.searchParams.append(key, String(val));
+      }
+    });
+    
+    // Preserve relative paths if the original was relative
+    const isHttp = finalUrl.startsWith('http') || finalUrl.startsWith('//');
+    finalUrl = isHttp ? urlObj.toString() : urlObj.pathname + urlObj.search + urlObj.hash;
   }
 
   // Merge headers
