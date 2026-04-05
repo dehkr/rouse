@@ -7,37 +7,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+No unreleased changes.
+
+## [0.5.0] - 2026-04-05
+
 ### Added
 
-- Support declarative timing modifiers (e.g., `.debounce`, `.throttle.500ms`, `.leading`) for `rz-on` and `rz-publish`.
-- Expose `debounce` and `throttle` utilities from the core library for programmatic use.
-- Introduce `rz-trigger` to provide explicit event triggers with modifiers for `rz-fetch`.
-- Support minutes (`m`) in time values (e.g., `poll.2m`).
-- Introduce `rz-source` directive for declarative configuration of store endpoints.
-- Provide synthetic `poll` event (e.g., `poll.5s`) for event-driven network directives (`rz-trigger`, `rz-refresh`).
+- Add support for declarative timing modifiers (e.g., `.debounce`, `.throttle.500ms`, `.leading`) for `rz-on`.
+- Export `debounce` and `throttle` utilities for programmatic use.
+- Add `rz-trigger` directive to provide explicit event triggers with modifiers for `rz-fetch`.
+- Add support for `none` value for `rz-trigger` to register fetch configuration on an element without binding DOM event listeners.
+- Add synthetic `poll` event (e.g., `poll.30s`) for event-driven network directives (`rz-trigger`, `rz-refresh`).
+- Expand programmatic `fetch` configuration options with new capabilities:
+  - `params` for query string serialization (e.g., `ctx.fetch('/api/search', { params: { q: 'test' } })`).
+  - `mutate` flag (set to `false` by default) to prevent automatic DOM insertion of HTML responses.
+- Add `rz-source` directive for declarative configuration of store endpoints.
+- Add `stopImmediate` event modifier to trigger `stopImmediatePropogation()`.
+- Add support for `ms`, `s`, and `m` suffixes (e.g., `timeout: 10s`).
+- Export `on` utility for programmatic event listening and modifier support. Available as a global import and in controller context (`ctx.on()`) where it includes automatic listener cleanup.
+- Inject `abortSignal` into controllers (`ctx.abortSignal`). This signal automatically aborts when the controller disconnects, making it easy to cancel background tasks and prevent memory leaks.
 
 ### Changed
 
+- **Breaking:** Rename `createApp()` to `rouse()` for framework initialization.
+- **Breaking:** Rename `appRoot` to `root` in controller context for API consistency.
+- **Breaking:** Update `rz-fetch` and `rz-autosave` syntax to use comma-separated values.
+- **Breaking:** Update `rz-autosave` to accept an HTTP method and debounce override (e.g., `rz-autosave="PUT, 800ms"`).
 - **Breaking:** Refactor global configuration into a domain-driven schema (`timing`, `network`, `ui`): 
   - Move fetch defaults to `app.config.network.fetch` and restrict properties to `headers`, `credentials`, and `mode`.
-  - Remove global `retry` and `timeout` settings; these must now be configured per-request.
-- **Breaking:** Update `rz-fetch` and `rz-autosave` syntax to use comma-separated values.
-- **Breaking:** Update `rz-autosave` to require `rz-source` to configure store endpoints. It now accepts an HTTP method and debounce override (e.g., `rz-autosave="PUT, 800ms"`).
-- Refactor `rz-refresh` to support any event trigger plus modifiers with defaults for window focus and network reconnection.
+  - Remove global `retry` and `timeout` settings; these can be configured per-request.
+- Auto-inject controller `AbortSignal` into `ctx.fetch()` options to automatically cancel background requests when a controller disconnects.
+- Update `rz-refresh` to support any event trigger with modifiers, defaulting to window focus and network reconnection.
 
 ### Removed
 
-- **Breaking:** Remove `rz-tune` directive. Transfer network options (`retries`, `timeout`, `abortKey`) to `rz-request`. Move `poll` to `rz-trigger`.
+- **Breaking:** Remove `rz-tune` directive. Transfer network options (`retries`, `timeout`, `abortKey`) to `rz-request` and event triggers (including `poll`) to `rz-trigger`.
+- **Breaking:** Remove the event bus and `rz-publish` directive.
+- **Breaking:** Remove XHR fallback support; Rouse now exclusively uses the native Fetch API.
 
 ## [0.4.0] - 2026-03-18
 
 ### Added
 
 - Expose the root element of app instances in controllers via `ctx.appRoot`.
-- Lifecycle DOM events for applications and controllers:
+- Add lifecycle DOM events for applications and controllers:
   - **App:** `rz:app:start`, `rz:app:ready`, and `rz:app:destroy`
   - **Controllers:** `rz:controller:init`, `rz:controller:connect`, `rz:controller:disconnect`, and `rz:controller:destroy`
-- Support for declarative event modifiers in the `rz-on` directive:
+- Add support for declarative event modifiers in the `rz-on` directive:
   - **Event control:** `.prevent`, `.stop`, `.once`, `.passive`, `.capture`
   - **Target filtering:** `.self`, `.outside`, `.window`, `.document`, `.root`
   - **Keyboard keys:** `.enter`, `.esc`, `.space`, `.up`, `.down`, `.left`, `.right`, `.tab`, `.delete`, `.backspace`, plus any single character (e.g., `.a`, `.1`)
@@ -90,8 +106,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- New `rz-state` directive for declarative mapping of global store data to an island's scope. Supports multiple stores and optional namespace aliasing.
-- Support for controller-less islands. `rz-island` no longer requires a controller name, allowing reactive global state binding to HTML with zero JavaScript boilerplate.
+- Add `rz-state` directive for declarative mapping of global store data to an island's scope. Supports multiple stores and optional namespace aliasing.
+- Add support for controller-less islands. `rz-island` no longer requires a controller name, allowing reactive global state binding to HTML with zero JavaScript boilerplate.
 
 ### Changed
 
@@ -105,7 +121,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- RouseApp `destroy()` method for manual teardown of app instances (stops timers, removes listeners, unmounts controllers, and frees memory).
+- Add RouseApp `destroy()` method for manual teardown of app instances (stops timers, removes listeners, unmounts controllers, and frees memory).
 
 ### Changed
 

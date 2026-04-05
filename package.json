@@ -1,6 +1,6 @@
 {
   "name": "rousejs",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "The JavaScript UI and state orchestrator for server-rendered HTML",
   "author": "dehkr <dehkr25@gmail.com>",
   "license": "MIT",
@@ -12,7 +12,6 @@
     "reactive",
     "reactivity",
     "signals",
-    "event-bus",
     "optimistic-ui",
     "html-first",
     "no-build"
@@ -40,7 +39,7 @@
     "build": "tsup",
     "check": "biome check",
     "format": "biome format --write",
-    "typecheck": "tsc --noEmit"
+    "types": "tsc --noEmit"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.4",
