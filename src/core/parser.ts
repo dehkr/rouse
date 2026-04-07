@@ -4,6 +4,7 @@ export type ParsedDirectiveValue = [string, string][];
 
 const VALUE_DELIMITER = ',';
 const PAIR_DELIMITER = ':';
+const MODIFIER_DELIMITER = '.';
 
 /**
  * Utility for parsing a value that might have modifiers.
@@ -11,10 +12,10 @@ const PAIR_DELIMITER = ':';
  * `click.debounce.400ms` returns `{ key: 'click', modifiers: ['debounce', '400ms']}`
  */
 export function parseModifiers(rawValue: string): { key: string; modifiers: string[] } {
-  const dotIndex = rawValue.indexOf('.');
+  const dotIndex = rawValue.indexOf(MODIFIER_DELIMITER);
   if (dotIndex !== -1) {
     const key = rawValue.slice(0, dotIndex);
-    const modifiers = rawValue.slice(dotIndex + 1).split('.');
+    const modifiers = rawValue.slice(dotIndex + 1).split(MODIFIER_DELIMITER);
     return { key, modifiers };
   }
   return { key: rawValue, modifiers: [] };
