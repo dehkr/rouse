@@ -57,7 +57,7 @@ export function on<D = any>(
     }
   };
 
-  const target = resolveListenerTarget(el as HTMLElement, modifiers);
+  const target = resolveListenerTarget(el as Element, modifiers);
   target.addEventListener(name, listener, options);
 
   // If a signal is provided, cancel paced functions on abort
@@ -85,7 +85,7 @@ export function on<D = any>(
  */
 export function insert(
   content: string,
-  target: HTMLElement,
+  target: Element,
   method: InsertMethod = 'innerHTML',
 ) {
   switch (method) {

@@ -21,13 +21,30 @@ export function directiveSelector(slug: DirectiveSlug): string {
 /**
  * Gets the directive value associated with a specific element.
  */
-export function getDirectiveValue(el: HTMLElement, slug: DirectiveSlug): string | null {
+export function getDirectiveValue(el: Element, slug: DirectiveSlug): string | null {
   return el.getAttribute(`rz-${slug}`) ?? el.getAttribute(`data-rz-${slug}`);
 }
 
 /**
  * Checks if the element has either prefix.
  */
-export function hasDirective(el: HTMLElement, slug: DirectiveSlug): boolean {
+export function hasDirective(el: Element, slug: DirectiveSlug): boolean {
   return el.hasAttribute(`rz-${slug}`) || el.hasAttribute(`data-rz-${slug}`);
+}
+
+/**
+ * Safely query within the element boundary (including the element itself)
+ */
+export function queryTargets<T extends Element = Element>(
+  el: Element,
+  selector: string,
+): T[] {
+  const targets = Array.from(el.querySelectorAll<T>(selector));
+
+  // Check if root element itself matches the selector
+  if (el.matches(selector)) {
+    targets.unshift(el as T);
+  }
+
+  return targets;
 }

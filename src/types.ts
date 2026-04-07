@@ -116,11 +116,21 @@ export interface FetchInterceptors {
  * The context object passed into every controller setup function.
  * @template P - The type of the props.
  */
-export type SetupContext<P extends Record<string, any> = Record<string, any>> = {
-  el: HTMLElement;
+export type SetupContext<
+  P extends Record<string, any> = Record<string, any>,
+  T extends Element = HTMLElement,
+> = {
+  el: T;
   root: HTMLElement;
   props: P;
+  stores: StoreManager;
   abortSignal: AbortSignal;
+  dispatch: <T extends string, D = any>(
+    target: EventTarget,
+    name: T | LifecycleEvent,
+    detail?: D,
+    options?: CustomEventInit,
+  ) => CustomEvent<D>;
   on: <D = any>(
     target: EventTarget,
     name: string,
@@ -128,21 +138,16 @@ export type SetupContext<P extends Record<string, any> = Record<string, any>> = 
     modifiers?: string[],
     customSignal?: AbortSignal,
   ) => () => void;
-  dispatch: <T extends string, D = any>(
-    target: EventTarget,
-    name: T | LifecycleEvent,
-    detail?: D,
-    options?: CustomEventInit,
-  ) => CustomEvent<D>;
   fetch: (resource: string, options?: RouseRequest) => Promise<RouseResponse>;
   insert: (content: string, target: HTMLElement, method: InsertMethod) => void;
-  stores: StoreManager;
+  scan: (newNode: HTMLElement) => void;
 };
 
 /** The definition of a setup function. */
-export type SetupFunction<P extends Record<string, any> = Record<string, any>> = (
-  ctx: SetupContext<P>,
-) => RouseController;
+export type SetupFunction<
+  P extends Record<string, any> = Record<string, any>,
+  T extends Element = HTMLElement,
+> = (ctx: SetupContext<P, T>) => RouseController;
 
 export type LifecycleEvent =
   | 'rz:app:start'

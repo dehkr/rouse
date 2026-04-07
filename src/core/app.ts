@@ -388,7 +388,7 @@ export function teardownFetchElement(el: HTMLElement) {
 /**
  * Finds the parent app instance for any child element.
  */
-export function getApp(el: HTMLElement): RouseApp | undefined {
+export function getApp(el: Element): RouseApp | undefined {
   const root = el.closest<HTMLElement>('[data-rouse-app]');
   if (!root) {
     warn('Element is not inside a Rouse app instance:', el);

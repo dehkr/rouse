@@ -1,4 +1,4 @@
-import { getInsertConfig } from '../directives/rz-insert';
+import { rzInsert } from '../directives';
 import type { RouseResponse } from '../types';
 import { dispatch, insert } from './utils';
 
@@ -6,12 +6,12 @@ import { dispatch, insert } from './utils';
  * Listens globally for HTML fetch responses and mutates the DOM
  * based on the element's `rz-insert` configuration.
  */
-export function initDomMutator(root: HTMLElement, abortSignal: AbortSignal) {
+export function initDomMutator(root: Element, abortSignal: AbortSignal) {
   root.addEventListener(
     'rz:fetch:success:html',
     (e: Event) => {
       const customEvent = e as CustomEvent<RouseResponse>;
-      const triggerEl = customEvent.target as HTMLElement;
+      const triggerEl = customEvent.target as Element;
       const { data, response, config } = customEvent.detail;
 
       // Programmatic fetch (app.fetch, ctx.fetch) defaults to `mutate: false` so
@@ -20,7 +20,7 @@ export function initDomMutator(root: HTMLElement, abortSignal: AbortSignal) {
 
       if (typeof data !== 'string') return;
 
-      const operations = getInsertConfig(triggerEl);
+      const operations = rzInsert.handler(triggerEl);
 
       operations.forEach(({ targets, strategy }) => {
         if (targets.length === 0) return;

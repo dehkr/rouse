@@ -38,7 +38,7 @@ export function getListenerOptions(modifiers: string[]): AddEventListenerOptions
 /**
  * Resolves the target of the event listener.
  */
-export function resolveListenerTarget(el: HTMLElement, modifiers: string[]): EventTarget {
+export function resolveListenerTarget(el: Element, modifiers: string[]): EventTarget {
   if (modifiers.includes('window')) {
     return window;
   }
