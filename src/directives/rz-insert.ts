@@ -1,3 +1,4 @@
+import { getApp } from '../core/app';
 import { parseDirectiveValue } from '../core/parser';
 import { getDirectiveValue, queryTargets, warn } from '../core/shared';
 import type { DirectiveSchema } from '../types';
@@ -50,7 +51,7 @@ export function getInsertConfig(el: Element): InsertOperation[] {
 
   const operations: InsertOperation[] = [];
 
-  const appRoot = el.closest('[data-rouse-app]') || document.documentElement;
+  const appRoot = getApp(el)?.root || document.documentElement;
 
   // Iterate over all parsed pairs
   for (const [key, val] of parsed) {
