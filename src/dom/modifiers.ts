@@ -109,18 +109,27 @@ export function applyModifiers(
 
   // Key filtering
   if (e instanceof KeyboardEvent) {
-    const specifiedKeys = modifiers
-      .map((m) => {
-        const mapped = keyMap[m];
-        if (mapped) {
-          return mapped.toLowerCase();
-        }
-        return m.length === 1 ? m.toLowerCase() : null;
-      })
-      .filter((k): k is string => k !== null);
+    const pressedKey = e.key.toLowerCase();
+    const pressedCode = e.code.toLowerCase();
 
-    // Ensure the pressed key matches the specified one
-    if (specifiedKeys.length > 0 && !specifiedKeys.includes(e.key.toLowerCase())) {
+    // Find if any modifier matches the key pressed
+    const isMatch = modifiers.some((m) => {
+      const expected = keyMap[m]?.toLowerCase() || m.toLowerCase();
+
+      if (pressedKey === expected) return true;
+
+      // Fallback to fix macOS 'alt' dead key
+      if (expected.length === 1) {
+        if (expected === ' ' && pressedCode === 'space') return true;
+
+        return pressedCode === `key${expected}` || pressedCode === `digit${expected}`;
+      }
+
+      return false;
+    });
+
+    const hasKeyModifier = modifiers.some((m) => keyMap[m] || m.length === 1);
+    if (hasKeyModifier && !isMatch) {
       return false;
     }
   }
