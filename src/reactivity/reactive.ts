@@ -3,8 +3,9 @@ import { handlers } from './handlers';
 const proxyCache = new WeakMap();
 const rawCache = new WeakMap();
 
-export const RAW = Symbol('rz_raw');
+export const RAW: unique symbol = Symbol('rz_raw');
 
+export type RawObject<T> = T & { readonly [RAW]: true };
 export type ReactiveProxy<T> = T;
 
 /**
@@ -43,7 +44,7 @@ export function reactive<T extends object>(target: T): ReactiveProxy<T> {
 export function proxiable(value: unknown): value is object {
   if (value === null || typeof value !== 'object') return false;
   if (Array.isArray(value)) return true;
-  // Make sure it's a plain object
+
   return Object.prototype.toString.call(value) === '[object Object]';
 }
 
@@ -66,4 +67,21 @@ export function getProxy<T>(object: T): T {
 export function getRaw<T>(proxy: T): T {
   const raw = rawCache.get(proxy as object);
   return raw ? (getRaw(raw) as T) : proxy;
+}
+
+/** Flags value with `RAW` to prevent it from becoming reactive */
+export function nonReactive<T extends object>(value: T): RawObject<T> {
+  if (Object.hasOwn(value, RAW)) {
+    return value as RawObject<T>;
+  }
+
+  if (Object.isExtensible(value)) {
+    Object.defineProperty(value, RAW, {
+      value: true,
+      enumerable: false,
+      configurable: true,
+    });
+  }
+
+  return value as RawObject<T>;
 }
