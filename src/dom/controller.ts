@@ -12,6 +12,20 @@ import { dispatch, insert, on } from './utils';
 
 const instanceMap = new WeakMap<HTMLElement, any>();
 
+export function scanScopeNode(el: HTMLElement, newNode: Element) {
+  const inst = instanceMap.get(el);
+  if (inst?._scan) {
+    inst._scan(newNode);
+  }
+}
+
+export function teardownScopeNode(el: HTMLElement, removedNode: Element) {
+  const inst = instanceMap.get(el);
+  if (inst?._teardown) {
+    inst._teardown(removedNode);
+  }
+}
+
 // Initializes a controller instance on a specific element
 export function initInstance(
   el: HTMLElement,
@@ -57,12 +71,12 @@ export function createController(
 
   const handle = {
     instance: null as any,
+    _scan: null as ((el: Element) => void) | null,
+    _teardown: null as ((el: Element) => void) | null,
     _destroy: () => {
       if (isDestroyed) return;
       isDestroyed = true;
-
       abortCtrl.abort();
-
       // Teardown child effects (DOM) before parent state
       cleanups.reverse().forEach((fn) => {
         fn();
@@ -78,30 +92,11 @@ export function createController(
 
   // Context object passed into the controller setup function
   const context: SetupContext = {
-    el,
+    scope: el,
     root: app.root,
     props,
     stores: app.stores,
     abortSignal: abortCtrl.signal,
-    insert,
-
-    // Bound wrapper for auto-cleanup
-    on: <D = any>(
-      target: EventTarget,
-      name: string,
-      callback: (ev: CustomEvent<D>) => void,
-      modifiers: string[] = [],
-      customSignal?: AbortSignal,
-    ) => {
-      // Combine controller lifecycle with optional custom signal
-      const activeSignal = customSignal
-        ? AbortSignal.any([abortCtrl.signal, customSignal])
-        : abortCtrl.signal;
-
-      return on(target, name, callback, modifiers, activeSignal);
-    },
-
-    // Bound wrapper for API symmetry
     dispatch: <T extends string, D = any>(
       target: EventTarget,
       name: T | LifecycleEvent,
@@ -110,7 +105,18 @@ export function createController(
     ) => {
       return dispatch(target, name, detail, options);
     },
-
+    on: <D = any>(
+      target: EventTarget,
+      name: string,
+      callback: (ev: CustomEvent<D>) => void,
+      modifiers: string[] = [],
+      customSignal?: AbortSignal,
+    ) => {
+      const activeSignal = customSignal
+        ? AbortSignal.any([abortCtrl.signal, customSignal]) // Optional custom signal
+        : abortCtrl.signal;
+      return on(target, name, callback, modifiers, activeSignal);
+    },
     // Inject abort signal to avoid background request if controller is destroyed
     // User can override by adding `signal: undefined` option
     // `keepalive: true` option allows a request to finish even if tab closes
@@ -123,6 +129,11 @@ export function createController(
       };
       return app.fetch(resource, finalOptions);
     },
+    insert,
+    // Allows for triggering a scan from inside the controller
+    scan: (newNode: Element) => {
+      if (handle._scan) handle._scan(newNode);
+    }
   };
 
   // Setup effect scope
@@ -155,10 +166,12 @@ export function createController(
   // Captures effects created by bindings (text, atts, etc.) so the UI auto updates
   if (instance !== undefined) {
     const stopBindingScope = effectScope(() => {
-      const unbindDom = attachController(el, instance);
-      if (unbindDom) {
-        cleanups.push(unbindDom);
-      }
+      const { unbindDom, scan, teardown } = attachController(el, instance);
+
+      handle._scan = scan;
+      handle._teardown = teardown;
+
+      cleanups.push(unbindDom);
     });
     cleanups.push(stopBindingScope);
   }

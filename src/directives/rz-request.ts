@@ -18,7 +18,7 @@ const BOOLEAN_KEYS = new Set(['keepalive']);
  * Rouse-specific network configuration (timeout, retries, abortKey).
  */
 export function getRequestConfig(
-  el: HTMLElement,
+  el: Element,
   app?: RouseApp,
 ): Partial<RouseRequest> {
   const rawValue = getDirectiveValue(el, 'request');

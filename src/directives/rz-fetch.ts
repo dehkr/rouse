@@ -18,7 +18,7 @@ type FetchValue = { url?: string; method?: string };
  * - `rz-fetch="PUT"`
  * - `rz-fetch="/api/users"`
  */
-export function getFetchDirective(el: HTMLElement): FetchValue {
+export function getFetchDirective(el: Element): FetchValue {
   const fetchRaw = getDirectiveValue(el, 'fetch');
   const result: FetchValue = {};
 

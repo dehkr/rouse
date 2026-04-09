@@ -17,12 +17,12 @@ type TriggerMapEntry = {
   triggers: TriggerDef[];
 }
 
-const triggerCache = new WeakMap<HTMLElement, TriggerMapEntry>();
+const triggerCache = new WeakMap<Element, TriggerMapEntry>();
 
 /**
  * Parses the DOM event triggers and their pacing modifiers for rz-fetch.
  */
-export function getFetchTriggers(el: HTMLElement): TriggerDef[] {
+export function getFetchTriggers(el: Element): TriggerDef[] {
   const rawValue = getDirectiveValue(el, 'trigger') || '';
 
   const cached = triggerCache.get(el);

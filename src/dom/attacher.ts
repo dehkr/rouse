@@ -2,11 +2,11 @@ import { parseDirectiveValue } from '../core/parser';
 import { directiveSelector, err, getDirectiveValue, hasDirective } from '../core/shared';
 import { rzBind, rzHtml, rzModel, rzOn, rzText } from '../directives';
 import type { CleanupFunction, RouseController } from '../types';
-import { dispatch, isElement } from './utils';
+import { dispatch } from './utils';
 
 /**
  * Binds the controller instance to the DOM.
- * Handles initial bindings and observes nodes within its scope.
+ * Returns internal lifecycle methods so the app can delegate DOM mutations.
  */
 export function attachController(root: HTMLElement, instance: RouseController) {
   const elementCleanups = new Map<HTMLElement, (() => void)[]>();
@@ -71,13 +71,16 @@ export function attachController(root: HTMLElement, instance: RouseController) {
     }
   }
 
-  function scan(startEl: HTMLElement) {
+  /**
+   * Scans a newly inserted node for directives
+   */
+  function scan(startEl: Element) {
     const owner = startEl.closest(directiveSelector('scope'));
     if (!owner || owner !== root) return;
 
     const walker = document.createTreeWalker(startEl, NodeFilter.SHOW_ELEMENT, {
       acceptNode(node) {
-        const el = node as HTMLElement;
+        const el = node as Element;
         // Skip subtrees of nested controllers
         if (el !== root && hasDirective(el, 'scope')) {
           return NodeFilter.FILTER_REJECT;
@@ -91,7 +94,7 @@ export function attachController(root: HTMLElement, instance: RouseController) {
 
     // Check startEl manually
     if (startEl.matches(directivesSelector)) {
-      attachDirectives(startEl);
+      attachDirectives(startEl as HTMLElement);
     }
 
     // Apply accepted nodes
@@ -100,7 +103,7 @@ export function attachController(root: HTMLElement, instance: RouseController) {
     }
   }
 
-  function teardown(removedEl: HTMLElement) {
+  function teardown(removedEl: Element) {
     for (const boundEl of [...elementCleanups.keys()]) {
       if (removedEl === boundEl || removedEl.contains(boundEl)) {
         runCleanup(boundEl);
@@ -111,23 +114,6 @@ export function attachController(root: HTMLElement, instance: RouseController) {
   // Initial scan
   scan(root);
 
-  const observer = new MutationObserver((mutations) => {
-    for (const m of mutations) {
-      for (const node of m.addedNodes) {
-        if (isElement(node)) {
-          scan(node);
-        }
-      }
-      for (const node of m.removedNodes) {
-        if (isElement(node)) {
-          teardown(node);
-        }
-      }
-    }
-  });
-
-  observer.observe(root, { childList: true, subtree: true });
-
   // Call lifecycle `connect` method if defined in controller
   if (typeof instance.connect === 'function') {
     instance.connect();
@@ -136,18 +122,16 @@ export function attachController(root: HTMLElement, instance: RouseController) {
   // The DOM is bound and the controller is fully active
   dispatch(root, 'rz:controller:connect', { instance });
 
-  // Return global disconnect function
-  return () => {
-    observer.disconnect();
-    // Cleanup all tracked elements of this instance
+  // Disconnects the entire controller
+  function unbindDom() {
     for (const el of [...elementCleanups.keys()]) {
       runCleanup(el);
     }
-    // If controller defined a disconnect function, run it
     if (typeof instance.disconnect === 'function') {
       instance.disconnect();
     }
-
     dispatch(root, 'rz:controller:disconnect', { instance });
-  };
+  }
+
+  return { unbindDom, scan, teardown };
 }

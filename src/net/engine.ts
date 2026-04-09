@@ -7,13 +7,13 @@ import { request } from './request';
 import { fallbackResponse } from './response';
 
 type RequestState = { abortKey?: string; destroyed?: boolean };
-const activeRequests = new WeakMap<HTMLElement, RequestState>();
+const activeRequests = new WeakMap<Element, RequestState>();
 
 /**
  * Handles the preparation, pacing, and execution of a network request.
  */
 export async function handleFetch(
-  el: HTMLElement,
+  el: Element,
   programmaticOpts: RouseRequest = {},
 ): Promise<RouseResponse> {
   let state = activeRequests.get(el);
@@ -46,7 +46,7 @@ export async function handleFetch(
  * @param el - The DOM element triggering the network request.
  * @param options - The sanitized request config passed to the network orchestrator.
  */
-async function executeFetch(el: HTMLElement, options: RouseRequest) {
+async function executeFetch(el: Element, options: RouseRequest) {
   const app = getApp(el);
   const appConfig = app?.config || defaultConfig;
   const loadingClass = appConfig.ui.loadingClass;
@@ -281,7 +281,7 @@ async function executeFetch(el: HTMLElement, options: RouseRequest) {
 /**
  * Explicit cleanup for active requests
  */
-export function cleanupFetch(el: HTMLElement) {
+export function cleanupFetch(el: Element) {
   const state = activeRequests.get(el);
   if (state) {
     activeRequests.set(el, { ...state, destroyed: true });
@@ -292,7 +292,7 @@ export function cleanupFetch(el: HTMLElement) {
  * Resolves the final network configuration by merging global and local config.
  */
 function resolveRequestConfig(
-  el: HTMLElement,
+  el: Element,
   app: RouseApp | undefined,
 ): Partial<RouseRequest> {
   const globalConfig = app?.config.network.fetch || {};

@@ -6,8 +6,13 @@ import {
 } from '../core/app';
 import { directiveSelector, getDirectiveValue, hasDirective, warn } from '../core/shared';
 import { rzAutosave, rzRefresh, rzWake } from '../directives';
-import { destroyInstance, initInstance } from '../dom/controller';
-import { isElement, resolvePayload, splitInjection } from './utils';
+import {
+  destroyInstance,
+  initInstance,
+  scanScopeNode,
+  teardownScopeNode,
+} from '../dom/controller';
+import { resolvePayload, splitInjection } from './utils';
 
 const storeCleanups = new WeakMap<HTMLScriptElement, Array<() => void>>();
 
@@ -110,43 +115,51 @@ export function initObserver(app: RouseApp) {
   const fetchSel = directiveSelector('fetch');
   const wake = app.config.ui.wakeStrategy;
 
-  const qsa = <T extends Element>(el: Element, s: string): NodeListOf<T> =>
-    el.querySelectorAll(s) as NodeListOf<T>;
+  const qsa = <T extends Element = Element>(el: Element, s: string): T[] =>
+    Array.from(el.querySelectorAll<T>(s));
 
   return new MutationObserver((mutations) => {
     mutations.forEach((m) => {
       // Added
       m.addedNodes.forEach((node) => {
-        if (isElement(node)) {
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          const el = node as Element;
           // Check for stores
           if (
-            node.tagName === 'SCRIPT' &&
-            hasDirective(node, 'store') &&
-            getApp(node) === app
+            el.tagName === 'SCRIPT' &&
+            hasDirective(el, 'store') &&
+            getApp(el) === app
           ) {
-            initStoreElement(node as HTMLScriptElement);
+            initStoreElement(el as HTMLScriptElement);
           }
-          qsa<HTMLScriptElement>(node, storeSel).forEach((script) => {
+          qsa<HTMLScriptElement>(el, storeSel).forEach((script) => {
             if (getApp(script) === app) {
               initStoreElement(script);
             }
           });
 
           // Check for controllers
-          if (hasDirective(node, 'scope') && getApp(node) === app) {
-            initControllerElement(node, wake);
+          if (hasDirective(el, 'scope') && getApp(el) === app) {
+            initControllerElement(el as HTMLElement, wake);
           }
-          qsa<HTMLElement>(node, sel).forEach((child) => {
+          qsa<HTMLElement>(el, sel).forEach((child) => {
             if (getApp(child) === app) {
               initControllerElement(child, wake);
             }
           });
 
-          // Check for new fetch elements to bind polling/custom triggers
-          if (hasDirective(node, 'fetch') && getApp(node) === app) {
-            initFetchElement(node as HTMLElement);
+          const ownerScope = el.closest<HTMLElement>(sel);
+
+          // Only scan if it belongs to a scope and isn't a new scope itself
+          if (ownerScope && !hasDirective(el, 'scope') && getApp(ownerScope) === app) {
+            scanScopeNode(ownerScope, el);
           }
-          qsa<HTMLElement>(node, fetchSel).forEach((child) => {
+
+          // Check for new fetch elements to bind polling/custom triggers
+          if (hasDirective(el, 'fetch') && getApp(el) === app) {
+            initFetchElement(el);
+          }
+          qsa<HTMLElement>(el, fetchSel).forEach((child) => {
             if (getApp(child) === app) {
               initFetchElement(child);
             }
@@ -156,24 +169,32 @@ export function initObserver(app: RouseApp) {
 
       // Removed
       m.removedNodes.forEach((node) => {
-        if (isElement(node)) {
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          const el = node as Element;
+
           // Cleanup stores
-          if (node.tagName === 'SCRIPT' && hasDirective(node, 'store')) {
-            cleanupStoreElement(node as HTMLScriptElement);
+          if (el.tagName === 'SCRIPT' && hasDirective(el, 'store')) {
+            cleanupStoreElement(el as HTMLScriptElement);
           }
-          qsa<HTMLScriptElement>(node, storeSel).forEach(cleanupStoreElement);
+          qsa<HTMLScriptElement>(el, storeSel).forEach(cleanupStoreElement);
 
           // Cleanup controllers
-          if (hasDirective(node, 'scope')) {
-            destroyInstance(node);
+          if (hasDirective(el, 'scope')) {
+            destroyInstance(el as HTMLElement);
           }
-          qsa<HTMLElement>(node, sel).forEach(destroyInstance);
+          qsa<HTMLElement>(el, sel).forEach(destroyInstance);
+
+          // Delegate removed standard elements to their owning controller's teardown
+          const ownerScope = el.closest<HTMLElement>(sel);
+          if (ownerScope && !hasDirective(el, 'scope')) {
+            teardownScopeNode(ownerScope, el);
+          }
 
           // Cleanup fetch elements (pacing engines and polling intervals)
-          if (hasDirective(node, 'fetch')) {
-            teardownFetchElement(node as HTMLElement);
+          if (hasDirective(el, 'fetch')) {
+            teardownFetchElement(el);
           }
-          qsa<HTMLElement>(node, fetchSel).forEach(teardownFetchElement);
+          qsa<HTMLElement>(el, fetchSel).forEach(teardownFetchElement);
         }
       });
     });

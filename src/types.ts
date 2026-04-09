@@ -42,7 +42,7 @@ export type DirectiveSlug =
   | 'trigger'
   | 'wake';
 
-export type DirectiveSchema<T = HTMLElement> = {
+export type DirectiveSchema<T extends Element = HTMLElement> = {
   slug: DirectiveSlug;
   handler: (el: T, ...args: any[]) => unknown;
 };
@@ -75,8 +75,8 @@ export interface GlobalFetchConfig {
 /** Framework-specific execution and UI options */
 export interface FetchConfig {
   url?: string;
-  target?: HTMLElement | string;
-  triggerEl?: HTMLElement;
+  target?: Element | string;
+  triggerEl?: Element;
   body?: BodyInit | Record<string, any> | any[] | null | undefined;
   form?: HTMLFormElement;
   params?: Record<string, string | number | boolean | null | undefined>;
@@ -120,7 +120,7 @@ export type SetupContext<
   P extends Record<string, any> = Record<string, any>,
   T extends Element = HTMLElement,
 > = {
-  el: T;
+  scope: T;
   root: HTMLElement;
   props: P;
   stores: StoreManager;
@@ -139,8 +139,8 @@ export type SetupContext<
     customSignal?: AbortSignal,
   ) => () => void;
   fetch: (resource: string, options?: RouseRequest) => Promise<RouseResponse>;
-  insert: (content: string, target: HTMLElement, method: InsertMethod) => void;
-  scan: (newNode: HTMLElement) => void;
+  insert: (content: string, target: Element, method: InsertMethod) => void;
+  scan: (newNode: Element) => void;
 };
 
 /** The definition of a setup function. */

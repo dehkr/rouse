@@ -48,7 +48,7 @@ export type RouseConfig = {
 };
 
 const appInstances = new WeakMap<HTMLElement, RouseApp>();
-const fetchCleanups = new WeakMap<HTMLElement, Array<() => void>>();
+const fetchCleanups = new WeakMap<Element, Array<() => void>>();
 
 const fail = (reason: string): never => {
   throw new Error(`[Rouse] Registration failed: ${reason}`);
@@ -309,7 +309,7 @@ export class RouseApp {
  * Attaches synthetic events (like polling) and custom non-standard events
  * to an element and stores their cleanup functions.
  */
-export function initFetchElement(el: HTMLElement) {
+export function initFetchElement(el: Element) {
   if (fetchCleanups.has(el)) return;
 
   const isFormEl = isForm(el);
@@ -372,7 +372,7 @@ export function initFetchElement(el: HTMLElement) {
 /**
  * Tears down pacing engines and synthetic polling intervals.
  */
-export function teardownFetchElement(el: HTMLElement) {
+export function teardownFetchElement(el: Element) {
   cleanupFetch(el);
 
   const cleanups = fetchCleanups.get(el);
