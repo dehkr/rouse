@@ -55,7 +55,7 @@ export function createProxy<T>(value: T): T {
 
 /** Check if a value is a proxy. */
 export function isProxy(value: unknown): value is ReactiveProxy<typeof value> {
-  return !!(proxiable(value) && rawCache.has(value));
+  return Boolean(proxiable(value) && rawCache.has(value));
 }
 
 /** Returns the proxy of an object if found, else original. */
@@ -70,7 +70,7 @@ export function getRaw<T>(proxy: T): T {
 }
 
 /** Flags value with `RAW` to prevent it from becoming reactive */
-export function nonReactive<T extends object>(value: T): RawObject<T> {
+export function skipReactivity<T extends object>(value: T): RawObject<T> {
   if (Object.hasOwn(value, RAW)) {
     return value as RawObject<T>;
   }
