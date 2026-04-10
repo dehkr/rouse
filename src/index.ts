@@ -1,4 +1,4 @@
-export { rouse } from './core/app';
+export { rouse, type RouseConfig } from './core/app';
 export { debounce, throttle } from './core/timing';
 export { controller } from './dom/controller';
 export { dispatch, insert, on } from './dom/utils';

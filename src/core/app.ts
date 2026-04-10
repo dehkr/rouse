@@ -8,7 +8,15 @@ import {
   initStoreElement,
 } from '../dom/initializer';
 import { initDomMutator } from '../dom/mutator';
-import { isAnchor, isForm, isInput, isSelect, isTextArea, on } from '../dom/utils';
+import {
+  deepFreeze,
+  isAnchor,
+  isForm,
+  isInput,
+  isSelect,
+  isTextArea,
+  on,
+} from '../dom/utils';
 import { cleanupFetch, handleFetch } from '../net/engine';
 import { fallbackResponse } from '../net/response';
 import type {
@@ -22,6 +30,7 @@ import { StoreManager } from './store';
 import { DEFAULT_TIMING, parseTime } from './timing';
 
 export const defaultConfig = {
+  root: document.body,
   timing: {
     debounceWait: DEFAULT_TIMING.DEBOUNCE,
     throttleWait: DEFAULT_TIMING.THROTTLE,
@@ -68,7 +77,7 @@ export class RouseApp {
     const rootEl =
       typeof config.root === 'string'
         ? (document.querySelector(config.root) as HTMLElement)
-        : config.root || document.body;
+        : (config.root ?? defaultConfig.root);
 
     if (!rootEl) {
       throw new Error('[Rouse] Root element not found.');
@@ -81,9 +90,27 @@ export class RouseApp {
 
     // Merge defaults with user-provided config
     this.config = {
-      timing: { ...defaultConfig.timing, ...config.timing },
-      network: { ...defaultConfig.network, ...config.network },
-      ui: { ...defaultConfig.ui, ...config.ui },
+      root: rootEl,
+      timing: {
+        ...defaultConfig.timing,
+        ...config.timing,
+      },
+      ui: {
+        ...defaultConfig.ui,
+        ...config.ui,
+      },
+      network: {
+        ...defaultConfig.network,
+        ...config.network,
+        fetch: {
+          ...defaultConfig.network.fetch,
+          ...config.network?.fetch,
+        },
+        interceptors: {
+          ...defaultConfig.network.interceptors,
+          ...config.network?.interceptors,
+        },
+      },
     };
 
     this.root = rootEl;
@@ -191,6 +218,9 @@ export class RouseApp {
       warn(`'start()' called multiple times. Ignoring.`);
       return;
     }
+
+    // Lock the configuration for this app instance
+    deepFreeze(this.config);
 
     this._hasStarted = true;
     this._abortController = new AbortController();

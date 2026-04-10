@@ -233,3 +233,38 @@ export function resolvePayload(
 export function cleanup(fn: () => void): CleanupFunction {
   return fn as CleanupFunction;
 }
+
+/**
+ * Recursively freezes an object to prevent any further mutations.
+ * Optimized for configuration (plain objects and arrays).
+ */
+export function deepFreeze<T extends object>(obj: T, seen = new WeakSet()): Readonly<T> {
+  if (obj === null || typeof obj !== 'object' || Object.isFrozen(obj)) {
+    return obj as Readonly<T>;
+  }
+
+  if (Object.isFrozen(obj) || seen.has(obj)) {
+    return obj as Readonly<T>;
+  }
+  seen.add(obj);
+
+  if (Array.isArray(obj)) {
+    for (let i = 0; i < obj.length; i++) {
+      const value = obj[i];
+      if (value && typeof value === 'object') {
+        deepFreeze(value, seen);
+      }
+    }
+  } else {
+    const keys = Object.keys(obj);
+    for (let i = 0; i < keys.length; i++) {
+      const key = keys[i] as keyof typeof obj;
+      const value = obj[key];
+      if (value && typeof value === 'object') {
+        deepFreeze(value, seen);
+      }
+    }
+  }
+
+  return Object.freeze(obj);
+}
