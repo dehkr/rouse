@@ -1,8 +1,9 @@
 import { rzStore } from '../directives';
 import { isPlainObject } from '../dom/utils';
 import { request } from '../net/request';
-import { reactive } from '../reactivity';
+import { reactive, skipReactivity } from '../reactivity';
 import type { RouseConfig } from './app';
+import { getNestedVal } from './path';
 import { err, warn } from './shared';
 
 export interface StoreStatus {
@@ -73,8 +74,10 @@ function clone<T>(obj: T, seen = new WeakMap(), path = 'root'): T {
 
   // Catch complex objects before network sync
   if (!isPlainObject(obj)) {
-    warn(`Non-serializable data found in store at '${path}'. Complex objects (Maps, Classes, etc.) cannot be synced or rolled back safely.`);
-    return {} as T; 
+    warn(
+      `Non-serializable data found in store at '${path}'. Complex objects (Maps, Classes, etc.) cannot be synced or rolled back safely.`,
+    );
+    return {} as T;
   }
 
   // Objects
@@ -340,9 +343,32 @@ export class StoreManager {
     }
   }
 
+  /**
+   * Intercepts the raw payload to apply framework instructions (like skipReactivity)
+   * before the data is wrapped in proxies or merged into state.
+   */
+  private _processMeta(payload: any) {
+    if (!isPlainObject(payload) || !payload.__meta) return;
+
+    const meta = payload.__meta;
+
+    if (Array.isArray(meta.skipReactivity)) {
+      meta.skipReactivity.forEach((path: string) => {
+        const target = getNestedVal(payload, path);
+        if (target !== undefined && typeof target === 'object' && target !== null) {
+          skipReactivity(target);
+        }
+      });
+    }
+
+    delete payload.__meta;
+  }
+
   // PUBLIC API
 
   define(name: string, state: object, config?: Partial<SyncConfig>) {
+    this._processMeta(state);
+
     if (this._data.has(name)) {
       const action = config?.action || this._configs.get(name)?.action || 'replace';
       patchState(this._data.get(name), state, action);
@@ -367,6 +393,7 @@ export class StoreManager {
     let newJson: any;
     try {
       newJson = JSON.parse(el.textContent || '{}');
+      this._processMeta(newJson);
     } catch (_e: any) {
       err(`Invalid JSON in '${name}'. Store not initialized.`);
       return;
