@@ -1,4 +1,5 @@
 import { rzStore } from '../directives';
+import { isPlainObject } from '../dom/utils';
 import { request } from '../net/request';
 import { reactive } from '../reactivity';
 import type { RouseConfig } from './app';
@@ -14,6 +15,7 @@ export interface SyncConfig {
   url: string;
   saveMethod?: string;
   refreshMethod?: string;
+  action?: 'replace' | 'merge';
 }
 
 export const STORE_PREFIX = '@';
@@ -42,7 +44,7 @@ export function parseStoreLocator(value: string): {
  * Deep oject cloner that enforces serializable state and
  * protects against circular references.
  */
-function clone<T>(obj: T, seen = new WeakMap()): T {
+function clone<T>(obj: T, seen = new WeakMap(), path = 'root'): T {
   if (obj === null || typeof obj !== 'object') {
     return obj;
   }
@@ -60,9 +62,19 @@ function clone<T>(obj: T, seen = new WeakMap()): T {
     seen.set(obj as any, arr);
     for (let i = 0; i < obj.length; i++) {
       const val = obj[i];
-      arr[i] = typeof val === 'function' || val === undefined ? null : clone(val, seen);
+      // Pass path + index for array debugging
+      arr[i] =
+        typeof val === 'function' || val === undefined
+          ? null
+          : clone(val, seen, `${path}[${i}]`);
     }
     return arr as unknown as T;
+  }
+
+  // Catch complex objects before network sync
+  if (!isPlainObject(obj)) {
+    warn(`Non-serializable data found in store at '${path}'. Complex objects (Maps, Classes, etc.) cannot be synced or rolled back safely.`);
+    return {} as T; 
   }
 
   // Objects
@@ -74,7 +86,7 @@ function clone<T>(obj: T, seen = new WeakMap()): T {
     if (Object.hasOwn(obj, key)) {
       const val = (obj as Record<string, any>)[key];
       if (typeof val !== 'function' && val !== undefined) {
-        result[key] = clone(val, seen);
+        result[key] = clone(val, seen, `${path}.${key}`);
       }
     }
   }
@@ -167,16 +179,40 @@ function deepEqual(a: any, b: any, seen = new WeakMap<object, any>()): boolean {
 }
 
 /**
- * Replaces the state of a reactive target to exactly match the source.
- * This ensures properties deleted by the server are removed from the UI.
+ * Replaces or merges the state of a reactive target with the source payload.
+ * - 'replace': Strict overwrite. Deletes missing keys.
+ * - 'merge': Deep merges plain objects. Strictly overwrites arrays and primitives.
  */
-function replaceState(target: Record<string, any>, source: Record<string, any>) {
-  for (const key in target) {
-    if (!Object.hasOwn(source, key)) {
-      delete target[key];
+function patchState(
+  target: Record<string, any>,
+  source: Record<string, any>,
+  strategy: 'replace' | 'merge' = 'replace',
+) {
+  if (strategy === 'replace') {
+    for (const key in target) {
+      if (!Object.hasOwn(source, key)) {
+        delete target[key];
+      }
+    }
+    Object.assign(target, source);
+    return;
+  }
+
+  // Merge strategy
+  for (const key in source) {
+    if (!Object.hasOwn(source, key)) continue;
+
+    const sourceVal = source[key];
+    const targetVal = target[key];
+
+    // If both source and target are plain objects, deep merge recursively
+    if (isPlainObject(sourceVal) && isPlainObject(targetVal)) {
+      patchState(targetVal, sourceVal, 'merge');
+    } else {
+      // Strictly replace arrays, primitives, or mismatched types
+      target[key] = sourceVal;
     }
   }
-  Object.assign(target, source);
 }
 
 /**
@@ -280,7 +316,9 @@ export class StoreManager {
 
         if (!isMutating) {
           // Safe to apply server update
-          replaceState(data, result.data);
+          const action = config?.action || 'replace';
+          patchState(data, result.data, action);
+
           if (operation === 'refresh') {
             this._initial.set(id, clone(result.data));
           }
@@ -290,7 +328,7 @@ export class StoreManager {
     } catch (e: any) {
       // If a save fails, roll back to the snapshot (unless mutated)
       if (operation === 'save' && deepEqual(data, snapshot)) {
-        replaceState(data, snapshot);
+        patchState(data, snapshot);
       }
       status.error = e;
     } finally {
@@ -306,7 +344,9 @@ export class StoreManager {
 
   define(name: string, state: object, config?: Partial<SyncConfig>) {
     if (this._data.has(name)) {
-      replaceState(this._data.get(name), state);
+      const action = config?.action || this._configs.get(name)?.action || 'replace';
+      patchState(this._data.get(name), state, action);
+
       this._initial.set(name, clone(state));
       if (config) {
         this._setConfig(name, config);
@@ -333,7 +373,9 @@ export class StoreManager {
     }
 
     if (this._data.has(name)) {
-      replaceState(this._data.get(name), newJson);
+      const action = this._configs.get(name)?.action || 'replace';
+      patchState(this._data.get(name), newJson, action);
+
       this._initial.set(name, clone(newJson));
     } else {
       this._register(name, newJson);
@@ -384,7 +426,7 @@ export class StoreManager {
         `[Rouse] Cannot reset store "${name}": No initial state cached.`,
       );
     }
-    replaceState(data, clone(initial));
+    patchState(data, clone(initial), 'replace');
   }
 
   remove(name: string) {
