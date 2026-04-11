@@ -14,6 +14,21 @@ export const isInput = (el: unknown) => el instanceof HTMLInputElement;
 export const isSelect = (el: unknown) => el instanceof HTMLSelectElement;
 export const isTextArea = (el: unknown) => el instanceof HTMLTextAreaElement;
 
+
+/**
+ * Checks that a value is a plain JavaScript opbject (POJO).
+ * Excludes Arrays, Dates, Maps, and custom class instances.
+ */
+export function isPlainObject(val: unknown): val is Record<string, any> {
+  if (typeof val !== 'object' || val === null || Array.isArray(val)) {
+    return false;
+  }
+  
+  const proto = Object.getPrototypeOf(val);
+  // Matches {} (Object.prototype) and Object.create(null)
+  return proto === null || proto === Object.prototype;
+}
+
 /**
  * Dispatches a custom event from an element.
  *
@@ -139,13 +154,6 @@ export function splitInjection(raw: string): {
 }
 
 /**
- * Checks that a value is an object.
- */
-function isObject(val: unknown): val is Record<string, any> {
-  return typeof val === 'object' && val !== null && !Array.isArray(val);
-}
-
-/**
  * Resolves a payload string into a JavaScript value. Uses heuristics to determine
  * if the payload is inline JSON, a DOM ID, a global store, or URL params.
  *
@@ -216,7 +224,7 @@ export function resolvePayload(
 
   // Final check
   if (resolvedValue !== undefined) {
-    if (!requireObject || isObject(resolvedValue)) {
+    if (!requireObject || isPlainObject(resolvedValue)) {
       return resolvedValue;
     }
     console.warn(
