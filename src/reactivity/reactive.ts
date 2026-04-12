@@ -85,3 +85,14 @@ export function skipReactivity<T extends object>(value: T): RawObject<T> {
 
   return value as RawObject<T>;
 }
+
+export const dirtyTrackers = new WeakMap<object, (rootKey: string) => void>();
+export const objectRootKeys = new WeakMap<object, string>();
+
+/** Registers a callback to track mutations back to their root property. */
+export function trackDirty(proxy: any, callback: (rootKey: string) => void) {
+  const raw = getRaw(proxy);
+  if (raw) {
+    dirtyTrackers.set(raw as object, callback);
+  }
+}

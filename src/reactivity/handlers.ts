@@ -1,6 +1,13 @@
 import { signal, trigger } from '.';
 import { methodIntercepts } from './arrays';
-import { getRaw, proxiable, RAW, reactive } from './reactive';
+import {
+  dirtyTrackers,
+  getRaw,
+  objectRootKeys,
+  proxiable,
+  RAW,
+  reactive,
+} from './reactive';
 
 export const ITERATION_KEY = Symbol('rz_iteration');
 const signalCache = new WeakMap<object, Map<string | symbol, any>>();
@@ -38,7 +45,17 @@ export const handlers: ProxyHandler<object> = {
     const value = getSignal(target, key)();
 
     // Lazy deep reactivity
-    if (proxiable(value)) return reactive(value);
+    if (proxiable(value)) {
+      const rawChild = getRaw(value);
+      const parentTracker = dirtyTrackers.get(target);
+
+      if (parentTracker && !dirtyTrackers.has(rawChild)) {
+        dirtyTrackers.set(rawChild, parentTracker);
+        objectRootKeys.set(rawChild, getRootKey(target, key));
+      }
+
+      return reactive(value);
+    }
 
     return value;
   },
@@ -56,10 +73,15 @@ export const handlers: ProxyHandler<object> = {
 
     if (value !== oldValue) {
       const sig = getSignal(target, key);
-      
+
       // If the value actually changed (reference change), set it
       // If it's the same object (mutation), use trigger
       value !== sig() ? sig(value) : trigger(sig);
+
+      const tracker = dirtyTrackers.get(target);
+      if (tracker) {
+        tracker(getRootKey(target, key));
+      }
 
       // Trigger the iteration key
       if (Array.isArray(target)) {
@@ -83,6 +105,11 @@ export const handlers: ProxyHandler<object> = {
     if (result && hadKey) {
       getSignal(target, key)(undefined);
       trigger(getSignal(target, ITERATION_KEY));
+
+      const tracker = dirtyTrackers.get(target);
+      if (tracker) {
+        tracker(getRootKey(target, key));
+      }
     }
     return result;
   },
@@ -94,3 +121,7 @@ export const handlers: ProxyHandler<object> = {
     return Reflect.has(target, key);
   },
 };
+
+function getRootKey(target: object, key: string | symbol) {
+  return objectRootKeys.get(target) ?? (typeof key === 'string' ? key : String(key));
+}

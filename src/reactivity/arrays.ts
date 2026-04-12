@@ -1,6 +1,6 @@
 import { endBatch, startBatch, trigger } from '.';
 import { getSignal, ITERATION_KEY } from './handlers';
-import { createProxy, getRaw } from './reactive';
+import { createProxy, dirtyTrackers, getRaw, objectRootKeys } from './reactive';
 
 export const methodIntercepts: Record<string | symbol, Function> = {};
 
@@ -38,8 +38,17 @@ function runOnRaw(proxy: any[], method: string, args: any[], wrapResult = false)
   return res;
 }
 
-// prettier-ignore
-const MUTATORS = ['copyWithin', 'fill', 'pop', 'push', 'reverse', 'shift', 'sort', 'splice', 'unshift'] as const;
+const MUTATORS = [
+  'copyWithin',
+  'fill',
+  'pop',
+  'push',
+  'reverse',
+  'shift',
+  'sort',
+  'splice',
+  'unshift',
+] as const;
 
 // Batch updates, run on raw, and manually trigger 'length' and iteration signals
 MUTATORS.forEach((key) => {
@@ -48,9 +57,17 @@ MUTATORS.forEach((key) => {
     try {
       const raw = getRaw(this);
       const res = raw[key].apply(raw, args);
+
       // Trigger the signals affected by mutation
       getSignal(raw, 'length')(raw.length);
       trigger(getSignal(raw, ITERATION_KEY));
+
+      const tracker = dirtyTrackers.get(raw);
+      if (tracker) {
+        const rootKey = objectRootKeys.get(raw) ?? 'root'; // Fallback for raw arrays
+        tracker(rootKey);
+      }
+
       return res;
     } finally {
       endBatch();
@@ -92,8 +109,17 @@ ITERATORS.forEach((key) => {
   };
 });
 
-// prettier-ignore
-const CONSUMERS = ['every', 'find', 'findIndex', 'findLast', 'findLastIndex', 'forEach', 'reduce', 'reduceRight', 'some'] as const;
+const CONSUMERS = [
+  'every',
+  'find',
+  'findIndex',
+  'findLast',
+  'findLastIndex',
+  'forEach',
+  'reduce',
+  'reduceRight',
+  'some',
+] as const;
 
 // Run on raw, proxy callback arguments, and wrap the return value if it's an object
 CONSUMERS.forEach((key) => {
@@ -104,8 +130,18 @@ CONSUMERS.forEach((key) => {
   };
 });
 
-// prettier-ignore
-const PRODUCERS = ['concat', 'filter', 'flat', 'flatMap', 'map', 'slice', 'toReversed', 'toSorted', 'toSpliced', 'with'] as const;
+const PRODUCERS = [
+  'concat',
+  'filter',
+  'flat',
+  'flatMap',
+  'map',
+  'slice',
+  'toReversed',
+  'toSorted',
+  'toSpliced',
+  'with',
+] as const;
 
 // Run on raw with proxied callback args, then wrap the resulting array items in proxies
 PRODUCERS.forEach((key) => {

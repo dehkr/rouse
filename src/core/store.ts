@@ -1,7 +1,7 @@
 import { rzStore } from '../directives';
 import { isPlainObject } from '../dom/utils';
 import { request } from '../net/request';
-import { reactive, skipReactivity } from '../reactivity';
+import { reactive, skipReactivity, trackDirty } from '../reactivity';
 import type { RouseConfig } from './app';
 import { getNestedVal } from './path';
 import { err, warn } from './shared';
@@ -10,6 +10,7 @@ export interface StoreStatus {
   loading: boolean;
   error: string | null;
   lastSync: number;
+  dirty: Record<string, boolean>;
 }
 
 export interface SyncConfig {
@@ -20,6 +21,8 @@ export interface SyncConfig {
 }
 
 export const STORE_PREFIX = '@';
+
+let _isPatching = false;
 
 /**
  * Extracts the store name and the nested path (if any)
@@ -218,6 +221,19 @@ function patchState(
   }
 }
 
+function runPatch(
+  target: Record<string, any>,
+  source: Record<string, any>,
+  strategy: 'replace' | 'merge' = 'replace',
+) {
+  _isPatching = true;
+  try {
+    patchState(target, source, strategy);
+  } finally {
+    _isPatching = false;
+  }
+}
+
 /**
  * The central manager for all reactive stores and their network logic.
  * Instantiated once per RouseApp to ensure isolation.
@@ -236,7 +252,12 @@ export class StoreManager {
   }
 
   private _createStatus(): StoreStatus {
-    return reactive({ loading: false, error: null, lastSync: 0 });
+    return reactive({
+      loading: false,
+      error: null,
+      lastSync: 0,
+      dirty: {},
+    });
   }
 
   _setConfig(id: string, partial?: Partial<SyncConfig>) {
@@ -245,9 +266,26 @@ export class StoreManager {
   }
 
   private _register(id: string, state: object, programmaticConfig?: Partial<SyncConfig>) {
-    this._data.set(id, reactive(state));
+    const status = this._createStatus();
+    this._status.set(id, status);
+
+    // expose __status invisibly
+    Object.defineProperty(state, '__status', {
+      value: status,
+      enumerable: false,
+      configurable: true,
+      writable: false,
+    });
+
+    const proxyState = reactive(state);
+    this._data.set(id, proxyState);
     this._initial.set(id, clone(state));
-    this._status.set(id, this._createStatus());
+
+    trackDirty(proxyState, (rootKey: string) => {
+      if (_isPatching) return;
+      status.dirty[rootKey] = true;
+    });
+
     if (programmaticConfig) {
       this._setConfig(id, programmaticConfig);
     }
@@ -313,6 +351,17 @@ export class StoreManager {
         throw result.error;
       }
 
+      // Successfully saved. Clear dirty flags.
+      // Ensure we only clear flags for properties that weren't mutated by
+      // the user while the request was in flight.
+      if (operation === 'save') {
+        for (const key in snapshot) {
+          if (Object.hasOwn(snapshot, key) && deepEqual(data[key], snapshot[key])) {
+            delete status.dirty[key];
+          }
+        }
+      }
+
       if (result.data && typeof result.data === 'object') {
         // Check if local state is being mutated while the network is busy
         const isMutating = !deepEqual(data, snapshot);
@@ -320,7 +369,7 @@ export class StoreManager {
         if (!isMutating) {
           // Safe to apply server update
           const action = config?.action || 'replace';
-          patchState(data, result.data, action);
+          runPatch(data, result.data, action);
 
           if (operation === 'refresh') {
             this._initial.set(id, clone(result.data));
@@ -331,7 +380,7 @@ export class StoreManager {
     } catch (e: any) {
       // If a save fails, roll back to the snapshot (unless mutated)
       if (operation === 'save' && deepEqual(data, snapshot)) {
-        patchState(data, snapshot);
+        runPatch(data, snapshot, 'replace');
       }
       status.error = e;
     } finally {
@@ -371,7 +420,7 @@ export class StoreManager {
 
     if (this._data.has(name)) {
       const action = config?.action || this._configs.get(name)?.action || 'replace';
-      patchState(this._data.get(name), state, action);
+      runPatch(this._data.get(name), state, action);
 
       this._initial.set(name, clone(state));
       if (config) {
@@ -401,7 +450,7 @@ export class StoreManager {
 
     if (this._data.has(name)) {
       const action = this._configs.get(name)?.action || 'replace';
-      patchState(this._data.get(name), newJson, action);
+      runPatch(this._data.get(name), newJson, action);
 
       this._initial.set(name, clone(newJson));
     } else {
@@ -453,7 +502,7 @@ export class StoreManager {
         `[Rouse] Cannot reset store "${name}": No initial state cached.`,
       );
     }
-    patchState(data, clone(initial), 'replace');
+    runPatch(data, clone(initial), 'replace');
   }
 
   remove(name: string) {
