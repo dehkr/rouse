@@ -1,10 +1,9 @@
-import { rzStore } from '../directives';
 import { isPlainObject } from '../dom/utils';
 import { request } from '../net/request';
 import { reactive, skipReactivity, trackDirty } from '../reactivity';
 import type { RouseConfig } from './app';
 import { getNestedVal } from './path';
-import { err, warn } from './shared';
+import { warn } from './shared';
 
 export interface StoreStatus {
   loading: boolean;
@@ -12,6 +11,10 @@ export interface StoreStatus {
   lastSync: number;
   dirty: Record<string, boolean>;
 }
+
+export type RouseStore<T extends object = any> = T & {
+  readonly __status: StoreStatus;
+};
 
 export interface SyncConfig {
   url: string;
@@ -415,7 +418,11 @@ export class StoreManager {
 
   // PUBLIC API
 
-  define(name: string, state: object, config?: Partial<SyncConfig>) {
+  define<T extends object = any>(
+    name: string,
+    state: object,
+    config?: Partial<SyncConfig>,
+  ): RouseStore<T> {
     this._processMeta(state);
 
     if (this._data.has(name)) {
@@ -429,36 +436,11 @@ export class StoreManager {
     } else {
       this._register(name, state, config);
     }
+
+    return this._data.get(name);
   }
 
-  /**
-   * Initializes a global store directly from a <script> tag.
-   */
-  initScript(el: HTMLScriptElement) {
-    const name = rzStore.handler(el);
-    if (!name) return;
-    if (this._data.has(name) && !el.textContent) return;
-
-    let newJson: any;
-    try {
-      newJson = JSON.parse(el.textContent || '{}');
-      this._processMeta(newJson);
-    } catch (_e: any) {
-      err(`Invalid JSON in '${name}'. Store not initialized.`);
-      return;
-    }
-
-    if (this._data.has(name)) {
-      const action = this._configs.get(name)?.action || 'replace';
-      runPatch(this._data.get(name), newJson, action);
-
-      this._initial.set(name, clone(newJson));
-    } else {
-      this._register(name, newJson);
-    }
-  }
-
-  get<T = any>(name: string): T | undefined {
+  get<T extends object = any>(name: string): RouseStore<T> | undefined {
     return this._data.get(name);
   }
 

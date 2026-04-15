@@ -1,6 +1,6 @@
 import { defaultConfig, getApp, type RouseApp } from '../core/app';
 import { err, warn } from '../core/shared';
-import { rzFetch, rzRequest } from '../directives';
+import { rzRequest } from '../directives';
 import { dispatch, isAnchor, isForm, isInput, isSelect, isTextArea } from '../dom/utils';
 import type { RouseRequest, RouseResponse } from '../types';
 import { request } from './request';
@@ -71,18 +71,6 @@ async function executeFetch(el: Element, options: RouseRequest) {
 
   let url: string | null = options.url || null;
   let explicitMethod: string | undefined = options.method;
-
-  // Parse URL and method from rz-fetch directive
-  if (!url) {
-    const parsed = rzFetch.handler(el);
-    if (parsed.url) {
-      url = parsed.url;
-    }
-    if (parsed.method && !explicitMethod) {
-      explicitMethod = parsed.method;
-    }
-  }
-
   let formMethod: string | undefined;
 
   // Fallbacks for URL and capture native form method
@@ -296,7 +284,7 @@ function resolveRequestConfig(
   app: RouseApp | undefined,
 ): Partial<RouseRequest> {
   const globalConfig = app?.config.network.fetch || {};
-  const localConfig = rzRequest.handler(el, app);
+  const localConfig = rzRequest.getConfig(el, app);
 
   return {
     ...globalConfig,

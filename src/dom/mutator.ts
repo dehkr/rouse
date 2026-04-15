@@ -20,7 +20,7 @@ export function initDomMutator(root: Element, abortSignal: AbortSignal) {
 
       if (typeof data !== 'string') return;
 
-      const operations = rzInsert.handler(triggerEl);
+      const operations = rzInsert.getInsertConfig(triggerEl);
 
       operations.forEach(({ targets, strategy }) => {
         if (targets.length === 0) return;

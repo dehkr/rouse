@@ -1,12 +1,13 @@
 import { getApp } from '../core/app';
 import { parseDirectiveValue } from '../core/parser';
-import { getDirectiveValue, queryTargets, warn } from '../core/shared';
-import type { DirectiveSchema } from '../types';
+import { getDirectiveValue, hasDirective, queryTargets, warn } from '../core/shared';
+import type { Directive } from '../types';
 
 export const rzInsert = {
-  slug: 'insert',
-  handler: getInsertConfig,
-} as const satisfies DirectiveSchema;
+  existsOn,
+  getRawValue,
+  getInsertConfig,
+} as const satisfies Directive;
 
 const INSERT_METHODS = [
   'innerHTML',
@@ -28,6 +29,14 @@ export interface InsertOperation {
   strategy: InsertMethod;
 }
 
+function existsOn(el: Element) {
+  return hasDirective(el, 'source');
+}
+
+function getRawValue(el: Element) {
+  return getDirectiveValue(el, 'source');
+}
+
 function isInsertMethod(key: string): key is InsertMethod {
   return strategies.has(key as InsertMethod);
 }
@@ -36,7 +45,7 @@ function isInsertMethod(key: string): key is InsertMethod {
  * Parse value of rz-insert directive.
  * Returns an array of operations to support multi-target updates.
  */
-export function getInsertConfig(el: Element): InsertOperation[] {
+function getInsertConfig(el: Element): InsertOperation[] {
   const rawValue = getDirectiveValue(el, 'insert');
 
   // Default behavior updates innerHTML of self

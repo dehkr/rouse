@@ -1,3 +1,4 @@
+import type { TriggerDef } from '../types';
 import { warn } from './shared';
 
 export type ParsedDirectiveValue = [string, string][];
@@ -18,7 +19,28 @@ export function parseModifiers(rawValue: string): { key: string; modifiers: stri
     const modifiers = rawValue.slice(dotIndex + 1).split(MODIFIER_DELIMITER);
     return { key, modifiers };
   }
+
   return { key: rawValue, modifiers: [] };
+}
+
+/**
+ * Handles parsing raw directive values into an array of trigger definitions.
+ */
+export function parseTriggers(rawValue: string | null | undefined): TriggerDef[] {
+  if (!rawValue || rawValue.trim() === '') return [];
+
+  const triggers: TriggerDef[] = [];
+  const parsed = parseDirectiveValue(rawValue);
+
+  for (const [key] of parsed) {
+    if (!key) continue;
+    const { key: event, modifiers } = parseModifiers(key);
+    if (event) {
+      triggers.push({ event, modifiers });
+    }
+  }
+
+  return triggers;
 }
 
 /**
@@ -27,17 +49,19 @@ export function parseModifiers(rawValue: string): { key: string; modifiers: stri
  * rz-wake="visible, media: (min-width: 600px)" is parsed to:
  * [['visible', ''], ['media', '(min-width: 600px)']]
  */
-export function parseDirectiveValue(val: string): ParsedDirectiveValue {
-  if (!val) return [];
+export function parseDirectiveValue(
+  rawValue: string | null | undefined,
+): ParsedDirectiveValue {
+  if (!rawValue || rawValue.trim() === '') return [];
 
   const parsed: ParsedDirectiveValue = [];
   let start = 0;
 
   // Scan for values separated by comma + space
-  const scanResult = scan(val, (i, char) => {
+  const scanResult = scan(rawValue, (i, char) => {
     if (char === VALUE_DELIMITER) {
-      if (hasTrailingWhiteSpace(val, i)) {
-        parseSegment(val.slice(start, i), parsed);
+      if (hasTrailingWhiteSpace(rawValue, i)) {
+        parseSegment(rawValue.slice(start, i), parsed);
         start = i + 1;
         // Keep scanning
         return false;
@@ -46,11 +70,11 @@ export function parseDirectiveValue(val: string): ParsedDirectiveValue {
   });
 
   if (scanResult && (scanResult.depth > 0 || scanResult.quote)) {
-    warn(`Malformed directive value: '${val}'`);
+    warn(`Malformed directive value: '${rawValue}'`);
   }
 
   // Process the final segment
-  parseSegment(val.slice(start), parsed);
+  parseSegment(rawValue.slice(start), parsed);
 
   return parsed;
 }
@@ -144,6 +168,7 @@ function isInQuotes(val: string) {
   if (val.length < 2) return false;
   const first = val[0];
   const last = val[val.length - 1];
+
   return (first === '"' || first === "'") && first === last;
 }
 

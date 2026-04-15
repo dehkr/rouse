@@ -1,4 +1,3 @@
-export { rzAutosave } from './rz-autosave';
 export { rzBind } from './rz-bind';
 export { rzFetch } from './rz-fetch';
 export { rzHtml } from './rz-html';
@@ -7,6 +6,7 @@ export { rzModel } from './rz-model';
 export { rzOn } from './rz-on';
 export { rzRefresh } from './rz-refresh';
 export { rzRequest } from './rz-request';
+export { rzSave } from './rz-save';
 export { rzScope } from './rz-scope';
 export { rzSource } from './rz-source';
 export { rzStore } from './rz-store';

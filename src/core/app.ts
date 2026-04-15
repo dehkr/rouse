@@ -1,23 +1,10 @@
-import { directiveSelector, err, hasDirective, warn } from '../core/shared';
-import { rzTrigger } from '../directives';
+import { directiveSelector, err, queryTargets, warn } from '../core/shared';
+import { rzFetch, rzStore } from '../directives';
 import { destroyInstance } from '../dom/controller';
-import {
-  cleanupStoreElement,
-  initControllerElement,
-  initObserver,
-  initStoreElement,
-} from '../dom/initializer';
+import { initControllerElement, initObserver } from '../dom/initializer';
 import { initDomMutator } from '../dom/mutator';
-import {
-  deepFreeze,
-  isAnchor,
-  isForm,
-  isInput,
-  isSelect,
-  isTextArea,
-  on,
-} from '../dom/utils';
-import { cleanupFetch, handleFetch } from '../net/engine';
+import { deepFreeze } from '../dom/utils';
+import { handleFetch } from '../net/engine';
 import { fallbackResponse } from '../net/response';
 import type {
   FetchInterceptors,
@@ -27,7 +14,7 @@ import type {
 } from '../types';
 import { Registry } from './registry';
 import { StoreManager } from './store';
-import { DEFAULT_TIMING, parseTime } from './timing';
+import { DEFAULT_TIMING } from './timing';
 
 export const defaultConfig = {
   root: document.body,
@@ -57,12 +44,10 @@ export type RouseConfig = {
 };
 
 const appInstances = new WeakMap<HTMLElement, RouseApp>();
-const fetchCleanups = new WeakMap<Element, Array<() => void>>();
 
-const fail = (reason: string): never => {
-  throw new Error(`[Rouse] Registration failed: ${reason}`);
-};
-
+/**
+ * Core class for instantiating Rouse app instances.
+ */
 export class RouseApp {
   public root: HTMLElement;
   public stores: StoreManager;
@@ -148,7 +133,9 @@ export class RouseApp {
       if (typeof setup === 'function') {
         this.registry.register(nameOrControllers, setup);
       } else {
-        fail(`A valid setup function is required for '${nameOrControllers}'.`);
+        throw new Error(
+          `[Rouse] A valid setup function is required for '${nameOrControllers}'.`,
+        );
       }
     } else if (
       // Handle bulk registration using object shorthand
@@ -160,7 +147,7 @@ export class RouseApp {
         if (typeof fn === 'function') {
           this.registry.register(name, fn);
         } else {
-          fail(`Controller '${name}' must be a setup function.`);
+          throw new Error(`[Rouse] Controller '${name}' must be a setup function.`);
         }
       }
     } else {
@@ -171,9 +158,7 @@ export class RouseApp {
           : Array.isArray(nameOrControllers)
             ? 'an array'
             : typeof nameOrControllers;
-      fail(
-        `Expected a string name or an object of controllers, but received ${received}.`,
-      );
+      throw new Error(`[Rouse] Controller registration failed. Received ${received}.`);
     }
 
     return this;
@@ -235,43 +220,35 @@ export class RouseApp {
     // Initialize the DOM mutator that watches for HTML fetch responses
     initDomMutator(this.root, this._abortController.signal);
 
-    const { wakeStrategy } = this.config.ui;
-
-    // Initialize global stores
-    const storeScripts = this.root.querySelectorAll<HTMLScriptElement>(
+    // Initial scan for store <script> elements
+    const storeScriptElements = queryTargets(
+      this.root,
       `script${directiveSelector('store')}`,
     );
-    storeScripts.forEach((script) => {
-      if (getApp(script) === this) {
-        initStoreElement(script);
+    storeScriptElements.forEach((el) => {
+      if (rzStore.validate(el, this)) {
+        rzStore.initialize(el, this);
       }
     });
 
     // Start the scoped mutation observer
+    // TODO: confirm order, should this be before controllers and fetch scan?
     this._observer = initObserver(this);
     this._observer.observe(this.root, { childList: true, subtree: true });
 
     // Initial scan for controllers
-    if (hasDirective(this.root, 'scope') && getApp(this.root) === this) {
-      initControllerElement(this.root, wakeStrategy);
-    }
-
-    const controllers = this.root.querySelectorAll<HTMLElement>(
-      directiveSelector('scope'),
-    );
+    const controllers = queryTargets<HTMLElement>(this.root, directiveSelector('scope'));
     controllers.forEach((el) => {
       if (getApp(el) === this) {
-        initControllerElement(el, wakeStrategy);
+        initControllerElement(el);
       }
     });
 
-    // Initial scan for auto-fetching elements and custom triggers
-    const fetchNodes = this.root.querySelectorAll<HTMLElement>(
-      directiveSelector('fetch'),
-    );
+    // Initial scan for fetch elements
+    const fetchNodes = queryTargets(this.root, directiveSelector('fetch'));
     fetchNodes.forEach((el) => {
       if (getApp(el) === this) {
-        initFetchElement(el);
+        rzFetch.initialize(el);
       }
     });
 
@@ -299,31 +276,23 @@ export class RouseApp {
     this._abortController?.abort();
 
     // Unmount all controllers
-    const controllers = this.root.querySelectorAll<HTMLElement>(
-      directiveSelector('scope'),
-    );
+    const controllers = queryTargets<HTMLElement>(this.root, directiveSelector('scope'));
     controllers.forEach(destroyInstance);
-    if (hasDirective(this.root, 'scope')) {
-      destroyInstance(this.root);
-    }
 
     // Clear all active fetch polling timers
-    const fetchNodes = this.root.querySelectorAll<HTMLElement>(
-      directiveSelector('fetch'),
-    );
-    fetchNodes.forEach(teardownFetchElement);
-    if (hasDirective(this.root, 'fetch')) {
-      teardownFetchElement(this.root);
-    }
+    const fetchNodes = queryTargets<HTMLElement>(this.root, directiveSelector('fetch'));
+    fetchNodes.forEach(rzFetch.teardown);
 
     // Cleanup store directive side-effects
-    const storeScripts = this.root.querySelectorAll<HTMLScriptElement>(
+    const storeScriptElements = queryTargets<HTMLScriptElement>(
+      this.root,
       `script${directiveSelector('store')}`,
     );
-    storeScripts.forEach(cleanupStoreElement);
+    storeScriptElements.forEach(rzStore.teardown);
 
     // Remove the root indicator
     this.root.removeAttribute('data-rouse-app');
+
     this._hasStarted = false;
 
     this.root.dispatchEvent(
@@ -332,86 +301,6 @@ export class RouseApp {
         detail: { app: this },
       }),
     );
-  }
-}
-
-/**
- * Attaches synthetic events (like polling) and custom non-standard events
- * to an element and stores their cleanup functions.
- */
-export function initFetchElement(el: Element) {
-  if (fetchCleanups.has(el)) return;
-
-  const isFormEl = isForm(el);
-  const isAnchorEl = isAnchor(el);
-  const isFieldEl = isInput(el) || isSelect(el) || isTextArea(el);
-
-  let triggers = rzTrigger.handler(el);
-
-  // Logical defaults if no `rz-trigger` directive exists
-  if (triggers.length === 0) {
-    const defaultEvent = isFormEl ? 'submit' : isFieldEl ? 'change' : 'click';
-    triggers = [{ event: defaultEvent, modifiers: [] }];
-  }
-
-  const cleanups: Array<() => void> = [];
-
-  triggers.forEach((trigger) => {
-    if (trigger.event === 'load') {
-      handleFetch(el);
-    }
-
-    // Handle synthetic poll event
-    else if (trigger.event === 'poll') {
-      const waitStr = trigger.modifiers[0];
-      const ms = waitStr ? parseTime(waitStr) : 5000;
-      if (ms > 0) {
-        const timer = setInterval(() => {
-          handleFetch(el);
-        }, ms);
-        cleanups.push(() => clearInterval(timer));
-      }
-    }
-
-    // Attach event listeners
-    else if (trigger.event !== 'none') {
-      const removeListener = on(
-        el,
-        trigger.event,
-        (e: Event) => {
-          // Prevent defaults
-          if ((isFormEl && e.type === 'submit') || (isAnchorEl && e.type === 'click')) {
-            if (!trigger.modifiers.includes('prevent')) {
-              e.preventDefault();
-            }
-          }
-          handleFetch(el);
-        },
-        trigger.modifiers,
-      );
-
-      cleanups.push(removeListener);
-    }
-  });
-
-  if (cleanups.length > 0) {
-    fetchCleanups.set(el, cleanups);
-  }
-}
-
-/**
- * Tears down pacing engines and synthetic polling intervals.
- */
-export function teardownFetchElement(el: Element) {
-  cleanupFetch(el);
-
-  const cleanups = fetchCleanups.get(el);
-  if (cleanups) {
-    // Cleans up poll intervals/listeners
-    cleanups.forEach((fn) => {
-      fn();
-    });
-    fetchCleanups.delete(el);
   }
 }
 

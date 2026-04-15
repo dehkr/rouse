@@ -1,52 +1,75 @@
-import { parseDirectiveValue, parseModifiers } from '../core/parser';
-import { getDirectiveValue } from '../core/shared';
-import type { DirectiveSchema } from '../types';
+import { parseTriggers } from '../core/parser';
+import { getDirectiveValue, hasDirective } from '../core/shared';
+import { parseTime } from '../core/timing';
+import { isAnchor, isForm, on } from '../dom/utils';
+import type { Directive } from '../types';
 
 export const rzTrigger = {
-  slug: 'trigger',
-  handler: getFetchTriggers,
-} as const satisfies DirectiveSchema<HTMLScriptElement>;
+  existsOn,
+  getRawValue,
+  attachTriggers,
+} as const satisfies Directive;
 
-type TriggerDef = {
-  event: string;
-  modifiers: string[];
+function existsOn(el: Element) {
+  return hasDirective(el, 'trigger');
 }
 
-type TriggerMapEntry = {
-  rawValue: string;
-  triggers: TriggerDef[];
+function getRawValue(el: Element) {
+  return getDirectiveValue(el, 'trigger');
 }
-
-const triggerCache = new WeakMap<Element, TriggerMapEntry>();
 
 /**
- * Parses the DOM event triggers and their pacing modifiers for rz-fetch.
+ * Attach event listeners and handle synthetic `poll` and `none` events.
+ * Returns a cleanup function or `undefined` if 0 triggers.
  */
-export function getFetchTriggers(el: Element): TriggerDef[] {
-  const rawValue = getDirectiveValue(el, 'trigger') || '';
+function attachTriggers(el: Element, action: (e?: Event) => void) {
+  const triggers = parseTriggers(getRawValue(el));
+  if (triggers.length === 0) return;
+  
+  const isFormEl = isForm(el);
+  const isAnchorEl = isAnchor(el);
+  const cleanups: Array<() => void> = [];
 
-  const cached = triggerCache.get(el);
-  if (cached && cached.rawValue === rawValue) {
-    return cached.triggers;
-  }
+  triggers.forEach((trigger) => {
+    if (trigger.event === 'load') {
+      action();
+    }
 
-  const triggers: TriggerDef[] = [];
-
-  if (rawValue) {
-    const parsed = parseDirectiveValue(rawValue);
-
-    for (const [key, _val] of parsed) {
-      const { key: event, modifiers } = parseModifiers(key);
-      if (event) {
-        triggers.push({
-          event,
-          modifiers,
-        });
+    // Handle synthetic poll event
+    else if (trigger.event === 'poll') {
+      const waitStr = trigger.modifiers[0];
+      // TODO: confirm default poll time and add to app config?
+      const ms = waitStr ? parseTime(waitStr) : 5000;
+      if (ms > 0) {
+        const timer = window.setInterval(() => {
+          action();
+        }, ms);
+        cleanups.push(() => window.clearInterval(timer));
       }
     }
-  }
 
-  triggerCache.set(el, { rawValue, triggers });
+    // If `none` then skip binding any events
+    else if (trigger.event !== 'none') {
+      // Attach event listeners for standard or custom events
+      const removeListener = on(
+        el,
+        trigger.event,
+        (e: Event) => {
+          // Prevent default behavior for forms and anchor links
+          if ((isFormEl && e.type === 'submit') || (isAnchorEl && e.type === 'click')) {
+            e.preventDefault();
+          }
+          action(e);
+        },
+        trigger.modifiers,
+      );
+      cleanups.push(removeListener);
+    }
+  });
 
-  return triggers;
+  return () => {
+    cleanups.forEach((fn) => {
+      fn();
+    });
+  };
 }

@@ -1,22 +1,37 @@
+import type { RouseApp } from '../core/app';
 import { parseDirectiveValue } from '../core/parser';
-import { directiveSelector, err, getDirectiveValue, hasDirective } from '../core/shared';
+import { directiveSelector, err, hasDirective } from '../core/shared';
 import { rzBind, rzHtml, rzModel, rzOn, rzText } from '../directives';
-import type { CleanupFunction, RouseController } from '../types';
+import type {
+  BoundDirective,
+  CleanupFunction,
+  Controller,
+  DirectiveSlug,
+} from '../types';
 import { dispatch } from './utils';
 
 /**
  * Binds the controller instance to the DOM.
  * Returns internal lifecycle methods so the app can delegate DOM mutations.
  */
-export function attachController(root: HTMLElement, instance: RouseController) {
+export function attachController(root: HTMLElement, instance: Controller, app: RouseApp) {
   const elementCleanups = new Map<HTMLElement, (() => void)[]>();
   const boundNodes = new WeakSet<HTMLElement>();
 
-  const domDirectives = [rzBind, rzHtml, rzModel, rzOn, rzText];
+  const boundDirectives = {
+    bind: rzBind,
+    html: rzHtml,
+    model: rzModel,
+    on: rzOn,
+    text: rzText,
+  } as const satisfies Partial<Record<DirectiveSlug, BoundDirective>>;
+
+  const slugs = Object.keys(boundDirectives);
+  const directives = Object.values(boundDirectives);
 
   // Selector string of all DOM directives ([rz-bind], [data-rz-bind]...)
-  const directivesSelector = domDirectives
-    .map((directive) => directiveSelector(directive.slug))
+  const directivesSelector = slugs
+    .map((slug) => directiveSelector(slug as DirectiveSlug))
     .join(', ');
 
   function addCleanup(el: HTMLElement, fn: CleanupFunction) {
@@ -51,9 +66,8 @@ export function attachController(root: HTMLElement, instance: RouseController) {
     if (boundNodes.has(el)) return;
     boundNodes.add(el);
 
-    for (const directive of domDirectives) {
-      const { slug, handler } = directive;
-      const rawValue = getDirectiveValue(el, slug);
+    for (const directive of directives) {
+      const rawValue = directive.getRawValue(el);
 
       // Strict check to allow empty/boolean directives
       if (rawValue === null) continue;
@@ -66,7 +80,7 @@ export function attachController(root: HTMLElement, instance: RouseController) {
 
       const parsed = parseDirectiveValue(rawValue);
       for (const [key, value] of parsed) {
-        registerCleanup(handler(el, instance, key, value));
+        registerCleanup(directive.attach(el, instance, app, key, value));
       }
     }
   }

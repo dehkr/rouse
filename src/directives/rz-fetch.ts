@@ -1,41 +1,120 @@
 import { parseDirectiveValue } from '../core/parser';
-import { getDirectiveValue, HTTP_METHODS } from '../core/shared';
-import type { DirectiveSchema } from '../types';
+import { getDirectiveValue, hasDirective, HTTP_METHODS, warn } from '../core/shared';
+import { isAnchor, isForm, isInput, isSelect, isTextArea, on } from '../dom/utils';
+import { cleanupFetch, handleFetch } from '../net/engine';
+import type { Directive } from '../types';
+import { rzTrigger } from './rz-trigger';
 
 export const rzFetch = {
-  slug: 'fetch',
-  handler: getFetchDirective,
-} as const satisfies DirectiveSchema;
+  existsOn,
+  getRawValue,
+  getMethodAndUrl,
+  initialize,
+  teardown,
+} as const satisfies Directive;
 
-type FetchValue = { url?: string; method?: string };
+const fetchCleanups = new WeakMap<Element, Array<() => void>>();
+
+function existsOn(el: Element) {
+  return hasDirective(el, 'fetch');
+}
+
+function getRawValue(el: Element) {
+  return getDirectiveValue(el, 'fetch');
+}
 
 /**
  * Parses the rz-fetch attribute into a URL and method.
- * Supports order-independent comma-separated values:
+ * Supports the [method]: [url] format.
  *
- * - `rz-fetch="PUT, /api/users"`
- * - `rz-fetch="/api/users, PUT"`
+ * - `rz-fetch="PUT: /api/users"`
  * - `rz-fetch="PUT"`
  * - `rz-fetch="/api/users"`
  */
-export function getFetchDirective(el: Element): FetchValue {
-  const fetchRaw = getDirectiveValue(el, 'fetch');
-  const result: FetchValue = {};
+function getMethodAndUrl(el: Element): { method?: string; url?: string } {
+  let method: string | undefined;
+  let url: string | undefined;
 
-  if (!fetchRaw) return result;
+  const parsed = parseDirectiveValue(getRawValue(el));
+  if (!parsed[0]) return { method, url };
 
-  const parsed = parseDirectiveValue(fetchRaw);
+  const [key, val] = parsed[0];
+  const upperKey = key.toUpperCase();
+  const isKeyValidMethod = HTTP_METHODS.has(upperKey);
 
-  for (const [key] of parsed) {
-    if (!key) continue;
-
-    const upper = key.toUpperCase();
-    if (HTTP_METHODS.has(upper)) {
-      result.method = upper;
+  if (val) {
+    // A pair was provided: e.g., "POST: /api/users" or "FOO: /api/users"
+    if (isKeyValidMethod) {
+      method = upperKey;
     } else {
-      result.url = key;
+      warn(`Invalid fetch method: ${key}.`);
+    }
+    url = val;
+  } else {
+    // A single value was provided: e.g., "PUT" or "/api/users"
+    if (isKeyValidMethod) {
+      method = upperKey;
+    } else {
+      url = key;
     }
   }
 
-  return result;
+  return { method, url };
+}
+
+/**
+ * Attaches synthetic events (like polling) and custom non-standard events
+ * to an element and stores their cleanup functions.
+ */
+function initialize(el: Element) {
+  if (fetchCleanups.has(el)) return;
+
+  const cleanups: Array<() => void> = [];
+  const action = () => handleFetch(el, getMethodAndUrl(el));
+
+  let triggerCleanup: ReturnType<typeof rzTrigger.attachTriggers>;
+  if (rzTrigger.existsOn(el)) {
+    triggerCleanup = rzTrigger.attachTriggers(el, action);
+  }
+
+  // If triggers were processed, `triggerCleanup` will be truthy, and the explicit
+  // event triggers will be used. Otherwise, logical defaults are configured.
+  if (triggerCleanup) {
+    cleanups.push(triggerCleanup);
+  } else {
+    const isFormEl = isForm(el);
+    const isAnchorEl = isAnchor(el);
+    const isFieldEl = isInput(el) || isSelect(el) || isTextArea(el);
+
+    const defaultEvent = isFormEl ? 'submit' : isFieldEl ? 'change' : 'click';
+
+    const removeListener = on(el, defaultEvent, (e: Event) => {
+      if ((isFormEl && e.type === 'submit') || (isAnchorEl && e.type === 'click')) {
+        e.preventDefault();
+      }
+      action();
+    });
+
+    cleanups.push(removeListener);
+  }
+
+  if (cleanups.length > 0) {
+    fetchCleanups.set(el, cleanups);
+  }
+}
+
+/**
+ * Tears down pacing engines and synthetic polling intervals
+ */
+function teardown(el: Element) {
+  cleanupFetch(el);
+
+  const cleanups = fetchCleanups.get(el);
+  if (cleanups) {
+    // Cleans up poll intervals/listeners
+    cleanups.forEach((fn) => {
+      fn();
+    });
+    fetchCleanups.delete(el);
+  }
 }

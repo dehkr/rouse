@@ -1,14 +1,119 @@
-import { getDirectiveValue } from '../core/shared';
-import type { DirectiveSchema } from '../types';
+import { getApp, RouseApp } from '../core/app';
+import { err, getDirectiveValue, hasDirective, warn } from '../core/shared';
+import { isScript } from '../dom/utils';
+import type { Directive } from '../types';
+import { rzRefresh } from './rz-refresh';
+import { rzSave } from './rz-save';
+import { rzSource } from './rz-source';
 
 export const rzStore = {
-  slug: 'store',
-  handler: getStoreName,
-} as const satisfies DirectiveSchema<HTMLScriptElement>;
+  existsOn,
+  getRawValue,
+  getDefinedValue,
+  isValid,
+  validate,
+  initialize,
+  teardown,
+} as const satisfies Directive<HTMLScriptElement>;
+
+const storeCleanups = new WeakMap<HTMLScriptElement, Array<() => void>>();
+
+function existsOn(el: HTMLScriptElement) {
+  return hasDirective(el, 'store');
+}
+
+function getRawValue(el: HTMLScriptElement) {
+  return getDirectiveValue(el, 'store');
+}
+
+function getDefinedValue(el: HTMLScriptElement) {
+  const rawValue = getRawValue(el);
+  if (rawValue === null || rawValue.trim() === '') {
+    return null;
+  }
+  return rawValue.trim();
+}
+
+function isValid(el: Element, app: RouseApp): el is HTMLScriptElement {
+  return isScript(el) && existsOn(el) && getApp(el) === app;
+}
+
+function validate(el: Element, app: RouseApp): el is HTMLScriptElement {
+  if (!isValid(el, app)) return false;
+
+  const storeName = getDefinedValue(el);
+  if (!storeName) {
+    warn(`Invalid or missing 'rz-store' value on ${el}.`);
+    return false;
+  }
+
+  return true;
+}
 
 /**
- * Extracts the store name from a <script> element's `rz-store`` directive.
+ * Bootstraps a global reactive store from a `<script>` tag.
+ * Initializes the reactive data registry and attaches any declared
+ * networking behaviors (`rz-source`, `rz-save`, `rz-refresh`).
  */
-export function getStoreName(el: HTMLScriptElement): string | null {
-  return getDirectiveValue(el, 'store');
+function initialize(el: HTMLScriptElement, app: RouseApp) {
+  if (storeCleanups.has(el) || !app) return;
+
+  const storeName = getDefinedValue(el);
+  if (!storeName) return;
+
+  const textContent = el.textContent?.trim();
+  const storeExists = app.stores.has(storeName);
+
+  // If the store was already created programmatically and this `<script>` has
+  // no JSON, we skip defining state and move on to attaching the network directives.
+  // If the programmatic store exists and the script contains JSON, however, the 
+  // programmatic data gets replaced.
+  if (textContent || !storeExists) {
+    let state: any;
+    try {
+      state = JSON.parse(textContent || '{}');
+    } catch (e) {
+      err(`Invalid JSON in '${storeName}'.`);
+      return;
+    }
+
+    const store = app.stores.define(storeName, state);
+    if (!store) return;
+  }
+
+  const cleanups: Array<() => void> = [];
+
+  // Configure the store URL and HTTP method for saving
+  if (rzSource.existsOn(el)) {
+    const { saveMethod, url } = rzSource.getMethodAndUrl(el);
+    app.stores.config(storeName, { saveMethod, url });
+  }
+
+  // Attach save triggers and register cleanup functions
+  if (rzSave.existsOn(el)) {
+    const saveCleanup = rzSave.attachTriggers(el, storeName, app);
+    if (saveCleanup) {
+      cleanups.push(saveCleanup);
+    }
+  }
+
+  // Attach refresh triggers and register cleanup functions
+  if (rzRefresh.existsOn(el)) {
+    const refreshCleanup = rzRefresh.attachTriggers(el, storeName, app);
+    if (refreshCleanup) {
+      cleanups.push(refreshCleanup);
+    }
+  }
+
+  storeCleanups.set(el, cleanups);
+}
+
+function teardown(script: HTMLScriptElement) {
+  const cleanups = storeCleanups.get(script);
+  if (cleanups) {
+    cleanups.forEach((cleanup) => {
+      cleanup();
+    });
+    storeCleanups.delete(script);
+  }
 }

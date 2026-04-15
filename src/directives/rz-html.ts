@@ -1,27 +1,33 @@
-import { getApp } from '../core/app';
+import type { RouseApp } from '../core/app';
 import { resolveState } from '../core/path';
+import { getDirectiveValue, hasDirective } from '../core/shared';
 import { updateHtml } from '../dom/updater';
 import { cleanup } from '../dom/utils';
 import { effect } from '../reactivity';
-import type {
-  BindableValue,
-  CleanupFunction,
-  DirectiveSchema,
-  RouseController,
-} from '../types';
+import type { BindableValue, BoundDirective, CleanupFunction, Controller } from '../types';
 
 export const rzHtml = {
-  slug: 'html',
-  handler: attachHtml,
-} as const satisfies DirectiveSchema;
+  existsOn,
+  getRawValue,
+  attach,
+} as const satisfies BoundDirective;
 
-export function attachHtml(
+function existsOn(el: Element) {
+  return hasDirective(el, 'html');
+}
+
+function getRawValue(el: Element) {
+  return getDirectiveValue(el, 'html');
+}
+
+function attach(
   el: HTMLElement,
-  scope: RouseController,
+  scope: Controller,
+  app: RouseApp,
   path: string,
 ): CleanupFunction {
   const stopEffect = effect(() => {
-    const val = resolveState<BindableValue>(path, scope, getApp(el)?.stores);
+    const val = resolveState<BindableValue>(path, scope, app.stores);
     updateHtml(el, val);
   });
 

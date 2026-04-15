@@ -13,7 +13,7 @@ export const isForm = (el: unknown) => el instanceof HTMLFormElement;
 export const isInput = (el: unknown) => el instanceof HTMLInputElement;
 export const isSelect = (el: unknown) => el instanceof HTMLSelectElement;
 export const isTextArea = (el: unknown) => el instanceof HTMLTextAreaElement;
-
+export const isScript = (el: unknown) => el instanceof HTMLScriptElement;
 
 /**
  * Checks that a value is a plain JavaScript opbject (POJO).

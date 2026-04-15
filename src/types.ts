@@ -1,3 +1,4 @@
+import type { RouseApp } from './core/app';
 import type { StoreManager } from './core/store';
 import type { InsertMethod } from './directives/rz-insert';
 
@@ -20,13 +21,18 @@ export type BindableValue =
  * The object returned by a setup function.
  * Includes standard lifecycle hooks and any custom state/methods.
  */
-export type RouseController = Record<string, any> & {
+export type Controller = Record<string, any> & {
   connect?: () => void;
   disconnect?: () => void;
 };
 
+/** Parsed trigger event with modifiers */
+export type TriggerDef = {
+  event: string;
+  modifiers: string[];
+};
+
 export type DirectiveSlug =
-  | 'autosave'
   | 'bind'
   | 'fetch'
   | 'html'
@@ -35,6 +41,7 @@ export type DirectiveSlug =
   | 'on'
   | 'refresh'
   | 'request'
+  | 'save'
   | 'scope'
   | 'source'
   | 'store'
@@ -42,10 +49,24 @@ export type DirectiveSlug =
   | 'trigger'
   | 'wake';
 
-export type DirectiveSchema<T extends Element = HTMLElement> = {
-  slug: DirectiveSlug;
-  handler: (el: T, ...args: any[]) => unknown;
-};
+export interface BaseDirective<T extends Element = HTMLElement> {
+  existsOn: (el: T) => boolean;
+  getRawValue: (el: T) => string | null;
+}
+
+export interface Directive<T extends Element = HTMLElement> extends BaseDirective<T> {
+  [key: string]: unknown;
+}
+
+export interface BoundDirective<T extends Element = HTMLElement> extends BaseDirective<T> {
+  attach: (
+    el: T,
+    scope: Controller,
+    app: RouseApp,
+    key: string,
+    value: string,
+  ) => CleanupFunction;
+}
 
 /** Custom error statuses for non-HTTP failures */
 export type CustomErrorStatus =
@@ -147,7 +168,7 @@ export type SetupContext<
 export type SetupFunction<
   P extends Record<string, any> = Record<string, any>,
   T extends Element = HTMLElement,
-> = (ctx: SetupContext<P, T>) => RouseController;
+> = (ctx: SetupContext<P, T>) => Controller;
 
 export type LifecycleEvent =
   | 'rz:app:start'

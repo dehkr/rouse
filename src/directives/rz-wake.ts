@@ -1,14 +1,23 @@
 import { parseDirectiveValue } from '../core/parser';
-import { getDirectiveValue } from '../core/shared';
+import { getDirectiveValue, hasDirective } from '../core/shared';
 import * as scheduler from '../dom/scheduler';
-import type { DirectiveSchema } from '../types';
+import type { Directive } from '../types';
 
 export const rzWake = {
-  slug: 'wake',
-  handler: processWake,
-} as const satisfies DirectiveSchema;
+  existsOn,
+  getRawValue,
+  processStrategy,
+} as const satisfies Directive;
 
-export function processWake(
+function existsOn(el: HTMLElement) {
+  return hasDirective(el, 'wake');
+}
+
+function getRawValue(el: HTMLElement) {
+  return getDirectiveValue(el, 'wake');
+}
+
+function processStrategy(
   el: HTMLElement,
   defaultStrategy: string,
   onWake: () => void,

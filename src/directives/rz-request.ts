@@ -1,23 +1,32 @@
 import type { RouseApp } from '../core/app';
 import { parseDirectiveValue } from '../core/parser';
-import { getDirectiveValue } from '../core/shared';
+import { getDirectiveValue, hasDirective } from '../core/shared';
 import { parseTime } from '../core/timing';
 import { resolvePayload } from '../dom/utils';
-import type { DirectiveSchema, RouseRequest } from '../types';
+import type { Directive, RouseRequest } from '../types';
 
 export const rzRequest = {
-  slug: 'request',
-  handler: getRequestConfig,
-} as const satisfies DirectiveSchema;
+  existsOn,
+  getRawValue,
+  getConfig,
+} as const satisfies Directive;
 
 const BOOLEAN_KEYS = new Set(['keepalive']);
+
+function existsOn(el: Element) {
+  return hasDirective(el, 'request');
+}
+
+function getRawValue(el: Element) {
+  return getDirectiveValue(el, 'request');
+}
 
 /**
  * Parses the `rz-request`` directive to build a native Fetch API configuration object.
  * Handles native Fetch API properties (mode, credentials, etc.) alongside
  * Rouse-specific network configuration (timeout, retries, abortKey).
  */
-export function getRequestConfig(
+function getConfig(
   el: Element,
   app?: RouseApp,
 ): Partial<RouseRequest> {

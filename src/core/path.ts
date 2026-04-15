@@ -1,4 +1,4 @@
-import type { RouseController } from '../types';
+import type { Controller } from '../types';
 import { warn } from './shared';
 import type { StoreManager } from './store';
 import { STORE_PREFIX } from './store';
@@ -51,7 +51,7 @@ export function setNestedVal(obj: any, path: string | undefined, value: any): vo
       current[part] = {};
     } else if (typeof current[part] !== 'object') {
       console.warn(
-        `[Rouse] Cannot set value at path "${path}" because "${part}" is a primitive value.`,
+        `[Rouse] Cannot set value at path '${path}' because '${part}' is a primitive value.`,
       );
       return;
     }
@@ -82,7 +82,7 @@ function getPathParts(path: string): string[] {
  */
 export function resolveState<T = unknown>(
   path: string,
-  controller: RouseController,
+  controller: Controller,
   storeManager?: StoreManager,
 ): T | undefined {
   if (path.startsWith(STORE_PREFIX)) {
@@ -94,7 +94,7 @@ export function resolveState<T = unknown>(
     const { fullPath, dotIndex } = getStorePath(path);
 
     if (dotIndex === -1) {
-      return storeManager.get(fullPath);
+      return storeManager.get(fullPath) as T | undefined;
     }
 
     const storeName = fullPath.slice(0, dotIndex);
@@ -113,12 +113,12 @@ export function resolveState<T = unknown>(
 export function writeState(
   path: string,
   value: unknown,
-  controller: RouseController,
+  controller: Controller,
   storeManager?: StoreManager,
 ): void {
   if (path.startsWith(STORE_PREFIX)) {
     if (!storeManager) {
-      warn(`StoreManager required to write to path: ${path}`);
+      warn(`StoreManager required to write to path: '${path}'`);
       return;
     }
 
@@ -126,7 +126,7 @@ export function writeState(
 
     if (dotIndex === -1) {
       console.warn(
-        `[Rouse] Cannot overwrite an entire store directly via model binding: "${path}"`,
+        `[Rouse] Cannot overwrite an entire store via model binding: '${path}'`,
       );
       return;
     }

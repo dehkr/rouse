@@ -166,7 +166,7 @@ export function createController(
   // Captures effects created by bindings (text, atts, etc.) so the UI auto updates
   if (instance !== undefined) {
     const stopBindingScope = effectScope(() => {
-      const { unbindDom, scan, teardown } = attachController(el, instance);
+      const { unbindDom, scan, teardown } = attachController(el, instance, app);
 
       handle._scan = scan;
       handle._teardown = teardown;

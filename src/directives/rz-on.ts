@@ -1,17 +1,27 @@
-import { getApp } from '../core/app';
+import type { RouseApp } from '../core/app';
 import { parseModifiers } from '../core/parser';
-import { err, warn } from '../core/shared';
+import { err, getDirectiveValue, hasDirective, warn } from '../core/shared';
 import { cleanup, on, resolvePayload, splitInjection } from '../dom/utils';
-import type { CleanupFunction, DirectiveSchema, RouseController } from '../types';
+import type { BoundDirective, CleanupFunction, Controller } from '../types';
 
 export const rzOn = {
-  slug: 'on',
-  handler: attachOn,
-} as const satisfies DirectiveSchema;
+  existsOn,
+  getRawValue,
+  attach,
+} as const satisfies BoundDirective;
 
-export function attachOn(
+function existsOn(el: Element) {
+  return hasDirective(el, 'on');
+}
+
+function getRawValue(el: Element) {
+  return getDirectiveValue(el, 'on');
+}
+
+function attach(
   el: HTMLElement,
-  scope: RouseController,
+  scope: Controller,
+  app: RouseApp,
   rawEvent: string,
   rawMethod: string,
 ): CleanupFunction {
@@ -25,18 +35,16 @@ export function attachOn(
     return cleanup(() => {});
   }
 
-  const app = getApp(el);
-
   const removeListener = on(
     el,
     event,
     (e: Event) => {
       try {
         const payload =
-          rawPayload !== undefined ? resolvePayload(rawPayload, app?.stores) : undefined;
+          rawPayload !== undefined ? resolvePayload(rawPayload, app.stores) : undefined;
         method.call(scope, payload, e);
       } catch (error) {
-        err(`Failed to execute ${methodName}().`, error);
+        err(`Failed to execute '${methodName}()'.`, error);
       }
     },
     modifiers,
