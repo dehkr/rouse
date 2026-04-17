@@ -12,18 +12,10 @@ import type {
 } from '../types';
 
 export const rzModel = {
-  existsOn,
-  getValue,
+  existsOn: (el: Element) => hasDirective(el, 'model'),
+  getValue: (el: Element) => getDirectiveValue(el, 'model'),
   attach,
 } as const satisfies BoundDirective;
-
-function existsOn(el: Element) {
-  return hasDirective(el, 'model');
-}
-
-function getValue(el: Element) {
-  return getDirectiveValue(el, 'model');
-}
 
 /**
  * Two-way binding for form elements

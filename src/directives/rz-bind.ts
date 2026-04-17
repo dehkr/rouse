@@ -4,21 +4,18 @@ import { getDirectiveValue, hasDirective } from '../core/shared';
 import { updateAttr, updateClass, updateStyle } from '../dom/updater';
 import { cleanup } from '../dom/utils';
 import { effect } from '../reactivity';
-import type { BindableValue, BoundDirective, CleanupFunction, Controller } from '../types';
+import type {
+  BindableValue,
+  BoundDirective,
+  CleanupFunction,
+  Controller,
+} from '../types';
 
 export const rzBind = {
-  existsOn,
-  getValue,
+  existsOn: (el: Element) => hasDirective(el, 'bind'),
+  getValue: (el: Element) => getDirectiveValue(el, 'bind'),
   attach,
 } as const satisfies BoundDirective;
-
-function existsOn(el: Element) {
-  return hasDirective(el, 'bind');
-}
-
-function getValue(el: Element) {
-  return getDirectiveValue(el, 'bind');
-}
 
 function attach(
   el: Element,

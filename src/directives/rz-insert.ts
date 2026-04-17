@@ -1,12 +1,18 @@
 import { getApp } from '../core/app';
 import { parseDirectiveValue } from '../core/parser';
-import { getDirectiveValue, hasDirective, queryTargets, warn } from '../core/shared';
+import {
+  getDefinedDirectiveValue,
+  getDirectiveValue,
+  hasDirective,
+  queryTargets,
+  warn,
+} from '../core/shared';
 import type { Directive } from '../types';
 
 export const rzInsert = {
-  existsOn,
-  getValue,
-  getDefinedValue,
+  existsOn: (el: Element) => hasDirective(el, 'insert'),
+  getValue: (el: Element) => getDirectiveValue(el, 'insert'),
+  getDefinedValue: (el: Element) => getDefinedDirectiveValue(el, 'insert'),
   getInsertConfig,
 } as const satisfies Directive;
 
@@ -29,22 +35,6 @@ export interface InsertOperation {
   strategy: InsertMethod;
 }
 
-function existsOn(el: Element) {
-  return hasDirective(el, 'insert');
-}
-
-function getValue(el: Element) {
-  return getDirectiveValue(el, 'insert');
-}
-
-function getDefinedValue(el: Element) {
-  const value = getValue(el);
-  if (value === null || value.trim() === '') {
-    return null;
-  }
-  return value.trim();
-}
-
 function isInsertMethod(key: string): key is InsertMethod {
   return INSERT_METHODS.includes(key as InsertMethod);
 }
@@ -63,7 +53,7 @@ function isInsertMethod(key: string): key is InsertMethod {
  * - `rz-insert="#output"`
  */
 function getInsertConfig(el: Element): InsertOperation[] {
-  const value = getDefinedValue(el);
+  const value = getDefinedDirectiveValue(el, 'insert');
 
   if (!value) {
     return [{ targets: [el], strategy: DEFAULT_METHOD }];

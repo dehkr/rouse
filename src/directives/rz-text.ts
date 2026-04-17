@@ -12,18 +12,10 @@ import type {
 } from '../types';
 
 export const rzText = {
-  existsOn,
-  getValue,
+  existsOn: (el: Element) => hasDirective(el, 'text'),
+  getValue: (el: Element) => getDirectiveValue(el, 'text'),
   attach,
 } as const satisfies BoundDirective;
-
-function existsOn(el: Element) {
-  return hasDirective(el, 'text');
-}
-
-function getValue(el: Element) {
-  return getDirectiveValue(el, 'text');
-}
 
 function attach(
   el: Element,

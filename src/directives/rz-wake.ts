@@ -1,37 +1,23 @@
 import { parseDirectiveValue } from '../core/parser';
-import { getDirectiveValue, hasDirective } from '../core/shared';
+import {
+  getDefinedDirectiveValue,
+  getDirectiveValue,
+  hasDirective,
+} from '../core/shared';
 import * as scheduler from '../dom/scheduler';
 import type { Directive } from '../types';
 
 export const rzWake = {
-  existsOn,
-  getValue,
-  getDefinedValue,
+  existsOn: (el: Element) => hasDirective(el, 'wake'),
+  getValue: (el: Element) => getDirectiveValue(el, 'wake'),
+  getDefinedValue: (el: Element) => getDefinedDirectiveValue(el, 'wake'),
   processStrategy,
 } as const satisfies Directive;
 
-function existsOn(el: Element) {
-  return hasDirective(el, 'wake');
-}
-
-function getValue(el: Element) {
-  return getDirectiveValue(el, 'wake');
-}
-
-function getDefinedValue(el: Element) {
-  const value = getValue(el);
-  if (value === null || value.trim() === '') {
-    return null;
-  }
-  return value.trim();
-}
-
-function processStrategy(
-  el: Element,
-  defaultStrategy: string,
-  onWake: () => void,
-) {
-  const strategies = parseDirectiveValue(getDefinedValue(el) || defaultStrategy);
+function processStrategy(el: Element, defaultStrategy: string, onWake: () => void) {
+  const strategies = parseDirectiveValue(
+    getDefinedDirectiveValue(el, 'wake') || defaultStrategy,
+  );
 
   let pending = strategies.length;
   if (pending === 0) {

@@ -6,22 +6,14 @@ import type { Directive } from '../types';
 import { rzTrigger } from './rz-trigger';
 
 export const rzFetch = {
-  existsOn,
-  getValue,
+  existsOn: (el: Element) => hasDirective(el, 'fetch'),
+  getValue: (el: Element) => getDirectiveValue(el, 'fetch'),
   getMethodAndUrl,
   initialize,
   teardown,
 } as const satisfies Directive;
 
 const fetchCleanups = new WeakMap<Element, Array<() => void>>();
-
-function existsOn(el: Element) {
-  return hasDirective(el, 'fetch');
-}
-
-function getValue(el: Element) {
-  return getDirectiveValue(el, 'fetch');
-}
 
 /**
  * Parses the rz-fetch attribute into a URL and method.
@@ -35,7 +27,7 @@ function getMethodAndUrl(el: Element): { method?: string; url?: string } {
   let method: string | undefined;
   let url: string | undefined;
 
-  const parsed = parseDirectiveValue(getValue(el));
+  const parsed = parseDirectiveValue(getDirectiveValue(el, 'fetch'));
   if (!parsed[0]) return { method, url };
 
   const [key, val] = parsed[0];

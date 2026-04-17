@@ -8,18 +8,10 @@ import { cleanup, on } from '../dom/utils';
 import type { BoundDirective, CleanupFunction, Controller } from '../types';
 
 export const rzOn = {
-  existsOn,
-  getValue,
+  existsOn: (el: Element) => hasDirective(el, 'on'),
+  getValue: (el: Element) => getDirectiveValue(el, 'on'),
   attach,
 } as const satisfies BoundDirective;
-
-function existsOn(el: Element) {
-  return hasDirective(el, 'on');
-}
-
-function getValue(el: Element) {
-  return getDirectiveValue(el, 'on');
-}
 
 function attach(
   el: Element,
@@ -50,9 +42,9 @@ function attach(
     }
 
     method = getNestedVal(storeData, nestedPath);
-    context = storeData; 
-  } 
-  
+    context = storeData;
+  }
+
   // Local controller method
   else {
     method = scope[methodName];

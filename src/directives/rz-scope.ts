@@ -3,23 +3,15 @@ import { getDirectiveValue, hasDirective } from '../core/shared';
 import type { Directive } from '../types';
 
 export const rzScope = {
-  existsOn,
-  getValue,
+  existsOn: (el: Element) => hasDirective(el, 'scope'),
+  getValue: (el: Element) => getDirectiveValue(el, 'scope'),
   getControllerAndPayload,
 } as const satisfies Directive;
-
-function existsOn(el: Element) {
-  return hasDirective(el, 'scope');
-}
-
-function getValue(el: Element) {
-  return getDirectiveValue(el, 'scope');
-}
 
 function getControllerAndPayload(
   el: Element,
 ): { controllerName: string; rawPayload: string | undefined } | null {
-  const value = getValue(el);
+  const value = getDirectiveValue(el, 'scope');
   if (value === null) return null;
 
   const { key: controllerName, rawPayload } = splitInjection(value);

@@ -1,15 +1,19 @@
+import { rzRefresh, rzSave, rzSource } from '.';
 import { getApp, type RouseApp } from '../core/app';
-import { err, getDirectiveValue, hasDirective, warn } from '../core/shared';
+import {
+  err,
+  getDefinedDirectiveValue,
+  getDirectiveValue,
+  hasDirective,
+  warn,
+} from '../core/shared';
 import { is } from '../dom/utils';
 import type { Directive } from '../types';
-import { rzRefresh } from './rz-refresh';
-import { rzSave } from './rz-save';
-import { rzSource } from './rz-source';
 
 export const rzStore = {
-  existsOn,
-  getValue,
-  getDefinedValue,
+  existsOn: (el: Element) => hasDirective(el, 'store'),
+  getValue: (el: Element) => getDirectiveValue(el, 'store'),
+  getDefinedValue: (el: Element) => getDefinedDirectiveValue(el, 'store'),
   isValid,
   validate,
   initialize,
@@ -18,30 +22,14 @@ export const rzStore = {
 
 const storeCleanups = new WeakMap<HTMLScriptElement, Array<() => void>>();
 
-function existsOn(el: Element) {
-  return hasDirective(el, 'store');
-}
-
-function getValue(el: Element) {
-  return getDirectiveValue(el, 'store');
-}
-
-function getDefinedValue(el: Element) {
-  const value = getValue(el);
-  if (value === null || value.trim() === '') {
-    return null;
-  }
-  return value.trim();
-}
-
 function isValid(el: Element, app: RouseApp): el is HTMLScriptElement {
-  return is(el, 'Script') && existsOn(el) && getApp(el) === app;
+  return is(el, 'Script') && hasDirective(el, 'store') && getApp(el) === app;
 }
 
 function validate(el: Element, app: RouseApp): el is HTMLScriptElement {
   if (!isValid(el, app)) return false;
 
-  const storeName = getDefinedValue(el);
+  const storeName = getDefinedDirectiveValue(el, 'store');
   if (!storeName) {
     warn(`Invalid or missing 'rz-store' value on ${el}.`);
     return false;
@@ -58,7 +46,7 @@ function validate(el: Element, app: RouseApp): el is HTMLScriptElement {
 function initialize(el: HTMLScriptElement, app: RouseApp) {
   if (storeCleanups.has(el) || !app) return;
 
-  const storeName = getDefinedValue(el);
+  const storeName = getDefinedDirectiveValue(el, 'store');
   if (!storeName) return;
 
   const textContent = el.textContent?.trim();
@@ -66,7 +54,7 @@ function initialize(el: HTMLScriptElement, app: RouseApp) {
 
   // If the store was already created programmatically and this `<script>` has
   // no JSON, we skip defining state and move on to attaching the network directives.
-  // If the programmatic store exists and the script contains JSON, however, the 
+  // If the programmatic store exists and the script contains JSON, however, the
   // programmatic data gets replaced.
   if (textContent || !storeExists) {
     let state: any;

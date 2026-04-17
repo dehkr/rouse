@@ -5,25 +5,17 @@ import { is, on } from '../dom/utils';
 import type { Directive } from '../types';
 
 export const rzTrigger = {
-  existsOn,
-  getValue,
+  existsOn: (el: Element) => hasDirective(el, 'trigger'),
+  getValue: (el: Element) => getDirectiveValue(el, 'trigger'),
   attachTriggers,
 } as const satisfies Directive;
-
-function existsOn(el: Element) {
-  return hasDirective(el, 'trigger');
-}
-
-function getValue(el: Element) {
-  return getDirectiveValue(el, 'trigger');
-}
 
 /**
  * Attach event listeners and handle synthetic `poll` and `none` events.
  * Returns a cleanup function or `undefined` if 0 triggers.
  */
 function attachTriggers(el: Element, action: (e?: Event) => void) {
-  const triggers = parseTriggers(getValue(el));
+  const triggers = parseTriggers(getDirectiveValue(el, 'trigger'));
   if (triggers.length === 0) return;
 
   const cleanups: Array<() => void> = [];

@@ -6,18 +6,10 @@ import { effect } from '../reactivity';
 import type { Directive } from '../types';
 
 export const rzSave = {
-  existsOn,
-  getValue,
+  existsOn: (el: Element) => hasDirective(el, 'save'),
+  getValue: (el: Element) => getDirectiveValue(el, 'save'),
   attachTriggers,
 } as const satisfies Directive;
-
-function existsOn(el: Element) {
-  return hasDirective(el, 'save');
-}
-
-function getValue(el: Element) {
-  return getDirectiveValue(el, 'save');
-}
 
 /**
  * Attach event listeners and handles synthetic `poll` and `mutate` event.
@@ -26,7 +18,7 @@ function getValue(el: Element) {
 function attachTriggers(el: Element, storeName: string, app: RouseApp) {
   if (!storeName || !app) return;
 
-  const triggers = parseTriggers(getValue(el));
+  const triggers = parseTriggers(getDirectiveValue(el, 'save'));
   if (triggers.length === 0) return;
 
   const ac = new AbortController();

@@ -3,21 +3,13 @@ import { getDirectiveValue, hasDirective, warn } from '../core/shared';
 import type { Directive } from '../types';
 
 export const rzSource = {
-  existsOn,
-  getValue,
+  existsOn: (el: Element) => hasDirective(el, 'source'),
+  getValue: (el: Element) => getDirectiveValue(el, 'source'),
   getMethodAndUrl,
 } as const satisfies Directive;
 
 const validSaveMethod = new Set(['POST', 'PUT', 'PATCH']);
 const DEFAULT_SAVE_METHOD = 'POST';
-
-function existsOn(el: Element) {
-  return hasDirective(el, 'source');
-}
-
-function getValue(el: Element) {
-  return getDirectiveValue(el, 'source');
-}
 
 /**
  * Gets the `rz-source` attribute and parses to a HTTP method and URL.
@@ -29,7 +21,7 @@ function getMethodAndUrl(el: Element): {
   let saveMethod = DEFAULT_SAVE_METHOD;
   let url: string | undefined;
 
-  const parsed = parseDirectiveValue(getValue(el));
+  const parsed = parseDirectiveValue(getDirectiveValue(el, 'source'));
   if (!parsed[0]) {
     return { saveMethod, url };
   }

@@ -26,6 +26,17 @@ export function getDirectiveValue(el: Element, slug: DirectiveSlug): string | nu
 }
 
 /**
+ * Ensures the value is not null or empty.
+ */
+export function getDefinedDirectiveValue(el: Element, slug: DirectiveSlug) {
+  const value = getDirectiveValue(el, slug);
+  if (value === null || value.trim() === '') {
+    return null;
+  }
+  return value.trim();
+}
+
+/**
  * Checks if the element has either prefix.
  */
 export function hasDirective(el: Element, slug: DirectiveSlug): boolean {

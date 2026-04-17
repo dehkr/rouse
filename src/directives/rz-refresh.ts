@@ -5,18 +5,10 @@ import { parseTime } from '../core/timing';
 import type { Directive } from '../types';
 
 export const rzRefresh = {
-  existsOn,
-  getValue,
+  existsOn: (el: Element) => hasDirective(el, 'refresh'),
+  getValue: (el: Element) => getDirectiveValue(el, 'refresh'),
   attachTriggers,
 } as const satisfies Directive;
-
-function existsOn(el: Element) {
-  return hasDirective(el, 'refresh');
-}
-
-function getValue(el: Element) {
-  return getDirectiveValue(el, 'refresh');
-}
 
 /**
  * Attach event listeners and sets default `focus` and `reconnect` behavior.
@@ -35,7 +27,7 @@ function attachTriggers(el: Element, storeName: string, app: RouseApp) {
   let pollInterval = 0;
 
   // Optional triggers if provided in rz-refresh
-  const triggers = parseTriggers(getValue(el));
+  const triggers = parseTriggers(getDirectiveValue(el, 'refresh'));
 
   const triggerRefresh = () => {
     if (!app.stores.status(storeName)?.loading) {
