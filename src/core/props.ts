@@ -105,14 +105,15 @@ export function splitInjection(raw: string): {
   key: string;
   rawPayload: string | undefined;
 } {
-  // Find the first index of ?, #, @, {
-  const match = raw.match(/[?#@{]/);
+  // Find the first index of ?, #, @, or { starting after the first character.
+  // This accomodates store keys like '@my-store.method{ "id": 234 }'  
+  const matchIndex = raw.substring(1).search(/[?#@{]/);
 
-  if (!match || match.index === undefined) {
+  if (matchIndex === -1) {
     return { key: raw.trim(), rawPayload: undefined };
   }
 
-  const i = match.index;
+  const i = matchIndex + 1;
   return {
     key: raw.slice(0, i).trim(),
     rawPayload: raw.slice(i).trim(),

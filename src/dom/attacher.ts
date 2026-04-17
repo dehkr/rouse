@@ -67,20 +67,20 @@ export function attachController(root: HTMLElement, instance: Controller, app: R
     boundNodes.add(el);
 
     for (const directive of directives) {
-      const rawValue = directive.getValue(el);
+      const value = directive.getValue(el);
 
       // Strict check to allow empty/boolean directives
-      if (rawValue === null) continue;
+      if (value === null) continue;
 
-      const registerCleanup = (cleanup: CleanupFunction) => {
+      const registerCleanup = (cleanup: CleanupFunction | void) => {
         if (cleanup) {
           addCleanup(el, cleanup);
         }
       };
 
-      const parsed = parseDirectiveValue(rawValue);
-      for (const [key, value] of parsed) {
-        registerCleanup(directive.attach(el, instance, app, key, value));
+      const parsed = parseDirectiveValue(value);
+      for (const [key, val] of parsed) {
+        registerCleanup(directive.attach(el, instance, app, key, val));
       }
     }
   }

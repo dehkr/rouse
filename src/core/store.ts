@@ -271,6 +271,20 @@ export class StoreManager {
     const status = this._createStatus();
     this._status.set(id, status);
 
+    const actions = {
+      save: (config?: { url?: string; method?: string }) => this.save(id, config),
+      refresh: (config?: { url?: string; method?: string }) => this.refresh(id, config),
+      reset: () => this.reset(id),
+    };
+
+    // expose __actions invisibly
+    Object.defineProperty(state, '__actions', {
+      value: actions,
+      enumerable: false,
+      configurable: true,
+      writable: false,
+    });
+
     // expose __status invisibly
     Object.defineProperty(state, '__status', {
       value: status,

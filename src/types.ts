@@ -85,7 +85,7 @@ export interface BoundDirective extends BaseDirective {
     app: RouseApp,
     key: string,
     value: string,
-  ) => CleanupFunction;
+  ) => CleanupFunction | void;
 }
 
 /** Custom error statuses for non-HTTP failures */
