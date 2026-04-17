@@ -1,4 +1,5 @@
 import { getApp, type RouseApp } from '../core/app';
+import { resolveProps } from '../core/props';
 import { directiveSelector, queryTargets, warn } from '../core/shared';
 import { rzFetch, rzScope, rzStore, rzWake } from '../directives';
 import {
@@ -7,9 +8,6 @@ import {
   scanScopeNode,
   teardownScopeNode,
 } from '../dom/controller';
-import { resolvePayload } from './utils';
-
-// const storeCleanups = new WeakMap<HTMLScriptElement, Array<() => void>>();
 
 /**
  * Initializes a controller element by parsing its directive, resolving its
@@ -38,7 +36,7 @@ export function initControllerElement(el: HTMLElement) {
 
   rzWake.processStrategy(el, app.config.ui.wakeStrategy, () => {
     // Lazy JSON parse
-    const props = resolvePayload(rawPayload, app?.stores) || {};
+    const props = resolveProps(rawPayload, app?.stores) || {};
     initInstance(el, setup, props);
   });
 }

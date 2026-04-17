@@ -1,12 +1,12 @@
 import type { BindableValue } from '../types';
-import { isInput, isSelect, isTextArea } from './utils';
+import { is } from './utils';
 
-const prevClasses = new WeakMap<HTMLElement, string>();
+const prevClasses = new WeakMap<Element, string>();
 
 /**
  * Handles innerText updates.
  */
-export function updateText(el: HTMLElement, value: BindableValue) {
+export function updateText(el: Element, value: BindableValue) {
   // Check equality to avoid cursor jumping in contenteditable
   const strVal = displayString(value);
   if (el.textContent !== strVal) {
@@ -17,7 +17,7 @@ export function updateText(el: HTMLElement, value: BindableValue) {
 /**
  * Handles innerHTML updates.
  */
-export function updateHtml(el: HTMLElement, value: BindableValue) {
+export function updateHtml(el: Element, value: BindableValue) {
   const htmlVal = displayString(value);
   if (el.innerHTML !== htmlVal) {
     el.innerHTML = htmlVal;
@@ -27,7 +27,9 @@ export function updateHtml(el: HTMLElement, value: BindableValue) {
 /**
  * Handles setting value of modelable elements.
  */
-export function updateValue(el: HTMLElement, value: BindableValue) {
+export function setModelableValue(el: Element, value: BindableValue) {
+  if (!(el instanceof HTMLElement)) return;
+
   // Text of elements with `contenteditable` attribute are modelable
   if (el.isContentEditable) {
     const strVal = String(value ?? '');
@@ -41,10 +43,10 @@ export function updateValue(el: HTMLElement, value: BindableValue) {
   const input = el as HTMLInputElement | HTMLSelectElement;
 
   if (input.type === 'checkbox') {
-    input.checked = !!value;
+    input.checked = Boolean(value);
   } else if (input.type === 'radio') {
     input.checked = input.value === String(value);
-  } else if (isSelect(input) && input.multiple && Array.isArray(value)) {
+  } else if (is(input, 'Select') && input.multiple && Array.isArray(value)) {
     // Handle multi-select (array value)
     const vals = new Set(value.map(String));
     Array.from(input.options).forEach((opt) => {
@@ -54,7 +56,7 @@ export function updateValue(el: HTMLElement, value: BindableValue) {
     // Handle standard inputs (string value)
     const strVal = String(value ?? '');
     // Only update if actually changed to prevent cursor jumping
-    if (isInput(input) || isTextArea(input)) {
+    if (is(input, 'Input') || is(input, 'TextArea')) {
       if (input.value !== strVal) {
         input.value = strVal;
       }
@@ -65,7 +67,9 @@ export function updateValue(el: HTMLElement, value: BindableValue) {
 /**
  * Returns current value of HTML element.
  */
-export function getValue(el: HTMLElement): BindableValue {
+export function getModelableValue(el: Element): BindableValue {
+  if (!(el instanceof HTMLElement)) return;
+
   // Text of elements with `contenteditable` attribute are modelable
   if (el.isContentEditable) {
     return el.innerText;
@@ -79,7 +83,7 @@ export function getValue(el: HTMLElement): BindableValue {
   if (input.type === 'number' || input.type === 'range') {
     return Number.isNaN(input.valueAsNumber) ? null : input.valueAsNumber;
   }
-  if (isSelect(input) && input.multiple) {
+  if (is(input, 'Select') && input.multiple) {
     return Array.from(input.selectedOptions).map((o) => o.value);
   }
 
@@ -91,7 +95,7 @@ export function getValue(el: HTMLElement): BindableValue {
  * Object syntax toggles class: { 'active': bool } or { 'active bg-red: bool' }.
  * String value swaps class w/out replacing existing classes: 'active' or 'active bg-red'.
  */
-export function updateClass(el: HTMLElement, value: BindableValue) {
+export function updateClass(el: Element, value: BindableValue) {
   if (value && typeof value === 'object') {
     for (const [cls, active] of Object.entries(value)) {
       const classes = cls.trim().split(/\s+/).filter(Boolean);
@@ -127,7 +131,9 @@ export function updateClass(el: HTMLElement, value: BindableValue) {
 /**
  * Handles style attribute updates. Supports object syntax and string value.
  */
-export function updateStyle(el: HTMLElement, value: BindableValue) {
+export function updateStyle(el: Element, value: BindableValue) {
+  if (!(el instanceof HTMLElement || el instanceof SVGElement)) return;
+
   if (value && typeof value === 'object') {
     Object.assign(el.style, value);
   } else {
@@ -138,7 +144,7 @@ export function updateStyle(el: HTMLElement, value: BindableValue) {
 /**
  * Handles generic attribute updates.
  */
-export function updateAttr(el: HTMLElement, attr: string, value: BindableValue) {
+export function updateAttr(el: Element, attr: string, value: BindableValue) {
   if (value === false || value == null) {
     el.removeAttribute(attr);
   } else {

@@ -33,6 +33,20 @@ export function hasDirective(el: Element, slug: DirectiveSlug): boolean {
 }
 
 /**
+ * Checks that a value is a plain JavaScript opbject (POJO).
+ * Excludes Arrays, Dates, Maps, and custom class instances.
+ */
+export function isPlainObject(val: unknown): val is Record<string, any> {
+  if (typeof val !== 'object' || val === null || Array.isArray(val)) {
+    return false;
+  }
+
+  const proto = Object.getPrototypeOf(val);
+  // Matches {} (Object.prototype) and Object.create(null)
+  return proto === null || proto === Object.prototype;
+}
+
+/**
  * Safely query within the element boundary (including the element itself)
  */
 export function queryTargets<T extends Element = Element>(
@@ -47,4 +61,39 @@ export function queryTargets<T extends Element = Element>(
   }
 
   return targets;
+}
+
+/**
+ * Recursively freezes an object to prevent any further mutations.
+ * Optimized for configuration (plain objects and arrays).
+ */
+export function deepFreeze<T extends object>(obj: T, seen = new WeakSet()): Readonly<T> {
+  if (obj === null || typeof obj !== 'object' || Object.isFrozen(obj)) {
+    return obj as Readonly<T>;
+  }
+
+  if (Object.isFrozen(obj) || seen.has(obj)) {
+    return obj as Readonly<T>;
+  }
+  seen.add(obj);
+
+  if (Array.isArray(obj)) {
+    for (let i = 0; i < obj.length; i++) {
+      const value = obj[i];
+      if (value && typeof value === 'object') {
+        deepFreeze(value, seen);
+      }
+    }
+  } else {
+    const keys = Object.keys(obj);
+    for (let i = 0; i < keys.length; i++) {
+      const key = keys[i] as keyof typeof obj;
+      const value = obj[key];
+      if (value && typeof value === 'object') {
+        deepFreeze(value, seen);
+      }
+    }
+  }
+
+  return Object.freeze(obj);
 }

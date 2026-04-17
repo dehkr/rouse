@@ -5,7 +5,8 @@ import type { Directive } from '../types';
 
 export const rzInsert = {
   existsOn,
-  getRawValue,
+  getValue,
+  getDefinedValue,
   getInsertConfig,
 } as const satisfies Directive;
 
@@ -22,7 +23,6 @@ const INSERT_METHODS = [
 export type InsertMethod = (typeof INSERT_METHODS)[number];
 
 const DEFAULT_METHOD: InsertMethod = 'innerHTML';
-const strategies = new Set<InsertMethod>(INSERT_METHODS);
 
 export interface InsertOperation {
   targets: Element[];
@@ -30,48 +30,61 @@ export interface InsertOperation {
 }
 
 function existsOn(el: Element) {
-  return hasDirective(el, 'source');
+  return hasDirective(el, 'insert');
 }
 
-function getRawValue(el: Element) {
-  return getDirectiveValue(el, 'source');
+function getValue(el: Element) {
+  return getDirectiveValue(el, 'insert');
+}
+
+function getDefinedValue(el: Element) {
+  const value = getValue(el);
+  if (value === null || value.trim() === '') {
+    return null;
+  }
+  return value.trim();
 }
 
 function isInsertMethod(key: string): key is InsertMethod {
-  return strategies.has(key as InsertMethod);
+  return INSERT_METHODS.includes(key as InsertMethod);
 }
 
 /**
  * Parse value of rz-insert directive.
+ *
  * Returns an array of operations to support multi-target updates.
+ * Accepts "strategy: selector", "strategy", and/or "selector" values.
+ *
+ * Defaults to "innerHTML" if strategy is missing and the host element
+ * if the selector is missing.
+ *
+ * - `rz-insert="beforebegin: #header"`
+ * - `rz-insert="beforebegin"`
+ * - `rz-insert="#output"`
  */
 function getInsertConfig(el: Element): InsertOperation[] {
-  const rawValue = getDirectiveValue(el, 'insert');
+  const value = getDefinedValue(el);
 
-  // Default behavior updates innerHTML of self
-  if (!rawValue) {
+  if (!value) {
     return [{ targets: [el], strategy: DEFAULT_METHOD }];
   }
 
-  const parsed = parseDirectiveValue(rawValue);
+  const parsed = parseDirectiveValue(value);
   if (parsed.length === 0) {
     return [{ targets: [el], strategy: DEFAULT_METHOD }];
   }
 
   const operations: InsertOperation[] = [];
-
   const appRoot = getApp(el)?.root || document.documentElement;
 
-  // Iterate over all parsed pairs
   for (const [key, val] of parsed) {
-    // Case 1: "STRATEGY: SELECTOR" (e.g. "beforebegin: #header")
+    // "Strategy: Selector"
     if (val) {
       const strategy = isInsertMethod(key) ? key : DEFAULT_METHOD;
       const nodeList = queryTargets(appRoot, val);
 
       if (nodeList.length === 0) {
-        warn(`No targets found for "${val}".`);
-        // Push empty op to maintain index but do nothing
+        warn(`No targets found for '${val}'.`);
         operations.push({ strategy, targets: [] });
       } else {
         operations.push({
@@ -82,16 +95,16 @@ function getInsertConfig(el: Element): InsertOperation[] {
       continue;
     }
 
-    // Case 2: "STRATEGY" (e.g. "delete", "outerHTML")
+    // "Strategy"
     if (isInsertMethod(key)) {
       operations.push({ targets: [el], strategy: key });
       continue;
     }
 
-    // Case 3: "SELECTOR" (e.g. "#output")
+    // "Selector"
     const nodeList = queryTargets(appRoot, key);
     if (nodeList.length === 0) {
-      warn(`No targets found for "${key}".`);
+      warn(`No targets found for '${key}'.`);
       operations.push({ targets: [], strategy: DEFAULT_METHOD });
     } else {
       operations.push({

@@ -5,6 +5,7 @@ import { warn } from './shared';
 export const DEFAULT_TIMING = {
   DEBOUNCE: 300,
   THROTTLE: 150,
+  POLL: 5000,
 };
 
 export interface TimingConfig {

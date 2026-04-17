@@ -1,12 +1,13 @@
 import type { RouseApp } from '../core/app';
 import { parseModifiers } from '../core/parser';
+import { resolveProps, splitInjection } from '../core/props';
 import { err, getDirectiveValue, hasDirective, warn } from '../core/shared';
-import { cleanup, on, resolvePayload, splitInjection } from '../dom/utils';
+import { cleanup, on } from '../dom/utils';
 import type { BoundDirective, CleanupFunction, Controller } from '../types';
 
 export const rzOn = {
   existsOn,
-  getRawValue,
+  getValue,
   attach,
 } as const satisfies BoundDirective;
 
@@ -14,19 +15,19 @@ function existsOn(el: Element) {
   return hasDirective(el, 'on');
 }
 
-function getRawValue(el: Element) {
+function getValue(el: Element) {
   return getDirectiveValue(el, 'on');
 }
 
 function attach(
-  el: HTMLElement,
+  el: Element,
   scope: Controller,
   app: RouseApp,
-  rawEvent: string,
-  rawMethod: string,
+  key: string,
+  value: string,
 ): CleanupFunction {
-  const { key: event, modifiers } = parseModifiers(rawEvent);
-  const { key: methodName, rawPayload } = splitInjection(rawMethod);
+  const { key: event, modifiers } = parseModifiers(key);
+  const { key: methodName, rawPayload } = splitInjection(value);
 
   // Validate that the method actually exists
   const method = scope[methodName];
@@ -41,7 +42,7 @@ function attach(
     (e: Event) => {
       try {
         const payload =
-          rawPayload !== undefined ? resolvePayload(rawPayload, app.stores) : undefined;
+          rawPayload !== undefined ? resolveProps(rawPayload, app.stores) : undefined;
         method.call(scope, payload, e);
       } catch (error) {
         err(`Failed to execute '${methodName}()'.`, error);

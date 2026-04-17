@@ -1,9 +1,8 @@
-import { isPlainObject } from '../dom/utils';
 import { request } from '../net/request';
 import { reactive, skipReactivity, trackDirty } from '../reactivity';
 import type { RouseConfig } from './app';
 import { getNestedVal } from './path';
-import { warn } from './shared';
+import { isPlainObject, warn } from './shared';
 
 export interface StoreStatus {
   loading: boolean;
@@ -300,7 +299,7 @@ export class StoreManager {
     const config = this._configs.get(id);
 
     if (!data || !status) {
-      warn(`Store "${id}" not found.`);
+      warn(`Store '${id}' not found.`);
       return undefined;
     }
 
@@ -325,7 +324,7 @@ export class StoreManager {
     const method = manualConfig?.method || storeMethod || defaultMethod;
 
     if (!url) {
-      warn(`Cannot ${operation} store "${id}": No URL configured.`);
+      warn(`Cannot ${operation} store '${id}': No URL configured.`);
       return;
     }
 
@@ -477,11 +476,11 @@ export class StoreManager {
     const data = this._data.get(name);
     const initial = this._initial.get(name);
     if (!data) {
-      return warn(`Cannot reset store "${name}": Store not found.`);
+      return warn(`Cannot reset store '${name}': Store not found.`);
     }
     if (!initial) {
       return console.warn(
-        `[Rouse] Cannot reset store "${name}": No initial state cached.`,
+        `[Rouse] Cannot reset store '${name}': No initial state cached.`,
       );
     }
     runPatch(data, clone(initial), 'replace');

@@ -5,25 +5,33 @@ import type { Directive } from '../types';
 
 export const rzWake = {
   existsOn,
-  getRawValue,
+  getValue,
+  getDefinedValue,
   processStrategy,
 } as const satisfies Directive;
 
-function existsOn(el: HTMLElement) {
+function existsOn(el: Element) {
   return hasDirective(el, 'wake');
 }
 
-function getRawValue(el: HTMLElement) {
+function getValue(el: Element) {
   return getDirectiveValue(el, 'wake');
 }
 
+function getDefinedValue(el: Element) {
+  const value = getValue(el);
+  if (value === null || value.trim() === '') {
+    return null;
+  }
+  return value.trim();
+}
+
 function processStrategy(
-  el: HTMLElement,
+  el: Element,
   defaultStrategy: string,
   onWake: () => void,
 ) {
-  const rawWake = getDirectiveValue(el, 'wake');
-  const strategies = parseDirectiveValue(rawWake || defaultStrategy);
+  const strategies = parseDirectiveValue(getDefinedValue(el) || defaultStrategy);
 
   let pending = strategies.length;
   if (pending === 0) {

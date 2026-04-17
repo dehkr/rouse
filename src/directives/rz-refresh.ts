@@ -1,4 +1,4 @@
-import { RouseApp } from '../core/app';
+import type { RouseApp } from '../core/app';
 import { parseTriggers } from '../core/parser';
 import { getDirectiveValue, hasDirective } from '../core/shared';
 import { parseTime } from '../core/timing';
@@ -6,15 +6,15 @@ import type { Directive } from '../types';
 
 export const rzRefresh = {
   existsOn,
-  getRawValue,
+  getValue,
   attachTriggers,
-} as const satisfies Directive<HTMLScriptElement>;
+} as const satisfies Directive;
 
-function existsOn(el: HTMLScriptElement) {
+function existsOn(el: Element) {
   return hasDirective(el, 'refresh');
 }
 
-function getRawValue(el: HTMLScriptElement) {
+function getValue(el: Element) {
   return getDirectiveValue(el, 'refresh');
 }
 
@@ -22,7 +22,7 @@ function getRawValue(el: HTMLScriptElement) {
  * Attach event listeners and sets default `focus` and `reconnect` behavior.
  * Also handles synthetic `poll` event and returns cleanups.
  */
-function attachTriggers(el: HTMLScriptElement, storeName: string, app: RouseApp) {
+function attachTriggers(el: Element, storeName: string, app: RouseApp) {
   if (!storeName || !app) return;
 
   const ac = new AbortController();
@@ -35,7 +35,7 @@ function attachTriggers(el: HTMLScriptElement, storeName: string, app: RouseApp)
   let pollInterval = 0;
 
   // Optional triggers if provided in rz-refresh
-  const triggers = parseTriggers(getRawValue(el));
+  const triggers = parseTriggers(getValue(el));
 
   const triggerRefresh = () => {
     if (!app.stores.status(storeName)?.loading) {

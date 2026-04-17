@@ -4,32 +4,32 @@ import type { Directive } from '../types';
 
 export const rzSource = {
   existsOn,
-  getRawValue,
+  getValue,
   getMethodAndUrl,
-} as const satisfies Directive<HTMLScriptElement>;
+} as const satisfies Directive;
 
 const validSaveMethod = new Set(['POST', 'PUT', 'PATCH']);
 const DEFAULT_SAVE_METHOD = 'POST';
 
-function existsOn(el: HTMLScriptElement) {
+function existsOn(el: Element) {
   return hasDirective(el, 'source');
 }
 
-function getRawValue(el: HTMLScriptElement) {
+function getValue(el: Element) {
   return getDirectiveValue(el, 'source');
 }
 
 /**
  * Gets the `rz-source` attribute and parses to a HTTP method and URL.
  */
-function getMethodAndUrl(el: HTMLScriptElement): {
+function getMethodAndUrl(el: Element): {
   saveMethod?: string;
   url?: string;
 } {
   let saveMethod = DEFAULT_SAVE_METHOD;
   let url: string | undefined;
 
-  const parsed = parseDirectiveValue(getRawValue(el));
+  const parsed = parseDirectiveValue(getValue(el));
   if (!parsed[0]) {
     return { saveMethod, url };
   }

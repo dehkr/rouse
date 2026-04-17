@@ -1,7 +1,7 @@
 import { defaultConfig, getApp, type RouseApp } from '../core/app';
 import { err, warn } from '../core/shared';
 import { rzRequest } from '../directives';
-import { dispatch, isAnchor, isForm, isInput, isSelect, isTextArea } from '../dom/utils';
+import { dispatch, is } from '../dom/utils';
 import type { RouseRequest, RouseResponse } from '../types';
 import { request } from './request';
 import { fallbackResponse } from './response';
@@ -74,12 +74,12 @@ async function executeFetch(el: Element, options: RouseRequest) {
   let formMethod: string | undefined;
 
   // Fallbacks for URL and capture native form method
-  if (isForm(el)) {
+  if (is(el, 'Form')) {
     if (!url) {
       url = el.action;
     }
     formMethod = el.getAttribute('method') || undefined;
-  } else if (isAnchor(el)) {
+  } else if (is(el, 'Anchor')) {
     if (!url) {
       url = el.href;
     }
@@ -103,12 +103,12 @@ async function executeFetch(el: Element, options: RouseRequest) {
     'GET'
   ).toUpperCase();
 
-  const isFormEl = isForm(el);
+  const isFormEl = is(el, 'Form');
   const hasExplicitBody =
     finalRequestInit.body !== undefined || options.body !== undefined;
 
   // Process standalone inputs to build the body or modify URL
-  if (!hasExplicitBody && (isInput(el) || isSelect(el) || isTextArea(el))) {
+  if (!hasExplicitBody && (is(el, 'Input') || is(el, 'Select') || is(el, 'TextArea'))) {
     const field = el;
 
     if (field.name) {
@@ -132,7 +132,7 @@ async function executeFetch(el: Element, options: RouseRequest) {
         }
       }
       // Multi-select
-      else if (isSelect(field) && field.multiple) {
+      else if (is(field, 'Select') && field.multiple) {
         values = Array.from(field.selectedOptions).map((opt) => opt.value);
       }
       // Default
@@ -284,7 +284,7 @@ function resolveRequestConfig(
   app: RouseApp | undefined,
 ): Partial<RouseRequest> {
   const globalConfig = app?.config.network.fetch || {};
-  const localConfig = rzRequest.getConfig(el, app);
+  const localConfig = rzRequest.existsOn(el) ? rzRequest.getConfig(el, app) : {};
 
   return {
     ...globalConfig,

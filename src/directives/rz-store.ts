@@ -1,6 +1,6 @@
-import { getApp, RouseApp } from '../core/app';
+import { getApp, type RouseApp } from '../core/app';
 import { err, getDirectiveValue, hasDirective, warn } from '../core/shared';
-import { isScript } from '../dom/utils';
+import { is } from '../dom/utils';
 import type { Directive } from '../types';
 import { rzRefresh } from './rz-refresh';
 import { rzSave } from './rz-save';
@@ -8,34 +8,34 @@ import { rzSource } from './rz-source';
 
 export const rzStore = {
   existsOn,
-  getRawValue,
+  getValue,
   getDefinedValue,
   isValid,
   validate,
   initialize,
   teardown,
-} as const satisfies Directive<HTMLScriptElement>;
+} as const satisfies Directive;
 
 const storeCleanups = new WeakMap<HTMLScriptElement, Array<() => void>>();
 
-function existsOn(el: HTMLScriptElement) {
+function existsOn(el: Element) {
   return hasDirective(el, 'store');
 }
 
-function getRawValue(el: HTMLScriptElement) {
+function getValue(el: Element) {
   return getDirectiveValue(el, 'store');
 }
 
-function getDefinedValue(el: HTMLScriptElement) {
-  const rawValue = getRawValue(el);
-  if (rawValue === null || rawValue.trim() === '') {
+function getDefinedValue(el: Element) {
+  const value = getValue(el);
+  if (value === null || value.trim() === '') {
     return null;
   }
-  return rawValue.trim();
+  return value.trim();
 }
 
 function isValid(el: Element, app: RouseApp): el is HTMLScriptElement {
-  return isScript(el) && existsOn(el) && getApp(el) === app;
+  return is(el, 'Script') && existsOn(el) && getApp(el) === app;
 }
 
 function validate(el: Element, app: RouseApp): el is HTMLScriptElement {

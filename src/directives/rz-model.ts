@@ -1,14 +1,19 @@
 import type { RouseApp } from '../core/app';
 import { resolveState, writeState } from '../core/path';
 import { getDirectiveValue, hasDirective } from '../core/shared';
-import { getValue, updateValue } from '../dom/updater';
-import { cleanup, isInput, isSelect } from '../dom/utils';
+import { getModelableValue, setModelableValue } from '../dom/updater';
+import { cleanup, is } from '../dom/utils';
 import { effect } from '../reactivity';
-import type { BindableValue, BoundDirective, CleanupFunction, Controller } from '../types';
+import type {
+  BindableValue,
+  BoundDirective,
+  CleanupFunction,
+  Controller,
+} from '../types';
 
 export const rzModel = {
   existsOn,
-  getRawValue,
+  getValue,
   attach,
 } as const satisfies BoundDirective;
 
@@ -16,7 +21,7 @@ function existsOn(el: Element) {
   return hasDirective(el, 'model');
 }
 
-function getRawValue(el: Element) {
+function getValue(el: Element) {
   return getDirectiveValue(el, 'model');
 }
 
@@ -24,7 +29,7 @@ function getRawValue(el: Element) {
  * Two-way binding for form elements
  */
 function attach(
-  el: HTMLElement,
+  el: Element,
   scope: Controller,
   app: RouseApp,
   prop: string,
@@ -32,16 +37,16 @@ function attach(
   // State -> DOM
   const stopEffect = effect(() => {
     const val = resolveState<BindableValue>(prop, scope, app.stores);
-    updateValue(el, val);
+    setModelableValue(el, val);
   });
 
   // Determine best event type
-  const isBinary = isInput(el) && (el.type === 'checkbox' || el.type === 'radio');
-  const eventType = isSelect(el) || isBinary ? 'change' : 'input';
+  const isBinary = is(el, 'Input') && (el.type === 'checkbox' || el.type === 'radio');
+  const eventType = is(el, 'Select') || isBinary ? 'change' : 'input';
 
   // State <- DOM
   const handler = () => {
-    const newVal = getValue(el);
+    const newVal = getModelableValue(el);
     writeState(prop, newVal, scope, app.stores);
   };
 

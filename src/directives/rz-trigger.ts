@@ -1,12 +1,12 @@
 import { parseTriggers } from '../core/parser';
 import { getDirectiveValue, hasDirective } from '../core/shared';
-import { parseTime } from '../core/timing';
-import { isAnchor, isForm, on } from '../dom/utils';
+import { DEFAULT_TIMING, parseTime } from '../core/timing';
+import { is, on } from '../dom/utils';
 import type { Directive } from '../types';
 
 export const rzTrigger = {
   existsOn,
-  getRawValue,
+  getValue,
   attachTriggers,
 } as const satisfies Directive;
 
@@ -14,7 +14,7 @@ function existsOn(el: Element) {
   return hasDirective(el, 'trigger');
 }
 
-function getRawValue(el: Element) {
+function getValue(el: Element) {
   return getDirectiveValue(el, 'trigger');
 }
 
@@ -23,11 +23,9 @@ function getRawValue(el: Element) {
  * Returns a cleanup function or `undefined` if 0 triggers.
  */
 function attachTriggers(el: Element, action: (e?: Event) => void) {
-  const triggers = parseTriggers(getRawValue(el));
+  const triggers = parseTriggers(getValue(el));
   if (triggers.length === 0) return;
-  
-  const isFormEl = isForm(el);
-  const isAnchorEl = isAnchor(el);
+
   const cleanups: Array<() => void> = [];
 
   triggers.forEach((trigger) => {
@@ -38,8 +36,7 @@ function attachTriggers(el: Element, action: (e?: Event) => void) {
     // Handle synthetic poll event
     else if (trigger.event === 'poll') {
       const waitStr = trigger.modifiers[0];
-      // TODO: confirm default poll time and add to app config?
-      const ms = waitStr ? parseTime(waitStr) : 5000;
+      const ms = waitStr ? parseTime(waitStr) : DEFAULT_TIMING.POLL;
       if (ms > 0) {
         const timer = window.setInterval(() => {
           action();
@@ -55,8 +52,11 @@ function attachTriggers(el: Element, action: (e?: Event) => void) {
         el,
         trigger.event,
         (e: Event) => {
-          // Prevent default behavior for forms and anchor links
-          if ((isFormEl && e.type === 'submit') || (isAnchorEl && e.type === 'click')) {
+          // Prevent default behavior for forms and links
+          if (
+            (is(el, 'Form') && e.type === 'submit') ||
+            (is(el, 'Anchor') && e.type === 'click')
+          ) {
             e.preventDefault();
           }
           action(e);

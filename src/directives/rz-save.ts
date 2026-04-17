@@ -1,4 +1,4 @@
-import { RouseApp } from '../core/app';
+import type { RouseApp } from '../core/app';
 import { parseTriggers } from '../core/parser';
 import { getDirectiveValue, hasDirective } from '../core/shared';
 import { applyTiming, parseTime } from '../core/timing';
@@ -7,15 +7,15 @@ import type { Directive } from '../types';
 
 export const rzSave = {
   existsOn,
-  getRawValue,
+  getValue,
   attachTriggers,
-} as const satisfies Directive<HTMLScriptElement>;
+} as const satisfies Directive;
 
-function existsOn(el: HTMLScriptElement) {
+function existsOn(el: Element) {
   return hasDirective(el, 'save');
 }
 
-function getRawValue(el: HTMLScriptElement) {
+function getValue(el: Element) {
   return getDirectiveValue(el, 'save');
 }
 
@@ -23,10 +23,10 @@ function getRawValue(el: HTMLScriptElement) {
  * Attach event listeners and handles synthetic `poll` and `mutate` event.
  * Returns cleanups.
  */
-function attachTriggers(el: HTMLScriptElement, storeName: string, app: RouseApp) {
+function attachTriggers(el: Element, storeName: string, app: RouseApp) {
   if (!storeName || !app) return;
 
-  const triggers = parseTriggers(getRawValue(el));
+  const triggers = parseTriggers(getValue(el));
   if (triggers.length === 0) return;
 
   const ac = new AbortController();

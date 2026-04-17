@@ -1,5 +1,4 @@
 import { getApp } from '../core/app';
-import { isElement } from './utils';
 
 const keyMap: Record<string, string> = {
   enter: 'Enter',
@@ -74,7 +73,7 @@ export function applyModifiers(
     return false;
   }
 
-  if (modifiers.includes('outside') && isElement(target)) {
+  if (modifiers.includes('outside') && target instanceof HTMLElement) {
     if (target.contains(e.target as Node)) {
       return false;
     }

@@ -15,8 +15,8 @@ import { dispatch } from './utils';
  * Returns internal lifecycle methods so the app can delegate DOM mutations.
  */
 export function attachController(root: HTMLElement, instance: Controller, app: RouseApp) {
-  const elementCleanups = new Map<HTMLElement, (() => void)[]>();
-  const boundNodes = new WeakSet<HTMLElement>();
+  const elementCleanups = new Map<Element, (() => void)[]>();
+  const boundNodes = new WeakSet<Element>();
 
   const boundDirectives = {
     bind: rzBind,
@@ -34,7 +34,7 @@ export function attachController(root: HTMLElement, instance: Controller, app: R
     .map((slug) => directiveSelector(slug as DirectiveSlug))
     .join(', ');
 
-  function addCleanup(el: HTMLElement, fn: CleanupFunction) {
+  function addCleanup(el: Element, fn: CleanupFunction) {
     const cleanups = elementCleanups.get(el) ?? [];
     if (!elementCleanups.has(el)) {
       elementCleanups.set(el, cleanups);
@@ -42,7 +42,7 @@ export function attachController(root: HTMLElement, instance: Controller, app: R
     cleanups.push(fn);
   }
 
-  function runCleanup(el: HTMLElement) {
+  function runCleanup(el: Element) {
     boundNodes.delete(el);
 
     const functions = elementCleanups.get(el);
@@ -62,12 +62,12 @@ export function attachController(root: HTMLElement, instance: Controller, app: R
   /**
    * Process each of the dom directives and register their cleanup functions
    */
-  function attachDirectives(el: HTMLElement) {
+  function attachDirectives(el: Element) {
     if (boundNodes.has(el)) return;
     boundNodes.add(el);
 
     for (const directive of directives) {
-      const rawValue = directive.getRawValue(el);
+      const rawValue = directive.getValue(el);
 
       // Strict check to allow empty/boolean directives
       if (rawValue === null) continue;

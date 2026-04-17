@@ -3,7 +3,6 @@ import { rzFetch, rzStore } from '../directives';
 import { destroyInstance } from '../dom/controller';
 import { initControllerElement, initObserver } from '../dom/initializer';
 import { initDomMutator } from '../dom/mutator';
-import { deepFreeze } from '../dom/utils';
 import { handleFetch } from '../net/engine';
 import { fallbackResponse } from '../net/response';
 import type {
@@ -13,6 +12,7 @@ import type {
   SetupFunction,
 } from '../types';
 import { Registry } from './registry';
+import { deepFreeze } from './shared';
 import { StoreManager } from './store';
 import { DEFAULT_TIMING } from './timing';
 
@@ -220,7 +220,7 @@ export class RouseApp {
     // Initialize the DOM mutator that watches for HTML fetch responses
     initDomMutator(this.root, this._abortController.signal);
 
-    // Initial scan for store <script> elements
+    // Scan for store <script> elements to ensure state exists first
     const storeScriptElements = queryTargets(
       this.root,
       `script${directiveSelector('store')}`,
@@ -232,7 +232,6 @@ export class RouseApp {
     });
 
     // Start the scoped mutation observer
-    // TODO: confirm order, should this be before controllers and fetch scan?
     this._observer = initObserver(this);
     this._observer.observe(this.root, { childList: true, subtree: true });
 

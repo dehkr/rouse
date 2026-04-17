@@ -1,28 +1,28 @@
+import { splitInjection } from '../core/props';
 import { getDirectiveValue, hasDirective } from '../core/shared';
-import { splitInjection } from '../dom/utils';
 import type { Directive } from '../types';
 
 export const rzScope = {
   existsOn,
-  getRawValue,
+  getValue,
   getControllerAndPayload,
 } as const satisfies Directive;
 
-function existsOn(el: HTMLElement) {
+function existsOn(el: Element) {
   return hasDirective(el, 'scope');
 }
 
-function getRawValue(el: HTMLElement) {
+function getValue(el: Element) {
   return getDirectiveValue(el, 'scope');
 }
 
 function getControllerAndPayload(
-  el: HTMLElement,
+  el: Element,
 ): { controllerName: string; rawPayload: string | undefined } | null {
-  const raw = getRawValue(el);
-  if (raw === null) return null;
+  const value = getValue(el);
+  if (value === null) return null;
 
-  const { key: controllerName, rawPayload } = splitInjection(raw);
+  const { key: controllerName, rawPayload } = splitInjection(value);
 
   return { controllerName, rawPayload };
 }

@@ -1,4 +1,4 @@
-const visibilityCallbacks = new WeakMap<HTMLElement, () => void>();
+const visibilityCallbacks = new WeakMap<Element, () => void>();
 
 /**
  * Shared IntersectionObserver for 'visible' wake strategy
@@ -6,7 +6,7 @@ const visibilityCallbacks = new WeakMap<HTMLElement, () => void>();
 const visibilityObserver = new IntersectionObserver((entries) => {
   entries.forEach((entry) => {
     if (entry.isIntersecting) {
-      const el = entry.target as HTMLElement;
+      const el = entry.target;
       const callback = visibilityCallbacks.get(el);
       if (callback) {
         callback();
@@ -38,7 +38,7 @@ export function whenDelayOver(delay: number, callback: () => void) {
 /**
  * Wakes when the element is visible or scrolled into view
  */
-export function whenVisible(el: HTMLElement, callback: () => void) {
+export function whenVisible(el: Element, callback: () => void) {
   visibilityCallbacks.set(el, callback);
   visibilityObserver.observe(el);
 }
@@ -80,7 +80,7 @@ export function whenEvent(event: string, callback: () => void) {
  * Wakes when the user interacts with the element
  */
 export function whenInteracted(
-  el: HTMLElement,
+  el: Element,
   callback: () => void,
   triggers: string[] | string = ['mouseover', 'focusin', 'touchstart'],
 ) {

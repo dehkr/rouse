@@ -1,13 +1,13 @@
 import { parseDirectiveValue } from '../core/parser';
 import { getDirectiveValue, hasDirective, HTTP_METHODS, warn } from '../core/shared';
-import { isAnchor, isForm, isInput, isSelect, isTextArea, on } from '../dom/utils';
+import { is, on } from '../dom/utils';
 import { cleanupFetch, handleFetch } from '../net/engine';
 import type { Directive } from '../types';
 import { rzTrigger } from './rz-trigger';
 
 export const rzFetch = {
   existsOn,
-  getRawValue,
+  getValue,
   getMethodAndUrl,
   initialize,
   teardown,
@@ -19,7 +19,7 @@ function existsOn(el: Element) {
   return hasDirective(el, 'fetch');
 }
 
-function getRawValue(el: Element) {
+function getValue(el: Element) {
   return getDirectiveValue(el, 'fetch');
 }
 
@@ -35,7 +35,7 @@ function getMethodAndUrl(el: Element): { method?: string; url?: string } {
   let method: string | undefined;
   let url: string | undefined;
 
-  const parsed = parseDirectiveValue(getRawValue(el));
+  const parsed = parseDirectiveValue(getValue(el));
   if (!parsed[0]) return { method, url };
 
   const [key, val] = parsed[0];
@@ -82,9 +82,9 @@ function initialize(el: Element) {
   if (triggerCleanup) {
     cleanups.push(triggerCleanup);
   } else {
-    const isFormEl = isForm(el);
-    const isAnchorEl = isAnchor(el);
-    const isFieldEl = isInput(el) || isSelect(el) || isTextArea(el);
+    const isFormEl = is(el, 'Form');
+    const isAnchorEl = is(el, 'Anchor');
+    const isFieldEl = is(el, 'Input') || is(el, 'Select') || is(el, 'TextArea');
 
     const defaultEvent = isFormEl ? 'submit' : isFieldEl ? 'change' : 'click';
 

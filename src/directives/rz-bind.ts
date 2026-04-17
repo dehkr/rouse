@@ -8,7 +8,7 @@ import type { BindableValue, BoundDirective, CleanupFunction, Controller } from 
 
 export const rzBind = {
   existsOn,
-  getRawValue,
+  getValue,
   attach,
 } as const satisfies BoundDirective;
 
@@ -16,12 +16,12 @@ function existsOn(el: Element) {
   return hasDirective(el, 'bind');
 }
 
-function getRawValue(el: Element) {
+function getValue(el: Element) {
   return getDirectiveValue(el, 'bind');
 }
 
 function attach(
-  el: HTMLElement,
+  el: Element,
   scope: Controller,
   app: RouseApp,
   type: string,

@@ -1,13 +1,13 @@
 import type { RouseApp } from '../core/app';
 import { parseDirectiveValue } from '../core/parser';
+import { resolveProps } from '../core/props';
 import { getDirectiveValue, hasDirective } from '../core/shared';
 import { parseTime } from '../core/timing';
-import { resolvePayload } from '../dom/utils';
 import type { Directive, RouseRequest } from '../types';
 
 export const rzRequest = {
   existsOn,
-  getRawValue,
+  getValue,
   getConfig,
 } as const satisfies Directive;
 
@@ -17,12 +17,12 @@ function existsOn(el: Element) {
   return hasDirective(el, 'request');
 }
 
-function getRawValue(el: Element) {
+function getValue(el: Element) {
   return getDirectiveValue(el, 'request');
 }
 
 /**
- * Parses the `rz-request`` directive to build a native Fetch API configuration object.
+ * Parses the `rz-request` directive to build a native Fetch API configuration object.
  * Handles native Fetch API properties (mode, credentials, etc.) alongside
  * Rouse-specific network configuration (timeout, retries, abortKey).
  */
@@ -30,10 +30,10 @@ function getConfig(
   el: Element,
   app?: RouseApp,
 ): Partial<RouseRequest> {
-  const rawValue = getDirectiveValue(el, 'request');
-  if (!rawValue) return {};
+  const value = getValue(el);
+  if (!value) return {};
 
-  const parsed = parseDirectiveValue(rawValue);
+  const parsed = parseDirectiveValue(value);
   const config: Record<string, any> = {};
 
   for (const [key, val] of parsed) {
@@ -42,7 +42,7 @@ function getConfig(
     // Dynamic payload delimiters
     // ?: URL params, #: JSON script ID, @: store data, {: inline JSON
     if (val.match(/^[?#@{]/)) {
-      config[key] = resolvePayload(val, app?.stores, false);
+      config[key] = resolveProps(val, app?.stores, false);
     }
 
     // Native RequestInit (fetch): booleans
@@ -67,7 +67,7 @@ function getConfig(
     else if (key === 'abortKey') {
       config[key] = val;
     }
-    
+
     // Native RequestInit (fetch): strings
     else {
       config[key] = val;

@@ -2,36 +2,6 @@ import type { RouseApp } from './core/app';
 import type { StoreManager } from './core/store';
 import type { InsertMethod } from './directives/rz-insert';
 
-declare const CLEANUP: unique symbol;
-export type CleanupFunction = (() => void) & { [CLEANUP]: true };
-
-export type AnyFunction = (...args: any[]) => any;
-
-export type BindableValue =
-  | string
-  | string[]
-  | number
-  | boolean
-  | null
-  | undefined
-  | Record<string, boolean> // For class bindings
-  | Record<string, string>; // For style bindings
-
-/**
- * The object returned by a setup function.
- * Includes standard lifecycle hooks and any custom state/methods.
- */
-export type Controller = Record<string, any> & {
-  connect?: () => void;
-  disconnect?: () => void;
-};
-
-/** Parsed trigger event with modifiers */
-export type TriggerDef = {
-  event: string;
-  modifiers: string[];
-};
-
 export type DirectiveSlug =
   | 'bind'
   | 'fetch'
@@ -49,18 +19,68 @@ export type DirectiveSlug =
   | 'trigger'
   | 'wake';
 
-export interface BaseDirective<T extends Element = HTMLElement> {
-  existsOn: (el: T) => boolean;
-  getRawValue: (el: T) => string | null;
+export type LifecycleEvent =
+  | 'rz:app:start'
+  | 'rz:app:ready'
+  | 'rz:app:destroy'
+  | 'rz:controller:init'
+  | 'rz:controller:connect'
+  | 'rz:controller:disconnect'
+  | 'rz:controller:destroy'
+  | 'rz:fetch:config'
+  | 'rz:fetch:start'
+  | 'rz:fetch:success'
+  | 'rz:fetch:success:json'
+  | 'rz:fetch:success:html'
+  | 'rz:fetch:success:file'
+  | 'rz:fetch:error'
+  | 'rz:fetch:abort'
+  | 'rz:fetch:end'
+  | 'rz:fetch:insert:before'
+  | 'rz:fetch:insert';
+
+export type BindableValue =
+  | string
+  | string[]
+  | number
+  | boolean
+  | null
+  | undefined
+  | Record<string, boolean> // For class bindings
+  | Record<string, string>; // For style bindings
+
+declare const CLEANUP: unique symbol;
+export type CleanupFunction = (() => void) & { [CLEANUP]: true };
+
+export type AnyFunction = (...args: any[]) => any;
+
+/**
+ * The object returned by a setup function.
+ * Includes standard lifecycle hooks and any custom state/methods.
+ */
+export type Controller = Record<string, any> & {
+  connect?: () => void;
+  disconnect?: () => void;
+};
+
+/** Parsed trigger event with modifiers */
+export type TriggerDef = {
+  event: string;
+  modifiers: string[];
+};
+
+export interface BaseDirective {
+  existsOn: (el: Element) => boolean;
+  getValue: (el: Element) => string | null;
 }
 
-export interface Directive<T extends Element = HTMLElement> extends BaseDirective<T> {
+export interface Directive extends BaseDirective {
   [key: string]: unknown;
 }
 
-export interface BoundDirective<T extends Element = HTMLElement> extends BaseDirective<T> {
+export interface BoundDirective extends BaseDirective {
   attach: (
-    el: T,
+    el: Element,
     scope: Controller,
     app: RouseApp,
     key: string,
@@ -169,23 +189,3 @@ export type SetupFunction<
   P extends Record<string, any> = Record<string, any>,
   T extends Element = HTMLElement,
 > = (ctx: SetupContext<P, T>) => Controller;
-
-export type LifecycleEvent =
-  | 'rz:app:start'
-  | 'rz:app:ready'
-  | 'rz:app:destroy'
-  | 'rz:controller:init'
-  | 'rz:controller:connect'
-  | 'rz:controller:disconnect'
-  | 'rz:controller:destroy'
-  | 'rz:fetch:config'
-  | 'rz:fetch:start'
-  | 'rz:fetch:success'
-  | 'rz:fetch:success:json'
-  | 'rz:fetch:success:html'
-  | 'rz:fetch:success:file'
-  | 'rz:fetch:error'
-  | 'rz:fetch:abort'
-  | 'rz:fetch:end'
-  | 'rz:fetch:insert:before'
-  | 'rz:fetch:insert';
