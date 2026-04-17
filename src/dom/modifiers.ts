@@ -140,7 +140,7 @@ export function applyModifiers(
   if (modifiers.includes('stop')) {
     e.stopPropagation();
   }
-  if (modifiers.includes('stopImmediate')) {
+  if (modifiers.includes('stop-immediate')) {
     e.stopImmediatePropagation();
   }
 
