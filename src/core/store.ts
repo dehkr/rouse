@@ -1,5 +1,5 @@
 import { request } from '../net/request';
-import { reactive, skipReactivity, trackDirty } from '../reactivity';
+import { nonReactive, reactive, readOnly, trackDirty } from '../reactivity';
 import type { RouseConfig } from './app';
 import { getNestedVal } from './path';
 import { isPlainObject, warn } from './shared';
@@ -409,19 +409,45 @@ export class StoreManager {
   }
 
   /**
-   * Intercepts the raw payload to apply framework instructions (like skipReactivity)
+   * Intercepts the raw payload to apply framework instructions (like nonReactive)
    * before the data is wrapped in proxies or merged into state.
    */
-  private _processMeta(payload: any) {
+  private _processMeta(payload: unknown) {
     if (!isPlainObject(payload) || !payload.__meta) return;
 
     const meta = payload.__meta;
+    const isObject = (target: unknown) =>
+      target !== undefined && typeof target === 'object' && target !== null;
 
-    if (Array.isArray(meta.skipReactivity)) {
-      meta.skipReactivity.forEach((path: string) => {
+    if (Array.isArray(meta.nonReactive)) {
+      meta.nonReactive.forEach((path: string) => {
         const target = getNestedVal(payload, path);
-        if (target !== undefined && typeof target === 'object' && target !== null) {
-          skipReactivity(target);
+        if (isObject(target)) {
+          nonReactive(target);
+        }
+      });
+    }
+
+    // Handle readOnly paths
+    if (Array.isArray(meta.readOnly)) {
+      meta.readOnly.forEach((path: string) => {
+        const keys = path.split('.');
+        const lastKey = keys.pop();
+
+        if (!lastKey) return;
+
+        let parent = payload;
+
+        // Traverse remaining keys to find the final parent
+        for (const key of keys) {
+          const next = parent[key];
+          if (!isObject(next)) return;
+          parent = next;
+        }
+
+        const target = parent[lastKey];
+        if (isObject(target)) {
+          parent[lastKey] = readOnly(target);
         }
       });
     }

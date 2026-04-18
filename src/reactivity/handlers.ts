@@ -1,4 +1,5 @@
 import { signal, trigger } from '.';
+import { warn } from '../core/shared';
 import { methodIntercepts } from './arrays';
 import {
   dirtyTrackers,
@@ -7,32 +8,12 @@ import {
   proxiable,
   RAW,
   reactive,
+  readOnly,
+  READONLY,
 } from './reactive';
 
 export const ITERATION_KEY = Symbol('rz_iteration');
 const signalCache = new WeakMap<object, Map<string | symbol, any>>();
-
-/**
- * Gets the signal associated with a specific property on a target object.
- * If the signal doesn't exist in the cache, it's created lazily.
- *
- * @param target - The original raw object holding the property.
- * @param key - The property key (string or symbol) to retrieve the signal for.
- * @returns The signal instance for the requested property.
- */
-export function getSignal(target: object, key: string | symbol) {
-  let props = signalCache.get(target);
-  if (!props) {
-    props = new Map();
-    signalCache.set(target, props);
-  }
-  let sig = props.get(key);
-  if (!sig) {
-    sig = signal(Reflect.get(target, key));
-    props.set(key, sig);
-  }
-  return sig;
-}
 
 export const handlers: ProxyHandler<object> = {
   get(target: object, key: string | symbol, receiver: object): any {
@@ -121,6 +102,59 @@ export const handlers: ProxyHandler<object> = {
     return Reflect.has(target, key);
   },
 };
+
+/**
+ * Proxy handlers specifically for readOnly() objects.
+ * Deeply wraps nested objects on access and blocks all mutations.
+ */
+export const readOnlyHandlers: ProxyHandler<object> = {
+  get(target: object, key: string | symbol): any {
+    if (key === READONLY) return true;
+    if (key === RAW) return target;
+
+    const value = Reflect.get(target, key);
+
+    // Lazily wrap nested objects
+    if (proxiable(value)) {
+      return readOnly(value);
+    }
+
+    return value;
+  },
+
+  set(_target: object, key: string | symbol): boolean {
+    warn(`Cannot mutate read-only property: '${String(key)}'.`);
+    // Return true to prevent strict-mode TypeErrors from crashing the app
+    return true; 
+  },
+
+  deleteProperty(_target: object, key: string | symbol): boolean {
+    warn(`Cannot delete read-only property: '${String(key)}'.`);
+    return true;
+  },
+};
+
+/**
+ * Gets the signal associated with a specific property on a target object.
+ * If the signal doesn't exist in the cache, it's created lazily.
+ *
+ * @param target - The original raw object holding the property.
+ * @param key - The property key (string or symbol) to retrieve the signal for.
+ * @returns The signal instance for the requested property.
+ */
+export function getSignal(target: object, key: string | symbol) {
+  let props = signalCache.get(target);
+  if (!props) {
+    props = new Map();
+    signalCache.set(target, props);
+  }
+  let sig = props.get(key);
+  if (!sig) {
+    sig = signal(Reflect.get(target, key));
+    props.set(key, sig);
+  }
+  return sig;
+}
 
 function getRootKey(target: object, key: string | symbol) {
   return objectRootKeys.get(target) ?? (typeof key === 'string' ? key : String(key));

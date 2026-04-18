@@ -12,7 +12,8 @@ export {
   getProxy,
   getRaw,
   isProxy,
+  nonReactive,
   reactive,
-  skipReactivity,
+  readOnly,
   trackDirty,
 } from './reactive';
