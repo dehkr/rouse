@@ -5,7 +5,7 @@ import { resolveProps, splitInjection } from '../core/props';
 import { err, getDirectiveValue, hasDirective, warn } from '../core/shared';
 import { parseStoreLocator } from '../core/store';
 import { cleanup, on } from '../dom/utils';
-import type { BoundDirective, CleanupFunction, Controller } from '../types';
+import type { ActionCtx, BoundDirective, CleanupFunction, Controller } from '../types';
 
 export const rzOn = {
   existsOn: (el: Element) => hasDirective(el, 'on'),
@@ -62,9 +62,10 @@ function attach(
     event,
     (e: Event) => {
       try {
-        const payload =
+        const props =
           rawPayload !== undefined ? resolveProps(rawPayload, app.stores) : undefined;
-        method.call(context, payload, e);
+        const args = { props, e, el } as ActionCtx;
+        method.call(context, args);
       } catch (error) {
         err(`Failed to execute '${methodName}()'.`, error);
       }

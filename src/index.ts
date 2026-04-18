@@ -5,9 +5,15 @@ export { dispatch, insert, on } from './dom/utils';
 export {
   computed,
   effect,
+  nonReactive,
   reactive,
   signal,
-  skipReactivity,
   trigger,
 } from './reactivity';
-export type { BindableValue, LifecycleEvent, SetupContext, SetupFunction } from './types';
+export type {
+  ActionCtx,
+  BindableValue,
+  ControllerCtx,
+  ControllerFunction,
+  LifecycleEvent,
+} from './types';

@@ -2,10 +2,10 @@ import { getApp } from '../core/app';
 import { warn } from '../core/shared';
 import { effectScope } from '../reactivity';
 import type {
+  ControllerCtx,
+  ControllerFunction,
   LifecycleEvent,
   RouseRequest,
-  SetupContext,
-  SetupFunction,
 } from '../types';
 import { attachController } from './attacher';
 import { dispatch, insert, on } from './utils';
@@ -29,7 +29,7 @@ export function teardownScopeNode(el: HTMLElement, removedNode: Element) {
 // Initializes a controller instance on a specific element
 export function initInstance(
   el: HTMLElement,
-  setup: SetupFunction,
+  setup: ControllerFunction,
   props: Record<string, any> = {},
 ) {
   if (instanceMap.has(el)) return;
@@ -50,8 +50,8 @@ export function destroyInstance(el: HTMLElement) {
  * Identity function for TypeScript inference.
  */
 export function controller<P extends Record<string, any> = Record<string, any>>(
-  fn: SetupFunction<P>,
-): SetupFunction<P> {
+  fn: ControllerFunction<P>,
+): ControllerFunction<P> {
   return fn;
 }
 
@@ -60,7 +60,7 @@ export function controller<P extends Record<string, any> = Record<string, any>>(
  */
 export function createController(
   el: HTMLElement,
-  setup: SetupFunction,
+  setup: ControllerFunction,
   props: Record<string, any> = {},
 ) {
   let isDestroyed = false;
@@ -91,7 +91,7 @@ export function createController(
   }
 
   // Context object passed into the controller setup function
-  const context: SetupContext = {
+  const context: ControllerCtx = {
     scope: el,
     root: app.root,
     props,

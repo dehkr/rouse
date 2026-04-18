@@ -156,8 +156,9 @@ export interface FetchInterceptors {
 /**
  * The context object passed into every controller setup function.
  * @template P - The type of the props.
+ * @template T - The Element type.
  */
-export type SetupContext<
+export type ControllerCtx<
   P extends Record<string, any> = Record<string, any>,
   T extends Element = HTMLElement,
 > = {
@@ -185,7 +186,18 @@ export type SetupContext<
 };
 
 /** The definition of a setup function. */
-export type SetupFunction<
+export type ControllerFunction<
   P extends Record<string, any> = Record<string, any>,
   T extends Element = HTMLElement,
-> = (ctx: SetupContext<P, T>) => Controller;
+> = (ctx: ControllerCtx<P, T>) => Controller;
+
+/**
+ * The context object passed as an argument to controller methods via `rz-on`.
+ * @template P - The type of the props.
+ * @template T - The Element type.
+ */
+export type ActionCtx<P = Record<string, any>, T extends Element = HTMLElement> = {
+  el: T;
+  e: Event;
+  props?: P;
+};
