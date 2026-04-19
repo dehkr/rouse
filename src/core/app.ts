@@ -228,7 +228,7 @@ export class RouseApp {
     const controllers = queryTargets<HTMLElement>(this.root, directiveSelector('scope'));
     controllers.forEach((el) => {
       if (getApp(el) === this) {
-        initControllerElement(el);
+        initControllerElement(el, this);
       }
     });
 

@@ -33,9 +33,10 @@ export function initInstance(
   el: HTMLElement,
   setup: ControllerFunction,
   props: Record<string, any> = {},
+  options: { isAlias?: boolean } = {},
 ) {
   if (instanceMap.has(el)) return;
-  instanceMap.set(el, createController(el, setup, props));
+  instanceMap.set(el, createController(el, setup, props, options));
 }
 
 export function destroyInstance(el: HTMLElement) {
@@ -54,7 +55,7 @@ export function destroyInstance(el: HTMLElement) {
 export function controller<P extends Record<string, any> = Record<string, any>>(
   fn: ControllerFunction<P>,
 ): ControllerFunction<P> {
-  (fn as any )[IS_CONTROLLER] = true;
+  (fn as any)[IS_CONTROLLER] = true;
   return fn;
 }
 
@@ -65,6 +66,7 @@ export function createController(
   el: HTMLElement,
   setup: ControllerFunction,
   props: Record<string, any> = {},
+  options: { isAlias?: boolean } = {},
 ) {
   let isDestroyed = false;
   const cleanups: (() => void)[] = [];
@@ -136,7 +138,7 @@ export function createController(
     // Allows for triggering a scan from inside the controller
     scan: (newNode: Element) => {
       if (handle._scan) handle._scan(newNode);
-    }
+    },
   };
 
   // Setup effect scope
@@ -169,7 +171,12 @@ export function createController(
   // Captures effects created by bindings (text, atts, etc.) so the UI auto updates
   if (instance !== undefined) {
     const stopBindingScope = effectScope(() => {
-      const { unbindDom, scan, teardown } = attachController(el, instance, app);
+      const { unbindDom, scan, teardown } = attachController(
+        el,
+        instance,
+        app,
+        options.isAlias === true,
+      );
 
       handle._scan = scan;
       handle._teardown = teardown;

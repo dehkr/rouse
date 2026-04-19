@@ -14,7 +14,12 @@ import { dispatch } from './utils';
  * Binds the controller instance to the DOM.
  * Returns internal lifecycle methods so the app can delegate DOM mutations.
  */
-export function attachController(root: HTMLElement, instance: Controller, app: RouseApp) {
+export function attachController(
+  root: HTMLElement,
+  instance: Controller,
+  app: RouseApp,
+  skipLifecycles = false,
+) {
   const elementCleanups = new Map<Element, (() => void)[]>();
   const boundNodes = new WeakSet<Element>();
 
@@ -128,8 +133,7 @@ export function attachController(root: HTMLElement, instance: Controller, app: R
   // Initial scan
   scan(root);
 
-  // Call lifecycle `connect` method if defined in controller
-  if (typeof instance.connect === 'function') {
+  if (typeof instance.connect === 'function' && !skipLifecycles) {
     instance.connect();
   }
 
@@ -141,7 +145,7 @@ export function attachController(root: HTMLElement, instance: Controller, app: R
     for (const el of [...elementCleanups.keys()]) {
       runCleanup(el);
     }
-    if (typeof instance.disconnect === 'function') {
+    if (typeof instance.disconnect === 'function' && !skipLifecycles) {
       instance.disconnect();
     }
     dispatch(root, 'rz:controller:disconnect', { instance });

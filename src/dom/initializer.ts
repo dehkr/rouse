@@ -8,6 +8,7 @@ import {
   scanScopeNode,
   teardownScopeNode,
 } from '../dom/controller';
+import type { ControllerFunction } from '../types';
 
 /**
  * Initializes a controller element by parsing its directive, resolving its
@@ -17,27 +18,38 @@ import {
  * @param el - The DOM element containing the `rz-scope` directive.
  * @param defaultWake - The fallback wake strategy if the element doesn't specify one.
  */
-export function initControllerElement(el: HTMLElement) {
-  const app = getApp(el);
-  if (!app) return;
-
+export function initControllerElement(el: HTMLElement, app: RouseApp) {
   const scopeValue = rzScope.getControllerAndPayload(el);
   if (scopeValue === null) return;
 
   const { controllerName, rawPayload } = scopeValue;
 
-  // Empty setup function gets passed for scopes w/out a controller
-  const setup = controllerName === '' ? () => ({}) : app.registry.get(controllerName);
+  let setup: ControllerFunction;
+  let isAlias = false;
 
-  if (!setup) {
-    warn(`Controller '${controllerName}' is not registered.`);
-    return;
+  // Context aliasing for stores
+  if (controllerName.startsWith('@')) {
+    isAlias = true;
+    setup = () => {
+      // Fetch the live proxy. Must be an object.
+      const storeData = resolveProps(controllerName, app.stores, true);
+      return storeData || {};
+    };
+  } else if (controllerName === '') {
+    setup = () => ({});
+  } else {
+    const controller = app.registry.get(controllerName);
+    if (!controller) {
+      warn(`Controller '${controllerName}' is not registered.`);
+      return;
+    }
+    setup = controller;
   }
 
   rzWake.processStrategy(el, app.config.ui.wakeStrategy, () => {
-    // Lazy JSON parse
-    const props = resolveProps(rawPayload, app?.stores) || {};
-    initInstance(el, setup, props);
+    // Props can't be passed to an alias so skip `resolveProps` in that case
+    const props = isAlias ? {} : resolveProps(rawPayload, app?.stores) || {};
+    initInstance(el, setup, props, { isAlias });
   });
 }
 
@@ -69,8 +81,9 @@ export function initObserver(app: RouseApp) {
 
           // Check for controllers
           queryTargets<HTMLElement>(el, scopeSelector).forEach((el) => {
+            // Confirm app ownership in case of nested apps
             if (getApp(el) === app) {
-              initControllerElement(el);
+              initControllerElement(el, app);
             }
           });
 
@@ -79,14 +92,14 @@ export function initObserver(app: RouseApp) {
           if (
             ownerScope &&
             !rzScope.existsOn(el as HTMLElement) &&
-            getApp(ownerScope) === app
+            getApp(ownerScope) === app // Nested app protection
           ) {
             scanScopeNode(ownerScope, el);
           }
 
           // Check for new fetch elements to bind polling/custom triggers
           queryTargets(el, fetchSelector).forEach((el) => {
-            if (getApp(el) === app) {
+            if (getApp(el) === app) { // Nested app protection
               rzFetch.initialize(el);
             }
           });

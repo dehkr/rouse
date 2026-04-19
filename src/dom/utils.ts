@@ -32,7 +32,7 @@ export function is<K extends ElementKind>(
  * @param options - Allows overriding cancelable/bubbles
  */
 export function dispatch<T extends string, D = any>(
-  target: EventTarget,
+  el: EventTarget,
   name: T | LifecycleEvent,
   detail: D = {} as D,
   options: CustomEventInit = {},
@@ -43,7 +43,7 @@ export function dispatch<T extends string, D = any>(
     ...options,
     detail,
   });
-  target.dispatchEvent(event);
+  el.dispatchEvent(event);
   return event;
 }
 
