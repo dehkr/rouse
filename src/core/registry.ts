@@ -1,13 +1,17 @@
-import type { SetupFunction } from '../types';
+import { IS_CONTROLLER } from '../dom/controller';
+import type { ControllerFunction } from '../types';
 
 export class Registry {
-  private controllers = new Map<string, SetupFunction<any>>();
+  private controllers = new Map<string, ControllerFunction<any>>();
 
-  register(name: string, setup: SetupFunction<any>) {
+  register(name: string, setup: ControllerFunction<any>) {
+    if (!(setup as any)[IS_CONTROLLER]) {
+      throw new Error(`[Rouse] '${name}' is not a valid controller.`);
+    }
     this.controllers.set(name, setup);
   }
 
-  get(name: string): SetupFunction<any> | undefined {
+  get(name: string): ControllerFunction<any> | undefined {
     return this.controllers.get(name);
   }
 

@@ -12,6 +12,8 @@ import { dispatch, insert, on } from './utils';
 
 const instanceMap = new WeakMap<HTMLElement, any>();
 
+export const IS_CONTROLLER: unique symbol = Symbol('rz_controller');
+
 export function scanScopeNode(el: HTMLElement, newNode: Element) {
   const inst = instanceMap.get(el);
   if (inst?._scan) {
@@ -52,6 +54,7 @@ export function destroyInstance(el: HTMLElement) {
 export function controller<P extends Record<string, any> = Record<string, any>>(
   fn: ControllerFunction<P>,
 ): ControllerFunction<P> {
+  (fn as any )[IS_CONTROLLER] = true;
   return fn;
 }
 

@@ -1,15 +1,15 @@
 import { directiveSelector, err, queryTargets, warn } from '../core/shared';
 import { rzFetch, rzStore } from '../directives';
-import { destroyInstance } from '../dom/controller';
+import { controller, destroyInstance, IS_CONTROLLER } from '../dom/controller';
 import { initControllerElement, initObserver } from '../dom/initializer';
 import { initDomMutator } from '../dom/mutator';
 import { handleFetch } from '../net/engine';
 import { fallbackResponse } from '../net/response';
 import type {
+  ControllerFunction,
   FetchInterceptors,
   GlobalFetchConfig,
   RouseRequest,
-  SetupFunction,
 } from '../types';
 import { Registry } from './registry';
 import { deepFreeze } from './shared';
@@ -122,43 +122,32 @@ export class RouseApp {
    * @param nameOrControllers - Either the unique string name of a controller, or an object mapping names to setup functions.
    * @param setup - The setup function (only required when the first argument is a string).
    */
-  register<P extends Record<string, any>>(name: string, setup: SetupFunction<P>): this;
-  register(controllers: Record<string, SetupFunction<any>>): this;
+  register<P extends Record<string, any>>(
+    name: string,
+    setup: ControllerFunction<P>,
+  ): this;
+  register(controllers: Record<string, ControllerFunction<any>>): this;
   register(
-    nameOrControllers: string | Record<string, SetupFunction<any>>,
-    setup?: SetupFunction<any>,
+    nameOrControllers: string | Record<string, ControllerFunction<any>>,
+    setup?: ControllerFunction<any>,
   ): this {
-    if (typeof nameOrControllers === 'string') {
-      // Handle single registration
-      if (typeof setup === 'function') {
-        this.registry.register(nameOrControllers, setup);
-      } else {
-        throw new Error(
-          `[Rouse] A valid setup function is required for '${nameOrControllers}'.`,
-        );
+    const map =
+      typeof nameOrControllers === 'string'
+        ? { [nameOrControllers]: setup }
+        : nameOrControllers;
+
+    if (!map || typeof map !== 'object' || Array.isArray(map)) {
+      throw new Error('[Rouse] Invalid controller registration.');
+    }
+
+    for (const [name, fn] of Object.entries(map)) {
+      if (typeof fn !== 'function') {
+        throw new Error(`[Rouse] Controller '${name}' must be a setup function.`);
       }
-    } else if (
-      // Handle bulk registration using object shorthand
-      nameOrControllers &&
-      typeof nameOrControllers === 'object' &&
-      !Array.isArray(nameOrControllers)
-    ) {
-      for (const [name, fn] of Object.entries(nameOrControllers)) {
-        if (typeof fn === 'function') {
-          this.registry.register(name, fn);
-        } else {
-          throw new Error(`[Rouse] Controller '${name}' must be a setup function.`);
-        }
-      }
-    } else {
-      // Catch-all for everything else
-      const received =
-        nameOrControllers === null
-          ? 'null'
-          : Array.isArray(nameOrControllers)
-            ? 'an array'
-            : typeof nameOrControllers;
-      throw new Error(`[Rouse] Controller registration failed. Received ${received}.`);
+
+      // Auto-wrap functions with `controller()` if they weren't already
+      const finalSetup = (fn as any)[IS_CONTROLLER] ? fn : controller(fn);
+      this.registry.register(name, finalSetup);
     }
 
     return this;
