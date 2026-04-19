@@ -167,19 +167,34 @@ export type ControllerCtx<
   props: P;
   stores: StoreManager;
   abortSignal: AbortSignal;
-  dispatch: <T extends string, D = any>(
-    target: EventTarget,
-    name: T | LifecycleEvent,
-    detail?: D,
-    options?: CustomEventInit,
-  ) => CustomEvent<D>;
-  on: <D = any>(
-    target: EventTarget,
-    name: string,
-    callback: (ev: CustomEvent<D>) => void,
-    modifiers?: string[],
-    customSignal?: AbortSignal,
-  ) => () => void;
+  dispatch: {
+    <T extends string, D = any>(
+      name: T | LifecycleEvent,
+      detail?: D,
+      options?: CustomEventInit,
+    ): CustomEvent<D>;
+    <T extends string, D = any>(
+      target: EventTarget,
+      name: T | LifecycleEvent,
+      detail?: D,
+      options?: CustomEventInit,
+    ): CustomEvent<D>;
+  };
+  on: {
+    <D = any>(
+      name: string,
+      callback: (ev: CustomEvent<D>) => void,
+      modifiers?: string[],
+      customSignal?: AbortSignal,
+    ): () => void;
+    <D = any>(
+      target: EventTarget,
+      name: string,
+      callback: (ev: CustomEvent<D>) => void,
+      modifiers?: string[],
+      customSignal?: AbortSignal,
+    ): () => void;
+  };
   fetch: (resource: string, options?: RouseRequest) => Promise<RouseResponse>;
   insert: (content: string, target: Element, method: InsertMethod) => void;
   scan: (newNode: Element) => void;

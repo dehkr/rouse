@@ -4,7 +4,6 @@ import { effectScope } from '../reactivity';
 import type {
   ControllerCtx,
   ControllerFunction,
-  LifecycleEvent,
   RouseRequest,
 } from '../types';
 import { attachController } from './attacher';
@@ -102,26 +101,37 @@ export function createController(
     props,
     stores: app.stores,
     abortSignal: abortCtrl.signal,
-    dispatch: <T extends string, D = any>(
-      target: EventTarget,
-      name: T | LifecycleEvent,
-      detail?: D,
-      options?: CustomEventInit,
-    ) => {
+    insert,
+
+    dispatch: (...args: any[]) => {
+      // If the first argument is a string, assume target was omitted
+      const isImplied = typeof args[0] === 'string';
+      
+      const target = isImplied ? el : args[0];
+      const name = isImplied ? args[0] : args[1];
+      const detail = isImplied ? args[1] : args[2];
+      const options = isImplied ? args[2] : args[3];
+      
       return dispatch(target, name, detail, options);
     },
-    on: <D = any>(
-      target: EventTarget,
-      name: string,
-      callback: (ev: CustomEvent<D>) => void,
-      modifiers: string[] = [],
-      customSignal?: AbortSignal,
-    ) => {
+
+    on: (...args: any[]) => {
+      // If the first argument is a string, assume target was omitted
+      const isImplied = typeof args[0] === 'string';
+      
+      const target = isImplied ? el : args[0];
+      const name = isImplied ? args[0] : args[1];
+      const callback = isImplied ? args[1] : args[2];
+      const modifiers = isImplied ? args[2] : args[3];
+      const customSignal = isImplied ? args[3] : args[4];
+
       const activeSignal = customSignal
         ? AbortSignal.any([abortCtrl.signal, customSignal]) // Optional custom signal
         : abortCtrl.signal;
+        
       return on(target, name, callback, modifiers, activeSignal);
     },
+
     // Inject abort signal to avoid background request if controller is destroyed
     // User can override by adding `signal: undefined` option
     // `keepalive: true` option allows a request to finish even if tab closes
@@ -134,7 +144,7 @@ export function createController(
       };
       return app.fetch(resource, finalOptions);
     },
-    insert,
+
     // Allows for triggering a scan from inside the controller
     scan: (newNode: Element) => {
       if (handle._scan) handle._scan(newNode);
