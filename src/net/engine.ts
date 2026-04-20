@@ -148,14 +148,12 @@ async function executeFetch(el: Element, options: RouseRequest) {
             urlObj.searchParams.append(field.name, val);
           });
 
-          // Use relative path only for same-origin http(s) URLs
-          const isSameOrigin = urlObj.origin === window.location.origin;
-          const isHttp = url.startsWith('http') || url.startsWith('//');
+          // Check if originally provided URL was relative
+          const isRelative = !url.startsWith('http') && !url.startsWith('//');
 
-          url =
-            isSameOrigin && isHttp
-              ? urlObj.pathname + urlObj.search + urlObj.hash
-              : urlObj.toString();
+          url = isRelative
+            ? urlObj.pathname + urlObj.search + urlObj.hash
+            : urlObj.toString();
         } else {
           // Non-GET methods: add to body
           finalRequestInit.body =
@@ -235,9 +233,13 @@ async function executeFetch(el: Element, options: RouseRequest) {
         const contentType = response.headers.get('Content-Type') || '';
 
         // Payload routing
+        // TODO: explicity handle more MIME types?
         if (contentType.includes('application/json')) {
           dispatch(el, 'rz:fetch:success:json', result);
-        } else if (contentType.includes('text/html')) {
+        } else if (
+          contentType.includes('text/html') ||
+          contentType.includes('text/plain')
+        ) {
           dispatch(el, 'rz:fetch:success:html', result);
         } else if (data instanceof Blob || data instanceof ArrayBuffer) {
           dispatch(el, 'rz:fetch:success:file', result);
