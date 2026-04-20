@@ -53,8 +53,8 @@ function getConfig(el: Element, app?: RouseApp): Partial<RouseRequest> {
     }
 
     // Custom Rouse config: concurrency abort key
-    else if (key === 'abortKey') {
-      config[key] = val;
+    else if (key === 'abort-key') {
+      config['abortKey'] = val;
     }
 
     // Native RequestInit (fetch): strings
