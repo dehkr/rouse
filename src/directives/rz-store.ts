@@ -65,8 +65,11 @@ function initialize(el: HTMLScriptElement, app: RouseApp) {
       return;
     }
 
-    const store = app.stores.define(storeName, state);
-    if (!store) return;
+    if (storeExists) {
+      app.stores.update(storeName, state);
+    } else {
+      app.stores.create(storeName, state);
+    }
   }
 
   const cleanups: Array<() => void> = [];

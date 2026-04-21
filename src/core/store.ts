@@ -457,23 +457,38 @@ export class StoreManager {
 
   // PUBLIC API
 
-  define<T extends object = any>(
+  create<T extends object = any>(
     name: string,
     state: object,
     config?: Partial<SyncConfig>,
   ): RouseStore<T> {
+    if (this._data.has(name)) {
+      throw new Error(`[Rouse] A store named '${name}' already exists.`);
+    }
+
+    this._processMeta(state);
+    this._register(name, state, config);
+
+    return this._data.get(name);
+  }
+
+  update<T extends object = any>(
+    name: string,
+    state: object,
+    config?: Partial<SyncConfig>,
+  ): RouseStore<T> {
+    if (!this._data.has(name)) {
+      throw new Error(`[Rouse] Store '${name}' does not exist.`);
+    }
+
     this._processMeta(state);
 
-    if (this._data.has(name)) {
-      const action = config?.action || this._configs.get(name)?.action || 'replace';
-      runPatch(this._data.get(name), state, action);
+    const action = config?.action || this._configs.get(name)?.action || 'replace';
+    runPatch(this._data.get(name), state, action);
 
-      this._initial.set(name, clone(state));
-      if (config) {
-        this._setConfig(name, config);
-      }
-    } else {
-      this._register(name, state, config);
+    this._initial.set(name, clone(state));
+    if (config) {
+      this._setConfig(name, config);
     }
 
     return this._data.get(name);
