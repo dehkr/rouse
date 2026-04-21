@@ -100,7 +100,7 @@ export function createController(
     root: app.root,
     props,
     stores: app.stores,
-    abortSignal: abortCtrl.signal,
+    term: abortCtrl.signal,
     insert,
 
     dispatch: (...args: any[]) => {

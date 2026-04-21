@@ -166,7 +166,7 @@ export type ControllerCtx<
   root: HTMLElement;
   props: P;
   stores: StoreManager;
-  abortSignal: AbortSignal;
+  term: AbortSignal;
   dispatch: {
     <T extends string, D = any>(
       name: T | LifecycleEvent,
