@@ -17,9 +17,8 @@ Rouse orchestrates behavior on top of your existing server-rendered HTML:
 
 - **Wake up controllers** with fine-grained activation strategies
 - **Fetch data** in response to user events or configurable polling
-- **Route messages** between isolated controllers via the event bus
 - **Surgically update the DOM** using reactive signals
-- **Sync client and server** with optimistic updates and rollbacks
 - **Manage global state** declaratively with reactive stores
+- **Sync client and server** with optimistic updates and rollbacks
 
 Designed as a lightweight, no-regrets solution for the vast majority of web projects that don't need a full SPA. You get reactive UIs without abandoning your backend framework or adopting client-side state management complexity.
