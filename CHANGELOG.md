@@ -9,6 +9,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 No unreleased changes.
 
+## [0.6.0] - 2026-04-20
+
+### Added
+
+- Add `nonReactive()` and `readOnly()` utilities to control object reactivity and prevent accidental mutations.
+- Add metadata (`__meta`) parsing for JSON payloads to handle `nonReactive` and `readOnly` instructions automatically.
+- Add granular UI state tracking via `__status` property (includes `loading`, `error`, `lastSync`, and `dirty` flags).
+- Add `__actions` object to store proxies to expose `save`, `refresh`, and `reset` methods for declarative use (e.g., `rz-on="click: @cart.__actions.save"`).
+- Add support for `merge` operations on store data (previously only `replace` was supported).
+- Introduce `ActionCtx<T, P>` generic type for event target typing.
+- Implement global store context aliasing for `rz-scope`.
+
+### Changed
+
+- **Breaking:** Rename `el` to `scope` and `abortSignal` to `term` in controller context.
+- **Breaking:** Update event actions to receive a context object `{ el, e, props }` instead of positional arguments.
+- **Breaking:** Standardize on kebab-case for directive values and modifiers (e.g., `stop-immediate`, `abort-key`).
+- **Breaking:** Rename `app.addStore()` to `app.createStore()` and return the store instance instead of the app instance.
+- **Breaking:** Split `app.stores.define` into strict `create` and `update` methods.
+- Refactor DOM observation to use a single app-level `MutationObserver`, significantly reducing memory overhead in deep trees.
+- Make the target element argument optional for `on` and `dispatch` utilities in the controller context.
+- Rename `SetupContext` generic type to `ControllerCtx`.
+
+### Fixed
+
+- Fix URL resolution for standalone inputs on `GET` requests to respect `baseUrl`.
+- Scope DOM queries to `app.root` within `rz-insert` to prevent cross-app data leakage and ensure all DOM mutations are captured.
+- Fix macOS `alt` key modifier issue that prevented some key combinations.
+- Fix shallow merge bug in the global app configuration.
+
 ## [0.5.0] - 2026-04-05
 
 ### Added
@@ -36,14 +66,14 @@ No unreleased changes.
 - **Breaking:** Refactor global configuration into a domain-driven schema (`timing`, `network`, `ui`): 
   - Move fetch defaults to `app.config.network.fetch` and restrict properties to `headers`, `credentials`, and `mode`.
   - Remove global `retry` and `timeout` settings; these can be configured per-request.
-- Auto-inject controller `AbortSignal` into `ctx.fetch()` options to automatically cancel background requests when a controller disconnects.
-- Update `rz-refresh` to support any event trigger with modifiers, defaulting to window focus and network reconnection.
+- Inject the controller `AbortSignal` into `ctx.fetch()` options to automatically cancel background requests when a controller disconnects.
+- Update `rz-refresh` to support arbitrary event trigger and modifiers, while introducing global configuration to opt-out of default `focus` and `reconnect` behaviors.
 
 ### Removed
 
 - **Breaking:** Remove `rz-tune` directive. Transfer network options (`retries`, `timeout`, `abortKey`) to `rz-request` and event triggers (including `poll`) to `rz-trigger`.
 - **Breaking:** Remove the event bus and `rz-publish` directive.
-- **Breaking:** Remove XHR fallback support; Rouse now exclusively uses the native Fetch API.
+- **Breaking:** Remove XHR fallback support; Rouse now exclusively uses the Fetch API.
 
 ## [0.4.0] - 2026-03-18
 
@@ -115,7 +145,7 @@ No unreleased changes.
 - **Breaking:** Rename RouseApp `store()` method to `addStore()`.
 - Text and HTML bindings (`rz-text`, `rz-html`) now auto-format values: primitive arrays render comma-separated, objects and nested arrays as formatted JSON.
 - Optimize dot-notation path parsing with a memory cache.
-- Dot-notation path parsing now logs a warning and bails out instead of overwriting primitive values.
+- Make dot-notation path parsing log a warning and bail out instead of overwriting primitive values.
 
 ## [0.1.1] - 2026-03-01
 
@@ -125,7 +155,7 @@ No unreleased changes.
 
 ### Changed
 
-- RouseApp `register()` method now supports bulk registration via object shorthand: `app.register({ counter, cart })`.
+- Support bulk registration via object shorthand for the `register()` method. E.g., `app.register({ Counter, Cart })`.
 - Improve runtime validation for `register()` with descriptive error messages and strict type checking for setup functions.
 
 ## [0.1.0] - 2026-02-28
