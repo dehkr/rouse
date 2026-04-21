@@ -12,30 +12,40 @@ export function preparePayload(
   const { headers = {}, body, form, params, ...restOptions } = options;
   const method = (options.method || 'GET').toUpperCase();
 
-  // Resolve the base URL
-  let workingUrl = url;
-  const baseUrl = globalConfig.network?.baseUrl;
-  const isAbsoluteFromStart = url.startsWith('http') || url.startsWith('//');
-
-  if (baseUrl && !isAbsoluteFromStart) {
-    // Join baseUrl and url without double slashes
-    const base = baseUrl.replace(/\/+$/, '');
-    const path = url.replace(/^\/+/, '');
-    workingUrl = `${base}/${path}`;
+  if (body != null && form != null) {
+    throw new TypeError(`Cannot specify both 'body' and 'form'.`);
   }
 
-  // Determine if the final intended output should be an absolute URL
-  const isTargetAbsolute = workingUrl.startsWith('http') || workingUrl.startsWith('//');
+  let urlObj: URL;
 
-  // Instantiate a single native URL object
-  const baseURI = typeof document !== 'undefined' ? document.baseURI : 'http://localhost';
-  const urlObj = new URL(workingUrl, baseURI);
+  try {
+    if (isAbsoluteUrl(url)) {
+      urlObj = new URL(url);
+    } else {
+      let base: string;
+
+      if (globalConfig.network?.baseUrl) {
+        const configBase = globalConfig.network.baseUrl;
+        base = configBase.endsWith('/') ? configBase : `${configBase}/`;
+      } else {
+        base = typeof document !== 'undefined' ? document.baseURI : 'http://localhost';
+      }
+
+      urlObj = new URL(url, base);
+    }
+  } catch (err) {
+    throw new TypeError(`Failed to construct URL: '${url}'`, { cause: err });
+  }
 
   // Append programmatic params
   if (params) {
     Object.entries(params).forEach(([key, val]) => {
       if (val !== undefined && val !== null) {
-        urlObj.searchParams.set(key, String(val));
+        if (Array.isArray(val)) {
+          val.forEach((v) => urlObj.searchParams.append(key, String(v)));
+        } else {
+          urlObj.searchParams.set(key, String(val));
+        }
       }
     });
   }
@@ -64,6 +74,9 @@ export function preparePayload(
     // URLSearchParams
     else if (body instanceof URLSearchParams) {
       finalBody = body;
+      if (!reqHeaders.has('Content-Type')) {
+        reqHeaders.set('Content-Type', 'application/x-www-form-urlencoded');
+      }
     }
 
     // Plain object or array -> JSON
@@ -110,12 +123,7 @@ export function preparePayload(
     }
   }
 
-  // Final output
-  const finalUrl = isTargetAbsolute
-    ? urlObj.toString()
-    : urlObj.pathname + urlObj.search + urlObj.hash;
-
-  return { finalUrl, method, reqHeaders, finalBody, restOptions };
+  return { finalUrl: urlObj.toString(), method, reqHeaders, finalBody, restOptions };
 }
 
 /**
@@ -129,4 +137,8 @@ function isNativeBinaryBody(body: unknown): body is BodyInit {
     ArrayBuffer.isView(body) || // Catches DataView and TypedArray
     (typeof ReadableStream !== 'undefined' && body instanceof ReadableStream)
   );
+}
+
+function isAbsoluteUrl(url: string): boolean {
+  return /^https?:\/\/|^\/\//i.test(url);
 }

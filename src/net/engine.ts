@@ -125,16 +125,19 @@ async function executeFetch(el: Element, options: RouseRequest) {
           values = [checked.value];
         }
       }
+
       // Checkbox
       else if (field.type === 'checkbox') {
         if ((field as HTMLInputElement).checked) {
           values = [field.value];
         }
       }
+
       // Multi-select
       else if (is(field, 'Select') && field.multiple) {
         values = Array.from(field.selectedOptions).map((opt) => opt.value);
       }
+
       // Default
       else {
         values = [field.value];
@@ -142,22 +145,16 @@ async function executeFetch(el: Element, options: RouseRequest) {
 
       if (values.length > 0) {
         if (method === 'GET') {
-          // Preserve hashes and search params for both relative and absolute URLs
-          const urlObj = new URL(url, window.location.href);
-          values.forEach((val) => {
-            urlObj.searchParams.append(field.name, val);
-          });
+          const params = finalRequestInit.params || {};
+          params[field.name] = values.length > 1 ? values : values[0];
+          finalRequestInit.params = params;
+        }
 
-          // Check if originally provided URL was relative
-          const isRelative = !url.startsWith('http') && !url.startsWith('//');
-
-          url = isRelative
-            ? urlObj.pathname + urlObj.search + urlObj.hash
-            : urlObj.toString();
-        } else {
-          // Non-GET methods: add to body
-          finalRequestInit.body =
-            values.length > 1 ? { [field.name]: values } : { [field.name]: values[0] };
+        // For non-GET methods, add to body
+        else {
+          finalRequestInit.body = {
+            [field.name]: values.length > 1 ? values : values[0],
+          };
         }
       }
     }
