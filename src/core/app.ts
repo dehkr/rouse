@@ -31,6 +31,7 @@ export const defaultConfig = {
     refreshOnReconnect: true,
   },
   ui: {
+    errorClass: 'rz-error',
     loadingClass: 'rz-loading',
     wakeStrategy: 'load',
   },

@@ -1,9 +1,9 @@
+import { rzTrigger } from '.';
 import { parseDirectiveValue } from '../core/parser';
 import { getDirectiveValue, hasDirective, HTTP_METHODS, warn } from '../core/shared';
 import { is, on } from '../dom/utils';
 import { cleanupFetch, handleFetch } from '../net/engine';
 import type { Directive } from '../types';
-import { rzTrigger } from './rz-trigger';
 
 export const rzFetch = {
   existsOn: (el: Element) => hasDirective(el, 'fetch'),

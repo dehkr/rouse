@@ -9,10 +9,10 @@ import {
 } from '../core/shared';
 import type { Directive } from '../types';
 
-export const rzInsert = {
-  existsOn: (el: Element) => hasDirective(el, 'insert'),
-  getValue: (el: Element) => getDirectiveValue(el, 'insert'),
-  getDefinedValue: (el: Element) => getDefinedDirectiveValue(el, 'insert'),
+export const rzTarget = {
+  existsOn: (el: Element) => hasDirective(el, 'target'),
+  getValue: (el: Element) => getDirectiveValue(el, 'target'),
+  getDefinedValue: (el: Element) => getDefinedDirectiveValue(el, 'target'),
   getInsertConfig,
 } as const satisfies Directive;
 
@@ -40,7 +40,7 @@ function isInsertMethod(key: string): key is InsertMethod {
 }
 
 /**
- * Parse value of rz-insert directive.
+ * Parse value of rz-target directive.
  *
  * Returns an array of operations to support multi-target updates.
  * Accepts "strategy: selector", "strategy", and/or "selector" values.
@@ -48,12 +48,12 @@ function isInsertMethod(key: string): key is InsertMethod {
  * Defaults to "innerHTML" if strategy is missing and the host element
  * if the selector is missing.
  *
- * - `rz-insert="beforebegin: #header"`
- * - `rz-insert="beforebegin"`
- * - `rz-insert="#output"`
+ * - `rz-target="beforebegin: #header"`
+ * - `rz-target="beforebegin"`
+ * - `rz-target="#output"`
  */
 function getInsertConfig(el: Element): InsertOperation[] {
-  const value = getDefinedDirectiveValue(el, 'insert');
+  const value = getDefinedDirectiveValue(el, 'target');
 
   if (!value) {
     return [{ targets: [el], strategy: DEFAULT_METHOD }];

@@ -1,5 +1,5 @@
 import { applyTiming } from '../core/timing';
-import type { InsertMethod } from '../directives/rz-insert';
+import type { InsertMethod } from '../directives/rz-target';
 import type { CleanupFunction, LifecycleEvent } from '../types';
 import { applyModifiers, getListenerOptions, resolveListenerTarget } from './modifiers';
 

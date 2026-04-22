@@ -1,12 +1,11 @@
 import type { RouseApp } from './core/app';
 import type { StoreManager } from './core/store';
-import type { InsertMethod } from './directives/rz-insert';
+import type { InsertMethod } from './directives/rz-target';
 
 export type DirectiveSlug =
   | 'bind'
   | 'fetch'
   | 'html'
-  | 'insert'
   | 'model'
   | 'on'
   | 'refresh'
@@ -15,6 +14,7 @@ export type DirectiveSlug =
   | 'scope'
   | 'source'
   | 'store'
+  | 'target'
   | 'text'
   | 'trigger'
   | 'wake';
