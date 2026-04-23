@@ -104,6 +104,8 @@ export interface RequestError {
   message: string;
   status: ErrorStatus;
   original?: any;
+  detail?: string;
+  validation?: Record<string, string>;
 }
 
 /** Global fetch configuration */
@@ -153,7 +155,10 @@ export interface FetchInterceptors {
     response: Response,
     config: RouseRequest,
   ) => any | Promise<any>;
-  onError?: (error: any, config: RouseRequest) => void;
+  onError?: (
+    error: RequestError, 
+    config: RouseRequest
+  ) => RequestError | Promise<RequestError>;
 }
 
 /**

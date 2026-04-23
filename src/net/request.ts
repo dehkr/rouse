@@ -1,6 +1,6 @@
 import { defaultConfig, type RouseConfig } from '../core/app';
 import { warn } from '../core/shared';
-import type { RouseRequest, RouseResponse } from '../types';
+import type { RequestError, RouseRequest, RouseResponse } from '../types';
 import { preparePayload } from './payload';
 import { fallbackResponse, mapCatchError, normalizeResponse } from './response';
 
@@ -26,11 +26,14 @@ export async function request<T = any>(
   if (!currentOptions.skipInterceptors && interceptors.onRequest) {
     try {
       currentOptions = await interceptors.onRequest(currentOptions);
-    } catch (e) {
+    } catch (e: unknown) {
+      let errorPayload = mapCatchError(e, false);
+
       if (interceptors.onError) {
-        interceptors.onError(e, currentOptions);
+        errorPayload = await interceptors.onError(errorPayload, currentOptions);
       }
-      throw e;
+
+      return wrapErrorResponse(errorPayload, currentOptions);
     }
   }
 
@@ -139,7 +142,10 @@ export async function request<T = any>(
         if (!currentOptions.skipInterceptors) {
           if (normalized.error && interceptors.onError) {
             // Error (e.g. 404, 500, parse error)
-            interceptors.onError(normalized.error, currentOptions);
+            normalized.error = await interceptors.onError(
+              normalized.error,
+              currentOptions,
+            );
           } else if (!normalized.error && interceptors.onResponse) {
             // Success (parsed data can safely be mutated)
             normalized.data = await interceptors.onResponse(
@@ -162,11 +168,11 @@ export async function request<T = any>(
       }
     } catch (err: any) {
       // Map native errors to CustomErrorStatus
-      const errorPayload = mapCatchError(err, !!mainSignal?.aborted);
+      let errorPayload = mapCatchError(err, Boolean(mainSignal?.aborted));
 
       // Error interceptor
       if (!currentOptions.skipInterceptors && interceptors.onError) {
-        interceptors.onError(errorPayload, currentOptions);
+        errorPayload = await interceptors.onError(errorPayload, currentOptions);
       }
 
       // Retry on network errors or timeouts (but not explicit cancels)
@@ -177,7 +183,7 @@ export async function request<T = any>(
         return execute(attempt + 1);
       }
 
-      return fallbackResponse(currentOptions, errorPayload.message, errorPayload.status);
+      return wrapErrorResponse(errorPayload, currentOptions);
     }
   };
 
@@ -192,4 +198,16 @@ export async function request<T = any>(
       }
     }
   }
+}
+
+// Wrap a RequestError into a RouseResponse
+function wrapErrorResponse(error: RequestError, options: RouseRequest) {
+  return {
+    data: null,
+    error: error,
+    response: null,
+    headers: null,
+    status: null,
+    config: options,
+  };
 }

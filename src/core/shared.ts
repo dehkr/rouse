@@ -108,3 +108,12 @@ export function deepFreeze<T extends object>(obj: T, seen = new WeakSet()): Read
 
   return Object.freeze(obj);
 }
+
+/**
+ * Generate a unique key using crypto if available.
+ */
+export function uniqueKey() {
+  return typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID()
+    : `${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+}

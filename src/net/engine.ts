@@ -1,6 +1,7 @@
 import { defaultConfig, getApp, type RouseApp } from '../core/app';
-import { err, warn } from '../core/shared';
+import { err, uniqueKey, warn } from '../core/shared';
 import { rzRequest } from '../directives';
+import { extractFieldValues } from '../dom/forms';
 import { dispatch, is } from '../dom/utils';
 import type { RouseRequest, RouseResponse } from '../types';
 import { request } from './request';
@@ -108,66 +109,15 @@ async function executeFetch(el: Element, options: RouseRequest) {
     finalRequestInit.body !== undefined || options.body !== undefined;
 
   // Process standalone inputs to build the body or modify URL
-  if (!hasExplicitBody && (is(el, 'Input') || is(el, 'Select') || is(el, 'TextArea'))) {
-    const field = el;
-
-    if (field.name) {
-      let values: string[] = [];
-
-      if (field.type === 'radio') {
-        // Find the checked radio in the same group (scoped to form if applicable)
-        const root = field.closest('form') || document;
-        const checked = root.querySelector(
-          `input[type="radio"][name="${CSS.escape(field.name)}"]:checked`,
-        ) as HTMLInputElement | null;
-
-        if (checked) {
-          values = [checked.value];
-        }
-      }
-
-      // Checkbox
-      else if (field.type === 'checkbox') {
-        if ((field as HTMLInputElement).checked) {
-          values = [field.value];
-        }
-      }
-
-      // Multi-select
-      else if (is(field, 'Select') && field.multiple) {
-        values = Array.from(field.selectedOptions).map((opt) => opt.value);
-      }
-
-      // Default
-      else {
-        values = [field.value];
-      }
-
-      if (values.length > 0) {
-        if (method === 'GET') {
-          const params = finalRequestInit.params || {};
-          params[field.name] = values.length > 1 ? values : values[0];
-          finalRequestInit.params = params;
-        }
-
-        // For non-GET methods, add to body
-        else {
-          finalRequestInit.body = {
-            [field.name]: values.length > 1 ? values : values[0],
-          };
-        }
-      }
-    }
+  if (!hasExplicitBody) {
+    extractFieldValues(el, method, finalRequestInit);
   }
 
   // Automatically generate abort key if one isn't provided
   // Guarantees an element can never have conflicting requests
   let autoAbortKey = activeRequests.get(el)?.abortKey;
   if (!autoAbortKey) {
-    autoAbortKey =
-      typeof crypto !== 'undefined' && crypto.randomUUID
-        ? crypto.randomUUID()
-        : `rzAbort_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+    autoAbortKey = `rzAbort_${uniqueKey()}`;
     const current = activeRequests.get(el) || {};
     activeRequests.set(el, { ...current, abortKey: autoAbortKey });
   }
