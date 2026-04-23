@@ -145,6 +145,7 @@ export interface RouseResponse<T = any> {
   headers: Record<string, string> | null;
   status: number | null;
   config: RouseRequest;
+  targetOverride?: string | null;
 }
 
 /** Network interceptors */

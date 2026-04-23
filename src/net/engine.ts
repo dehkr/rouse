@@ -4,6 +4,7 @@ import { rzRequest } from '../directives';
 import { extractFieldValues } from '../dom/forms';
 import { dispatch, is } from '../dom/utils';
 import type { RouseRequest, RouseResponse } from '../types';
+import { extractRouseHeaders } from './headers';
 import { request } from './request';
 import { fallbackResponse } from './response';
 
@@ -155,6 +156,19 @@ async function executeFetch(el: Element, options: RouseRequest) {
 
   try {
     const result = await request(url, finalOptions, appConfig);
+    const rouseHeaders = extractRouseHeaders(result.headers);
+
+    // If redirect
+    if (rouseHeaders.redirect) {
+      cleanupFetch(el);
+      window.location.href = rouseHeaders.redirect;
+      return result;
+    }
+
+    // Target override
+    if (rouseHeaders.target) {
+      result.targetOverride = rouseHeaders.target;
+    }
 
     if (result.error) {
       if (result.error.status === 'CANCELED') {
@@ -167,6 +181,19 @@ async function executeFetch(el: Element, options: RouseRequest) {
       // Dispatch the error event and return the result object.
       if (shouldDispatch) {
         dispatch(el, 'rz:fetch:error', { error: result.error, config: finalOptions });
+
+        if (result.response) {
+          const contentType = result.response.headers.get('Content-Type') || '';
+          // Route based on standard JSON or RFC 9457
+          if (
+            contentType.includes('application/json') ||
+            contentType.includes('application/problem+json')
+          ) {
+            dispatch(el, 'rz:fetch:error:json', result);
+          } else if (isInsertableType(contentType)) {
+            dispatch(el, 'rz:fetch:error:html', result);
+          }
+        }
       }
       return result;
     }
@@ -177,16 +204,18 @@ async function executeFetch(el: Element, options: RouseRequest) {
       dispatch(el, 'rz:fetch:success', result);
 
       if (response) {
+        // Custom trigger event
+        if (rouseHeaders.trigger) {
+          dispatch(el, rouseHeaders.trigger, result);
+        }
+
         const contentType = response.headers.get('Content-Type') || '';
 
         // Payload routing
         // TODO: explicity handle more MIME types?
         if (contentType.includes('application/json')) {
           dispatch(el, 'rz:fetch:success:json', result);
-        } else if (
-          contentType.includes('text/html') ||
-          contentType.includes('text/plain')
-        ) {
+        } else if (isInsertableType(contentType)) {
           dispatch(el, 'rz:fetch:success:html', result);
         } else if (data instanceof Blob || data instanceof ArrayBuffer) {
           dispatch(el, 'rz:fetch:success:file', result);
@@ -239,4 +268,15 @@ function resolveRequestConfig(
     ...globalConfig,
     ...localConfig,
   };
+}
+
+/**
+ * Returns true for any MIME type that should be inserted into the DOM.
+ */
+function isInsertableType(val: string) {
+  return (
+    val.includes('text/html') ||
+    val.includes('text/plain') ||
+    val.includes('image/svg+xml')
+  );
 }
