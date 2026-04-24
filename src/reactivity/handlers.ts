@@ -47,6 +47,7 @@ export const handlers: ProxyHandler<object> = {
     value: unknown,
     receiver: object,
   ): boolean {
+    const hadKey = Object.hasOwn(target, key);
     let oldValue = target[key];
     value = getRaw(value);
 
@@ -64,8 +65,8 @@ export const handlers: ProxyHandler<object> = {
         tracker(getRootKey(target, key));
       }
 
-      // Trigger the iteration key
-      if (Array.isArray(target)) {
+      // Trigger the iteration on structural changes (new keys, or any array mutation)
+      if (!hadKey || Array.isArray(target)) {
         trigger(getSignal(target, ITERATION_KEY));
       }
     }
