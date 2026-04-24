@@ -100,7 +100,7 @@ export function initObserver(app: RouseApp) {
           // Check for new fetch elements to bind polling/custom triggers
           queryTargets(el, fetchSelector).forEach((el) => {
             if (getApp(el) === app) { // Nested app protection
-              rzFetch.initialize(el);
+              rzFetch.initialize(el, app);
             }
           });
         }

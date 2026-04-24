@@ -169,10 +169,17 @@ export class RouseApp {
    */
   async fetch(resource: string, options: RouseRequest = {}) {
     const targetRef = options.target || this.root;
-    const el =
-      typeof targetRef === 'string'
-        ? document.querySelector<HTMLElement>(targetRef)
-        : targetRef;
+    let el: Element | null = null;
+
+    if (typeof targetRef === 'string') {
+      try {
+        el = document.querySelector<HTMLElement>(targetRef);
+      } catch {
+        // Fails gracefully on invalid selector
+      }
+    } else {
+      el = targetRef;
+    }
 
     if (!el) {
       err(`Fetch failed. Target element not found:`, targetRef);
@@ -180,8 +187,7 @@ export class RouseApp {
     }
 
     options.url = resource;
-
-    return handleFetch(el, options);
+    return handleFetch(el, this, options);
   }
 
   /**
@@ -236,7 +242,7 @@ export class RouseApp {
     const fetchNodes = queryTargets(this.root, directiveSelector('fetch'));
     fetchNodes.forEach((el) => {
       if (getApp(el) === this) {
-        rzFetch.initialize(el);
+        rzFetch.initialize(el, this);
       }
     });
 

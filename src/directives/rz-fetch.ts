@@ -1,4 +1,5 @@
 import { rzTrigger } from '.';
+import type { RouseApp } from '../core/app';
 import { parseDirectiveValue } from '../core/parser';
 import { getDirectiveValue, hasDirective, HTTP_METHODS, warn } from '../core/shared';
 import { is, on } from '../dom/utils';
@@ -58,11 +59,11 @@ function getMethodAndUrl(el: Element): { method?: string; url?: string } {
  * Attaches synthetic events (like polling) and custom non-standard events
  * to an element and stores their cleanup functions.
  */
-function initialize(el: Element) {
+function initialize(el: Element, app: RouseApp) {
   if (fetchCleanups.has(el)) return;
 
   const cleanups: Array<() => void> = [];
-  const action = () => handleFetch(el, getMethodAndUrl(el));
+  const action = () => handleFetch(el, app, getMethodAndUrl(el));
 
   let triggerCleanup: ReturnType<typeof rzTrigger.attachTriggers>;
   if (rzTrigger.existsOn(el)) {

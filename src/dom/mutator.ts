@@ -1,64 +1,100 @@
-import { rzTarget } from '../directives';
+import { rzError, rzTarget, type InsertMethod } from '../directives';
 import type { RouseResponse } from '../types';
 import { dispatch, insert } from './utils';
+
+interface InsertionOptions {
+  data: string;
+  triggerEl: Element;
+  targetEl: Element;
+  strategy: InsertMethod;
+  response: Response | null;
+  appRoot: Element;
+}
 
 /**
  * Listens globally for HTML fetch responses and mutates the DOM
  * based on the element's `rz-target` configuration.
  */
-export function initDomMutator(root: Element, abortSignal: AbortSignal) {
-  root.addEventListener(
+export function initDomMutator(appRoot: Element, abortSignal: AbortSignal) {
+  const events = [
     'rz:fetch:success:html',
-    (e: Event) => {
-      const customEvent = e as CustomEvent<RouseResponse>;
-      const triggerEl = customEvent.target as Element;
-      const { data, response, config } = customEvent.detail;
+    'rz:fetch:error:html',
+  ];
 
-      // Programmatic fetch (app.fetch, ctx.fetch) defaults to `mutate: false` so
-      // it doesn't automatically update the DOM, unlike `rz-fetch`
-      if (config?.mutate === false) return;
+  const handleMutate = (e: Event) => {
+    const { detail, target } = e as CustomEvent<RouseResponse>;
+    const { data, error, response, config, targetOverride } = detail;
+    const triggerEl = target as Element;
 
-      if (typeof data !== 'string') return;
+    // Programmatic fetch (app.fetch, ctx.fetch) defaults to `mutate: false` so
+    // it doesn't automatically update the DOM, unlike `rz-fetch`.
+    if (config?.mutate === false) return;
 
-      const operations = rzTarget.getInsertConfig(triggerEl);
+    // Favoring error.detail for generic errors
+    const rawPayload = error ? error.detail || data : data;
+    if (typeof rawPayload !== 'string') return;
 
-      operations.forEach(({ targets, strategy }) => {
-        if (targets.length === 0) return;
+    let operations;
 
-        targets.forEach((target) => {
-          // Dispatch cancelable 'before' event (allows for intercepting/modifying data)
-          const beforeInsertEvent = dispatch(
-            target,
-            'rz:fetch:insert:before',
-            {
-              data,
-              triggerEl,
-              targetEl: target,
-              strategy,
-              response,
-            },
-            { cancelable: true },
-          );
+    // Errors must have an explicit target to mutate the DOM
+    if (e.type.includes('error')) {
+      const errorTarget = targetOverride || rzError.getDefinedValue(triggerEl);
+      if (!errorTarget) return;
+      operations = rzTarget.getInsertConfig(triggerEl, errorTarget);
+    } else {
+      operations = rzTarget.getInsertConfig(triggerEl, targetOverride);
+    }
 
-          if (beforeInsertEvent.defaultPrevented) return;
-
-          let dispatcherEl = target;
-
-          // If replacing or deleting the target, the final event must be dispatched elsewhere
-          if (strategy === 'outerHTML' || strategy === 'delete') {
-            dispatcherEl = target.parentElement || root;
-          }
-
-          insert(beforeInsertEvent.detail.data, target, strategy);
-
-          dispatch(dispatcherEl, 'rz:fetch:insert', {
-            triggerEl,
-            targetEl: target,
-            strategy,
-          });
+    for (const { targets, strategy } of operations) {
+      for (const targetEl of targets) {
+        performInsertion({
+          data: rawPayload,
+          triggerEl,
+          targetEl,
+          strategy,
+          response,
+          appRoot,
         });
-      });
-    },
-    { signal: abortSignal },
+      }
+    }
+  };
+
+  for (const eventName of events) {
+    appRoot.addEventListener(eventName, handleMutate, { signal: abortSignal });
+  }
+}
+
+/**
+ * Helper to handle the specific logic of a single DOM mutation.
+ */
+function performInsertion({
+  data,
+  triggerEl,
+  targetEl,
+  strategy,
+  response,
+  appRoot,
+}: InsertionOptions) {
+  const beforeEvent = dispatch(
+    targetEl,
+    'rz:fetch:insert:before',
+    { data, triggerEl, targetEl, strategy, response },
+    { cancelable: true },
   );
+
+  if (beforeEvent.defaultPrevented) return;
+
+  // Determine where to dispatch the final event if the target is removed
+  const dispatcherEl =
+    strategy === 'outerHTML' || strategy === 'delete'
+      ? targetEl.parentElement || appRoot
+      : targetEl;
+
+  insert(beforeEvent.detail.data, targetEl, strategy);
+
+  dispatch(dispatcherEl, 'rz:fetch:insert', {
+    triggerEl,
+    targetEl,
+    strategy,
+  });
 }

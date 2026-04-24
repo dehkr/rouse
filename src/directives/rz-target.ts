@@ -52,8 +52,8 @@ function isInsertMethod(key: string): key is InsertMethod {
  * - `rz-target="beforebegin"`
  * - `rz-target="#output"`
  */
-function getInsertConfig(el: Element): InsertOperation[] {
-  const value = getDefinedDirectiveValue(el, 'target');
+function getInsertConfig(el: Element, overrideValue?: string | null): InsertOperation[] {
+  const value = overrideValue || getDefinedDirectiveValue(el, 'target');
 
   if (!value) {
     return [{ targets: [el], strategy: DEFAULT_METHOD }];
@@ -68,6 +68,9 @@ function getInsertConfig(el: Element): InsertOperation[] {
   const appRoot = getApp(el)?.root || document.documentElement;
 
   for (const [key, val] of parsed) {
+    // Skip store targets to prevent false DOM target warnings
+    if (key.startsWith('@') || (val && val.startsWith('@'))) continue;
+
     // "Strategy: Selector"
     if (val) {
       const strategy = isInsertMethod(key) ? key : DEFAULT_METHOD;

@@ -26,7 +26,7 @@ export function is<K extends ElementKind>(
 /**
  * Dispatches a custom event from an element.
  *
- * @param target - The element to dispatch from
+ * @param el - The element to dispatch from
  * @param name - The event name
  * @param detail - The event data
  * @param options - Allows overriding cancelable/bubbles

@@ -1,4 +1,5 @@
 export { rzBind } from './rz-bind';
+export { rzError } from './rz-error';
 export { rzFetch } from './rz-fetch';
 export { rzHtml } from './rz-html';
 export { rzModel } from './rz-model';
@@ -9,7 +10,7 @@ export { rzSave } from './rz-save';
 export { rzScope } from './rz-scope';
 export { rzSource } from './rz-source';
 export { rzStore } from './rz-store';
-export { rzTarget } from './rz-target';
+export { rzTarget, type InsertMethod } from './rz-target';
 export { rzText } from './rz-text';
 export { rzTrigger } from './rz-trigger';
 export { rzWake } from './rz-wake';

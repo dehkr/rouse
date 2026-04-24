@@ -1,6 +1,7 @@
-import { defaultConfig, getApp, type RouseApp } from '../core/app';
-import { err, uniqueKey, warn } from '../core/shared';
-import { rzRequest } from '../directives';
+import { defaultConfig, type RouseApp } from '../core/app';
+import { parseDirectiveValue } from '../core/parser';
+import { err, isInsertableType, isJsonType, uniqueKey, warn } from '../core/shared';
+import { rzError, rzRequest, rzTarget } from '../directives';
 import { extractFieldValues } from '../dom/forms';
 import { dispatch, is } from '../dom/utils';
 import type { RouseRequest, RouseResponse } from '../types';
@@ -16,6 +17,7 @@ const activeRequests = new WeakMap<Element, RequestState>();
  */
 export async function handleFetch(
   el: Element,
+  app: RouseApp,
   programmaticOpts: RouseRequest = {},
 ): Promise<RouseResponse> {
   let state = activeRequests.get(el);
@@ -29,7 +31,7 @@ export async function handleFetch(
   }
 
   try {
-    return await executeFetch(el, programmaticOpts);
+    return await executeFetch(el, app, programmaticOpts);
   } catch (error: any) {
     err(`Error executing fetch on element:`, el, error);
 
@@ -48,9 +50,8 @@ export async function handleFetch(
  * @param el - The DOM element triggering the network request.
  * @param options - The sanitized request config passed to the network orchestrator.
  */
-async function executeFetch(el: Element, options: RouseRequest) {
-  const app = getApp(el);
-  const appConfig = app?.config || defaultConfig;
+async function executeFetch(el: Element, app: RouseApp, options: RouseRequest) {
+  const appConfig = app.config || defaultConfig;
   const loadingClass = appConfig.ui.loadingClass;
 
   // Check destroyed flag and bail out if marked for cleanup
@@ -89,7 +90,7 @@ async function executeFetch(el: Element, options: RouseRequest) {
 
   if (!url) {
     const error = new Error('No URL specified for rz-fetch');
-    warn('No URL found for rz-fetch directive on element:', el);
+    warn('No URL found for rz-fetch on:', el);
     dispatch(el, 'rz:fetch:error', { error, config: options });
     return fallbackResponse(options, error.message, 'INTERNAL_ERROR');
   }
@@ -184,11 +185,13 @@ async function executeFetch(el: Element, options: RouseRequest) {
 
         if (result.response) {
           const contentType = result.response.headers.get('Content-Type') || '';
-          // Route based on standard JSON or RFC 9457
-          if (
-            contentType.includes('application/json') ||
-            contentType.includes('application/problem+json')
-          ) {
+          const isJson = isJsonType(contentType);
+
+          if (rzError.existsOn(el)) {
+            rzError.route(el, app, result);
+          }
+
+          if (isJson) {
             dispatch(el, 'rz:fetch:error:json', result);
           } else if (isInsertableType(contentType)) {
             dispatch(el, 'rz:fetch:error:html', result);
@@ -212,8 +215,34 @@ async function executeFetch(el: Element, options: RouseRequest) {
         const contentType = response.headers.get('Content-Type') || '';
 
         // Payload routing
-        // TODO: explicity handle more MIME types?
-        if (contentType.includes('application/json')) {
+        if (isJsonType(contentType)) {
+          const activeTarget =
+            result.targetOverride ||
+            (typeof finalOptions.target === 'string'
+              ? finalOptions.target
+              : rzTarget.getDefinedValue(el));
+
+          if (activeTarget) {
+            const operations = parseDirectiveValue(activeTarget);
+            for (const [method, selector] of operations) {
+              const targetStr = selector || method;
+              const fullOperation = selector ? `${method}: ${selector}` : method;
+
+              // If the target is a store, natively route the JSON payload
+              if (targetStr.startsWith('@')) {
+                app.stores.update(targetStr.substring(1), data as object);
+              } else {
+                // Mock the HTML dispatch so mutator injects the JSON string
+                // (Make sure you import displayString from updater.ts if you want it pretty-printed)
+                dispatch(el, 'rz:fetch:success:html', {
+                  ...result,
+                  data: JSON.stringify(data, null, 2),
+                  targetOverride: fullOperation,
+                });
+              }
+            }
+          }
+
           dispatch(el, 'rz:fetch:success:json', result);
         } else if (isInsertableType(contentType)) {
           dispatch(el, 'rz:fetch:success:html', result);
@@ -268,15 +297,4 @@ function resolveRequestConfig(
     ...globalConfig,
     ...localConfig,
   };
-}
-
-/**
- * Returns true for any MIME type that should be inserted into the DOM.
- */
-function isInsertableType(val: string) {
-  return (
-    val.includes('text/html') ||
-    val.includes('text/plain') ||
-    val.includes('image/svg+xml')
-  );
 }

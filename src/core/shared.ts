@@ -58,20 +58,38 @@ export function isPlainObject(val: unknown): val is Record<string, any> {
 }
 
 /**
+ * Returns true for any MIME type that should be inserted into the DOM.
+ */
+export function isInsertableType(val: string) {
+  return (
+    val.includes('text/html') ||
+    val.includes('text/plain') ||
+    val.includes('image/svg+xml')
+  );
+}
+
+export function isJsonType(val: string) {
+  return val.includes('application/json') || val.includes('application/problem+json');
+}
+
+/**
  * Safely query within the element boundary (including the element itself)
  */
 export function queryTargets<T extends Element = Element>(
   el: Element,
   selector: string,
 ): T[] {
-  const targets = Array.from(el.querySelectorAll<T>(selector));
-
-  // Check if root element itself matches the selector
-  if (el.matches(selector)) {
-    targets.unshift(el as T);
+  try {
+    const targets = Array.from(el.querySelectorAll<T>(selector));
+    // Check if root element itself matches the selector
+    if (el.matches(selector)) {
+      targets.unshift(el as T);
+    }
+    return targets;
+  } catch (e) {
+    // Fails gracefully on invalid CSS selectors
+    return [];
   }
-
-  return targets;
 }
 
 /**

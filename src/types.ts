@@ -4,6 +4,7 @@ import type { InsertMethod } from './directives/rz-target';
 
 export type DirectiveSlug =
   | 'bind'
+  | 'error'
   | 'fetch'
   | 'html'
   | 'model'
