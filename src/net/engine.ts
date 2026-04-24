@@ -187,9 +187,7 @@ async function executeFetch(el: Element, app: RouseApp, options: RouseRequest) {
           const contentType = result.response.headers.get('Content-Type') || '';
           const isJson = isJsonType(contentType);
 
-          if (rzError.existsOn(el)) {
-            rzError.route(el, app, result);
-          }
+          rzError.route(el, app, result);
 
           if (isJson) {
             dispatch(el, 'rz:fetch:error:json', result);
@@ -226,19 +224,12 @@ async function executeFetch(el: Element, app: RouseApp, options: RouseRequest) {
             const operations = parseDirectiveValue(activeTarget);
             for (const [method, selector] of operations) {
               const targetStr = selector || method;
-              const fullOperation = selector ? `${method}: ${selector}` : method;
 
               // If the target is a store, natively route the JSON payload
               if (targetStr.startsWith('@')) {
                 app.stores.update(targetStr.substring(1), data as object);
               } else {
-                // Mock the HTML dispatch so mutator injects the JSON string
-                // (Make sure you import displayString from updater.ts if you want it pretty-printed)
-                dispatch(el, 'rz:fetch:success:html', {
-                  ...result,
-                  data: JSON.stringify(data, null, 2),
-                  targetOverride: fullOperation,
-                });
+                warn(`Cannot route JSON payload to DOM target '${targetStr}'.`);
               }
             }
           }
