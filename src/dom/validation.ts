@@ -8,7 +8,7 @@ const originalStyles = new WeakMap<Element, string>();
 
 /**
  * Initializes the global form validation engine.
- * Listens to network lifecycle events to automatically map granular JSON errors 
+ * Listens to network lifecycle events to automatically map granular JSON errors
  * to UI inputs, manage ARIA attributes, and handle optimistic clearing.
  */
 export function initFormValidationEngine(app: RouseApp, signal: AbortSignal) {
@@ -122,7 +122,7 @@ function clearFormErrors(form: Element, globalErrorClass?: string) {
 
 /**
  * Clears the error state for a specific field group.
- * Removes validation text, error classes, and `aria-invalid` flags, while 
+ * Removes validation text, error classes, and `aria-invalid` flags, while
  * safely restoring the input's original inline styles and `aria-describedby` tokens.
  */
 function clearFieldErrors(
@@ -170,9 +170,16 @@ function clearFieldErrors(
 }
 
 /**
- * Queries a form for all inputs associated with a specific field name.
+ * Helper to query inputs. Prioritizes standard 'name' attributes for
+ * form serialization parity, falling back to 'id' if necessary.
  */
 function getInputsForField(form: Element, field: string): NodeListOf<HTMLElement> {
   const escaped = CSS.escape(field);
-  return form.querySelectorAll<HTMLElement>(`[name="${escaped}"], [id="${escaped}"]`);
+  let inputs = form.querySelectorAll<HTMLElement>(`[name="${escaped}"]`);
+
+  if (inputs.length === 0) {
+    inputs = form.querySelectorAll<HTMLElement>(`[id="${escaped}"]`);
+  }
+
+  return inputs;
 }
