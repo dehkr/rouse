@@ -1,4 +1,4 @@
-import { isPlainObject } from '../core/shared';
+import { isJsonType, isPlainObject } from '../core/shared';
 import type {
   CustomErrorStatus,
   ErrorStatus,
@@ -38,7 +38,7 @@ export async function normalizeResponse(
       response.status === 204 || response.status === 205 || contentLength === '0';
 
     if (!isEmpty) {
-      if (contentType.includes('application/json')) {
+      if (isJsonType(contentType)) {
         const text = await response.text();
         if (text) {
           try {

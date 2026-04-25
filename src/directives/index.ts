@@ -13,4 +13,5 @@ export { rzStore } from './rz-store';
 export { rzTarget, type InsertMethod } from './rz-target';
 export { rzText } from './rz-text';
 export { rzTrigger } from './rz-trigger';
+export { rzValidate } from './rz-validate';
 export { rzWake } from './rz-wake';

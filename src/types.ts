@@ -18,6 +18,7 @@ export type DirectiveSlug =
   | 'target'
   | 'text'
   | 'trigger'
+  | 'validate'
   | 'wake';
 
 export type LifecycleEvent =
@@ -35,6 +36,8 @@ export type LifecycleEvent =
   | 'rz:fetch:success:html'
   | 'rz:fetch:success:file'
   | 'rz:fetch:error'
+  | 'rz:fetch:error:html'
+  | 'rz:fetch:error:json'
   | 'rz:fetch:abort'
   | 'rz:fetch:end'
   | 'rz:fetch:insert:before'

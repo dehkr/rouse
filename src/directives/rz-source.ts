@@ -12,7 +12,7 @@ const validSaveMethod = new Set(['POST', 'PUT', 'PATCH']);
 const DEFAULT_SAVE_METHOD = 'POST';
 
 /**
- * Gets the `rz-source` attribute and parses to a HTTP method and URL.
+ * Gets the `rz-source` attribute and parses to an HTTP method and URL.
  */
 function getMethodAndUrl(el: Element): {
   saveMethod?: string;
@@ -30,16 +30,18 @@ function getMethodAndUrl(el: Element): {
   const upperKey = key.toUpperCase();
   const isKeyValidMethod = validSaveMethod.has(upperKey);
 
+  // Pair value (e.g., "PUT: /api/cart" or "FOO: /api/cart")
   if (val) {
-    // A pair was provided: e.g., "PUT: /api/cart" or "FOO: /api/cart"
     if (isKeyValidMethod) {
       saveMethod = upperKey;
     } else {
       warn(`Invalid save method: '${key}'. Using '${DEFAULT_SAVE_METHOD}'.`);
     }
     url = val;
-  } else {
-    // A single value was provided: e.g., "PUT" or "/api/cart"
+  } 
+
+  // Single value (e.g., "PUT" or "/api/cart")
+  else {
     if (isKeyValidMethod) {
       saveMethod = upperKey;
     } else {

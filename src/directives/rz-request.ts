@@ -11,7 +11,12 @@ export const rzRequest = {
   getConfig,
 } as const satisfies Directive;
 
-const BOOLEAN_KEYS = new Set(['keepalive']);
+const BOOLEAN_KEYS = new Set([
+  'keepalive',
+  'mutate',
+  'dispatchEvents',
+  'dispatch-events',
+]);
 
 /**
  * Parses the `rz-request` directive to build a native Fetch API configuration object.
@@ -34,9 +39,10 @@ function getConfig(el: Element, app?: RouseApp): Partial<RouseRequest> {
       config[key] = resolveProps(val, app?.stores, false);
     }
 
-    // Native RequestInit (fetch): booleans
+    // Native RequestInit & custom Rouse config: booleans
     else if (BOOLEAN_KEYS.has(key)) {
-      config[key] = val === 'true' || val === '';
+      const finalKey = key === 'dispatch-events' ? 'dispatchEvents' : key;
+      config[finalKey] = val === 'true' || val === '';
     }
 
     // Custom Rouse config: timeout

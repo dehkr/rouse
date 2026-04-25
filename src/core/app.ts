@@ -3,6 +3,7 @@ import { rzFetch, rzStore } from '../directives';
 import { controller, destroyInstance, IS_CONTROLLER } from '../dom/controller';
 import { initControllerElement, initObserver } from '../dom/initializer';
 import { initDomMutator } from '../dom/mutator';
+import { initFormValidationEngine } from '../dom/validation';
 import { handleFetch } from '../net/engine';
 import { fallbackResponse } from '../net/response';
 import type {
@@ -212,8 +213,11 @@ export class RouseApp {
       }),
     );
 
-    // Initialize the DOM mutator that watches for HTML fetch responses
+    // Watch for HTML fetch responses
     initDomMutator(this.root, this._abortController.signal);
+
+    // Manage granular JSON error states
+    initFormValidationEngine(this, this._abortController.signal);
 
     // Scan for store <script> elements to ensure state exists first
     const storeScriptElements = queryTargets(

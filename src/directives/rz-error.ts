@@ -26,9 +26,6 @@ function route(el: Element, app: RouseApp, result: RouseResponse) {
   const errorTarget = result.targetOverride || getDefinedDirectiveValue(el, 'error');
   if (!errorTarget) return;
 
-  // Set the override so the mutator catches
-  result.targetOverride = errorTarget;
-
   const contentType = result.response?.headers.get('Content-Type') || '';
   const isJson = isJsonType(contentType);
   const operations = parseDirectiveValue(errorTarget);
