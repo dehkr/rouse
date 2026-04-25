@@ -86,9 +86,19 @@ export function initFormValidationEngine(app: RouseApp, signal: AbortSignal) {
           if (!originalStyles.has(input)) {
             originalStyles.set(input, input.getAttribute('style') || '');
           }
-          const separator =
-            input.style.cssText && !input.style.cssText.endsWith(';') ? '; ' : '';
-          input.style.cssText += `${separator}${valConfig.errorStyle}`;
+
+          let safeStyle = valConfig.errorStyle.trim();
+
+          // Ensure new styles are closed off
+          if (!safeStyle.endsWith(';')) {
+            safeStyle += ';';
+          }
+
+          // Ensure existing styles are closed off to prevent concatenation bugs
+          const styles = input.style.cssText;
+          const separator = styles && !styles.endsWith(';') ? '; ' : '';
+
+          input.style.cssText += `${separator}${safeStyle}`;
         }
 
         // Attach optimistic clearing

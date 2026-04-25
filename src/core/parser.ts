@@ -52,16 +52,23 @@ export function parseTriggers(rawValue: string | null | undefined): TriggerDef[]
 export function parseDirectiveValue(
   rawValue: string | null | undefined,
 ): ParsedDirectiveValue {
-  if (!rawValue || rawValue.trim() === '') return [];
+  let cleanedValue = rawValue?.trim();
+  if (!rawValue || !cleanedValue) return [];
 
+  // Strip trailing commas from directive strings before processing to
+  // allow for trailing commas in multi-line formatting in HTML.
+  if (cleanedValue.endsWith(',')) {
+    cleanedValue = cleanedValue.slice(0, -1).trim();
+  }
+  
   const parsed: ParsedDirectiveValue = [];
   let start = 0;
 
   // Scan for values separated by comma + space
-  const scanResult = scan(rawValue, (i, char) => {
+  const scanResult = scan(cleanedValue, (i, char) => {
     if (char === VALUE_DELIMITER) {
-      if (hasTrailingWhiteSpace(rawValue, i)) {
-        parseSegment(rawValue.slice(start, i), parsed);
+      if (hasTrailingWhiteSpace(cleanedValue, i)) {
+        parseSegment(cleanedValue.slice(start, i), parsed);
         start = i + 1;
         // Keep scanning
         return false;
@@ -74,7 +81,7 @@ export function parseDirectiveValue(
   }
 
   // Process the final segment
-  parseSegment(rawValue.slice(start), parsed);
+  parseSegment(cleanedValue.slice(start), parsed);
 
   return parsed;
 }
