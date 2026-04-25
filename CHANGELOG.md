@@ -7,7 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-No unreleased changes.
+### Added
+
+- Add `rz-error` directive for handling HTML and JSON error routing.
+- Add `rz-validate` directive for granular field-level error feedback.
+- Implement form validation engine; query inputs, inject error text, apply Aria attributes, and strip errors on interaction.
+
+### Changed
+
+- Upgrade `rz-target` to handle routing JSON payloads to global stores .
 
 ## [0.6.0] - 2026-04-20
 

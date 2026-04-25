@@ -20,7 +20,8 @@ export const rzValidate = {
 } as const satisfies Directive;
 
 /**
- * Parses `rz-validate="email, class: text-red, style: 'border: 1px solid red'"`
+ * Parses `rz-validate="field: email, class: text-red, style: 'border: 1px solid red'"`
+ * Value without a key is assumed to be the field name/id: `rz-validate="email"`
  */
 function getConfig(el: Element): ValidateConfig | null {
   const val = getDefinedDirectiveValue(el, 'validate');
@@ -30,16 +31,18 @@ function getConfig(el: Element): ValidateConfig | null {
   if (parsed.length === 0) return null;
 
   let field = '';
-  let errorClass: string | null = null;
-  let errorStyle: string | null = null;
+  let errorClass = null;
+  let errorStyle = null;
 
   for (const [key, value] of parsed) {
-    if (key === 'class') {
+    if (key === 'error-class') {
       errorClass = value;
-    } else if (key === 'style') {
+    } else if (key === 'error-style') {
       errorStyle = value;
+    } else if (key === 'field') {
+      field = value;
     } else if (!field) {
-      field = key; // The first key without a match is the field name
+      field = key;
     }
   }
 
