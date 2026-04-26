@@ -52,15 +52,27 @@ export function preparePayload(
 
   // Merge headers
   const reqHeaders = new Headers(globalConfig.network?.fetch?.headers);
-  new Headers(headers).forEach((val, key) => {
-    reqHeaders.set(key, val);
-  });
 
+  // Framework default
   reqHeaders.set('Rouse-Request', 'true');
 
+  // HTTP content negotiation
   if (!reqHeaders.has('Accept')) {
-    reqHeaders.set('Accept', 'application/json, text/html, application/xhtml+xml');
+    reqHeaders.set(
+      'Accept',
+      'application/json, text/html, application/xhtml+xml, */*;q=0.8',
+    );
   }
+
+  // Merge user-provided headers. An empty string, 'null', or 'false' can be 
+  // passed to delete a header entirely to prevent CORS preflight rejections.
+  Object.entries(headers).forEach(([key, val]) => {
+    if (val === '' || val === 'null' || val === 'false') {
+      reqHeaders.delete(key);
+    } else {
+      reqHeaders.set(key, String(val));
+    }
+  });
 
   // Prepare request body
   let finalBody: BodyInit | null = null;
