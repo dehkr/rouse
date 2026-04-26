@@ -5,11 +5,20 @@ import { resolveProps, splitInjection } from '../core/props';
 import { err, getDirectiveValue, hasDirective, warn } from '../core/shared';
 import { parseStoreLocator } from '../core/store';
 import { cleanup, on } from '../dom/utils';
-import type { ActionCtx, BoundDirective, CleanupFunction, Controller } from '../types';
+import type {
+  ActionCtx,
+  BoundDirective,
+  CleanupFunction,
+  Controller,
+  DirectiveSlug,
+} from '../types';
+
+const SLUG = 'on' as const satisfies DirectiveSlug;
 
 export const rzOn = {
-  existsOn: (el: Element) => hasDirective(el, 'on'),
-  getValue: (el: Element) => getDirectiveValue(el, 'on'),
+  slug: SLUG,
+  existsOn: (el: Element) => hasDirective(el, SLUG),
+  getValue: (el: Element) => getDirectiveValue(el, SLUG),
   attach,
 } as const satisfies BoundDirective;
 

@@ -5,18 +5,21 @@ import {
   hasDirective,
 } from '../core/shared';
 import * as scheduler from '../dom/scheduler';
-import type { Directive } from '../types';
+import type { Directive, DirectiveSlug } from '../types';
+
+const SLUG = 'wake' as const satisfies DirectiveSlug;
 
 export const rzWake = {
-  existsOn: (el: Element) => hasDirective(el, 'wake'),
-  getValue: (el: Element) => getDirectiveValue(el, 'wake'),
-  getDefinedValue: (el: Element) => getDefinedDirectiveValue(el, 'wake'),
+  slug: SLUG,
+  existsOn: (el: Element) => hasDirective(el, SLUG),
+  getValue: (el: Element) => getDirectiveValue(el, SLUG),
+  getDefinedValue: (el: Element) => getDefinedDirectiveValue(el, SLUG),
   processStrategy,
 } as const satisfies Directive;
 
 function processStrategy(el: Element, defaultStrategy: string, onWake: () => void) {
   const strategies = parseDirectiveValue(
-    getDefinedDirectiveValue(el, 'wake') || defaultStrategy,
+    getDefinedDirectiveValue(el, SLUG) || defaultStrategy,
   );
 
   let pending = strategies.length;

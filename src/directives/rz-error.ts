@@ -6,12 +6,15 @@ import {
   hasDirective,
   isJsonType,
 } from '../core/shared';
-import type { Directive, RouseResponse } from '../types';
+import type { Directive, DirectiveSlug, RouseResponse } from '../types';
+
+const SLUG = 'error' as const satisfies DirectiveSlug;
 
 export const rzError = {
-  existsOn: (el: Element) => hasDirective(el, 'error'),
-  getValue: (el: Element) => getDirectiveValue(el, 'error'),
-  getDefinedValue: (el: Element) => getDefinedDirectiveValue(el, 'error'),
+  slug: SLUG,
+  existsOn: (el: Element) => hasDirective(el, SLUG),
+  getValue: (el: Element) => getDirectiveValue(el, SLUG),
+  getDefinedValue: (el: Element) => getDefinedDirectiveValue(el, SLUG),
   route,
 } as const satisfies Directive;
 
@@ -22,7 +25,7 @@ export const rzError = {
 function route(el: Element, app: RouseApp, result: RouseResponse) {
   if (!result.error) return;
 
-  const errorTarget = result.targetOverride || getDefinedDirectiveValue(el, 'error');
+  const errorTarget = result.targetOverride || getDefinedDirectiveValue(el, SLUG);
   if (!errorTarget) return;
 
   const contentType = result.response?.headers.get('Content-Type') || '';
@@ -40,8 +43,8 @@ function route(el: Element, app: RouseApp, result: RouseResponse) {
       }
     } else {
       // We intentionally do not handle HTML insertion here. If the target is
-      // a DOM selector (e.g., '#error-dump') and the payload is HTML, the 
-      // framework delegates the actual DOM manipulation to the DOM mutator, 
+      // a DOM selector (e.g., '#error-dump') and the payload is HTML, the
+      // framework delegates the actual DOM manipulation to the DOM mutator,
       // which listens for the 'rz:fetch:error:html' event fired by the engine.
     }
   }

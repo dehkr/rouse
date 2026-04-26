@@ -1,7 +1,5 @@
 import type { DirectiveSlug } from '../types';
 
-export const HTTP_METHODS = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']);
-
 export const warn = (msg: string, ...args: any[]) => {
   console.warn(`[Rouse] ${msg}`, ...args);
 };
@@ -69,7 +67,7 @@ export function isInsertableType(val: string) {
 }
 
 export function isJsonType(val: string) {
-  return val.includes('application/json') || val.includes('application/problem+json');
+  return val.includes('application/json') || val.includes('+json');
 }
 
 /**

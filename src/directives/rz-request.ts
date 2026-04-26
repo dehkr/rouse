@@ -3,11 +3,14 @@ import { parseDirectiveValue } from '../core/parser';
 import { resolveProps } from '../core/props';
 import { getDirectiveValue, hasDirective } from '../core/shared';
 import { parseTime } from '../core/timing';
-import type { Directive, RouseRequest } from '../types';
+import type { Directive, DirectiveSlug, RouseRequest } from '../types';
+
+const SLUG = 'request' as const satisfies DirectiveSlug;
 
 export const rzRequest = {
-  existsOn: (el: Element) => hasDirective(el, 'request'),
-  getValue: (el: Element) => getDirectiveValue(el, 'request'),
+  slug: SLUG,
+  existsOn: (el: Element) => hasDirective(el, SLUG),
+  getValue: (el: Element) => getDirectiveValue(el, SLUG),
   getConfig,
 } as const satisfies Directive;
 
@@ -24,7 +27,7 @@ const BOOLEAN_KEYS = new Set([
  * Rouse-specific network configuration (timeout, retries, abortKey).
  */
 function getConfig(el: Element, app?: RouseApp): Partial<RouseRequest> {
-  const value = getDirectiveValue(el, 'request');
+  const value = getDirectiveValue(el, SLUG);
   if (!value) return {};
 
   const parsed = parseDirectiveValue(value);

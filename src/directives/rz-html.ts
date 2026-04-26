@@ -9,11 +9,15 @@ import type {
   BoundDirective,
   CleanupFunction,
   Controller,
+  DirectiveSlug,
 } from '../types';
 
+const SLUG = 'html' as const satisfies DirectiveSlug;
+
 export const rzHtml = {
-  existsOn: (el: Element) => hasDirective(el, 'html'),
-  getValue: (el: Element) => getDirectiveValue(el, 'html'),
+  slug: SLUG,
+  existsOn: (el: Element) => hasDirective(el, SLUG),
+  getValue: (el: Element) => getDirectiveValue(el, SLUG),
   attach,
 } as const satisfies BoundDirective;
 

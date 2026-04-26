@@ -4,7 +4,9 @@ import {
   getDirectiveValue,
   hasDirective,
 } from '../core/shared';
-import type { Directive } from '../types';
+import type { Directive, DirectiveSlug } from '../types';
+
+const SLUG = 'validate' as const satisfies DirectiveSlug;
 
 export interface ValidateConfig {
   field: string;
@@ -13,9 +15,10 @@ export interface ValidateConfig {
 }
 
 export const rzValidate = {
-  existsOn: (el: Element) => hasDirective(el, 'validate'),
-  getValue: (el: Element) => getDirectiveValue(el, 'validate'),
-  getDefinedValue: (el: Element) => getDefinedDirectiveValue(el, 'validate'),
+  slug: SLUG,
+  existsOn: (el: Element) => hasDirective(el, SLUG),
+  getValue: (el: Element) => getDirectiveValue(el, SLUG),
+  getDefinedValue: (el: Element) => getDefinedDirectiveValue(el, SLUG),
   getConfig,
 } as const satisfies Directive;
 
@@ -24,15 +27,15 @@ export const rzValidate = {
  * Value without a key is assumed to be the field name/id: `rz-validate="email"`
  */
 function getConfig(el: Element): ValidateConfig | null {
-  const val = getDefinedDirectiveValue(el, 'validate');
+  const val = getDefinedDirectiveValue(el, SLUG);
   if (!val) return null;
 
   const parsed = parseDirectiveValue(val);
   if (parsed.length === 0) return null;
 
   let field = '';
-  let errorClass = null;
-  let errorStyle = null;
+  let errorClass: string | null = null;
+  let errorStyle: string | null = null;
 
   for (const [key, value] of parsed) {
     if (key === 'error-class') {

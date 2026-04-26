@@ -1,14 +1,17 @@
 import { parseDirectiveValue } from '../core/parser';
 import { getDirectiveValue, hasDirective, warn } from '../core/shared';
-import type { Directive } from '../types';
+import type { Directive, DirectiveSlug } from '../types';
+
+const SLUG = 'source' as const satisfies DirectiveSlug;
 
 export const rzSource = {
-  existsOn: (el: Element) => hasDirective(el, 'source'),
-  getValue: (el: Element) => getDirectiveValue(el, 'source'),
+  slug: SLUG,
+  existsOn: (el: Element) => hasDirective(el, SLUG),
+  getValue: (el: Element) => getDirectiveValue(el, SLUG),
   getMethodAndUrl,
 } as const satisfies Directive;
 
-const validSaveMethod = new Set(['POST', 'PUT', 'PATCH']);
+const validSaveMethod = ['POST', 'PUT', 'PATCH'];
 const DEFAULT_SAVE_METHOD = 'POST';
 
 /**
@@ -21,14 +24,14 @@ function getMethodAndUrl(el: Element): {
   let saveMethod = DEFAULT_SAVE_METHOD;
   let url: string | undefined;
 
-  const parsed = parseDirectiveValue(getDirectiveValue(el, 'source'));
+  const parsed = parseDirectiveValue(getDirectiveValue(el, SLUG));
   if (!parsed[0]) {
     return { saveMethod, url };
   }
 
   const [key, val] = parsed[0];
   const upperKey = key.toUpperCase();
-  const isKeyValidMethod = validSaveMethod.has(upperKey);
+  const isKeyValidMethod = validSaveMethod.includes(upperKey);
 
   // Pair value (e.g., "PUT: /api/cart" or "FOO: /api/cart")
   if (val) {
@@ -38,7 +41,7 @@ function getMethodAndUrl(el: Element): {
       warn(`Invalid save method: '${key}'. Using '${DEFAULT_SAVE_METHOD}'.`);
     }
     url = val;
-  } 
+  }
 
   // Single value (e.g., "PUT" or "/api/cart")
   else {

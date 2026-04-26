@@ -8,12 +8,15 @@ import {
   warn,
 } from '../core/shared';
 import { is } from '../dom/utils';
-import type { Directive } from '../types';
+import type { Directive, DirectiveSlug } from '../types';
+
+const SLUG = 'store' as const satisfies DirectiveSlug;
 
 export const rzStore = {
-  existsOn: (el: Element) => hasDirective(el, 'store'),
-  getValue: (el: Element) => getDirectiveValue(el, 'store'),
-  getDefinedValue: (el: Element) => getDefinedDirectiveValue(el, 'store'),
+  slug: SLUG,
+  existsOn: (el: Element) => hasDirective(el, SLUG),
+  getValue: (el: Element) => getDirectiveValue(el, SLUG),
+  getDefinedValue: (el: Element) => getDefinedDirectiveValue(el, SLUG),
   isValid,
   validate,
   initialize,
@@ -23,13 +26,13 @@ export const rzStore = {
 const storeCleanups = new WeakMap<HTMLScriptElement, Array<() => void>>();
 
 function isValid(el: Element, app: RouseApp): el is HTMLScriptElement {
-  return is(el, 'Script') && hasDirective(el, 'store') && getApp(el) === app;
+  return is(el, 'Script') && hasDirective(el, SLUG) && getApp(el) === app;
 }
 
 function validate(el: Element, app: RouseApp): el is HTMLScriptElement {
   if (!isValid(el, app)) return false;
 
-  const storeName = getDefinedDirectiveValue(el, 'store');
+  const storeName = getDefinedDirectiveValue(el, SLUG);
   if (!storeName) {
     warn(`Invalid or missing 'rz-store' value on ${el}.`);
     return false;
@@ -46,7 +49,7 @@ function validate(el: Element, app: RouseApp): el is HTMLScriptElement {
 function initialize(el: HTMLScriptElement, app: RouseApp) {
   if (storeCleanups.has(el) || !app) return;
 
-  const storeName = getDefinedDirectiveValue(el, 'store');
+  const storeName = getDefinedDirectiveValue(el, SLUG);
   if (!storeName) return;
 
   const textContent = el.textContent?.trim();

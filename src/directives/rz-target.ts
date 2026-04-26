@@ -7,12 +7,15 @@ import {
   queryTargets,
   warn,
 } from '../core/shared';
-import type { Directive } from '../types';
+import type { Directive, DirectiveSlug } from '../types';
+
+const SLUG = 'target' as const satisfies DirectiveSlug;
 
 export const rzTarget = {
-  existsOn: (el: Element) => hasDirective(el, 'target'),
-  getValue: (el: Element) => getDirectiveValue(el, 'target'),
-  getDefinedValue: (el: Element) => getDefinedDirectiveValue(el, 'target'),
+  slug: SLUG,
+  existsOn: (el: Element) => hasDirective(el, SLUG),
+  getValue: (el: Element) => getDirectiveValue(el, SLUG),
+  getDefinedValue: (el: Element) => getDefinedDirectiveValue(el, SLUG),
   getInsertConfig,
 } as const satisfies Directive;
 
@@ -53,7 +56,7 @@ function isInsertMethod(key: string): key is InsertMethod {
  * - `rz-target="#output"`
  */
 function getInsertConfig(el: Element, overrideValue?: string | null): InsertOperation[] {
-  const value = overrideValue || getDefinedDirectiveValue(el, 'target');
+  const value = overrideValue || getDefinedDirectiveValue(el, SLUG);
 
   if (!value) {
     return [{ targets: [el], strategy: DEFAULT_METHOD }];

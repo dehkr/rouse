@@ -2,11 +2,14 @@ import { parseTriggers } from '../core/parser';
 import { getDirectiveValue, hasDirective } from '../core/shared';
 import { DEFAULT_TIMING, parseTime } from '../core/timing';
 import { is, on } from '../dom/utils';
-import type { Directive } from '../types';
+import type { Directive, DirectiveSlug } from '../types';
+
+const SLUG = 'trigger' as const satisfies DirectiveSlug;
 
 export const rzTrigger = {
-  existsOn: (el: Element) => hasDirective(el, 'trigger'),
-  getValue: (el: Element) => getDirectiveValue(el, 'trigger'),
+  slug: SLUG,
+  existsOn: (el: Element) => hasDirective(el, SLUG),
+  getValue: (el: Element) => getDirectiveValue(el, SLUG),
   attachTriggers,
 } as const satisfies Directive;
 
@@ -15,7 +18,7 @@ export const rzTrigger = {
  * Returns a cleanup function or `undefined` if 0 triggers.
  */
 function attachTriggers(el: Element, action: (e?: Event) => void) {
-  const triggers = parseTriggers(getDirectiveValue(el, 'trigger'));
+  const triggers = parseTriggers(getDirectiveValue(el, SLUG));
   if (triggers.length === 0) return;
 
   const cleanups: Array<() => void> = [];

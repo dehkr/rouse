@@ -2,11 +2,14 @@ import type { RouseApp } from '../core/app';
 import { parseTriggers } from '../core/parser';
 import { getDirectiveValue, hasDirective } from '../core/shared';
 import { parseTime } from '../core/timing';
-import type { Directive } from '../types';
+import type { Directive, DirectiveSlug } from '../types';
+
+const SLUG = 'refresh' as const satisfies DirectiveSlug;
 
 export const rzRefresh = {
-  existsOn: (el: Element) => hasDirective(el, 'refresh'),
-  getValue: (el: Element) => getDirectiveValue(el, 'refresh'),
+  slug: SLUG,
+  existsOn: (el: Element) => hasDirective(el, SLUG),
+  getValue: (el: Element) => getDirectiveValue(el, SLUG),
   attachTriggers,
 } as const satisfies Directive;
 
@@ -27,7 +30,7 @@ function attachTriggers(el: Element, storeName: string, app: RouseApp) {
   let pollInterval = 0;
 
   // Optional triggers if provided in rz-refresh
-  const triggers = parseTriggers(getDirectiveValue(el, 'refresh'));
+  const triggers = parseTriggers(getDirectiveValue(el, SLUG));
 
   const triggerRefresh = () => {
     if (!app.stores.status(storeName)?.loading) {

@@ -75,6 +75,7 @@ export type TriggerDef = {
 };
 
 export interface BaseDirective {
+  slug: DirectiveSlug;
   existsOn: (el: Element) => boolean;
   getValue: (el: Element) => string | null;
 }

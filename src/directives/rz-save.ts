@@ -3,11 +3,14 @@ import { parseTriggers } from '../core/parser';
 import { getDirectiveValue, hasDirective } from '../core/shared';
 import { applyTiming, parseTime } from '../core/timing';
 import { effect } from '../reactivity';
-import type { Directive } from '../types';
+import type { Directive, DirectiveSlug } from '../types';
+
+const SLUG = 'save' as const satisfies DirectiveSlug;
 
 export const rzSave = {
-  existsOn: (el: Element) => hasDirective(el, 'save'),
-  getValue: (el: Element) => getDirectiveValue(el, 'save'),
+  slug: SLUG,
+  existsOn: (el: Element) => hasDirective(el, SLUG),
+  getValue: (el: Element) => getDirectiveValue(el, SLUG),
   attachTriggers,
 } as const satisfies Directive;
 
@@ -18,7 +21,7 @@ export const rzSave = {
 function attachTriggers(el: Element, storeName: string, app: RouseApp) {
   if (!storeName || !app) return;
 
-  const triggers = parseTriggers(getDirectiveValue(el, 'save'));
+  const triggers = parseTriggers(getDirectiveValue(el, SLUG));
   if (triggers.length === 0) return;
 
   const ac = new AbortController();
