@@ -5,6 +5,7 @@ import type { RouseResponse } from '../types';
 import { is } from './utils';
 
 const originalStyles = new WeakMap<Element, string>();
+const ERROR_FLAG = 'data-rouse-err';
 
 /**
  * Initializes the global form validation engine.
@@ -35,7 +36,7 @@ export function initFormValidationEngine(app: RouseApp, signal: AbortSignal) {
 
     const globalErrorClass = appConfig.ui.errorClass;
 
-    const validateEls = queryTargets(form, directiveSelector('validate'));
+    const validateEls = queryTargets(form, directiveSelector(rzValidate.slug));
     let firstInvalidInput: HTMLElement | null = null;
 
     for (const el of validateEls) {
@@ -46,9 +47,10 @@ export function initFormValidationEngine(app: RouseApp, signal: AbortSignal) {
       if (!errorMsg) continue;
 
       el.textContent = String(errorMsg).trim();
+      el.setAttribute(ERROR_FLAG, 'true');
 
       if (!el.id) {
-        el.id = `rz-err-${valConfig.field}-${uniqueKey()}`;
+        el.id = `rouse-err-${valConfig.field}-${uniqueKey()}`;
       }
 
       const inputs = getInputsForField(form, valConfig.field);
@@ -120,8 +122,10 @@ export function initFormValidationEngine(app: RouseApp, signal: AbortSignal) {
  * Locates all `rz-validate` elements within the form and resets their associated inputs.
  */
 function clearFormErrors(form: Element, globalErrorClass?: string) {
-  const validateEls = queryTargets(form, directiveSelector('validate'));
+  const validateEls = queryTargets(form, directiveSelector(rzValidate.slug));
   for (const el of validateEls) {
+    if (!el.hasAttribute(ERROR_FLAG)) continue;
+
     const valConfig = rzValidate.getConfig(el);
     if (!valConfig) continue;
 
@@ -142,6 +146,7 @@ function clearFieldErrors(
   valConfig?: ValidateConfig,
 ) {
   validateEl.textContent = '';
+  validateEl.removeAttribute(ERROR_FLAG);
 
   for (const input of inputs) {
     input.removeAttribute('aria-invalid');
