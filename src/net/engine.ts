@@ -1,7 +1,7 @@
 import { defaultConfig, type RouseApp } from '../core/app';
 import { parseDirectiveValue } from '../core/parser';
 import { err, isInsertableType, isJsonType, uniqueKey, warn } from '../core/shared';
-import { rzError, rzRequest, rzTarget } from '../directives';
+import { rzError, rzHeaders, rzRequest, rzTarget } from '../directives';
 import { extractFieldValues } from '../dom/forms';
 import { dispatch, is } from '../dom/utils';
 import type { RouseRequest, RouseResponse } from '../types';
@@ -282,10 +282,15 @@ function resolveRequestConfig(
   app: RouseApp | undefined,
 ): Partial<RouseRequest> {
   const globalConfig = app?.config.network.fetch || {};
-  const localConfig = rzRequest.existsOn(el) ? rzRequest.getConfig(el, app) : {};
+  const localConfig = rzRequest.getConfig(el, app);
 
   return {
     ...globalConfig,
     ...localConfig,
+    headers: {
+      ...globalConfig.headers,
+      ...localConfig.headers,
+      ...rzHeaders.getHeaders(el, app),
+    },
   };
 }

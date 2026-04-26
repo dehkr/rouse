@@ -6,6 +6,7 @@ export type DirectiveSlug =
   | 'bind'
   | 'error'
   | 'fetch'
+  | 'headers'
   | 'html'
   | 'model'
   | 'on'
