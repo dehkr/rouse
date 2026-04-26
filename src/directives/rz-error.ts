@@ -5,7 +5,6 @@ import {
   getDirectiveValue,
   hasDirective,
   isJsonType,
-  warn,
 } from '../core/shared';
 import type { Directive, RouseResponse } from '../types';
 
@@ -18,7 +17,7 @@ export const rzError = {
 
 /**
  * Parses the rz-error directive (or target override) and routes the error payload
- * to the DOM Mutator or the Store Manager based on the target syntax.
+ * to the Store Manager or passes it through to the network engine.
  */
 function route(el: Element, app: RouseApp, result: RouseResponse) {
   if (!result.error) return;
@@ -38,13 +37,12 @@ function route(el: Element, app: RouseApp, result: RouseResponse) {
       if (isJson) {
         const payload = result.error.validation || result.error;
         app.stores.update(targetStr.substring(1), payload);
-      } else {
-        warn(`Cannot route non-JSON error response to store '${targetStr}'.`);
       }
     } else {
-      if (isJson) {
-        warn(`Cannot route JSON error payload to DOM target '${targetStr}'.`);
-      }
+      // We intentionally do not handle HTML insertion here. If the target is
+      // a DOM selector (e.g., '#error-dump') and the payload is HTML, the 
+      // framework delegates the actual DOM manipulation to the DOM mutator, 
+      // which listens for the 'rz:fetch:error:html' event fired by the engine.
     }
   }
 }
