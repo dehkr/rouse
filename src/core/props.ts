@@ -31,7 +31,7 @@ export function resolveProps(
 
   let resolvedValue: any;
 
-  // Store snapshot (@)
+  // Store data
   if (value.startsWith('@')) {
     if (!storeManager) {
       warn(`Cannot resolve '${value}' because StoreManager is missing.`);
@@ -42,22 +42,20 @@ export function resolveProps(
     const storeData = storeManager.get(storeName);
 
     if (storeData === undefined) {
-      console.warn(
-        `[Rouse] Store '${storeName}' not found. Cannot resolve props: "${value}"`,
-      );
+      warn(`Store '${storeName}' not found. Cannot resolve props '${value}'.`);
       return undefined;
     }
 
     resolvedValue = nestedPath ? getNestedVal(storeData, nestedPath) : storeData;
   }
 
-  // URL query params (?)
+  // URL query params
   else if (value.startsWith('?')) {
     const params = new URLSearchParams(value.slice(1));
     resolvedValue = Object.fromEntries(params.entries());
   }
 
-  // DOM script ID (#)
+  // DOM script ID
   else if (value.startsWith('#')) {
     const id = value.slice(1);
     const el = document.getElementById(id);
@@ -89,9 +87,7 @@ export function resolveProps(
     if (!requireObject || isPlainObject(resolvedValue)) {
       return resolvedValue;
     }
-    console.warn(
-      `[Rouse] Invalid payload: '${value}'. Data passed into controllers/methods must resolve to an object. Received type: ${Array.isArray(resolvedValue) ? 'array' : typeof resolvedValue}.`,
-    );
+    warn(`Invalid payload: '${value}'. Data must resolve to an object.`);
   }
 
   return undefined;
@@ -106,7 +102,7 @@ export function splitInjection(raw: string): {
   rawPayload: string | undefined;
 } {
   // Find the first index of ?, #, @, or { starting after the first character.
-  // This accomodates store keys like '@my-store.method{ "id": 234 }'  
+  // This accomodates store keys like '@my-store.method{ "id": 234 }'
   const matchIndex = raw.substring(1).search(/[?#@{]/);
 
   if (matchIndex === -1) {
