@@ -5,6 +5,7 @@ import {
   type InsertOperation,
 } from '../types';
 import { parseDirectiveValue } from './parser';
+import { DEFAULT_TIMING, parseTime } from './timing';
 
 export const warn = (msg: string, ...args: any[]) => {
   console.warn(`[Rouse] ${msg}`, ...args);
@@ -217,4 +218,62 @@ export function resolveInsertOperations(
   }
 
   return operations;
+}
+
+interface ParseMethodAndUrlOptions {
+  allowedMethods: readonly string[];
+  defaultMethod?: string;
+  label: string;
+}
+
+export function parseMethodAndUrl(
+  value: string | null,
+  options: ParseMethodAndUrlOptions,
+): { method?: string; url?: string } {
+  let method: string | undefined = options.defaultMethod;
+  let url: string | undefined;
+
+  const parsed = parseDirectiveValue(value);
+  if (!parsed[0]) return { method, url };
+
+  const [key, val] = parsed[0];
+  const upperKey = key.toUpperCase();
+  const isValid = options.allowedMethods.includes(upperKey);
+
+  if (val) {
+    if (isValid) {
+      method = upperKey;
+    } else {
+      const suffix = options.defaultMethod ? ` Using '${options.defaultMethod}'.` : '';
+      warn(`Invalid ${options.label}: '${key}'.${suffix}`);
+    }
+    url = val;
+  } else {
+    if (isValid) {
+      method = upperKey;
+    } else {
+      url = key;
+    }
+  }
+
+  return { method, url };
+}
+
+/**
+ * Attaches a polling interval. Returns cleanup, or null if no interval.
+ *
+ * - `attachPoll(['400ms'], action)`
+ * - `attachPoll([], action, 1000)`
+ * - `attachPoll([], action)`
+ */
+export function attachPoll(
+  modifiers: string[],
+  action: () => void,
+  defaultMs = DEFAULT_TIMING.POLL,
+): (() => void) | null {
+  const waitStr = modifiers[0];
+  const ms = waitStr ? parseTime(waitStr) : defaultMs;
+  if (ms <= 0) return null;
+  const timer = window.setInterval(action, ms);
+  return () => window.clearInterval(timer);
 }

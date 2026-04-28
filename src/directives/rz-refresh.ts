@@ -1,7 +1,6 @@
 import type { RouseApp } from '../core/app';
 import { parseTriggers } from '../core/parser';
-import { getDirectiveValue, hasDirective } from '../core/shared';
-import { parseTime } from '../core/timing';
+import { attachPoll, getDirectiveValue, hasDirective } from '../core/shared';
 import type { Directive, DirectiveSlug } from '../types';
 
 const SLUG = 'refresh' as const satisfies DirectiveSlug;
@@ -27,7 +26,6 @@ function attachTriggers(el: Element, storeName: string, app: RouseApp) {
   // Inherit from global config first
   let focus = app.config.network.refreshOnFocus ?? true;
   let reconnect = app.config.network.refreshOnReconnect ?? true;
-  let pollInterval = 0;
 
   // Optional triggers if provided in rz-refresh
   const triggers = parseTriggers(getDirectiveValue(el, SLUG));
@@ -44,8 +42,9 @@ function attachTriggers(el: Element, storeName: string, app: RouseApp) {
       focus = true;
     } else if (trigger.event === 'reconnect') {
       reconnect = true;
-    } else if (trigger.event === 'poll' && trigger.modifiers.length > 0) {
-      pollInterval = parseTime(trigger.modifiers[0]);
+    } else if (trigger.event === 'poll') {
+      const stop = attachPoll(trigger.modifiers, triggerRefresh);
+      if (stop) cleanups.push(stop);
     } else {
       // Custom events scoped to the app instance root
       app.root.addEventListener(trigger.event, triggerRefresh, { signal });
@@ -68,11 +67,6 @@ function attachTriggers(el: Element, storeName: string, app: RouseApp) {
   // Attach global listener for `reconnect` event
   if (reconnect) {
     window.addEventListener('online', triggerRefresh, { signal });
-  }
-
-  if (pollInterval > 0) {
-    const timer = window.setInterval(triggerRefresh, pollInterval);
-    cleanups.push(() => window.clearInterval(timer));
   }
 
   return () => {

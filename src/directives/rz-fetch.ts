@@ -1,7 +1,6 @@
 import { rzTrigger } from '.';
 import type { RouseApp } from '../core/app';
-import { parseDirectiveValue } from '../core/parser';
-import { getDirectiveValue, hasDirective, warn } from '../core/shared';
+import { getDirectiveValue, hasDirective, parseMethodAndUrl } from '../core/shared';
 import { is, on } from '../dom/utils';
 import { cleanupFetch, handleFetch } from '../net/engine';
 import type { Directive, DirectiveSlug } from '../types';
@@ -17,8 +16,8 @@ export const rzFetch = {
   teardown,
 } as const satisfies Directive;
 
+const HTTP_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] as const;
 const fetchCleanups = new WeakMap<Element, Array<() => void>>();
-const httpMethods = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'];
 
 /**
  * Parses the rz-fetch attribute into a URL and method.
@@ -28,35 +27,11 @@ const httpMethods = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'];
  * - `rz-fetch="PUT"`
  * - `rz-fetch="/api/users"`
  */
-function getMethodAndUrl(el: Element): { method?: string; url?: string } {
-  let method: string | undefined;
-  let url: string | undefined;
-
-  const parsed = parseDirectiveValue(getDirectiveValue(el, SLUG));
-  if (!parsed[0]) return { method, url };
-
-  const [key, val] = parsed[0];
-  const upperKey = key.toUpperCase();
-  const isKeyValidMethod = httpMethods.includes(upperKey);
-
-  if (val) {
-    // A pair was provided: e.g., "POST: /api/users" or "FOO: /api/users"
-    if (isKeyValidMethod) {
-      method = upperKey;
-    } else {
-      warn(`Invalid HTTP method: ${key}.`);
-    }
-    url = val;
-  } else {
-    // A single value was provided: e.g., "PUT" or "/api/users"
-    if (isKeyValidMethod) {
-      method = upperKey;
-    } else {
-      url = key;
-    }
-  }
-
-  return { method, url };
+function getMethodAndUrl(el: Element) {
+  return parseMethodAndUrl(getDirectiveValue(el, SLUG), {
+    allowedMethods: HTTP_METHODS,
+    label: 'fetch method',
+  });
 }
 
 /**

@@ -1,6 +1,5 @@
 import { parseTriggers } from '../core/parser';
-import { getDirectiveValue, hasDirective } from '../core/shared';
-import { DEFAULT_TIMING, parseTime } from '../core/timing';
+import { attachPoll, getDirectiveValue, hasDirective } from '../core/shared';
 import { is, on } from '../dom/utils';
 import type { Directive, DirectiveSlug } from '../types';
 
@@ -30,14 +29,8 @@ function attachTriggers(el: Element, action: (e?: Event) => void) {
 
     // Handle synthetic poll event
     else if (trigger.event === 'poll') {
-      const waitStr = trigger.modifiers[0];
-      const ms = waitStr ? parseTime(waitStr) : DEFAULT_TIMING.POLL;
-      if (ms > 0) {
-        const timer = window.setInterval(() => {
-          action();
-        }, ms);
-        cleanups.push(() => window.clearInterval(timer));
-      }
+      const stop = attachPoll(trigger.modifiers, action);
+      if (stop) cleanups.push(stop);
     }
 
     // If `none` then skip binding any events

@@ -1,7 +1,7 @@
 import type { RouseApp } from '../core/app';
 import { parseTriggers } from '../core/parser';
-import { getDirectiveValue, hasDirective } from '../core/shared';
-import { applyTiming, parseTime } from '../core/timing';
+import { attachPoll, getDirectiveValue, hasDirective } from '../core/shared';
+import { applyTiming } from '../core/timing';
 import { effect } from '../reactivity';
 import type { Directive, DirectiveSlug } from '../types';
 
@@ -61,12 +61,9 @@ function attachTriggers(el: Element, storeName: string, app: RouseApp) {
     }
 
     // Synthetic poll event
-    else if (trigger.event === 'poll' && trigger.modifiers.length > 0) {
-      const ms = parseTime(trigger.modifiers[0]);
-      if (ms > 0) {
-        const timer = window.setInterval(triggerSave, ms);
-        cleanups.push(() => window.clearInterval(timer));
-      }
+    else if (trigger.event === 'poll') {
+      const stop = attachPoll(trigger.modifiers, triggerSave);
+      if (stop) cleanups.push(stop);
     }
 
     // Custom DOM events

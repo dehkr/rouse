@@ -79,8 +79,8 @@ function initialize(el: HTMLScriptElement, app: RouseApp) {
 
   // Configure the store URL and HTTP method for saving
   if (rzSource.existsOn(el)) {
-    const { saveMethod, url } = rzSource.getMethodAndUrl(el);
-    app.stores.config(storeName, { saveMethod, url });
+    const { method, url } = rzSource.getMethodAndUrl(el);
+    app.stores.config(storeName, { saveMethod: method, url });
   }
 
   // Attach save triggers and register cleanup functions
