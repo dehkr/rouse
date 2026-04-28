@@ -11,7 +11,7 @@ export { rzSave } from './rz-save';
 export { rzScope } from './rz-scope';
 export { rzSource } from './rz-source';
 export { rzStore } from './rz-store';
-export { rzTarget, type InsertMethod } from './rz-target';
+export { rzTarget } from './rz-target';
 export { rzText } from './rz-text';
 export { rzTrigger } from './rz-trigger';
 export { rzValidate } from './rz-validate';

@@ -1,5 +1,5 @@
-import { rzError, rzTarget, type InsertMethod } from '../directives';
-import type { RouseResponse } from '../types';
+import { rzError, rzTarget } from '../directives';
+import type { InsertMethod, RouseResponse } from '../types';
 import { dispatch, insert } from './utils';
 
 interface InsertionOptions {
@@ -16,10 +16,7 @@ interface InsertionOptions {
  * based on the element's `rz-target` configuration.
  */
 export function initDomMutator(appRoot: Element, abortSignal: AbortSignal) {
-  const events = [
-    'rz:fetch:success:html',
-    'rz:fetch:error:html',
-  ];
+  const events = ['rz:fetch:success:html', 'rz:fetch:error:html'];
 
   const handleMutate = (e: Event) => {
     const { detail, target } = e as CustomEvent<RouseResponse>;
@@ -40,9 +37,9 @@ export function initDomMutator(appRoot: Element, abortSignal: AbortSignal) {
     if (e.type.includes('error')) {
       const errorTarget = targetOverride || rzError.getDefinedValue(triggerEl);
       if (!errorTarget) return;
-      operations = rzTarget.getInsertConfig(triggerEl, errorTarget);
+      operations = rzError.getInsertConfig(triggerEl, appRoot, errorTarget);
     } else {
-      operations = rzTarget.getInsertConfig(triggerEl, targetOverride);
+      operations = rzTarget.getInsertConfig(triggerEl, appRoot, targetOverride);
     }
 
     for (const { targets, strategy } of operations) {
@@ -75,16 +72,18 @@ function performInsertion({
   response,
   appRoot,
 }: InsertionOptions) {
+  // Dispatch `before` event to enable payload mutation or cancellation
   const beforeEvent = dispatch(
     targetEl,
-    'rz:fetch:insert:before',
+    'rz:fetch:update:dom:before',
     { data, triggerEl, targetEl, strategy, response },
     { cancelable: true },
   );
 
   if (beforeEvent.defaultPrevented) return;
 
-  // Determine where to dispatch the final event if the target is removed
+  // Determine where to dispatch the update event if the target element
+  // is removed as a result of the operation.
   const dispatcherEl =
     strategy === 'outerHTML' || strategy === 'delete'
       ? targetEl.parentElement || appRoot
@@ -92,7 +91,7 @@ function performInsertion({
 
   insert(beforeEvent.detail.data, targetEl, strategy);
 
-  dispatch(dispatcherEl, 'rz:fetch:insert', {
+  dispatch(dispatcherEl, 'rz:fetch:update:dom', {
     triggerEl,
     targetEl,
     strategy,

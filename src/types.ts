@@ -1,6 +1,5 @@
 import type { RouseApp } from './core/app';
 import type { StoreManager } from './core/store';
-import type { InsertMethod } from './directives/rz-target';
 
 export type DirectiveSlug =
   | 'bind'
@@ -39,10 +38,13 @@ export type LifecycleEvent =
   | 'rz:fetch:error'
   | 'rz:fetch:error:html'
   | 'rz:fetch:error:json'
+  | 'rz:fetch:error:file'
   | 'rz:fetch:abort'
   | 'rz:fetch:end'
-  | 'rz:fetch:insert:before'
-  | 'rz:fetch:insert';
+  | 'rz:fetch:update:dom:before'
+  | 'rz:fetch:update:dom'
+  | 'rz:fetch:update:store:before'
+  | 'rz:fetch:update:store';
 
 export type BindableValue =
   | string
@@ -53,6 +55,27 @@ export type BindableValue =
   | undefined
   | Record<string, boolean> // For class bindings
   | Record<string, string>; // For style bindings
+
+export const INSERT_METHODS = [
+  'innerHTML',
+  'outerHTML',
+  'beforebegin',
+  'afterbegin',
+  'beforeend',
+  'afterend',
+  'delete',
+] as const;
+
+export type InsertMethod = (typeof INSERT_METHODS)[number];
+
+export interface InsertOperation {
+  targets: Element[];
+  strategy: InsertMethod;
+}
+
+export function isInsertMethod(key: string): key is InsertMethod {
+  return INSERT_METHODS.includes(key as InsertMethod);
+}
 
 declare const CLEANUP: unique symbol;
 export type CleanupFunction = (() => void) & { [CLEANUP]: true };

@@ -1,7 +1,13 @@
 import { defaultConfig, type RouseApp } from '../core/app';
-import { parseDirectiveValue } from '../core/parser';
-import { err, isInsertableType, isJsonType, uniqueKey, warn } from '../core/shared';
-import { rzError, rzHeaders, rzRequest, rzTarget } from '../directives';
+import {
+  err,
+  isFileType,
+  isJsonType,
+  isPlainObject,
+  uniqueKey,
+  warn,
+} from '../core/shared';
+import { rzHeaders, rzRequest } from '../directives';
 import { extractFieldValues } from '../dom/forms';
 import { dispatch, is } from '../dom/utils';
 import type { RouseRequest, RouseResponse } from '../types';
@@ -10,6 +16,7 @@ import { request } from './request';
 import { fallbackResponse } from './response';
 
 type RequestState = { abortKey?: string; destroyed?: boolean };
+
 const activeRequests = new WeakMap<Element, RequestState>();
 
 /**
@@ -73,7 +80,6 @@ async function executeFetch(el: Element, app: RouseApp, options: RouseRequest) {
   }
 
   let url: string | null = options.url || null;
-  let explicitMethod: string | undefined = options.method;
   let formMethod: string | undefined;
 
   // Fallbacks for URL and capture native form method
@@ -100,7 +106,7 @@ async function executeFetch(el: Element, app: RouseApp, options: RouseRequest) {
 
   // Resolve method
   const method = (
-    explicitMethod ||
+    options.method ||
     finalRequestInit.method ||
     formMethod ||
     'GET'
@@ -171,6 +177,7 @@ async function executeFetch(el: Element, app: RouseApp, options: RouseRequest) {
       result.targetOverride = rouseHeaders.target;
     }
 
+    // Handle error
     if (result.error) {
       if (result.error.status === 'CANCELED') {
         if (shouldDispatch) {
@@ -184,62 +191,23 @@ async function executeFetch(el: Element, app: RouseApp, options: RouseRequest) {
         dispatch(el, 'rz:fetch:error', { error: result.error, config: finalOptions });
 
         if (result.response) {
-          const contentType = result.response.headers.get('Content-Type') || '';
-          const isJson = isJsonType(contentType);
-
-          rzError.route(el, app, result);
-
-          if (isJson) {
-            dispatch(el, 'rz:fetch:error:json', result);
-          } else if (isInsertableType(contentType)) {
-            dispatch(el, 'rz:fetch:error:html', result);
-          }
+          routePayload('error', el, result);
         }
       }
       return result;
     }
 
-    const { data, response } = result;
-
+    // Handle success
     if (shouldDispatch) {
       dispatch(el, 'rz:fetch:success', result);
 
-      if (response) {
+      if (result.response) {
         // Custom trigger event
         if (rouseHeaders.trigger) {
           dispatch(el, rouseHeaders.trigger, result);
         }
 
-        const contentType = response.headers.get('Content-Type') || '';
-
-        // Payload routing
-        if (isJsonType(contentType)) {
-          const activeTarget =
-            result.targetOverride ||
-            (typeof finalOptions.target === 'string'
-              ? finalOptions.target
-              : rzTarget.getDefinedValue(el));
-
-          if (activeTarget) {
-            const operations = parseDirectiveValue(activeTarget);
-            for (const [method, selector] of operations) {
-              const targetStr = selector || method;
-
-              // If the target is a store, natively route the JSON payload
-              if (targetStr.startsWith('@')) {
-                app.stores.update(targetStr.substring(1), data as object);
-              } else {
-                warn(`Cannot route JSON payload to DOM target '${targetStr}'.`);
-              }
-            }
-          }
-
-          dispatch(el, 'rz:fetch:success:json', result);
-        } else if (isInsertableType(contentType)) {
-          dispatch(el, 'rz:fetch:success:html', result);
-        } else if (data instanceof Blob || data instanceof ArrayBuffer) {
-          dispatch(el, 'rz:fetch:success:file', result);
-        }
+        routePayload('success', el, result);
       }
     }
 
@@ -293,4 +261,47 @@ function resolveRequestConfig(
       ...rzHeaders.getHeaders(el, app),
     },
   };
+}
+
+/**
+ * Handles dispatching lifecycle events which enables JSON and HTML payload routing.
+ */
+function routePayload(type: 'error' | 'success', el: Element, result: RouseResponse) {
+  const eventPrefix = `rz:fetch:${type}`;
+  const data = result.data;
+
+  // Check for files (Blob/ArrayBuffer)
+  if (isFileType(data)) {
+    dispatch(el, `${eventPrefix}:file`, result);
+    return;
+  }
+
+  // Check for parsed JSON (POJO or Array)
+  // Store manager requires parsed objects to merge state
+  if (Array.isArray(data) || isPlainObject(data)) {
+    dispatch(el, `${eventPrefix}:json`, result);
+    return;
+  }
+
+  // Handle strings (HTML/Text)
+  if (typeof data === 'string') {
+    const contentType = result.response?.headers.get('Content-Type') || '';
+
+    if (isJsonType(contentType)) {
+      warn(
+        `Payload is a string but Content-Type indicates JSON. Routing to HTML. If this should update a store, ensure your interceptor parses the JSON.`,
+      );
+    }
+
+    dispatch(el, `${eventPrefix}:html`, result);
+    return;
+  }
+
+  // Ignore null/undefined (e.g., 204 No Content), but warn on unhandled complex types
+  if (data !== null && data !== undefined) {
+    const typeName = data?.constructor?.name || typeof data;
+    warn(
+      `Unroutable payload type: ${typeName}. Expected a String, Plain Object, Array, Blob, or ArrayBuffer.`,
+    );
+  }
 }

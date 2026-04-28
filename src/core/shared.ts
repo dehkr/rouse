@@ -1,4 +1,10 @@
-import type { DirectiveSlug } from '../types';
+import {
+  isInsertMethod,
+  type DirectiveSlug,
+  type InsertMethod,
+  type InsertOperation,
+} from '../types';
+import { parseDirectiveValue } from './parser';
 
 export const warn = (msg: string, ...args: any[]) => {
   console.warn(`[Rouse] ${msg}`, ...args);
@@ -42,7 +48,7 @@ export function hasDirective(el: Element, slug: DirectiveSlug): boolean {
 }
 
 /**
- * Checks that a value is a plain JavaScript opbject (POJO).
+ * Checks that a value is a plain JavaScript object (POJO).
  * Excludes Arrays, Dates, Maps, and custom class instances.
  */
 export function isPlainObject(val: unknown): val is Record<string, any> {
@@ -68,6 +74,10 @@ export function isInsertableType(val: string) {
 
 export function isJsonType(val: string) {
   return val.includes('application/json') || val.includes('+json');
+}
+
+export function isFileType(data: unknown) {
+  return data instanceof Blob || data instanceof ArrayBuffer;
 }
 
 /**
@@ -99,9 +109,10 @@ export function deepFreeze<T extends object>(obj: T, seen = new WeakSet()): Read
     return obj as Readonly<T>;
   }
 
-  if (Object.isFrozen(obj) || seen.has(obj)) {
+  if (seen.has(obj)) {
     return obj as Readonly<T>;
   }
+
   seen.add(obj);
 
   if (Array.isArray(obj)) {
@@ -131,5 +142,79 @@ export function deepFreeze<T extends object>(obj: T, seen = new WeakSet()): Read
 export function uniqueKey() {
   return typeof crypto !== 'undefined' && crypto.randomUUID
     ? crypto.randomUUID()
-    : `${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+    : `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+}
+
+const DEFAULT_METHOD: InsertMethod = 'innerHTML';
+
+/**
+ * Shared utility to parse target strings into DOM insertion operations.
+ *
+ * Returns an array of operations to support multi-target updates.
+ * Accepts "strategy: selector", "strategy", and/or "selector" values.
+ *
+ * Defaults to "innerHTML" if strategy is missing and the host element
+ * if the selector is missing.
+ *
+ * - `rz-target="beforebegin: #header"`
+ * - `rz-target="beforebegin"`
+ * - `rz-error="#output"`
+ */
+export function resolveInsertOperations(
+  value: string | null | undefined,
+  hostEl: Element,
+  appRoot: Element,
+): InsertOperation[] {
+  if (!value) {
+    return [{ targets: [hostEl], strategy: DEFAULT_METHOD }];
+  }
+
+  const parsed = parseDirectiveValue(value);
+  if (parsed.length === 0) {
+    return [{ targets: [hostEl], strategy: DEFAULT_METHOD }];
+  }
+
+  const operations: InsertOperation[] = [];
+
+  for (const [key, val] of parsed) {
+    // Skip store targets
+    if (key.startsWith('@') || (val && val.startsWith('@'))) continue;
+
+    // "Strategy: Selector"
+    if (val) {
+      const strategy = isInsertMethod(key) ? key : DEFAULT_METHOD;
+      const nodeList = queryTargets(appRoot, val);
+
+      if (nodeList.length === 0) {
+        warn(`No targets found for '${val}'.`);
+        operations.push({ strategy, targets: [] });
+      } else {
+        operations.push({
+          strategy,
+          targets: Array.from(nodeList),
+        });
+      }
+      continue;
+    }
+
+    // "Strategy"
+    if (isInsertMethod(key)) {
+      operations.push({ targets: [hostEl], strategy: key });
+      continue;
+    }
+
+    // "Selector"
+    const nodeList = queryTargets(appRoot, key);
+    if (nodeList.length === 0) {
+      warn(`No targets found for '${key}'.`);
+      operations.push({ targets: [], strategy: DEFAULT_METHOD });
+    } else {
+      operations.push({
+        targets: Array.from(nodeList),
+        strategy: DEFAULT_METHOD,
+      });
+    }
+  }
+
+  return operations;
 }
