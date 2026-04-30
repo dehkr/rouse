@@ -31,17 +31,6 @@ export function getDirectiveValue(el: Element, slug: DirectiveSlug): string | nu
 }
 
 /**
- * Ensures the value is not null or empty.
- */
-export function getDefinedDirectiveValue(el: Element, slug: DirectiveSlug) {
-  const value = getDirectiveValue(el, slug);
-  if (value === null || value.trim() === '') {
-    return null;
-  }
-  return value.trim();
-}
-
-/**
  * Checks if the element has either prefix.
  */
 export function hasDirective(el: Element, slug: DirectiveSlug): boolean {
@@ -137,14 +126,10 @@ export function deepFreeze<T extends object>(obj: T, seen = new WeakSet()): Read
   return Object.freeze(obj);
 }
 
-/**
- * Generate a unique key using crypto if available.
- */
-export function uniqueKey() {
-  return typeof crypto !== 'undefined' && crypto.randomUUID
-    ? crypto.randomUUID()
-    : `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
-}
+const session = Date.now().toString(36);
+let count = 46656;
+
+export const uniqueKey = (prefix = 'rz-') => prefix + session + (count++).toString(36);
 
 const DEFAULT_METHOD: InsertMethod = 'innerHTML';
 
@@ -166,7 +151,7 @@ export function resolveInsertOperations(
   hostEl: Element,
   appRoot: Element,
 ): InsertOperation[] {
-  if (!value) {
+  if (!value?.trim()) {
     return [{ targets: [hostEl], strategy: DEFAULT_METHOD }];
   }
 
