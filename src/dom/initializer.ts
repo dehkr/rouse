@@ -9,6 +9,7 @@ import {
   teardownScopeNode,
 } from '../dom/controller';
 import type { ControllerFunction } from '../types';
+import { attachWakeStrategies } from './scheduler';
 
 /**
  * Initializes a controller element by parsing its directive, resolving its
@@ -19,7 +20,7 @@ import type { ControllerFunction } from '../types';
  * @param defaultWake - The fallback wake strategy if the element doesn't specify one.
  */
 export function initControllerElement(el: HTMLElement, app: RouseApp) {
-  const scopeValue = rzScope.getControllerAndPayload(el);
+  const scopeValue = rzScope.getConfig(el);
   if (scopeValue === null) return;
 
   const { controllerName, rawPayload } = scopeValue;
@@ -46,7 +47,9 @@ export function initControllerElement(el: HTMLElement, app: RouseApp) {
     setup = controller;
   }
 
-  rzWake.processStrategy(el, app.config.ui.wakeStrategy, () => {
+  const strategies = rzWake.getConfig(el, app.config.ui.wakeStrategy);
+
+  attachWakeStrategies(el, strategies, () => {
     // Props can't be passed to an alias so skip `resolveProps` in that case
     const props = isAlias ? {} : resolveProps(rawPayload, app?.stores) || {};
     initInstance(el, setup, props, { isAlias });
@@ -99,7 +102,8 @@ export function initObserver(app: RouseApp) {
 
           // Check for new fetch elements to bind polling/custom triggers
           queryTargets(el, fetchSelector).forEach((el) => {
-            if (getApp(el) === app) { // Nested app protection
+            if (getApp(el) === app) {
+              // Nested app protection
               rzFetch.initialize(el, app);
             }
           });

@@ -112,3 +112,44 @@ export function whenIdle(callback: () => void) {
     setTimeout(callback, 1);
   }
 }
+
+export function attachWakeStrategies(
+  el: Element,
+  strategies: [string, string][],
+  onWake: () => void,
+) {
+  let pending = strategies.length;
+  if (pending === 0) {
+    return onWake();
+  }
+
+  // Wake triggers only when all conditions are satisfied
+  const satisfy = () => {
+    pending--;
+    if (pending === 0) {
+      onWake();
+    }
+  };
+
+  // Strategy Logic
+  strategies.forEach(([strategy, param]) => {
+    switch (strategy) {
+      case 'load':
+        return whenLoaded(satisfy);
+      case 'delay':
+        return whenDelayOver(parseInt(param, 10) || 0, satisfy);
+      case 'visible':
+        return whenVisible(el, satisfy);
+      case 'media':
+        return whenMediaMatches(param, satisfy);
+      case 'event':
+        return whenEvent(param, satisfy);
+      case 'interaction':
+        return whenInteracted(el, satisfy);
+      case 'idle':
+        return whenIdle(satisfy);
+      default:
+        satisfy();
+    }
+  });
+}

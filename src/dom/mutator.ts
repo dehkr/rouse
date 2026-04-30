@@ -31,16 +31,8 @@ export function initDomMutator(appRoot: Element, abortSignal: AbortSignal) {
     const rawPayload = error ? error.detail || data : data;
     if (typeof rawPayload !== 'string') return;
 
-    let operations;
-
-    // Errors must have an explicit target to mutate the DOM
-    if (e.type.includes('error')) {
-      const errorTarget = targetOverride || rzError.getDefinedValue(triggerEl);
-      if (!errorTarget) return;
-      operations = rzError.getInsertConfig(triggerEl, appRoot, errorTarget);
-    } else {
-      operations = rzTarget.getInsertConfig(triggerEl, appRoot, targetOverride);
-    }
+    const handler = e.type.includes('error') ? rzError : rzTarget;
+    const operations = handler.getConfig(triggerEl, appRoot, targetOverride);
 
     for (const { targets, strategy } of operations) {
       for (const targetEl of targets) {

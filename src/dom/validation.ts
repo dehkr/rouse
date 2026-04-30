@@ -51,7 +51,7 @@ export function initFormValidationEngine(app: RouseApp, signal: AbortSignal) {
 
       // Generate id for element if one doesn't exist
       if (!el.id) {
-        el.id = `rz-validate-${valConfig.field}-${uniqueKey()}`;
+        el.id = uniqueKey();
       }
 
       const inputs = getInputsForField(form, valConfig.field);

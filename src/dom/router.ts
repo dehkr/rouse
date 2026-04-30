@@ -33,7 +33,7 @@ export function initStoreRouter(app: RouseApp, signal: AbortSignal) {
         routeToStore(
           app,
           // `targetOverride` (e.g., a server header) beats the attribute value
-          result.targetOverride || directive.getDefinedValue(el as Element),
+          result.targetOverride || directive.getValue(el as Element),
           getPayload(result),
           triggerEl,
         );
@@ -49,7 +49,7 @@ function routeToStore(
   payload: any,
   triggerEl: Element,
 ) {
-  if (!targetStr) return;
+  if (!targetStr?.trim()) return;
 
   const operations = parseDirectiveValue(targetStr);
 

@@ -3,7 +3,9 @@ import { parseDirectiveValue } from '../core/parser';
 import { resolveProps } from '../core/props';
 import { getDirectiveValue, hasDirective } from '../core/shared';
 import { parseTime } from '../core/timing';
-import type { Directive, DirectiveSlug, RouseRequest } from '../types';
+import type { ConfigDirective, DirectiveSlug, RouseRequest } from '../types';
+
+// ============================== DIRECTIVE DEFINITION ===================================
 
 const SLUG = 'request' as const satisfies DirectiveSlug;
 
@@ -12,7 +14,9 @@ export const rzRequest = {
   existsOn: (el: Element) => hasDirective(el, SLUG),
   getValue: (el: Element) => getDirectiveValue(el, SLUG),
   getConfig,
-} as const satisfies Directive;
+} as const satisfies ConfigDirective<Partial<RouseRequest>>;
+
+// =======================================================================================
 
 const BOOLEAN_KEYS = new Set([
   'keepalive',

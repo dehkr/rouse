@@ -1,5 +1,7 @@
 import { getDirectiveValue, hasDirective, parseMethodAndUrl } from '../core/shared';
-import type { Directive, DirectiveSlug } from '../types';
+import type { ConfigDirective, DirectiveSlug } from '../types';
+
+// ============================== DIRECTIVE DEFINITION ===================================
 
 const SLUG = 'source' as const satisfies DirectiveSlug;
 
@@ -7,8 +9,10 @@ export const rzSource = {
   slug: SLUG,
   existsOn: (el: Element) => hasDirective(el, SLUG),
   getValue: (el: Element) => getDirectiveValue(el, SLUG),
-  getMethodAndUrl,
-} as const satisfies Directive;
+  getConfig,
+} as const satisfies ConfigDirective<{ method?: string; url?: string }>;
+
+// =======================================================================================
 
 const SAVE_METHODS = ['POST', 'PUT', 'PATCH'] as const;
 
@@ -19,7 +23,7 @@ const SAVE_METHODS = ['POST', 'PUT', 'PATCH'] as const;
  * - `rz-source="PUT: /api/users"`
  * - `rz-source="/api/users"`
  */
-function getMethodAndUrl(el: Element) {
+function getConfig(el: Element) {
   return parseMethodAndUrl(getDirectiveValue(el, SLUG), {
     allowedMethods: SAVE_METHODS,
     defaultMethod: 'POST',

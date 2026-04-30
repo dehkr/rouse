@@ -12,6 +12,8 @@ import type {
   DirectiveSlug,
 } from '../types';
 
+// ============================== DIRECTIVE DEFINITION ===================================
+
 const SLUG = 'text' as const satisfies DirectiveSlug;
 
 export const rzText = {
@@ -20,6 +22,8 @@ export const rzText = {
   getValue: (el: Element) => getDirectiveValue(el, SLUG),
   attach,
 } as const satisfies BoundDirective;
+
+// =======================================================================================
 
 function attach(
   el: Element,

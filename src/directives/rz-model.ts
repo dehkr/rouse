@@ -12,6 +12,8 @@ import type {
   DirectiveSlug,
 } from '../types';
 
+// ============================== DIRECTIVE DEFINITION ===================================
+
 const SLUG = 'model' as const satisfies DirectiveSlug;
 
 export const rzModel = {
@@ -20,6 +22,8 @@ export const rzModel = {
   getValue: (el: Element) => getDirectiveValue(el, SLUG),
   attach,
 } as const satisfies BoundDirective;
+
+// =======================================================================================
 
 /**
  * Two-way binding for form elements

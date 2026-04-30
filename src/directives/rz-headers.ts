@@ -2,7 +2,9 @@ import type { RouseApp } from '../core/app';
 import { parseDirectiveValue } from '../core/parser';
 import { resolveProps } from '../core/props';
 import { getDirectiveValue, hasDirective, warn } from '../core/shared';
-import type { Directive, DirectiveSlug } from '../types';
+import type { ConfigDirective, DirectiveSlug } from '../types';
+
+// ============================== DIRECTIVE DEFINITION ===================================
 
 const SLUG = 'headers' as const satisfies DirectiveSlug;
 
@@ -10,8 +12,10 @@ export const rzHeaders = {
   slug: SLUG,
   existsOn: (el: Element) => hasDirective(el, SLUG),
   getValue: (el: Element) => getDirectiveValue(el, SLUG),
-  getHeaders,
-} as const satisfies Directive;
+  getConfig,
+} as const satisfies ConfigDirective<Record<string, string>>;
+
+// =======================================================================================
 
 /**
  * Parses the `rz-headers` directive to build a record of HTTP headers.
@@ -23,7 +27,7 @@ export const rzHeaders = {
  * - `rz-headers="?Tenant=123"`
  * - `rz-headers='{ "Tenant": 123 }'`
  */
-function getHeaders(el: Element, app?: RouseApp): Record<string, string> {
+function getConfig(el: Element, app?: RouseApp): Record<string, string> {
   const value = getDirectiveValue(el, SLUG);
   if (!value) return {};
 

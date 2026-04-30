@@ -155,7 +155,6 @@ export function createController(
   // Wraps the effects that belong to the controller instance
   let instance: any;
   const stopSetupScope = effectScope(() => {
-    // Assign empty object if no controller provided
     instance = setup(context) || {};
   });
 

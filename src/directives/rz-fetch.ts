@@ -3,7 +3,9 @@ import type { RouseApp } from '../core/app';
 import { getDirectiveValue, hasDirective, parseMethodAndUrl } from '../core/shared';
 import { is, on } from '../dom/utils';
 import { cleanupFetch, handleFetch } from '../net/engine';
-import type { Directive, DirectiveSlug } from '../types';
+import type { ConfigDirective, DirectiveSlug, ManagerDirective } from '../types';
+
+// ============================== DIRECTIVE DEFINITION ===================================
 
 const SLUG = 'fetch' as const satisfies DirectiveSlug;
 
@@ -11,10 +13,13 @@ export const rzFetch = {
   slug: SLUG,
   existsOn: (el: Element) => hasDirective(el, SLUG),
   getValue: (el: Element) => getDirectiveValue(el, SLUG),
-  getMethodAndUrl,
+  getConfig,
   initialize,
   teardown,
-} as const satisfies Directive;
+} as const satisfies ConfigDirective<{ method?: string; url?: string }> &
+  ManagerDirective;
+
+// =======================================================================================
 
 const HTTP_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] as const;
 const fetchCleanups = new WeakMap<Element, Array<() => void>>();
@@ -27,7 +32,7 @@ const fetchCleanups = new WeakMap<Element, Array<() => void>>();
  * - `rz-fetch="PUT"`
  * - `rz-fetch="/api/users"`
  */
-function getMethodAndUrl(el: Element) {
+function getConfig(el: Element) {
   return parseMethodAndUrl(getDirectiveValue(el, SLUG), {
     allowedMethods: HTTP_METHODS,
     label: 'fetch method',
@@ -42,7 +47,7 @@ function initialize(el: Element, app: RouseApp) {
   if (fetchCleanups.has(el)) return;
 
   const cleanups: Array<() => void> = [];
-  const action = () => handleFetch(el, app, getMethodAndUrl(el));
+  const action = () => handleFetch(el, app, getConfig(el));
 
   let triggerCleanup: ReturnType<typeof rzTrigger.attachTriggers>;
   if (rzTrigger.existsOn(el)) {

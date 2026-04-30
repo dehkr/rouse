@@ -1,11 +1,8 @@
 import { parseDirectiveValue } from '../core/parser';
-import {
-  getDefinedDirectiveValue,
-  getDirectiveValue,
-  hasDirective,
-  warn,
-} from '../core/shared';
-import type { Directive, DirectiveSlug } from '../types';
+import { getDirectiveValue, hasDirective, warn } from '../core/shared';
+import type { ConfigDirective, DirectiveSlug } from '../types';
+
+// ============================== DIRECTIVE DEFINITION ===================================
 
 const SLUG = 'validate' as const satisfies DirectiveSlug;
 
@@ -13,9 +10,10 @@ export const rzValidate = {
   slug: SLUG,
   existsOn: (el: Element) => hasDirective(el, SLUG),
   getValue: (el: Element) => getDirectiveValue(el, SLUG),
-  getDefinedValue: (el: Element) => getDefinedDirectiveValue(el, SLUG),
   getConfig,
-} as const satisfies Directive;
+} as const satisfies ConfigDirective<ValidateConfig | null>;
+
+// =======================================================================================
 
 export interface ValidateConfig {
   field: string;
@@ -41,7 +39,8 @@ function getConfig(el: Element): ValidateConfig | null {
     return configCache.get(el) || null;
   }
 
-  const val = getDefinedDirectiveValue(el, SLUG);
+  const val = getDirectiveValue(el, SLUG)?.trim();
+  
   if (!val) {
     configCache.set(el, null);
     return null;

@@ -1,14 +1,10 @@
 import { rzRefresh, rzSave, rzSource } from '.';
 import { getApp, type RouseApp } from '../core/app';
-import {
-  err,
-  getDefinedDirectiveValue,
-  getDirectiveValue,
-  hasDirective,
-  warn,
-} from '../core/shared';
+import { err, getDirectiveValue, hasDirective, warn } from '../core/shared';
 import { is } from '../dom/utils';
-import type { Directive, DirectiveSlug } from '../types';
+import type { DirectiveSlug, ManagerDirective } from '../types';
+
+// ============================== DIRECTIVE DEFINITION ===================================
 
 const SLUG = 'store' as const satisfies DirectiveSlug;
 
@@ -16,25 +12,22 @@ export const rzStore = {
   slug: SLUG,
   existsOn: (el: Element) => hasDirective(el, SLUG),
   getValue: (el: Element) => getDirectiveValue(el, SLUG),
-  getDefinedValue: (el: Element) => getDefinedDirectiveValue(el, SLUG),
-  isValid,
   validate,
   initialize,
   teardown,
-} as const satisfies Directive;
+} as const satisfies ManagerDirective<HTMLScriptElement>;
+
+// =======================================================================================
 
 const storeCleanups = new WeakMap<HTMLScriptElement, Array<() => void>>();
 
-function isValid(el: Element, app: RouseApp): el is HTMLScriptElement {
-  return is(el, 'Script') && hasDirective(el, SLUG) && getApp(el) === app;
-}
-
 function validate(el: Element, app: RouseApp): el is HTMLScriptElement {
-  if (!isValid(el, app)) return false;
+  if (!(is(el, 'Script') && hasDirective(el, SLUG) && getApp(el) === app)) {
+    return false;
+  }
 
-  const storeName = getDefinedDirectiveValue(el, SLUG);
-  if (!storeName) {
-    warn(`Invalid or missing 'rz-store' value on ${el}.`);
+  if (!getDirectiveValue(el, SLUG)?.trim()) {
+    warn(`Invalid or missing rz-store value on ${el}.`);
     return false;
   }
 
@@ -49,7 +42,7 @@ function validate(el: Element, app: RouseApp): el is HTMLScriptElement {
 function initialize(el: HTMLScriptElement, app: RouseApp) {
   if (storeCleanups.has(el) || !app) return;
 
-  const storeName = getDefinedDirectiveValue(el, SLUG);
+  const storeName = getDirectiveValue(el, SLUG)?.trim();
   if (!storeName) return;
 
   const textContent = el.textContent?.trim();
@@ -79,7 +72,7 @@ function initialize(el: HTMLScriptElement, app: RouseApp) {
 
   // Configure the store URL and HTTP method for saving
   if (rzSource.existsOn(el)) {
-    const { method, url } = rzSource.getMethodAndUrl(el);
+    const { method, url } = rzSource.getConfig(el);
     app.stores.config(storeName, { saveMethod: method, url });
   }
 

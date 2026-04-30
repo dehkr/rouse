@@ -12,25 +12,25 @@ const MODIFIER_DELIMITER = '.';
  *
  * `click.debounce.400ms` returns `{ key: 'click', modifiers: ['debounce', '400ms']}`
  */
-export function parseModifiers(rawValue: string): { key: string; modifiers: string[] } {
-  const dotIndex = rawValue.indexOf(MODIFIER_DELIMITER);
+export function parseModifiers(value: string): { key: string; modifiers: string[] } {
+  const dotIndex = value.indexOf(MODIFIER_DELIMITER);
   if (dotIndex !== -1) {
-    const key = rawValue.slice(0, dotIndex);
-    const modifiers = rawValue.slice(dotIndex + 1).split(MODIFIER_DELIMITER);
+    const key = value.slice(0, dotIndex);
+    const modifiers = value.slice(dotIndex + 1).split(MODIFIER_DELIMITER);
     return { key, modifiers };
   }
 
-  return { key: rawValue, modifiers: [] };
+  return { key: value, modifiers: [] };
 }
 
 /**
  * Handles parsing raw directive values into an array of trigger definitions.
  */
-export function parseTriggers(rawValue: string | null | undefined): TriggerDef[] {
-  if (!rawValue || rawValue.trim() === '') return [];
+export function parseTriggers(value: string | null | undefined): TriggerDef[] {
+  if (!value?.trim()) return [];
 
   const triggers: TriggerDef[] = [];
-  const parsed = parseDirectiveValue(rawValue);
+  const parsed = parseDirectiveValue(value);
 
   for (const [key] of parsed) {
     if (!key) continue;
@@ -50,10 +50,10 @@ export function parseTriggers(rawValue: string | null | undefined): TriggerDef[]
  * [['visible', ''], ['media', '(min-width: 600px)']]
  */
 export function parseDirectiveValue(
-  rawValue: string | null | undefined,
+  value: string | null | undefined,
 ): ParsedDirectiveValue {
-  let cleanedValue = rawValue?.trim();
-  if (!rawValue || !cleanedValue) return [];
+  let cleanedValue = value?.trim();
+  if (!value || !cleanedValue) return [];
 
   // Strip trailing commas from directive strings before processing to
   // allow for trailing commas in multi-line formatting in HTML.
@@ -77,7 +77,7 @@ export function parseDirectiveValue(
   });
 
   if (scanResult && (scanResult.depth > 0 || scanResult.quote)) {
-    warn(`Malformed directive value: '${rawValue}'`);
+    warn(`Malformed directive value: '${value}'`);
   }
 
   // Process the final segment

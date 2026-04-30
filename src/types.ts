@@ -97,16 +97,15 @@ export type TriggerDef = {
   modifiers: string[];
 };
 
+/** Base directive type. */
 export interface BaseDirective {
   slug: DirectiveSlug;
   existsOn: (el: Element) => boolean;
   getValue: (el: Element) => string | null;
-}
-
-export interface Directive extends BaseDirective {
   [key: string]: unknown;
 }
 
+/** A directive that is bound to the DOM with a reactive effect. */
 export interface BoundDirective extends BaseDirective {
   attach: (
     el: Element,
@@ -115,6 +114,22 @@ export interface BoundDirective extends BaseDirective {
     key: string,
     value: string,
   ) => CleanupFunction | void;
+}
+
+/** A directive that parses its attribute value into a typed config object. */
+export interface ConfigDirective<T> extends BaseDirective {
+  getConfig: (el: Element, ...args: any[]) => T;
+}
+
+/** A directive that attaches event/poll triggers. */
+export interface TriggerDirective extends BaseDirective {
+  attachTriggers: (el: Element, ...args: any[]) => (() => void) | undefined;
+}
+
+/** A directive that manages the lifecycle and wiring of related directives. */
+export interface ManagerDirective<T extends Element = Element> extends BaseDirective {
+  initialize: (el: T, app: RouseApp) => void;
+  teardown: (el: T) => void;
 }
 
 /** Custom error statuses for non-HTTP failures */
@@ -186,8 +201,8 @@ export interface FetchInterceptors {
     config: RouseRequest,
   ) => any | Promise<any>;
   onError?: (
-    error: RequestError, 
-    config: RouseRequest
+    error: RequestError,
+    config: RouseRequest,
   ) => RequestError | Promise<RequestError>;
 }
 

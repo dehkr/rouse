@@ -13,6 +13,8 @@ import type {
   DirectiveSlug,
 } from '../types';
 
+// ============================== DIRECTIVE DEFINITION ===================================
+
 const SLUG = 'on' as const satisfies DirectiveSlug;
 
 export const rzOn = {
@@ -21,6 +23,8 @@ export const rzOn = {
   getValue: (el: Element) => getDirectiveValue(el, SLUG),
   attach,
 } as const satisfies BoundDirective;
+
+// =======================================================================================
 
 function attach(
   el: Element,

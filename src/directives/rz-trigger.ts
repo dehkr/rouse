@@ -1,7 +1,9 @@
 import { parseTriggers } from '../core/parser';
 import { attachPoll, getDirectiveValue, hasDirective } from '../core/shared';
 import { is, on } from '../dom/utils';
-import type { Directive, DirectiveSlug } from '../types';
+import type { DirectiveSlug, TriggerDirective } from '../types';
+
+// ============================== DIRECTIVE DEFINITION ===================================
 
 const SLUG = 'trigger' as const satisfies DirectiveSlug;
 
@@ -10,7 +12,9 @@ export const rzTrigger = {
   existsOn: (el: Element) => hasDirective(el, SLUG),
   getValue: (el: Element) => getDirectiveValue(el, SLUG),
   attachTriggers,
-} as const satisfies Directive;
+} as const satisfies TriggerDirective;
+
+// =======================================================================================
 
 /**
  * Attach event listeners and handle synthetic `poll` and `none` events.

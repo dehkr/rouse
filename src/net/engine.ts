@@ -125,7 +125,7 @@ async function executeFetch(el: Element, app: RouseApp, options: RouseRequest) {
   // Guarantees an element can never have conflicting requests
   let autoAbortKey = activeRequests.get(el)?.abortKey;
   if (!autoAbortKey) {
-    autoAbortKey = `rzAbort_${uniqueKey()}`;
+    autoAbortKey = uniqueKey('rz-abort-');
     const current = activeRequests.get(el) || {};
     activeRequests.set(el, { ...current, abortKey: autoAbortKey });
   }
@@ -258,7 +258,7 @@ function resolveRequestConfig(
     headers: {
       ...globalConfig.headers,
       ...localConfig.headers,
-      ...rzHeaders.getHeaders(el, app),
+      ...rzHeaders.getConfig(el, app),
     },
   };
 }
