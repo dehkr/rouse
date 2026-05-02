@@ -7,15 +7,14 @@ import {
   uniqueKey,
   warn,
 } from '../core/shared';
-import { rzHeaders, rzRequest } from '../directives';
 import { extractFieldValues } from '../dom/forms';
 import { dispatch, is } from '../dom/utils';
 import type { RouseRequest, RouseResponse } from '../types';
 import { extractRouseHeaders } from './headers';
-import { request } from './request';
+import { request, resolveRequestConfig } from './request';
 import { fallbackResponse } from './response';
 
-type RequestState = { abortKey?: string; destroyed?: boolean };
+type RequestState = { abortKey?: string };
 
 const activeRequests = new WeakMap<Element, RequestState>();
 
@@ -31,10 +30,6 @@ export async function handleFetch(
   if (!state) {
     state = {};
     activeRequests.set(el, state);
-  }
-
-  if (state.destroyed) {
-    return fallbackResponse(programmaticOpts, 'Element destroyed');
   }
 
   try {
@@ -60,21 +55,15 @@ export async function handleFetch(
 async function executeFetch(el: Element, app: RouseApp, options: RouseRequest) {
   const appConfig = app.config || defaultConfig;
   const loadingClass = appConfig.ui.loadingClass;
-
-  // Check destroyed flag and bail out if marked for cleanup
   const state = activeRequests.get(el);
-  if (state?.destroyed) {
-    return fallbackResponse(options, 'Element destroyed');
-  }
 
   // If the element is removed while the network request is actively in the air
   if (!el.isConnected) {
-    cleanupFetch(el);
+    activeRequests.delete(el);
     return fallbackResponse(options, 'Element disconnected from DOM');
   }
 
   // Bail out if disabled
-  // TODO: confirm this behavior
   if (el.hasAttribute('disabled') || el.getAttribute('aria-disabled') === 'true') {
     return fallbackResponse(options, 'Element is disabled');
   }
@@ -82,8 +71,10 @@ async function executeFetch(el: Element, app: RouseApp, options: RouseRequest) {
   let url: string | null = options.url || null;
   let formMethod: string | undefined;
 
+  const isFormEl = is(el, 'Form');
+
   // Fallbacks for URL and capture native form method
-  if (is(el, 'Form')) {
+  if (isFormEl) {
     if (!url) {
       url = el.action;
     }
@@ -95,8 +86,8 @@ async function executeFetch(el: Element, app: RouseApp, options: RouseRequest) {
   }
 
   if (!url) {
-    const error = new Error('No URL specified for rz-fetch');
-    warn('No URL found for rz-fetch on:', el);
+    const error = new Error('No URL specified for rz-fetch.');
+    warn('No URL specified for rz-fetch.', el);
     dispatch(el, 'rz:fetch:error', { error, config: options });
     return fallbackResponse(options, error.message, 'INTERNAL_ERROR');
   }
@@ -112,7 +103,6 @@ async function executeFetch(el: Element, app: RouseApp, options: RouseRequest) {
     'GET'
   ).toUpperCase();
 
-  const isFormEl = is(el, 'Form');
   const hasExplicitBody =
     finalRequestInit.body !== undefined || options.body !== undefined;
 
@@ -121,13 +111,12 @@ async function executeFetch(el: Element, app: RouseApp, options: RouseRequest) {
     extractFieldValues(el, method, finalRequestInit);
   }
 
-  // Automatically generate abort key if one isn't provided
-  // Guarantees an element can never have conflicting requests
-  let autoAbortKey = activeRequests.get(el)?.abortKey;
+  // Automatically generate an abort key if one isn't provided to guarantee
+  // an element can never have conflicting requests.
+  let autoAbortKey = state?.abortKey;
   if (!autoAbortKey) {
     autoAbortKey = uniqueKey('rz-abort-');
-    const current = activeRequests.get(el) || {};
-    activeRequests.set(el, { ...current, abortKey: autoAbortKey });
+    activeRequests.set(el, { ...state, abortKey: autoAbortKey });
   }
 
   // Final unified config object
@@ -149,6 +138,7 @@ async function executeFetch(el: Element, app: RouseApp, options: RouseRequest) {
       { config: finalOptions, url, method },
       { cancelable: true },
     );
+
     if (configEvent.defaultPrevented) {
       return fallbackResponse(finalOptions, 'Prevented by rz:fetch:config listener');
     }
@@ -167,7 +157,7 @@ async function executeFetch(el: Element, app: RouseApp, options: RouseRequest) {
 
     // If redirect
     if (rouseHeaders.redirect) {
-      cleanupFetch(el);
+      activeRequests.delete(el);
       window.location.href = rouseHeaders.redirect;
       return result;
     }
@@ -210,7 +200,6 @@ async function executeFetch(el: Element, app: RouseApp, options: RouseRequest) {
         routePayload('success', el, result);
       }
     }
-
     return result;
   } catch (error: any) {
     if (shouldDispatch) {
@@ -230,37 +219,6 @@ async function executeFetch(el: Element, app: RouseApp, options: RouseRequest) {
       dispatch(el, 'rz:fetch:end', { config: finalOptions });
     }
   }
-}
-
-/**
- * Explicit cleanup for active requests
- */
-export function cleanupFetch(el: Element) {
-  const state = activeRequests.get(el);
-  if (state) {
-    activeRequests.set(el, { ...state, destroyed: true });
-  }
-}
-
-/**
- * Resolves the final network configuration by merging global and local config.
- */
-function resolveRequestConfig(
-  el: Element,
-  app: RouseApp | undefined,
-): Partial<RouseRequest> {
-  const globalConfig = app?.config.network.fetch || {};
-  const localConfig = rzRequest.getConfig(el, app);
-
-  return {
-    ...globalConfig,
-    ...localConfig,
-    headers: {
-      ...globalConfig.headers,
-      ...localConfig.headers,
-      ...rzHeaders.getConfig(el, app),
-    },
-  };
 }
 
 /**
@@ -288,9 +246,7 @@ function routePayload(type: 'error' | 'success', el: Element, result: RouseRespo
     const contentType = result.response?.headers.get('Content-Type') || '';
 
     if (isJsonType(contentType)) {
-      warn(
-        `Payload is a string but Content-Type indicates JSON. Routing to HTML. If this should update a store, ensure your interceptor parses the JSON.`,
-      );
+      warn(`Content-Type is JSON but data is String. Defaulting to HTML.`);
     }
 
     dispatch(el, `${eventPrefix}:html`, result);
@@ -300,8 +256,6 @@ function routePayload(type: 'error' | 'success', el: Element, result: RouseRespo
   // Ignore null/undefined (e.g., 204 No Content), but warn on unhandled complex types
   if (data !== null && data !== undefined) {
     const typeName = data?.constructor?.name || typeof data;
-    warn(
-      `Unroutable payload type: ${typeName}. Expected a String, Plain Object, Array, Blob, or ArrayBuffer.`,
-    );
+    warn(`Unsupported payload: ${typeName}.`);
   }
 }

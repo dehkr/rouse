@@ -1,5 +1,7 @@
-import { defaultConfig, type RouseConfig } from '../core/app';
+import { defaultConfig, type RouseApp, type RouseConfig } from '../core/app';
 import { warn } from '../core/shared';
+import { rzHeaders } from '../directives/rz-headers';
+import { rzRequest } from '../directives/rz-request';
 import type { RequestError, RouseRequest, RouseResponse } from '../types';
 import { preparePayload } from './payload';
 import { fallbackResponse, mapCatchError, normalizeResponse } from './response';
@@ -9,7 +11,7 @@ interface AbortEntry {
   ownerId: symbol;
 }
 
-const abortControllers = new Map<string | symbol, AbortEntry>();
+const abortRegistry = new Map<string | symbol, AbortEntry>();
 
 /**
  * Handles Fetch/XHR switching, error normalization, retries, and interceptors.
@@ -48,139 +50,101 @@ export async function request<T = any>(
   let safeBody: BodyInit | null | undefined = finalBody;
 
   if ((method === 'GET' || method === 'HEAD') && safeBody != null) {
-    warn('Body is not allowed on GET/HEAD. Dropping body.');
+    warn('Body is not allowed on GET or HEAD.');
     safeBody = undefined;
   }
 
   // Extract Rouse-specific execution options
-  const { retries = 0, timeout = 0, abortKey, triggerEl, ...fetchOptions } = restOptions;
+  const {
+    retry = 0,
+    timeout = 0,
+    abortKey,
+    triggerEl,
+    signal: externalSignal,
+    method: _method,
+    ...fetchOptions
+  } = restOptions;
 
-  // Handle concurrency
   let mainSignal: AbortSignal | null = null;
   let ownerId: symbol | null = null;
 
+  // Handle concurrency and establish the primary abort signal
   if (abortKey) {
-    if (abortControllers.has(abortKey)) {
-      abortControllers.get(abortKey)?.controller.abort('Replacement request started');
-    }
+    abortRegistry.get(abortKey)?.controller.abort('Replacement request started');
 
-    const newController = new AbortController();
-    const newOwnerId = Symbol('abort-owner');
+    const controller = new AbortController();
+    ownerId = Symbol('abort-owner');
 
-    abortControllers.set(abortKey, { controller: newController, ownerId: newOwnerId });
-    mainSignal = newController.signal;
-    ownerId = newOwnerId;
-  } else if (fetchOptions.signal) {
-    mainSignal = fetchOptions.signal;
+    abortRegistry.set(abortKey, { controller, ownerId });
+    mainSignal = controller.signal;
+  } else if (externalSignal) {
+    mainSignal = externalSignal;
   }
 
+  let combinedSignal: AbortSignal;
+
+  const signals = [mainSignal, timeout > 0 ? AbortSignal.timeout(timeout) : null].filter(
+    (s): s is AbortSignal => s !== null,
+  );
+
+  combinedSignal =
+    signals.length > 1 ? AbortSignal.any(signals) : (signals[0] ?? AbortSignal.any([]));
+
   const execute = async (attempt: number): Promise<RouseResponse<T>> => {
-    // Check if already aborted before starting this attempt
-    if (mainSignal?.aborted) {
-      return fallbackResponse(currentOptions, 'Request canceled', 'CANCELED');
+    if (combinedSignal.aborted) {
+      const status = mainSignal?.aborted ? 'CANCELED' : 'TIMEOUT';
+      return fallbackResponse(currentOptions, 'Request canceled or timed out', status);
     }
 
     try {
-      const attemptController = new AbortController();
-      // Link main signal (abortKey) to this attempt's controller
-      const onMainAbort = () => attemptController.abort();
+      const response = await fetch(finalUrl, {
+        method,
+        headers: reqHeaders,
+        signal: combinedSignal,
+        ...fetchOptions,
+        ...(safeBody != null ? { body: safeBody } : {}),
+      });
 
-      if (mainSignal) {
-        mainSignal.addEventListener('abort', onMainAbort);
-      }
-
-      const timeoutId =
-        timeout > 0 ? setTimeout(() => attemptController.abort(), timeout) : null;
-
-      try {
-        const response = await fetch(finalUrl, {
-          method,
-          headers: reqHeaders,
-          signal: attemptController.signal,
-          ...fetchOptions,
-          ...(safeBody != null ? { body: safeBody } : {}),
-        });
-
-        if (timeoutId) {
-          clearTimeout(timeoutId);
-        }
-
-        // If the server is overloaded (503) or if rate-limited (429),
-        // check the 'Retry-After' header to avoid further hammering the server.
-        if (!response.ok && attempt < retries && [429, 503].includes(response.status)) {
-          // Don't retry if it was explicitly aborted during the request
-          if (mainSignal?.aborted) {
-            throw new Error('Aborted');
-          }
-
-          const retryHeader = response.headers.get('Retry-After');
-          let waitMs = 1000;
-
-          // The Retry-After header can come in two formats: seconds or HTTP-Date
-          if (retryHeader) {
-            if (/^\d+$/.test(retryHeader)) {
-              waitMs = parseInt(retryHeader, 10) * 1000;
-            } else {
-              // HTTP-Date (e.g. "Fri, 31 Dec 2024...")
-              const date = Date.parse(retryHeader);
-              if (!Number.isNaN(date)) {
-                waitMs = date - Date.now();
-              }
-            }
-          }
-
-          // HTTP-Date could be in the past so ensure not below 0 and cap at 60s
-          waitMs = Math.max(0, Math.min(waitMs, 60000));
-          await new Promise((r) => setTimeout(r, waitMs));
-
+      // If the server is overloaded (503) or if rate-limited (429),
+      // check the 'Retry-After' header to avoid further hammering the server.
+      if (!response.ok && (response.status === 429 || response.status === 503)) {
+        const delay = getRetryDelay(attempt, retry, currentOptions, response);
+        if (delay !== null) {
+          await cancellableDelay(delay, combinedSignal);
           return execute(attempt + 1);
         }
+      }
 
-        const normalized = await normalizeResponse(response, currentOptions);
+      const normalized = await normalizeResponse(response, currentOptions);
 
-        // Run response/error interceptors
-        if (!currentOptions.skipInterceptors) {
-          if (normalized.error && interceptors.onError) {
-            // Error (e.g. 404, 500, parse error)
-            normalized.error = await interceptors.onError(
-              normalized.error,
-              currentOptions,
-            );
-          } else if (!normalized.error && interceptors.onResponse) {
-            // Success (parsed data can safely be mutated)
-            normalized.data = await interceptors.onResponse(
-              normalized.data,
-              normalized.response as Response,
-              currentOptions,
-            );
-          }
-        }
-        return normalized;
-      } catch (err: any) {
-        if (timeoutId) {
-          clearTimeout(timeoutId);
-        }
-        throw err;
-      } finally {
-        if (mainSignal) {
-          mainSignal.removeEventListener('abort', onMainAbort);
+      // Run response/error interceptors
+      if (!currentOptions.skipInterceptors) {
+        if (normalized.error && interceptors.onError) {
+          normalized.error = await interceptors.onError(normalized.error, currentOptions);
+        } else if (!normalized.error && interceptors.onResponse) {
+          // Success (parsed data can safely be mutated)
+          normalized.data = await interceptors.onResponse(
+            normalized.data,
+            normalized.response as Response,
+            currentOptions,
+          );
         }
       }
+      return normalized;
     } catch (err: any) {
-      // Map native errors to CustomErrorStatus
       let errorPayload = mapCatchError(err, Boolean(mainSignal?.aborted));
 
-      // Error interceptor
-      if (!currentOptions.skipInterceptors && interceptors.onError) {
-        errorPayload = await interceptors.onError(errorPayload, currentOptions);
+      if (errorPayload.status !== 'CANCELED' && errorPayload.status !== 'TIMEOUT') {
+        const delay = getRetryDelay(attempt, retry, currentOptions);
+        if (delay !== null) {
+          await cancellableDelay(delay, combinedSignal);
+          return execute(attempt + 1);
+        }
       }
 
-      // Retry on network errors or timeouts (but not explicit cancels)
-      if (attempt < retries && errorPayload.status !== 'CANCELED') {
-        // Exponential backoff: 200ms, 400ms, 800ms... cap at 10s
-        const backoff = Math.min(2 ** attempt * 200, 10000);
-        await new Promise((r) => setTimeout(r, backoff));
-        return execute(attempt + 1);
+      // Error interceptor runs on the final failure or explicit cancellation
+      if (!currentOptions.skipInterceptors && interceptors.onError) {
+        errorPayload = await interceptors.onError(errorPayload, currentOptions);
       }
 
       return wrapErrorResponse(errorPayload, currentOptions);
@@ -192,22 +156,112 @@ export async function request<T = any>(
   } finally {
     // Cleanup abort key mapping only if this request owns it
     if (abortKey && ownerId) {
-      const entry = abortControllers.get(abortKey);
+      const entry = abortRegistry.get(abortKey);
       if (entry?.ownerId === ownerId) {
-        abortControllers.delete(abortKey);
+        abortRegistry.delete(abortKey);
       }
     }
   }
 }
 
-// Wrap a RequestError into a RouseResponse
+/**
+ * Resolves the final network configuration by merging global and local config.
+ */
+export function resolveRequestConfig(
+  el: Element,
+  app: RouseApp | undefined,
+): Partial<RouseRequest> {
+  const globalConfig = app?.config.network.fetch || {};
+  const localConfig = rzRequest.getConfig(el, app);
+
+  return {
+    ...globalConfig,
+    ...localConfig,
+    headers: {
+      ...globalConfig.headers,
+      ...localConfig.headers,
+      ...rzHeaders.getConfig(el, app),
+    },
+  };
+}
+
+/**
+ * Wrap a RequestError into a RouseResponse
+ */
 function wrapErrorResponse(error: RequestError, options: RouseRequest) {
   return {
     data: null,
-    error: error,
+    error,
     response: null,
     headers: null,
     status: null,
     config: options,
   };
+}
+
+/**
+ * Parses a Retry-After header (seconds or HTTP-Date) into milliseconds.
+ * Caps the maximum delay at 60 seconds.
+ */
+function parseRetryAfter(header: string | null): number {
+  let waitMs = 1000;
+
+  if (header) {
+    if (/^\d+$/.test(header)) {
+      waitMs = parseInt(header, 10) * 1000;
+    } else {
+      const date = Date.parse(header);
+      if (!Number.isNaN(date)) {
+        waitMs = date - Date.now();
+      }
+    }
+  }
+
+  return Math.max(0, Math.min(waitMs, 60000));
+}
+
+/**
+ * Determines whether a failed request should be retried and how long to wait.
+ * Returns the delay in ms, or null if the request should not be retried.
+ */
+function getRetryDelay(
+  attempt: number,
+  maxRetries: number,
+  options: RouseRequest,
+  response?: Response,
+): number | null {
+  if (attempt >= maxRetries) return null;
+
+  // Server-driven delay from 429/503 Retry-After header takes precedence
+  if (response && (response.status === 429 || response.status === 503)) {
+    const serverDelay = response.headers.get('Retry-After');
+    if (serverDelay) {
+      return parseRetryAfter(serverDelay);
+    }
+  }
+
+  // User-defined delay for network/catch errors
+  const delayConfig = options.retryDelay ?? 1000;
+  return typeof delayConfig === 'function' ? delayConfig(attempt) : delayConfig;
+}
+
+/**
+ * Resolves a delay promise early if the provided signal is aborted.
+ */
+function cancellableDelay(ms: number, signal: AbortSignal): Promise<void> {
+  if (signal.aborted) return Promise.resolve();
+
+  return new Promise((resolve) => {
+    const onAbort = () => {
+      clearTimeout(timer);
+      resolve();
+    };
+
+    const timer = setTimeout(() => {
+      signal.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+
+    signal.addEventListener('abort', onAbort, { once: true });
+  });
 }

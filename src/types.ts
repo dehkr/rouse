@@ -150,6 +150,7 @@ export interface RequestError {
   original?: any;
   detail?: string;
   validation?: Record<string, string>;
+  parseError?: string;
 }
 
 /** Global fetch configuration */
@@ -173,7 +174,8 @@ export interface FetchConfig {
   mutate?: boolean;
   dispatchEvents?: boolean;
   skipInterceptors?: boolean;
-  retries?: number;
+  retry?: number;
+  retryDelay?: number | ((attempt: number) => number);
   timeout?: number;
   abortKey?: string | symbol;
 }

@@ -1,9 +1,9 @@
-import { rzTrigger } from '.';
 import type { RouseApp } from '../core/app';
 import { getDirectiveValue, hasDirective, parseMethodAndUrl } from '../core/shared';
 import { is, on } from '../dom/utils';
-import { cleanupFetch, handleFetch } from '../net/engine';
+import { handleFetch } from '../net/engine';
 import type { ConfigDirective, DirectiveSlug, ManagerDirective } from '../types';
+import { rzTrigger } from './rz-trigger';
 
 // ============================== DIRECTIVE DEFINITION ===================================
 
@@ -84,14 +84,6 @@ function initialize(el: Element, app: RouseApp) {
  * Tears down pacing engines and synthetic polling intervals
  */
 function teardown(el: Element) {
-  cleanupFetch(el);
-
-  const cleanups = fetchCleanups.get(el);
-  if (cleanups) {
-    // Cleans up poll intervals/listeners
-    cleanups.forEach((fn) => {
-      fn();
-    });
-    fetchCleanups.delete(el);
-  }
+  fetchCleanups.get(el)?.forEach((fn) => fn());
+  fetchCleanups.delete(el);
 }

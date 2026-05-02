@@ -1,7 +1,7 @@
 import type { RouseApp } from '../core/app';
 import { parseDirectiveValue } from '../core/parser';
 import { resolveProps } from '../core/props';
-import { getDirectiveValue, hasDirective } from '../core/shared';
+import { getDirectiveValue, hasDirective, kebabToCamel } from '../core/shared';
 import { parseTime } from '../core/timing';
 import type { ConfigDirective, DirectiveSlug, RouseRequest } from '../types';
 
@@ -18,12 +18,8 @@ export const rzRequest = {
 
 // =======================================================================================
 
-const BOOLEAN_KEYS = new Set([
-  'keepalive',
-  'mutate',
-  'dispatchEvents',
-  'dispatch-events',
-]);
+const BOOLEAN_KEYS = ['keepalive', 'mutate', 'dispatch-events'];
+const TIME_KEYS = ['timeout', 'retry-delay'];
 
 /**
  * Parses the `rz-request` directive to build a native Fetch API configuration object.
@@ -41,38 +37,31 @@ function getConfig(el: Element, app?: RouseApp): Partial<RouseRequest> {
     if (!key) continue;
 
     // Dynamic payload delimiters
-    // ?: URL params, #: JSON script ID, @: store data, {: inline JSON
     if (val.match(/^[?#@{]/)) {
       config[key] = resolveProps(val, app?.stores, false);
     }
 
-    // Native RequestInit & custom Rouse config: booleans
-    else if (BOOLEAN_KEYS.has(key)) {
-      const finalKey = key === 'dispatch-events' ? 'dispatchEvents' : key;
-      config[finalKey] = val === 'true' || val === '';
+    // Booleans
+    else if (BOOLEAN_KEYS.includes(key)) {
+      config[kebabToCamel(key)] = val === 'true' || val === '';
     }
 
-    // Custom Rouse config: timeout
-    else if (key === 'timeout') {
-      config[key] = parseTime(val);
+    // timeout & retry-delay
+    else if (TIME_KEYS.includes(key)) {
+      config[kebabToCamel(key)] = parseTime(val);
     }
 
-    // Custom Rouse config: retries
-    else if (key === 'retries') {
-      const parsedRetries = parseInt(val, 10);
-      if (!Number.isNaN(parsedRetries)) {
-        config[key] = parsedRetries;
+    // retry
+    else if (key === 'retry') {
+      const parsedRetry = parseInt(val, 10);
+      if (!Number.isNaN(parsedRetry)) {
+        config[key] = parsedRetry;
       }
     }
 
-    // Custom Rouse config: concurrency abort key
-    else if (key === 'abort-key') {
-      config['abortKey'] = val;
-    }
-
-    // Native RequestInit (fetch): strings
+    // RequestInit stuff and 'abort-key'
     else {
-      config[key] = val;
+      config[kebabToCamel(key)] = val;
     }
   }
 

@@ -15,6 +15,9 @@ export const err = (msg: string, ...args: any[]) => {
   console.error(`[Rouse] ${msg}`, ...args);
 };
 
+export const kebabToCamel = (str: string) =>
+  str.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+
 /**
  * Generates a CSS selector that matches both prefix styles.
  * Example: "[rz-bind], [data-rz-bind]"

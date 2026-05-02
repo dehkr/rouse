@@ -39,40 +39,28 @@ export function preparePayload(
 
   // Append programmatic params
   if (params) {
-    Object.entries(params).forEach(([key, val]) => {
-      if (val !== undefined && val !== null) {
-        if (Array.isArray(val)) {
-          val.forEach((v) => urlObj.searchParams.append(key, String(v)));
-        } else {
-          urlObj.searchParams.set(key, String(val));
-        }
+    for (const [key, val] of Object.entries(params)) {
+      if (val == null) continue;
+      const values = Array.isArray(val) ? val : [val];
+      for (const v of values) {
+        urlObj.searchParams.append(key, String(v));
       }
-    });
+    }
   }
 
-  // Merge headers
-  const reqHeaders = new Headers(globalConfig.network?.fetch?.headers);
-
-  // Framework default
+  const reqHeaders = new Headers();
   reqHeaders.set('Rouse-Request', 'true');
+  reqHeaders.set('Accept', 'application/json, text/html, image/svg+xml, */*;q=0.8');
 
-  // HTTP content negotiation
-  if (!reqHeaders.has('Accept')) {
-    reqHeaders.set(
-      'Accept',
-      'application/json, text/html, application/xhtml+xml, */*;q=0.8',
-    );
-  }
-
-  // Merge user-provided headers. An empty string, 'null', or 'false' can be 
+  // Merge user-provided headers. An empty string, 'null', or 'false' can be
   // passed to delete a header entirely to prevent CORS preflight rejections.
-  Object.entries(headers).forEach(([key, val]) => {
+  for (const [key, val] of Object.entries(headers)) {
     if (val === '' || val === 'null' || val === 'false') {
       reqHeaders.delete(key);
     } else {
       reqHeaders.set(key, String(val));
     }
-  });
+  }
 
   // Prepare request body
   let finalBody: BodyInit | null = null;
@@ -152,5 +140,8 @@ function isNativeBinaryBody(body: unknown): body is BodyInit {
 }
 
 function isAbsoluteUrl(url: string): boolean {
+  if (/^(blob|data):/.test(url)) {
+    throw new TypeError(`Unsupported URL scheme: '${url}'`);
+  }
   return /^https?:\/\/|^\/\//i.test(url);
 }

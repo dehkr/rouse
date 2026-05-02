@@ -1,8 +1,10 @@
-import { rzRefresh, rzSave, rzSource } from '.';
 import { getApp, type RouseApp } from '../core/app';
 import { err, getDirectiveValue, hasDirective, warn } from '../core/shared';
 import { is } from '../dom/utils';
 import type { DirectiveSlug, ManagerDirective } from '../types';
+import { rzRefresh } from './rz-refresh';
+import { rzSave } from './rz-save';
+import { rzSource } from './rz-source';
 
 // ============================== DIRECTIVE DEFINITION ===================================
 
@@ -95,12 +97,7 @@ function initialize(el: HTMLScriptElement, app: RouseApp) {
   storeCleanups.set(el, cleanups);
 }
 
-function teardown(script: HTMLScriptElement) {
-  const cleanups = storeCleanups.get(script);
-  if (cleanups) {
-    cleanups.forEach((cleanup) => {
-      cleanup();
-    });
-    storeCleanups.delete(script);
-  }
+function teardown(el: HTMLScriptElement) {
+  storeCleanups.get(el)?.forEach((fn) => fn());
+  storeCleanups.delete(el);
 }

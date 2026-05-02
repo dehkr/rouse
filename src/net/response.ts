@@ -48,7 +48,7 @@ export async function normalizeResponse(
             throw new Error('Invalid JSON response');
           }
         }
-      } else if (contentType.includes('text/')) {
+      } else if (contentType.includes('text/') || contentType.includes('xml')) {
         data = await response.text();
       } else {
         data = await response.blob();
@@ -66,6 +66,7 @@ export async function normalizeResponse(
     error = {
       message: response.statusText || 'Request failed',
       status: response.status,
+      parseError: error?.status === 'PARSE_ERROR' ? error.message : undefined,
     };
 
     const contentType = response.headers.get('Content-Type') || '';
@@ -107,16 +108,21 @@ export async function normalizeResponse(
 
 /**
  * Maps native DOM exceptions into standardized RequestError objects.
+ * Note: If a global timeout and a manual abort happen simultaneously,
+ * the manual abort (isMainAborted) wins out and the status is set to 'CANCELED'.
  */
 export function mapCatchError(error: any, isMainAborted: boolean): RequestError {
   const isAbort = error.name === 'AbortError';
+  const isTimeout = error.name === 'TimeoutError';
 
   // Distinguish between timeout and explicit cancel
-  const status: CustomErrorStatus = isAbort
-    ? isMainAborted
-      ? 'CANCELED'
-      : 'TIMEOUT'
-    : 'NETWORK_ERROR';
+  const status: CustomErrorStatus = isTimeout
+    ? 'TIMEOUT'
+    : isAbort
+      ? isMainAborted
+        ? 'CANCELED'
+        : 'TIMEOUT'
+      : 'NETWORK_ERROR';
 
   const message =
     status === 'TIMEOUT'
