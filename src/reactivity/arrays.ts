@@ -1,4 +1,4 @@
-import { endBatch, startBatch, trigger } from '.';
+import { endBatch, startBatch, trigger } from 'alien-signals';
 import { getSignal, ITERATION_KEY } from './handlers';
 import { createProxy, dirtyTrackers, getRaw, objectRootKeys } from './reactive';
 

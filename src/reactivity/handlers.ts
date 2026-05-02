@@ -1,4 +1,4 @@
-import { signal, trigger } from '.';
+import { signal, trigger } from 'alien-signals';
 import { warn } from '../core/shared';
 import { methodIntercepts } from './arrays';
 import {
@@ -126,7 +126,7 @@ export const readOnlyHandlers: ProxyHandler<object> = {
   set(_target: object, key: string | symbol): boolean {
     warn(`Cannot mutate read-only property: '${String(key)}'.`);
     // Return true to prevent strict-mode TypeErrors from crashing the app
-    return true; 
+    return true;
   },
 
   deleteProperty(_target: object, key: string | symbol): boolean {
