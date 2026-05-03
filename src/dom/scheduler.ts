@@ -1,3 +1,6 @@
+import type { RouseApp } from '../core/app';
+import { DEFAULT_TIMING, isTimeModifier, parseTime } from '../core/timing';
+
 const visibilityCallbacks = new WeakMap<Element, () => void>();
 
 /**
@@ -152,4 +155,94 @@ export function attachWakeStrategies(
         satisfy();
     }
   });
+}
+
+export interface TriggerContext {
+  el: Element;
+  app: RouseApp;
+  modifiers: string[];
+  action: (e?: Event) => void;
+}
+
+export type SyntheticEventHandler = (ctx: TriggerContext) => (() => void) | null;
+
+/**
+ * Universal synthetic events available to any TriggerDirective.
+ * Store-specific events (mutate) stay inline in rz-save-on.
+ */
+export const syntheticEvents: Record<string, SyntheticEventHandler> = {
+  // Fires immediately and once
+  load: ({ action }) => {
+    action();
+    return null;
+  },
+
+  // Repeating timer
+  // Supports `.once` modifier for single fire after delay
+  interval: ({ modifiers, action }) => {
+    const isOnce = modifiers.includes('once');
+
+    // Find the first time modifier
+    const timeModifier = modifiers.find(isTimeModifier) ?? '1000';
+    const ms = parseTime(timeModifier);
+
+    if (ms <= 0) return null;
+
+    const setup = isOnce ? window.setTimeout : window.setInterval;
+    const cleanup = isOnce ? window.clearTimeout : window.clearInterval;
+
+    const id = setup(action, ms);
+    return () => cleanup(id);
+  },
+
+  // Explicit no-op — opts the directive out of all auto-binding
+  none: () => null,
+
+  // Connectivity
+  online: ({ action }) => attachWindowEvent('online', action),
+  offline: ({ action }) => attachWindowEvent('offline', action),
+
+  // Document visibility (tab switch / minimize)
+  visible: ({ action }) => attachVisibilityChange(action, 'visible'),
+  hidden: ({ action }) => attachVisibilityChange(action, 'hidden'),
+
+  // Page show (initial load + bfcache restore)
+  back: ({ action }) => attachWindowEvent('pageshow', action),
+
+  // Element-scoped one-shots from scheduler primitives
+  intersect: ({ el, action }) => {
+    whenVisible(el, action);
+    return null;
+  },
+  interaction: ({ el, action }) => {
+    whenInteracted(el, action);
+    return null;
+  },
+  idle: ({ action }) => {
+    whenIdle(action);
+    return null;
+  },
+
+  // App lifecycle
+  ready: ({ app, action }) => {
+    const handler = () => action();
+    app.root.addEventListener('rz:app:ready', handler, { once: true });
+    return () => app.root.removeEventListener('rz:app:ready', handler);
+  },
+};
+
+function attachWindowEvent(event: string, action: () => void): () => void {
+  window.addEventListener(event, action);
+  return () => window.removeEventListener(event, action);
+}
+
+function attachVisibilityChange(
+  action: () => void,
+  state: 'visible' | 'hidden',
+): () => void {
+  const handler = () => {
+    if (document.visibilityState === state) action();
+  };
+  document.addEventListener('visibilitychange', handler);
+  return () => document.removeEventListener('visibilitychange', handler);
 }

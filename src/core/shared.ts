@@ -246,22 +246,3 @@ export function parseMethodAndUrl(
 
   return { method, url };
 }
-
-/**
- * Attaches a polling interval. Returns cleanup, or null if no interval.
- *
- * - `attachPoll(['400ms'], action)`
- * - `attachPoll([], action, 1000)`
- * - `attachPoll([], action)`
- */
-export function attachPoll(
-  modifiers: string[],
-  action: () => void,
-  defaultMs = DEFAULT_TIMING.POLL,
-): (() => void) | null {
-  const waitStr = modifiers[0];
-  const ms = waitStr ? parseTime(waitStr) : defaultMs;
-  if (ms <= 0) return null;
-  const timer = window.setInterval(action, ms);
-  return () => window.clearInterval(timer);
-}
