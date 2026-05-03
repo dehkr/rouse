@@ -5,7 +5,6 @@ import { warn } from './shared';
 export const DEFAULT_TIMING = {
   DEBOUNCE: 300,
   THROTTLE: 150,
-  POLL: 5000,
 };
 
 export interface TimingConfig {
@@ -163,6 +162,16 @@ export function applyTiming<T extends AnyFunction>(
   return paced as PacedFunction<T>;
 }
 
+// Suffix optional to allow plain numbers (e.g., `timeout: 5000`)
+const TIME_REGEX = /^(\d*\.?\d+)(ms|s|m)?$/;
+
+/**
+ * Checks if a string or number matches the supported time formats.
+ */
+export function isTimeModifier(val: unknown): boolean {
+  return TIME_REGEX.test(String(val).trim().toLowerCase());
+}
+
 /**
  * Converts a string with time suffixes (ms, s, m) or a raw number into milliseconds.
  * Defaults to milliseconds if no suffix is provided.
@@ -178,14 +187,10 @@ export function applyTiming<T extends AnyFunction>(
 export function parseTime(val?: string | number): number {
   // Treat empty or falsy values as valid zero states
   if (!val && val !== 0 && val !== '0') return 0;
-  // Return immediately if it's a valid number
   if (typeof val === 'number') return val;
 
   const normalized = String(val).trim().toLowerCase();
-
-  // Suffix optional in this regex. This allows key-value config
-  // objects to accept plain numbers (e.g., `timeout: 5000`).
-  const match = normalized.match(/^(\d*\.?\d+)(ms|s|m)?$/);
+  const match = normalized.match(TIME_REGEX);
 
   if (!match) {
     warn(`Invalid time value: '${val}'.`);
@@ -195,8 +200,6 @@ export function parseTime(val?: string | number): number {
   const [, amountStr = '0', unit] = match;
   const amount = parseFloat(amountStr);
 
-  if (unit === 'm') {
-    return amount * 60000;
-  }
+  if (unit === 'm') return amount * 60000;
   return unit === 's' ? amount * 1000 : amount;
 }
