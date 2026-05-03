@@ -9,13 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Support server-driven flow control via HTTP response headers (`Rouse-Target`, `Rouse-Trigger`, `Rouse-Redirect`), allowing backends to dynamically override client-side routing, emit custom DOM events, and force window redirects.
+- Add `rz-headers` directive to simplify configuration of custom headers for declarative fetch requests.
 - Add `rz-error` directive for handling HTML and JSON error routing.
 - Add `rz-validate` directive for granular field-level error feedback.
-- Implement form validation engine; query inputs, inject error text, apply Aria attributes, and strip errors on interaction.
+- Implement form validation engine to map granular JSON errors to UI inputs; automatically inject error text, add styles, apply ARIA attributes, and clear errors on user interaction.
+- Add lifecycle events `rz:fetch:update:store:before` and `rz:fetch:update:store` to make JSON payload events symmetrical with HTML payloads.
+- Add `retryDelay` configuration option (supports fixed numbers or functions); replaces implicit exponential backoff.
 
 ### Changed
 
-- Upgrade `rz-target` to handle routing JSON payloads to global stores .
+- **Breaking:** Rename lifecycle event `rz:fetch:insert:before` to `rz:fetch:update:dom:before` and `rz:fetch:insert` to `rz:fetch:update:dom`.
+**Breaking:** Rename the `retries` configuration option to `retry`.
+**Breaking:** `timeout` now applies globally across all retry attempts.
+- Upgrade `rz-target` to support routing JSON payloads directly to global stores (e.g., `rz-target="@user-data"`).
+- Update request payloads to enable removal of the default `Rouse-Request` header to prevent CORS issues with 3rd-party APIs.
+
+### Fixed
+
+- Fix `onError` interceptor to only fire on the final attempt.
 
 ## [0.6.0] - 2026-04-20
 

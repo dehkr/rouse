@@ -14,7 +14,14 @@ interface AbortEntry {
 const abortRegistry = new Map<string | symbol, AbortEntry>();
 
 /**
- * Handles Fetch/XHR switching, error normalization, retries, and interceptors.
+ * A wrapper for the Fetch API providing request orchestration, including:
+ * 
+ * - Request, response, and error interceptors
+ * - Automatic payload serialization (JSON, FormData, URL parameters)
+ * - Concurrency management and cancellation via `abortKey`
+ * - Absolute global request timeouts
+ * - Configurable retries with custom delays and native 429/503 `Retry-After` support
+ * - Automatic response normalization (JSON, Text, Blob)
  */
 export async function request<T = any>(
   url: string,
