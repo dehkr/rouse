@@ -2,10 +2,9 @@ import { LiteDebouncer, LiteThrottler } from '@tanstack/pacer-lite';
 import type { AnyFunction } from '../types';
 import { warn } from './shared';
 
-export const DEFAULT_TIMING = {
-  DEBOUNCE: 300,
-  THROTTLE: 150,
-};
+export const DEFAULT_DEBOUNCE_MS = 300;
+export const DEFAULT_THROTTLE_MS = 150;
+export const DEFAULT_INTERVAL_MS = 1000;
 
 export interface TimingConfig {
   strategy?: 'debounce' | 'throttle';
@@ -31,8 +30,8 @@ export interface PacedFunction<T extends AnyFunction> {
 export function getTimingConfig(
   modifiers: string[],
   defaults = {
-    debounceWait: DEFAULT_TIMING.DEBOUNCE,
-    throttleWait: DEFAULT_TIMING.THROTTLE,
+    debounceWait: DEFAULT_DEBOUNCE_MS,
+    throttleWait: DEFAULT_THROTTLE_MS,
   },
 ): TimingConfig {
   let strategy: TimingConfig['strategy'];
@@ -134,8 +133,8 @@ export function applyTiming<T extends AnyFunction>(
   fn: T,
   modifiers: string[],
   defaults = {
-    debounceWait: DEFAULT_TIMING.DEBOUNCE,
-    throttleWait: DEFAULT_TIMING.THROTTLE,
+    debounceWait: DEFAULT_DEBOUNCE_MS,
+    throttleWait: DEFAULT_THROTTLE_MS,
   },
 ): PacedFunction<T> {
   const config = getTimingConfig(modifiers, defaults);

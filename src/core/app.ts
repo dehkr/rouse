@@ -16,21 +16,18 @@ import type {
 import { Registry } from './registry';
 import { deepFreeze } from './shared';
 import { StoreManager } from './store';
-import { DEFAULT_TIMING } from './timing';
+import { DEFAULT_DEBOUNCE_MS, DEFAULT_THROTTLE_MS } from './timing';
 
 export const defaultConfig = {
   root: document.body,
   timing: {
-    debounceWait: DEFAULT_TIMING.DEBOUNCE,
-    throttleWait: DEFAULT_TIMING.THROTTLE,
-    autosaveWait: 1000,
+    debounceWait: DEFAULT_DEBOUNCE_MS,
+    throttleWait: DEFAULT_THROTTLE_MS,
   },
   network: {
     baseUrl: '',
     fetch: {} as GlobalFetchConfig,
     interceptors: {} as FetchInterceptors,
-    refreshOnFocus: true,
-    refreshOnReconnect: true,
   },
   ui: {
     errorClass: 'rz-error',

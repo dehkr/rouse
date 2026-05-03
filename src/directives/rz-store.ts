@@ -2,8 +2,8 @@ import { getApp, type RouseApp } from '../core/app';
 import { err, getDirectiveValue, hasDirective, warn } from '../core/shared';
 import { is } from '../dom/utils';
 import type { DirectiveSlug, ManagerDirective } from '../types';
-import { rzRefresh } from './rz-refresh';
-import { rzSave } from './rz-save';
+import { rzRefreshOn } from './rz-refresh-on';
+import { rzSaveOn } from './rz-save-on';
 import { rzSource } from './rz-source';
 
 // ============================== DIRECTIVE DEFINITION ===================================
@@ -39,7 +39,7 @@ function validate(el: Element, app: RouseApp): el is HTMLScriptElement {
 /**
  * Bootstraps a global reactive store from a `<script>` tag.
  * Initializes the reactive data registry and attaches any declared
- * networking behaviors (`rz-source`, `rz-save`, `rz-refresh`).
+ * networking behaviors (`rz-source`, `rz-save-on`, `rz-refresh-on`).
  */
 function initialize(el: HTMLScriptElement, app: RouseApp) {
   if (storeCleanups.has(el) || !app) return;
@@ -79,16 +79,16 @@ function initialize(el: HTMLScriptElement, app: RouseApp) {
   }
 
   // Attach save triggers and register cleanup functions
-  if (rzSave.existsOn(el)) {
-    const saveCleanup = rzSave.attachTriggers(el, storeName, app);
+  if (rzSaveOn.existsOn(el)) {
+    const saveCleanup = rzSaveOn.attachTriggers(el, app, storeName);
     if (saveCleanup) {
       cleanups.push(saveCleanup);
     }
   }
 
   // Attach refresh triggers and register cleanup functions
-  if (rzRefresh.existsOn(el)) {
-    const refreshCleanup = rzRefresh.attachTriggers(el, storeName, app);
+  if (rzRefreshOn.existsOn(el)) {
+    const refreshCleanup = rzRefreshOn.attachTriggers(el, app, storeName);
     if (refreshCleanup) {
       cleanups.push(refreshCleanup);
     }

@@ -5,7 +5,6 @@ import {
   type InsertOperation,
 } from '../types';
 import { parseDirectiveValue } from './parser';
-import { DEFAULT_TIMING, parseTime } from './timing';
 
 export const warn = (msg: string, ...args: any[]) => {
   console.warn(`[Rouse] ${msg}`, ...args);

@@ -1,10 +1,12 @@
 import type { RouseApp } from '../core/app';
-import { DEFAULT_TIMING, isTimeModifier, parseTime } from '../core/timing';
+import { DEFAULT_INTERVAL_MS, isTimeModifier, parseTime } from '../core/timing';
+import type { TriggerDef } from '../types';
+import { is, on } from './utils';
 
 const visibilityCallbacks = new WeakMap<Element, () => void>();
 
 /**
- * Shared IntersectionObserver for 'visible' wake strategy
+ * Shared IntersectionObserver for `intersect` events and `rz-wake` strategies
  */
 const visibilityObserver = new IntersectionObserver((entries) => {
   entries.forEach((entry) => {
@@ -183,7 +185,7 @@ export const syntheticEvents: Record<string, SyntheticEventHandler> = {
     const isOnce = modifiers.includes('once');
 
     // Find the first time modifier
-    const timeModifier = modifiers.find(isTimeModifier) ?? '1000';
+    const timeModifier = modifiers.find(isTimeModifier) ?? DEFAULT_INTERVAL_MS;
     const ms = parseTime(timeModifier);
 
     if (ms <= 0) return null;
@@ -195,7 +197,7 @@ export const syntheticEvents: Record<string, SyntheticEventHandler> = {
     return () => cleanup(id);
   },
 
-  // Explicit no-op — opts the directive out of all auto-binding
+  // Explicit no-op (opts the directive out of all auto-binding)
   none: () => null,
 
   // Connectivity
@@ -230,6 +232,47 @@ export const syntheticEvents: Record<string, SyntheticEventHandler> = {
     return () => app.root.removeEventListener('rz:app:ready', handler);
   },
 };
+
+export function dispatchTriggers(
+  triggers: TriggerDef[],
+  base: Omit<TriggerContext, 'modifiers'>,
+): Array<() => void> {
+  const cleanups: Array<() => void> = [];
+
+  for (const trigger of triggers) {
+    const cleanup = dispatchOne(trigger, base);
+    if (cleanup) cleanups.push(cleanup);
+  }
+
+  return cleanups;
+}
+
+export function dispatchOne(
+  trigger: TriggerDef,
+  base: Omit<TriggerContext, 'modifiers'>,
+): (() => void) | null {
+  const handler = syntheticEvents[trigger.event];
+
+  if (handler) {
+    return handler({ ...base, modifiers: trigger.modifiers });
+  }
+
+  // Fall through to standard DOM event listener
+  return on(
+    base.el,
+    trigger.event,
+    (e: Event) => {
+      if (
+        (is(base.el, 'Form') && e.type === 'submit') ||
+        (is(base.el, 'Anchor') && e.type === 'click')
+      ) {
+        e.preventDefault();
+      }
+      base.action(e);
+    },
+    trigger.modifiers,
+  );
+}
 
 function attachWindowEvent(event: string, action: () => void): () => void {
   window.addEventListener(event, action);

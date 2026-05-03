@@ -30,6 +30,11 @@ export function parseTriggers(value: string | null | undefined): TriggerDef[] {
   const rawTriggers = value?.trim();
   if (!rawTriggers) return [];
 
+  if (rawTriggers.includes(',')) {
+    warn(`Multi-trigger values must be separated by spaces, not commas: '${rawTriggers}'.`);
+    return [];
+  }
+
   const triggers: TriggerDef[] = [];
   const parsed = rawTriggers.split(/\s+/);
 

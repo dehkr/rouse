@@ -1,5 +1,5 @@
 import type { RouseApp } from '../core/app';
-import { parseModifiers, parseTriggers } from '../core/parser';
+import { parseTriggers } from '../core/parser';
 import { getNestedVal } from '../core/path';
 import { resolveProps, splitInjection } from '../core/props';
 import { err, getDirectiveValue, hasDirective, warn } from '../core/shared';

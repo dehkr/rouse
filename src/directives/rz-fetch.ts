@@ -3,7 +3,7 @@ import { getDirectiveValue, hasDirective, parseMethodAndUrl } from '../core/shar
 import { is, on } from '../dom/utils';
 import { handleFetch } from '../net/engine';
 import type { ConfigDirective, DirectiveSlug, ManagerDirective } from '../types';
-import { rzTrigger } from './rz-trigger';
+import { rzFetchOn } from './rz-fetch-on';
 
 // ============================== DIRECTIVE DEFINITION ===================================
 
@@ -49,9 +49,9 @@ function initialize(el: Element, app: RouseApp) {
   const cleanups: Array<() => void> = [];
   const action = () => handleFetch(el, app, getConfig(el));
 
-  let triggerCleanup: ReturnType<typeof rzTrigger.attachTriggers>;
-  if (rzTrigger.existsOn(el)) {
-    triggerCleanup = rzTrigger.attachTriggers(el, action);
+  let triggerCleanup: ReturnType<typeof rzFetchOn.attachTriggers>;
+  if (rzFetchOn.existsOn(el)) {
+    triggerCleanup = rzFetchOn.attachTriggers(el, app, action);
   }
 
   // If triggers were processed, `triggerCleanup` will be truthy, and the explicit
@@ -80,9 +80,6 @@ function initialize(el: Element, app: RouseApp) {
   }
 }
 
-/**
- * Tears down pacing engines and synthetic polling intervals
- */
 function teardown(el: Element) {
   fetchCleanups.get(el)?.forEach((fn) => fn());
   fetchCleanups.delete(el);
