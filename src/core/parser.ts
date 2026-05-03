@@ -27,14 +27,14 @@ export function parseModifiers(value: string): { key: string; modifiers: string[
  * Handles parsing raw directive values into an array of trigger definitions.
  */
 export function parseTriggers(value: string | null | undefined): TriggerDef[] {
-  if (!value?.trim()) return [];
+  const rawTriggers = value?.trim();
+  if (!rawTriggers) return [];
 
   const triggers: TriggerDef[] = [];
-  const parsed = parseDirectiveValue(value);
+  const parsed = rawTriggers.split(/\s+/);
 
-  for (const [key] of parsed) {
-    if (!key) continue;
-    const { key: event, modifiers } = parseModifiers(key);
+  for (const trigger of parsed) {
+    const { key: event, modifiers } = parseModifiers(trigger);
     if (event) {
       triggers.push({ event, modifiers });
     }

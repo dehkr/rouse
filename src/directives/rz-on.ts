@@ -1,5 +1,5 @@
 import type { RouseApp } from '../core/app';
-import { parseModifiers } from '../core/parser';
+import { parseModifiers, parseTriggers } from '../core/parser';
 import { getNestedVal } from '../core/path';
 import { resolveProps, splitInjection } from '../core/props';
 import { err, getDirectiveValue, hasDirective, warn } from '../core/shared';
@@ -33,7 +33,6 @@ function attach(
   key: string,
   value: string,
 ): CleanupFunction | void {
-  const { key: event, modifiers } = parseModifiers(key);
   const { key: methodName, rawPayload } = splitInjection(value);
 
   let method: unknown;
@@ -70,21 +69,30 @@ function attach(
     return;
   }
 
-  const removeListener = on(
-    el,
-    event,
-    (e: Event) => {
-      try {
-        const props =
-          rawPayload !== undefined ? resolveProps(rawPayload, app.stores) : undefined;
-        const args = { props, e, el } as ActionCtx;
-        method.call(context, args);
-      } catch (error) {
-        err(`Failed to execute '${methodName}()'.`, error);
-      }
-    },
-    modifiers,
-  );
+  // Iterate over trigger events
+  const triggers = parseTriggers(key);
+  const cleanups: Array<() => void> = [];
 
-  return cleanup(removeListener);
+  for (const { event, modifiers } of triggers) {
+    const removeListener = on(
+      el,
+      event,
+      (e: Event) => {
+        try {
+          const props =
+            rawPayload !== undefined ? resolveProps(rawPayload, app.stores) : undefined;
+          const args = { props, e, el } as ActionCtx;
+          method.call(context, args);
+        } catch (error) {
+          err(`Failed to execute '${methodName}()'.`, error);
+        }
+      },
+      modifiers,
+    );
+    cleanups.push(removeListener);
+  }
+
+  return cleanup(() => {
+    cleanups.forEach((fn) => fn());
+  });
 }
