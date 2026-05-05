@@ -3,8 +3,8 @@ import { parseDirectiveValue } from '../core/parser';
 import { directiveSelector, err, hasDirective } from '../core/shared';
 import { rzBind, rzHtml, rzModel, rzOn, rzText } from '../directives';
 import type {
+  BoundCleanupFn,
   BoundDirective,
-  CleanupFunction,
   Controller,
   DirectiveSlug,
 } from '../types';
@@ -39,7 +39,7 @@ export function attachController(
     .map((slug) => directiveSelector(slug as DirectiveSlug))
     .join(', ');
 
-  function addCleanup(el: Element, fn: CleanupFunction) {
+  function addCleanup(el: Element, fn: BoundCleanupFn) {
     const cleanups = elementCleanups.get(el) ?? [];
     if (!elementCleanups.has(el)) {
       elementCleanups.set(el, cleanups);
@@ -77,7 +77,7 @@ export function attachController(
       // Strict check to allow empty/boolean directives
       if (value === null) continue;
 
-      const registerCleanup = (cleanup: CleanupFunction | void) => {
+      const registerCleanup = (cleanup: BoundCleanupFn | void) => {
         if (cleanup) {
           addCleanup(el, cleanup);
         }

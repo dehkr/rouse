@@ -2,12 +2,12 @@ import type { RouseApp } from '../core/app';
 import { resolveState } from '../core/path';
 import { getDirectiveValue, hasDirective } from '../core/shared';
 import { updateAttr, updateClass, updateStyle } from '../dom/updater';
-import { cleanup } from '../dom/utils';
+import { boundCleanup } from '../dom/utils';
 import { effect } from '../reactivity';
 import type {
   BindableValue,
+  BoundCleanupFn,
   BoundDirective,
-  CleanupFunction,
   Controller,
   DirectiveSlug,
 } from '../types';
@@ -31,7 +31,7 @@ function attach(
   app: RouseApp,
   type: string,
   path: string,
-): CleanupFunction {
+): BoundCleanupFn {
   const stopEffect = effect(() => {
     const val = resolveState<BindableValue>(path, scope, app.stores);
 
@@ -44,5 +44,5 @@ function attach(
     }
   });
 
-  return cleanup(stopEffect);
+  return boundCleanup(stopEffect);
 }

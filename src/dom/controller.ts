@@ -1,11 +1,7 @@
 import { getApp } from '../core/app';
 import { warn } from '../core/shared';
 import { effectScope } from '../reactivity';
-import type {
-  ControllerCtx,
-  ControllerFunction,
-  RouseRequest,
-} from '../types';
+import type { ControllerCtx, ControllerFunction, RouseRequest } from '../types';
 import { attachController } from './attacher';
 import { dispatch, insert, on } from './utils';
 
@@ -82,9 +78,7 @@ export function createController(
       isDestroyed = true;
       abortCtrl.abort();
       // Teardown child effects (DOM) before parent state
-      cleanups.reverse().forEach((fn) => {
-        fn();
-      });
+      cleanups.reverse().forEach((fn) => fn());
     },
   };
 
@@ -106,30 +100,29 @@ export function createController(
     dispatch: (...args: any[]) => {
       // If the first argument is a string, assume target was omitted
       const isImplied = typeof args[0] === 'string';
-      
+
       const target = isImplied ? el : args[0];
       const name = isImplied ? args[0] : args[1];
       const detail = isImplied ? args[1] : args[2];
       const options = isImplied ? args[2] : args[3];
-      
+
       return dispatch(target, name, detail, options);
     },
 
     on: (...args: any[]) => {
       // If the first argument is a string, assume target was omitted
       const isImplied = typeof args[0] === 'string';
-      
+
       const target = isImplied ? el : args[0];
-      const name = isImplied ? args[0] : args[1];
+      const events = isImplied ? args[0] : args[1];
       const callback = isImplied ? args[1] : args[2];
-      const modifiers = isImplied ? args[2] : args[3];
-      const customSignal = isImplied ? args[3] : args[4];
+      const customSignal = isImplied ? args[2] : args[3];
 
       const activeSignal = customSignal
         ? AbortSignal.any([abortCtrl.signal, customSignal]) // Optional custom signal
         : abortCtrl.signal;
-        
-      return on(target, name, callback, modifiers, activeSignal);
+
+      return on(target, events, callback, activeSignal);
     },
 
     // Inject abort signal to avoid background request if controller is destroyed

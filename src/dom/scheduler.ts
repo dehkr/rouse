@@ -1,9 +1,14 @@
-import type { RouseApp } from '../core/app';
-import { DEFAULT_INTERVAL_MS, isTimeModifier, parseTime } from '../core/timing';
-import type { TriggerDef } from '../types';
-import { is, on } from './utils';
+import { getApp, type RouseApp } from '../core/app';
+import {
+  applyTiming,
+  DEFAULT_INTERVAL_MS,
+  isTimeModifier,
+  parseTime,
+} from '../core/timing';
+import type { ActionFn, TriggerDef, VoidFn } from '../types';
+import { attachListener, isNativeNavigation } from './utils';
 
-const visibilityCallbacks = new WeakMap<Element, () => void>();
+const visibilityCallbacks = new WeakMap<Element, VoidFn>();
 
 /**
  * Shared IntersectionObserver for `intersect` events and `rz-wake` strategies
@@ -25,7 +30,7 @@ const visibilityObserver = new IntersectionObserver((entries) => {
 /**
  * Wakes immediately when document is ready
  */
-export function whenLoaded(callback: () => void) {
+export function whenLoaded(callback: VoidFn) {
   if (document.readyState === 'complete') {
     callback();
   } else {
@@ -36,14 +41,14 @@ export function whenLoaded(callback: () => void) {
 /**
  * Wakes after provided delay in ms
  */
-export function whenDelayOver(delay: number, callback: () => void) {
+export function whenDelayOver(delay: number, callback: VoidFn) {
   setTimeout(callback, delay);
 }
 
 /**
  * Wakes when the element is visible or scrolled into view
  */
-export function whenVisible(el: Element, callback: () => void) {
+export function whenVisible(el: Element, callback: VoidFn) {
   visibilityCallbacks.set(el, callback);
   visibilityObserver.observe(el);
 }
@@ -51,7 +56,7 @@ export function whenVisible(el: Element, callback: () => void) {
 /**
  * Wakes when the media query matches
  */
-export function whenMediaMatches(mediaQuery: string, callback: () => void) {
+export function whenMediaMatches(mediaQuery: string, callback: VoidFn) {
   if (!mediaQuery) {
     callback();
     return;
@@ -73,7 +78,7 @@ export function whenMediaMatches(mediaQuery: string, callback: () => void) {
 /**
  * Wakes on any custom event
  */
-export function whenEvent(event: string, callback: () => void) {
+export function whenEvent(event: string, callback: VoidFn) {
   if (!event) {
     callback();
     return;
@@ -86,7 +91,7 @@ export function whenEvent(event: string, callback: () => void) {
  */
 export function whenInteracted(
   el: Element,
-  callback: () => void,
+  callback: VoidFn,
   triggers: string[] | string = ['mouseover', 'focusin', 'touchstart'],
 ) {
   const triggerList = Array.isArray(triggers) ? triggers : [triggers];
@@ -109,7 +114,7 @@ export function whenInteracted(
 /**
  * Wakes when the browser is idle
  */
-export function whenIdle(callback: () => void) {
+export function whenIdle(callback: VoidFn) {
   if ('requestIdleCallback' in window) {
     window.requestIdleCallback(callback);
   } else {
@@ -118,10 +123,22 @@ export function whenIdle(callback: () => void) {
   }
 }
 
+/**
+ * Coordinates `rz-wake` activation strategies. All strategies must be
+ * satisfied before `onWake` fires. If no strategies are provided it
+ * fires immediately.
+ *
+ * Each strategy maps to a `whenX` primitive in this module: `load`,
+ * `delay`, `visible`, `media`, `event`, `interaction`, `idle`.
+ *
+ * @param el - The controller element awaiting activation.
+ * @param strategies - Parsed `[strategy, param]` tuples from `rz-wake`.
+ * @param onWake - Invoked once when all strategies have been satisfied.
+ */
 export function attachWakeStrategies(
   el: Element,
   strategies: [string, string][],
-  onWake: () => void,
+  onWake: VoidFn,
 ) {
   let pending = strategies.length;
   if (pending === 0) {
@@ -161,12 +178,12 @@ export function attachWakeStrategies(
 
 export interface TriggerContext {
   el: Element;
-  app: RouseApp;
+  app?: RouseApp;
   modifiers: string[];
-  action: (e?: Event) => void;
+  action: ActionFn;
 }
 
-export type SyntheticEventHandler = (ctx: TriggerContext) => (() => void) | null;
+export type SyntheticEventHandler = (ctx: TriggerContext) => VoidFn | null;
 
 /**
  * Universal synthetic events available to any TriggerDirective.
@@ -177,6 +194,17 @@ export const syntheticEvents: Record<string, SyntheticEventHandler> = {
   load: ({ action }) => {
     action();
     return null;
+  },
+
+  delay: ({ modifiers, action }) => {
+    // Find the first time modifier
+    const timeModifier = modifiers.find(isTimeModifier) ?? DEFAULT_INTERVAL_MS;
+    const ms = parseTime(timeModifier);
+
+    if (ms <= 0) return null;
+
+    const id = window.setTimeout(action, ms);
+    return () => window.clearTimeout(id);
   },
 
   // Repeating timer
@@ -211,81 +239,142 @@ export const syntheticEvents: Record<string, SyntheticEventHandler> = {
   // Page show (initial load + bfcache restore)
   back: ({ action }) => attachWindowEvent('pageshow', action),
 
-  // Element-scoped one-shots from scheduler primitives
+  // Element intersection with the viewport
   intersect: ({ el, action }) => {
     whenVisible(el, action);
     return null;
   },
+
+  // Aggregate proxy for 'mouseover', 'focusin', or 'touchstart'
   interaction: ({ el, action }) => {
     whenInteracted(el, action);
     return null;
   },
+
+  // window.requestIdleCallback
   idle: ({ action }) => {
     whenIdle(action);
     return null;
   },
 
   // App lifecycle
-  ready: ({ app, action }) => {
+  ready: ({ el, app, action }) => {
+    const appInstance = app || getApp(el);
+    if (!appInstance) return null;
+
+    // Handle case where controllers connect after `ready` event
+    if (appInstance.isReady) {
+      action();
+      return null;
+    }
+
     const handler = () => action();
-    app.root.addEventListener('rz:app:ready', handler, { once: true });
-    return () => app.root.removeEventListener('rz:app:ready', handler);
+    appInstance.root.addEventListener('rz:app:ready', handler, { once: true });
+
+    return () => {
+      appInstance.root.removeEventListener('rz:app:ready', handler);
+    };
   },
 };
 
+/**
+ * Dispatches an array of trigger definitions and collects their cleanups.
+ * Used by trigger directives (`rz-fetch-on`, `rz-save-on`, `rz-refresh-on`)
+ * to wire multiple triggers from a single attribute value.
+ *
+ * @returns Array of cleanup functions from triggers that produce teardown logic.
+ */
 export function dispatchTriggers(
   triggers: TriggerDef[],
   base: Omit<TriggerContext, 'modifiers'>,
-): Array<() => void> {
-  const cleanups: Array<() => void> = [];
-
+): Array<VoidFn> {
+  const cleanups: Array<VoidFn> = [];
   for (const trigger of triggers) {
     const cleanup = dispatchOne(trigger, base);
     if (cleanup) cleanups.push(cleanup);
   }
-
   return cleanups;
 }
 
+/**
+ * Routes a single trigger to its handler. Synthetic events (`interval`,
+ * `visible`, `online`, etc.) go through the `syntheticEvents` registry.
+ * Standard DOM events fall through to `attachListener`.
+ *
+ * Pacing (debounce/throttle) is applied here once, before dispatch, so
+ * synthetic and DOM events both receive paced actions. The returned
+ * cleanup also cancels any pending paced calls.
+ *
+ * Native navigation is suppressed for form submits and anchor clicks
+ * via `isNativeNavigation`.
+ *
+ * @returns Cleanup function, or `null` if the trigger has no teardown.
+ */
 export function dispatchOne(
   trigger: TriggerDef,
   base: Omit<TriggerContext, 'modifiers'>,
-): (() => void) | null {
-  const handler = syntheticEvents[trigger.event];
+): VoidFn | null {
+  const paced = applyTiming(base.action, trigger.modifiers);
+  const pacedAction: ActionFn = (e) => paced(e);
 
+  // Ensure paced timers cancel on teardown
+  const wrapCleanup = (cleanup: VoidFn | null): VoidFn => {
+    return () => {
+      paced.cancel();
+      cleanup?.();
+    };
+  };
+
+  // Handle synthetic (non-standard) events
+  const handler = syntheticEvents[trigger.event];
   if (handler) {
-    return handler({ ...base, modifiers: trigger.modifiers });
+    const cleanup = handler({
+      ...base,
+      modifiers: trigger.modifiers,
+      action: pacedAction,
+    });
+    return wrapCleanup(cleanup);
   }
 
-  // Fall through to standard DOM event listener
-  return on(
+  // Standard DOM event listener
+  const cleanup = attachListener(
     base.el,
     trigger.event,
     (e: Event) => {
-      if (
-        (is(base.el, 'Form') && e.type === 'submit') ||
-        (is(base.el, 'Anchor') && e.type === 'click')
-      ) {
+      if (isNativeNavigation(base.el, e)) {
         e.preventDefault();
       }
-      base.action(e);
+      pacedAction(e);
     },
     trigger.modifiers,
   );
+
+  return wrapCleanup(cleanup);
 }
 
-function attachWindowEvent(event: string, action: () => void): () => void {
+/**
+ * Subscribes to a window-level event and returns a cleanup that
+ * removes the listener.
+ */
+function attachWindowEvent(event: string, action: VoidFn): VoidFn {
   window.addEventListener(event, action);
-  return () => window.removeEventListener(event, action);
+  return () => {
+    window.removeEventListener(event, action);
+  };
 }
 
-function attachVisibilityChange(
-  action: () => void,
-  state: 'visible' | 'hidden',
-): () => void {
+/**
+ * Subscribes to `document.visibilitychange`, firing `action` only
+ * when the document transitions to the specified state.
+ */
+function attachVisibilityChange(action: VoidFn, state: 'visible' | 'hidden'): VoidFn {
   const handler = () => {
-    if (document.visibilityState === state) action();
+    if (document.visibilityState === state) {
+      action();
+    }
   };
   document.addEventListener('visibilitychange', handler);
-  return () => document.removeEventListener('visibilitychange', handler);
+  return () => {
+    document.removeEventListener('visibilitychange', handler);
+  };
 }

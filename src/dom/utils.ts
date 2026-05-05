@@ -1,6 +1,13 @@
-import { applyTiming } from '../core/timing';
-import type { CleanupFunction, InsertMethod, LifecycleEvent } from '../types';
+import { parseTriggers } from '../core/parser';
+import type {
+  ActionFn,
+  BoundCleanupFn,
+  InsertMethod,
+  LifecycleEvent,
+  VoidFn,
+} from '../types';
 import { applyModifiers, getListenerOptions, resolveListenerTarget } from './modifiers';
+import { dispatchOne } from './scheduler';
 
 const elementMap = {
   Anchor: HTMLAnchorElement,
@@ -22,12 +29,15 @@ export function is<K extends ElementKind>(
   return el instanceof elementMap[kind];
 }
 
+export function isNativeNavigation(el: Element, e: Event): boolean {
+  return (
+    (e.type === 'submit' && is(el, 'Form')) || (e.type === 'click' && is(el, 'Anchor'))
+  );
+}
+
 /**
  * Dispatches a custom event from an element.
  *
- * @param el - The element to dispatch from
- * @param name - The event name
- * @param detail - The event data
  * @param options - Allows overriding cancelable/bubbles
  */
 export function dispatch<T extends string, D = any>(
@@ -47,45 +57,88 @@ export function dispatch<T extends string, D = any>(
 }
 
 /**
- * Event listener utility that returns a cleanup function.
+ * Low-level DOM event listener primitive with modifier handling:
+ *
+ * - Listener options (`capture`, `once`, `passive`) via `getListenerOptions`
+ * - Event-arg modifiers (`prevent`, `stop`, `self`, key filters) via `applyModifiers`
+ * - Listener target resolution (`outside`) via `resolveListenerTarget`
+ *
+ * Does not apply pacing (debounce/throttle). Most callers should use the public
+ * `on()` facade or `dispatchOne` instead. This is the primitive both build on.
+ *
+ * @returns Cleanup function that removes the listener.
  */
-export function on<D = any>(
+export function attachListener<D = any>(
   el: EventTarget,
   name: string,
   callback: (ev: CustomEvent<D>) => void,
   modifiers: string[] = [],
   abortSignal?: AbortSignal,
-): () => void {
-  const paced = applyTiming(callback, modifiers);
+): VoidFn {
   const options = { ...getListenerOptions(modifiers), abortSignal };
-
   const listener = (e: Event) => {
     if (applyModifiers(e, el, modifiers)) {
-      paced(e as CustomEvent<D>);
+      callback(e as CustomEvent<D>);
     }
   };
 
   const target = resolveListenerTarget(el as Element, modifiers);
   target.addEventListener(name, listener, options);
 
-  // If a signal is provided, cancel paced functions on abort
-  const onAbort = () => paced.cancel();
-  if (abortSignal) {
-    abortSignal.addEventListener('abort', onAbort, { once: true });
-  }
-
-  // Returns a traditional cleanup function
-  // Unnecessary in controller context because abort signal is injected and
-  // aborted automatically. But this can be used safely for manual cleanup.
   return () => {
     target.removeEventListener(name, listener, options);
-    paced.cancel();
-
-    // Prevent memory leaks if manual cleanup is called before the signal aborts
-    if (abortSignal) {
-      abortSignal.removeEventListener('abort', onAbort);
-    }
   };
+}
+
+/**
+ * Parses a multi-event + modifier string, dispatches each trigger through
+ * the synthetic-event registry (via `dispatchOne` or `attachListener`),
+ * and returns a single aggregate cleanup that tears them all down.
+ *
+ * Backs `ctx.on` for controllers and is also exported for non-controller
+ * code that needs the same trigger semantics as the declarative directives.
+ *
+ * @param target - Element (or other event target) to bind to.
+ * @param events - Whitespace-separated event names with optional modifiers.
+ * @param callback - Invoked when any of the events fires.
+ * @param abortSignal - Optional signal that triggers cleanup on abort.
+ * 
+ * @returns Cleanup function that removes all attached listeners.
+ *
+ * @example
+ * on(el, 'click.debounce.100ms', handleClick);
+ * on(el, 'mouseenter mouseleave', toggleHover);
+ * on(el, 'visible online', refetch);
+ * on(el, 'interval.5s', tick);
+ * on(el, 'interval.10s.once', delayed);
+ */
+export function on<D = any>(
+  target: EventTarget,
+  events: string,
+  callback: (ev: CustomEvent<D>) => void,
+  abortSignal?: AbortSignal,
+): VoidFn {
+  const triggers = parseTriggers(events);
+  if (triggers.length === 0) return () => {};
+
+  const cleanups: Array<VoidFn> = [];
+
+  for (const trigger of triggers) {
+    const cleanup = dispatchOne(trigger, {
+      el: target as Element,
+      app: undefined,
+      action: callback as ActionFn,
+    });
+    if (cleanup) cleanups.push(cleanup);
+  }
+
+  if (abortSignal) {
+    abortSignal.addEventListener('abort', () => cleanups.forEach((fn) => fn()), {
+      once: true,
+    });
+  }
+
+  return () => cleanups.forEach((fn) => fn());
 }
 
 /**
@@ -113,7 +166,8 @@ export function insert(
 
 /**
  * Factory function to wrap cleanup logic and apply 'CLEANUP' identifier.
+ * Used for directives of `BoundDirective` type.
  */
-export function cleanup(fn: () => void): CleanupFunction {
-  return fn as CleanupFunction;
+export function boundCleanup(fn: VoidFn): BoundCleanupFn {
+  return fn as BoundCleanupFn;
 }

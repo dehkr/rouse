@@ -78,9 +78,11 @@ export function isInsertMethod(key: string): key is InsertMethod {
 }
 
 declare const CLEANUP: unique symbol;
-export type CleanupFunction = (() => void) & { [CLEANUP]: true };
+export type BoundCleanupFn = (() => void) & { [CLEANUP]: true };
 
 export type AnyFunction = (...args: any[]) => any;
+export type VoidFn = () => void;
+export type ActionFn = (e?: Event) => void;
 
 /**
  * The object returned by a setup function.
@@ -113,7 +115,7 @@ export interface BoundDirective extends BaseDirective {
     app: RouseApp,
     key: string,
     value: string,
-  ) => CleanupFunction | void;
+  ) => BoundCleanupFn | void;
 }
 
 /** A directive that parses its attribute value into a typed config object. */
@@ -237,16 +239,14 @@ export type ControllerCtx<
   };
   on: {
     <D = any>(
-      name: string,
+      events: string,
       callback: (ev: CustomEvent<D>) => void,
-      modifiers?: string[],
       customSignal?: AbortSignal,
     ): () => void;
     <D = any>(
       target: EventTarget,
-      name: string,
+      events: string,
       callback: (ev: CustomEvent<D>) => void,
-      modifiers?: string[],
       customSignal?: AbortSignal,
     ): () => void;
   };

@@ -30,5 +30,7 @@ function attachTriggers(el: Element, app: RouseApp, storeName: string) {
   };
 
   const cleanups = dispatchTriggers(triggers, { el, app, action: triggerRefresh });
-  return () => cleanups.forEach((fn) => fn());
+  return () => {
+    cleanups.forEach((fn) => fn());
+  }
 }

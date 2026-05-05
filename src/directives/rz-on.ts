@@ -4,11 +4,12 @@ import { getNestedVal } from '../core/path';
 import { resolveProps, splitInjection } from '../core/props';
 import { err, getDirectiveValue, hasDirective, warn } from '../core/shared';
 import { parseStoreLocator } from '../core/store';
-import { cleanup, on } from '../dom/utils';
+import { dispatchOne } from '../dom/scheduler';
+import { boundCleanup } from '../dom/utils';
 import type {
   ActionCtx,
+  BoundCleanupFn,
   BoundDirective,
-  CleanupFunction,
   Controller,
   DirectiveSlug,
 } from '../types';
@@ -32,7 +33,7 @@ function attach(
   app: RouseApp,
   key: string,
   value: string,
-): CleanupFunction | void {
+): BoundCleanupFn | void {
   const { key: methodName, rawPayload } = splitInjection(value);
 
   let method: unknown;
@@ -69,15 +70,14 @@ function attach(
     return;
   }
 
-  // Iterate over trigger events
   const triggers = parseTriggers(key);
   const cleanups: Array<() => void> = [];
 
-  for (const { event, modifiers } of triggers) {
-    const removeListener = on(
+  for (const trigger of triggers) {
+    const cleanup = dispatchOne(trigger, {
       el,
-      event,
-      (e: Event) => {
+      app,
+      action: (e?: Event) => {
         try {
           const props =
             rawPayload !== undefined ? resolveProps(rawPayload, app.stores) : undefined;
@@ -87,12 +87,11 @@ function attach(
           err(`Failed to execute '${methodName}()'.`, error);
         }
       },
-      modifiers,
-    );
-    cleanups.push(removeListener);
+    });
+    if (cleanup) cleanups.push(cleanup);
   }
 
-  return cleanup(() => {
+  return boundCleanup(() => {
     cleanups.forEach((fn) => fn());
   });
 }

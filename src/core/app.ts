@@ -53,6 +53,7 @@ export class RouseApp {
   public stores: StoreManager;
   public registry: Registry;
   public config: typeof defaultConfig;
+  public isReady: Boolean;
 
   private _hasStarted = false;
   private _observer?: MutationObserver;
@@ -101,6 +102,7 @@ export class RouseApp {
     this.root = rootEl;
     this.stores = new StoreManager(this.config);
     this.registry = new Registry();
+    this.isReady = false;
 
     // Mark root so children can find parent app
     this.root.setAttribute('data-rouse-app', '');
@@ -258,6 +260,7 @@ export class RouseApp {
           detail: { app: this },
         }),
       );
+      this.isReady = true;
     });
   }
 

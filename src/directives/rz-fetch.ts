@@ -1,8 +1,8 @@
 import type { RouseApp } from '../core/app';
 import { getDirectiveValue, hasDirective, parseMethodAndUrl } from '../core/shared';
-import { is, on } from '../dom/utils';
+import { attachListener, is, isNativeNavigation } from '../dom/utils';
 import { handleFetch } from '../net/engine';
-import type { ConfigDirective, DirectiveSlug, ManagerDirective } from '../types';
+import type { ConfigDirective, DirectiveSlug, ManagerDirective, VoidFn } from '../types';
 import { rzFetchOn } from './rz-fetch-on';
 
 // ============================== DIRECTIVE DEFINITION ===================================
@@ -22,7 +22,7 @@ export const rzFetch = {
 // =======================================================================================
 
 const HTTP_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] as const;
-const fetchCleanups = new WeakMap<Element, Array<() => void>>();
+const fetchCleanups = new WeakMap<Element, Array<VoidFn>>();
 
 /**
  * Parses the rz-fetch attribute into a URL and method.
@@ -46,7 +46,7 @@ function getConfig(el: Element) {
 function initialize(el: Element, app: RouseApp) {
   if (fetchCleanups.has(el)) return;
 
-  const cleanups: Array<() => void> = [];
+  const cleanups: Array<VoidFn> = [];
   const action = () => handleFetch(el, app, getConfig(el));
 
   let triggerCleanup: ReturnType<typeof rzFetchOn.attachTriggers>;
@@ -59,20 +59,20 @@ function initialize(el: Element, app: RouseApp) {
   if (triggerCleanup) {
     cleanups.push(triggerCleanup);
   } else {
-    const isFormEl = is(el, 'Form');
-    const isAnchorEl = is(el, 'Anchor');
-    const isFieldEl = is(el, 'Input') || is(el, 'Select') || is(el, 'TextArea');
+    const defaultEvent = is(el, 'Form')
+      ? 'submit'
+      : is(el, 'Input') || is(el, 'Select') || is(el, 'TextArea')
+        ? 'change'
+        : 'click';
 
-    const defaultEvent = isFormEl ? 'submit' : isFieldEl ? 'change' : 'click';
-
-    const removeListener = on(el, defaultEvent, (e: Event) => {
-      if ((isFormEl && e.type === 'submit') || (isAnchorEl && e.type === 'click')) {
+    const cleanup = attachListener(el, defaultEvent, (e: Event) => {
+      if (isNativeNavigation(el, e)) {
         e.preventDefault();
       }
       action();
     });
 
-    cleanups.push(removeListener);
+    cleanups.push(cleanup);
   }
 
   if (cleanups.length > 0) {
