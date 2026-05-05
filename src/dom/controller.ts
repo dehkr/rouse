@@ -3,7 +3,8 @@ import { warn } from '../core/shared';
 import { effectScope } from '../reactivity';
 import type { ControllerCtx, ControllerFunction, RouseRequest } from '../types';
 import { attachController } from './attacher';
-import { dispatch, insert, on } from './utils';
+import { dispatch, on } from './scheduler';
+import { insert } from './utils';
 
 const instanceMap = new WeakMap<HTMLElement, any>();
 

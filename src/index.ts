@@ -1,7 +1,8 @@
 export { rouse, type RouseConfig } from './core/app';
 export { debounce, throttle } from './core/timing';
 export { controller } from './dom/controller';
-export { dispatch, insert, on } from './dom/utils';
+export { dispatch, on } from './dom/scheduler';
+export { insert } from './dom/utils';
 export {
   computed,
   effect,

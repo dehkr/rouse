@@ -8,7 +8,8 @@ import {
   warn,
 } from '../core/shared';
 import { extractFieldValues } from '../dom/forms';
-import { dispatch, is } from '../dom/utils';
+import { dispatch } from '../dom/scheduler';
+import { is } from '../dom/utils';
 import type { RouseRequest, RouseResponse } from '../types';
 import { extractRouseHeaders } from './headers';
 import { request, resolveRequestConfig } from './request';
@@ -155,19 +156,16 @@ async function executeFetch(el: Element, app: RouseApp, options: RouseRequest) {
     const result = await request(url, finalOptions, appConfig);
     const rouseHeaders = extractRouseHeaders(result.headers);
 
-    // If redirect
     if (rouseHeaders.redirect) {
       activeRequests.delete(el);
       window.location.href = rouseHeaders.redirect;
       return result;
     }
 
-    // Target override
     if (rouseHeaders.target) {
       result.targetOverride = rouseHeaders.target;
     }
 
-    // Handle error
     if (result.error) {
       if (result.error.status === 'CANCELED') {
         if (shouldDispatch) {

@@ -3,7 +3,7 @@ import { parseDirectiveValue } from '../core/parser';
 import { warn } from '../core/shared';
 import { rzError, rzTarget } from '../directives';
 import type { RouseResponse } from '../types';
-import { dispatch } from './utils';
+import { dispatch } from './scheduler';
 
 /**
  * Listens to successful and failed JSON network requests and routes

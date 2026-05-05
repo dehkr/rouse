@@ -1,6 +1,7 @@
 import { rzError, rzTarget } from '../directives';
 import type { InsertMethod, RouseResponse } from '../types';
-import { dispatch, insert } from './utils';
+import { dispatch } from './scheduler';
+import { insert } from './utils';
 
 interface InsertionOptions {
   data: string;

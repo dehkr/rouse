@@ -1,6 +1,7 @@
 import type { RouseApp } from '../core/app';
 import { getDirectiveValue, hasDirective, parseMethodAndUrl } from '../core/shared';
-import { attachListener, is, isNativeNavigation } from '../dom/utils';
+import { attachListener } from '../dom/scheduler';
+import { is, isNativeNavigation } from '../dom/utils';
 import { handleFetch } from '../net/engine';
 import type { ConfigDirective, DirectiveSlug, ManagerDirective, VoidFn } from '../types';
 import { rzFetchOn } from './rz-fetch-on';

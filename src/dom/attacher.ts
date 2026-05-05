@@ -2,13 +2,8 @@ import type { RouseApp } from '../core/app';
 import { parseDirectiveValue } from '../core/parser';
 import { directiveSelector, err, hasDirective } from '../core/shared';
 import { rzBind, rzHtml, rzModel, rzOn, rzText } from '../directives';
-import type {
-  BoundCleanupFn,
-  BoundDirective,
-  Controller,
-  DirectiveSlug,
-} from '../types';
-import { dispatch } from './utils';
+import type { BoundCleanupFn, BoundDirective, Controller, DirectiveSlug } from '../types';
+import { dispatch } from './scheduler';
 
 /**
  * Binds the controller instance to the DOM.
