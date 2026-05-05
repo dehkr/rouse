@@ -4,19 +4,47 @@ import { warn } from './shared';
 export type ParsedDirectiveValue = [string, string][];
 
 const VALUE_DELIMITER = ',';
-const PAIR_DELIMITER = ':';
+const SEGMENT_DELIMITER = ':';
 const MODIFIER_DELIMITER = '.';
 
 /**
  * Utility for parsing a value that might have modifiers.
+ * Safely extracts modifiers, ignoring dots inside quotes or boundaries.
  *
- * `click.debounce.400ms` returns `{ key: 'click', modifiers: ['debounce', '400ms']}`
+ * - `click.debounce.400ms` returns `{ key: 'click', modifiers: ['debounce', '400ms']}`
+ * - `media.(max-width < 600px)` returns `{ key: 'media', modifiers: ['(max-width < 600px)']}`
  */
 export function parseModifiers(value: string): { key: string; modifiers: string[] } {
-  const dotIndex = value.indexOf(MODIFIER_DELIMITER);
-  if (dotIndex !== -1) {
-    const key = value.slice(0, dotIndex);
-    const modifiers = value.slice(dotIndex + 1).split(MODIFIER_DELIMITER);
+  let firstDotIndex = -1;
+
+  // Separate the key from the modifiers
+  scan(value, (i, char) => {
+    if (char === MODIFIER_DELIMITER) {
+      firstDotIndex = i;
+      return true; // Stop scanning
+    }
+  });
+
+  if (firstDotIndex !== -1) {
+    const key = value.slice(0, firstDotIndex);
+    const modifiersRaw = value.slice(firstDotIndex + 1);
+    const modifiers: string[] = [];
+
+    let start = 0;
+
+    // Split the remaining modifiers
+    scan(modifiersRaw, (i, char, text) => {
+      if (char === MODIFIER_DELIMITER) {
+        modifiers.push(text.slice(start, i));
+        start = i + 1;
+      }
+      return false; // Keep scanning
+    });
+
+    if (start < modifiersRaw.length) {
+      modifiers.push(modifiersRaw.slice(start));
+    }
+
     return { key, modifiers };
   }
 
@@ -25,19 +53,41 @@ export function parseModifiers(value: string): { key: string; modifiers: string[
 
 /**
  * Handles parsing raw directive values into an array of trigger definitions.
+ * Splits on whitespace, ignoring spaces inside quotes or boundaries.
  */
 export function parseTriggers(value: string | null | undefined): TriggerDef[] {
   const rawTriggers = value?.trim();
   if (!rawTriggers) return [];
 
   if (rawTriggers.includes(',')) {
-    warn(`Multi-trigger values must be separated by spaces, not commas: '${rawTriggers}'.`);
+    warn(
+      `Multi-trigger values must be separated by spaces, not commas: '${rawTriggers}'.`,
+    );
     return [];
   }
 
-  const triggers: TriggerDef[] = [];
-  const parsed = rawTriggers.split(/\s+/);
+  const parsed: string[] = [];
+  let start = 0;
 
+  // Split on whitespace only when depth is 0
+  scan(rawTriggers, (i, char, text) => {
+    if (/\s/.test(char)) {
+      if (start !== i) {
+        parsed.push(text.slice(start, i));
+      }
+      start = i + 1;
+    }
+    return false; // Keep scanning
+  });
+
+  if (start < rawTriggers.length) {
+    const remaining = rawTriggers.slice(start).trim();
+    if (remaining) {
+      parsed.push(remaining);
+    }
+  }
+
+  const triggers: TriggerDef[] = [];
   for (const trigger of parsed) {
     const { key: event, modifiers } = parseModifiers(trigger);
     if (event) {
@@ -65,7 +115,7 @@ export function parseDirectiveValue(
   if (cleanedValue.endsWith(',')) {
     cleanedValue = cleanedValue.slice(0, -1).trim();
   }
-  
+
   const parsed: ParsedDirectiveValue = [];
   let start = 0;
 
@@ -102,7 +152,7 @@ function parseSegment(segment: string, acc: ParsedDirectiveValue) {
 
   // Scan for the first colon followed by whitespace
   scan(trimmed, (i, char, text) => {
-    if (char === PAIR_DELIMITER) {
+    if (char === SEGMENT_DELIMITER) {
       if (hasTrailingWhiteSpace(text, i)) {
         splitIndex = i;
         // Stop scan after finding the first separator
@@ -137,7 +187,7 @@ type BoundaryOpener = '(' | '{' | '[';
 
 /**
  * Iterates through text and fires callback when safe (i.e. not inside
- * quotes, parentheses, or curly braces).
+ * quotes, parentheses, or braces).
  */
 function scan(
   text: string,
@@ -168,8 +218,10 @@ function scan(
         totalDepth--;
       }
     } else if (totalDepth === 0) {
-      const shouldStop = callback(i, char, text);
-      if (shouldStop) return { depth: totalDepth, quote };
+      // callback return value dictates whether to return or not
+      if (callback(i, char, text)) {
+        return { depth: totalDepth, quote };
+      }
     }
   }
 
