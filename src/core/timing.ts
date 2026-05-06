@@ -1,10 +1,9 @@
 import { LiteDebouncer, LiteThrottler } from '@tanstack/pacer-lite';
-import type { AnyFunction } from '../types';
+import type { AnyFunction, VoidFn } from '../types';
 import { warn } from './shared';
 
 export const DEFAULT_DEBOUNCE_MS = 300;
 export const DEFAULT_THROTTLE_MS = 150;
-export const DEFAULT_INTERVAL_MS = 1000;
 
 export interface TimingConfig {
   strategy?: 'debounce' | 'throttle';
@@ -19,8 +18,8 @@ export interface TimingConfig {
  */
 export interface PacedFunction<T extends AnyFunction> {
   (...args: Parameters<T>): void;
-  cancel: () => void;
-  flush: () => void;
+  cancel: VoidFn;
+  flush: VoidFn;
 }
 
 /**
@@ -47,7 +46,9 @@ export function getTimingConfig(
       leading = true;
       trailing = false;
     } else if (mod === 'trailing') {
-      leading = false;
+      // TODO: address `throttle.trailing` not working
+      // Setting `leading` to true ensures the event fires
+      leading = true;
       trailing = true;
     } else if (mod === 'edges') {
       leading = true;
@@ -81,16 +82,19 @@ export function getTimingConfig(
   return { strategy, wait, leading, trailing };
 }
 
+type PacedOptions = { leading?: boolean; trailing?: boolean; signal?: AbortSignal };
+
 /**
- * Creates a debounced function that delays execution until after a specified
- * wait time has elapsed since the last invocation.
+ * Created a paced function. Used by `debounce` and `throttle`.
  */
-export function debounce<T extends AnyFunction>(
+function executePaced<T extends AnyFunction>(
+  type: 'debounce' | 'throttle',
   fn: T,
   wait: number,
-  options: { leading?: boolean; trailing?: boolean; signal?: AbortSignal } = {},
+  options: PacedOptions = {},
 ): PacedFunction<T> {
-  const instance = new LiteDebouncer(fn, { wait, ...options });
+  const pacerClass = type === 'debounce' ? LiteDebouncer : LiteThrottler;
+  const instance = new pacerClass(fn, { wait, ...options });
   const paced = (...args: Parameters<T>) => instance.maybeExecute(...args);
 
   paced.cancel = () => instance.cancel();
@@ -104,25 +108,27 @@ export function debounce<T extends AnyFunction>(
 }
 
 /**
+ * Creates a debounced function that delays execution until after a specified
+ * wait time has elapsed since the last invocation.
+ */
+export function debounce<T extends AnyFunction>(
+  fn: T,
+  wait: number,
+  options: PacedOptions = {},
+): PacedFunction<T> {
+  return executePaced<T>('debounce', fn, wait, options);
+}
+
+/**
  * Creates a throttled function that limits execution to at most once
  * within the specified wait time.
  */
 export function throttle<T extends AnyFunction>(
   fn: T,
   wait: number,
-  options: { leading?: boolean; trailing?: boolean; signal?: AbortSignal } = {},
+  options: PacedOptions = {},
 ): PacedFunction<T> {
-  const instance = new LiteThrottler(fn, { wait, ...options });
-  const paced = (...args: Parameters<T>) => instance.maybeExecute(...args);
-
-  paced.cancel = () => instance.cancel();
-  paced.flush = () => instance.flush();
-
-  if (options.signal) {
-    options.signal.addEventListener('abort', () => paced.cancel(), { once: true });
-  }
-
-  return paced as PacedFunction<T>;
+  return executePaced<T>('throttle', fn, wait, options);
 }
 
 /**
