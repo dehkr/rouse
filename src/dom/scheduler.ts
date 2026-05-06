@@ -1,283 +1,10 @@
 import { getApp, type RouseApp } from '../core/app';
 import { parseTriggers } from '../core/parser';
-import {
-  applyTiming,
-  DEFAULT_INTERVAL_MS,
-  isTimeModifier,
-  parseTime,
-} from '../core/timing';
+import { warn } from '../core/shared';
+import { applyTiming, isTimeModifier, parseTime } from '../core/timing';
 import type { ActionFn, LifecycleEvent, TriggerDef, VoidFn } from '../types';
 import { applyModifiers, getListenerOptions, resolveListenerTarget } from './modifiers';
 import { isNativeNavigation } from './utils';
-
-const visibilityCallbacks = new WeakMap<Element, VoidFn>();
-
-/**
- * Shared IntersectionObserver for `intersect` events and `rz-wake` strategies
- */
-const visibilityObserver = new IntersectionObserver((entries) => {
-  entries.forEach((entry) => {
-    if (entry.isIntersecting) {
-      const el = entry.target;
-      const callback = visibilityCallbacks.get(el);
-      if (callback) {
-        callback();
-        visibilityCallbacks.delete(el);
-      }
-      visibilityObserver.unobserve(el);
-    }
-  });
-});
-
-/**
- * Wakes immediately when document is ready
- */
-export function whenLoaded(callback: VoidFn) {
-  if (document.readyState === 'complete') {
-    callback();
-  } else {
-    window.addEventListener('load', callback, { once: true });
-  }
-}
-
-/**
- * Wakes after provided delay in ms
- */
-export function whenDelayOver(delay: number, callback: VoidFn) {
-  setTimeout(callback, delay);
-}
-
-/**
- * Wakes when the element is visible or scrolled into view
- */
-export function whenVisible(el: Element, callback: VoidFn) {
-  visibilityCallbacks.set(el, callback);
-  visibilityObserver.observe(el);
-}
-
-/**
- * Wakes when the media query matches
- */
-export function whenMediaMatches(mediaQuery: string, callback: VoidFn) {
-  if (!mediaQuery) {
-    callback();
-    return;
-  }
-  const mql = window.matchMedia(mediaQuery);
-  if (mql.matches) {
-    callback();
-  } else {
-    const handler = (e: MediaQueryListEvent) => {
-      if (e.matches) {
-        callback();
-        mql.removeEventListener('change', handler);
-      }
-    };
-    mql.addEventListener('change', handler);
-  }
-}
-
-/**
- * Wakes on any custom event
- */
-export function whenEvent(event: string, callback: VoidFn) {
-  if (!event) {
-    callback();
-    return;
-  }
-  window.addEventListener(event, callback, { once: true });
-}
-
-/**
- * Wakes when the user interacts with the element
- */
-export function whenInteracted(
-  el: Element,
-  callback: VoidFn,
-  triggers: string[] | string = ['mouseover', 'focusin', 'touchstart'],
-) {
-  const triggerList = Array.isArray(triggers) ? triggers : [triggers];
-  let called = false;
-
-  const interactHandler = () => {
-    if (called) return;
-    called = true;
-
-    callback();
-    triggerList.forEach((evt) => {
-      el.removeEventListener(evt, interactHandler);
-    });
-  };
-  triggerList.forEach((evt) => {
-    el.addEventListener(evt, interactHandler, { passive: true });
-  });
-}
-
-/**
- * Wakes when the browser is idle
- */
-export function whenIdle(callback: VoidFn) {
-  if ('requestIdleCallback' in window) {
-    window.requestIdleCallback(callback);
-  } else {
-    // Fallback for Safari since it doesn't support requestIdleCallback (as of Jan 2026)
-    setTimeout(callback, 1);
-  }
-}
-
-/**
- * Coordinates `rz-wake` activation strategies. All strategies must be
- * satisfied before `onWake` fires. If no strategies are provided it
- * fires immediately.
- *
- * Each strategy maps to a `whenX` primitive in this module: `load`,
- * `delay`, `visible`, `media`, `event`, `interaction`, `idle`.
- *
- * @param el - The controller element awaiting activation.
- * @param strategies - Parsed `[strategy, param]` tuples from `rz-wake`.
- * @param onWake - Invoked once when all strategies have been satisfied.
- */
-export function attachWakeStrategies(
-  el: Element,
-  strategies: [string, string][],
-  onWake: VoidFn,
-) {
-  let pending = strategies.length;
-  if (pending === 0) {
-    return onWake();
-  }
-
-  // Wake triggers only when all conditions are satisfied
-  const satisfy = () => {
-    pending--;
-    if (pending === 0) {
-      onWake();
-    }
-  };
-
-  // Strategy Logic
-  strategies.forEach(([strategy, param]) => {
-    switch (strategy) {
-      case 'load':
-        return whenLoaded(satisfy);
-      case 'delay':
-        return whenDelayOver(parseInt(param, 10) || 0, satisfy);
-      case 'visible':
-        return whenVisible(el, satisfy);
-      case 'media':
-        return whenMediaMatches(param, satisfy);
-      case 'event':
-        return whenEvent(param, satisfy);
-      case 'interaction':
-        return whenInteracted(el, satisfy);
-      case 'idle':
-        return whenIdle(satisfy);
-      default:
-        satisfy();
-    }
-  });
-}
-
-export interface TriggerContext {
-  el: Element;
-  app?: RouseApp;
-  modifiers: string[];
-  action: ActionFn;
-}
-
-export type SyntheticEventHandler = (ctx: TriggerContext) => VoidFn | null;
-
-/**
- * Universal synthetic events available to any TriggerDirective.
- * Store-specific events (mutate) stay inline in rz-save-on.
- */
-export const syntheticEvents: Record<string, SyntheticEventHandler> = {
-  // Fires immediately and once
-  load: ({ action }) => {
-    action();
-    return null;
-  },
-
-  delay: ({ modifiers, action }) => {
-    // Find the first time modifier
-    const timeModifier = modifiers.find(isTimeModifier) ?? DEFAULT_INTERVAL_MS;
-    const ms = parseTime(timeModifier);
-
-    if (ms <= 0) return null;
-
-    const id = window.setTimeout(action, ms);
-    return () => window.clearTimeout(id);
-  },
-
-  // Repeating timer
-  // Supports `.once` modifier for single fire after delay
-  interval: ({ modifiers, action }) => {
-    const isOnce = modifiers.includes('once');
-
-    // Find the first time modifier
-    const timeModifier = modifiers.find(isTimeModifier) ?? DEFAULT_INTERVAL_MS;
-    const ms = parseTime(timeModifier);
-
-    if (ms <= 0) return null;
-
-    const setup = isOnce ? window.setTimeout : window.setInterval;
-    const cleanup = isOnce ? window.clearTimeout : window.clearInterval;
-
-    const id = setup(action, ms);
-    return () => cleanup(id);
-  },
-
-  // Explicit no-op (opts the directive out of all auto-binding)
-  none: () => null,
-
-  // Connectivity
-  online: ({ action }) => attachWindowEvent('online', action),
-  offline: ({ action }) => attachWindowEvent('offline', action),
-
-  // Document visibility (tab switch / minimize)
-  visible: ({ action }) => attachVisibilityChange(action, 'visible'),
-  hidden: ({ action }) => attachVisibilityChange(action, 'hidden'),
-
-  // Page show (initial load + bfcache restore)
-  back: ({ action }) => attachWindowEvent('pageshow', action),
-
-  // Element intersection with the viewport
-  intersect: ({ el, action }) => {
-    whenVisible(el, action);
-    return null;
-  },
-
-  // Aggregate proxy for 'mouseover', 'focusin', or 'touchstart'
-  interaction: ({ el, action }) => {
-    whenInteracted(el, action);
-    return null;
-  },
-
-  // window.requestIdleCallback
-  idle: ({ action }) => {
-    whenIdle(action);
-    return null;
-  },
-
-  // App lifecycle
-  ready: ({ el, app, action }) => {
-    const appInstance = app || getApp(el);
-    if (!appInstance) return null;
-
-    // Handle case where controllers connect after `ready` event
-    if (appInstance.isReady) {
-      action();
-      return null;
-    }
-
-    const handler = () => action();
-    appInstance.root.addEventListener('rz:app:ready', handler, { once: true });
-
-    return () => {
-      appInstance.root.removeEventListener('rz:app:ready', handler);
-    };
-  },
-};
 
 /**
  * Dispatches a custom event from an element.
@@ -346,7 +73,6 @@ export function attachListener<D = any>(
  * @param events - Whitespace-separated event names with optional modifiers.
  * @param callback - Invoked when any of the events fires.
  * @param abortSignal - Optional signal that triggers cleanup on abort.
- *
  * @returns Cleanup function that removes all attached listeners.
  *
  * @example
@@ -461,6 +187,263 @@ export function dispatchOne(
 }
 
 /**
+ * Coordinates `rz-wake` activation strategies using the unified event engine.
+ * All strategies must be satisfied before `onWake` fires. If no strategies
+ * are provided it fires immediately.
+ *
+ * @param el - The controller element awaiting activation.
+ * @param triggers - Parsed TriggerDef array from `parseTriggers`.
+ * @param onWake - Invoked once when all strategies have been satisfied.
+ * @returns A master cleanup function to abort wake strategies if the element unmounts early.
+ */
+export function attachWakeStrategies(
+  el: Element,
+  triggers: TriggerDef[],
+  onWake: VoidFn,
+): VoidFn {
+  let pending = triggers.length;
+  if (pending === 0) {
+    onWake();
+    return () => {};
+  }
+
+  let isAwake = false;
+  const cleanups: VoidFn[] = [];
+
+  // Wake triggers only when all conditions are satisfied (AND logic)
+  const satisfy = () => {
+    if (isAwake) return;
+    pending--;
+
+    if (pending === 0) {
+      isAwake = true;
+      cleanups.forEach((cleanup) => cleanup());
+      onWake();
+    }
+  };
+
+  for (const trigger of triggers) {
+    let satisfied = false;
+
+    const action = () => {
+      if (satisfied) return;
+      satisfied = true;
+      satisfy();
+    };
+
+    const cleanup = dispatchOne(trigger, { el, action, app: undefined });
+    if (cleanup) cleanups.push(cleanup);
+  }
+
+  // Return a master cleanup in case the element is destroyed before waking
+  return () => {
+    if (!isAwake) {
+      cleanups.forEach((cleanup) => cleanup());
+    }
+  };
+}
+
+// ============================== SYNTHETIC EVENT REGISTRY ===============================
+
+export interface TriggerContext {
+  el: Element;
+  app?: RouseApp;
+  modifiers: string[];
+  action: ActionFn;
+}
+
+export type SyntheticEventHandler = (ctx: TriggerContext) => VoidFn | null;
+
+/**
+ * Universal synthetic events available to any TriggerDirective.
+ * Store-specific events (mutate) stay inline in rz-save-on.
+ */
+export const syntheticEvents: Record<string, SyntheticEventHandler> = {
+  /** Fires as soon as the DOM node can be interacted with */
+  dom: ({ action }) => attachDocStateEvent('dom', action),
+
+  /** Fires when all assets (images, etc.) are fully loaded */
+  load: ({ action }) => attachDocStateEvent('load', action),
+
+  /** Fires when the RouseApp instance is fully initialized */
+  ready: ({ el, app, action }) => {
+    const inst = app || getApp(el);
+    if (!inst) return null;
+
+    if (inst.isReady) {
+      action();
+      return null;
+    }
+
+    inst.root.addEventListener('rz:app:ready', action, { once: true });
+    return () => inst.root.removeEventListener('rz:app:ready', action);
+  },
+
+  /** Fires once after a specified period */
+  delay: (ctx) => attachTimingEvent('delay', ctx),
+
+  /** Repeating timer */
+  interval: (ctx) => attachTimingEvent('interval', ctx),
+
+  /** Explicit no-op (opts the directive out of all auto-binding) */
+  none: () => null,
+
+  /** Connectivity */
+  online: ({ action }) => attachWindowEvent('online', action),
+  offline: ({ action }) => attachWindowEvent('offline', action),
+
+  /** Document visibility (tab switch / minimize) */
+  'page-visible': ({ action }) => attachVisibilityChange('visible', action),
+  'page-hidden': ({ action }) => attachVisibilityChange('hidden', action),
+
+  /** Page show (initial load + bfcache restore) */
+  back: ({ action }) => attachWindowEvent('pageshow', action),
+
+  /** Listens to a media query, supports `.once` */
+  media: ({ el, modifiers, action }) => {
+    const query = modifiers.find((m) => m.startsWith('(') && m.endsWith(')'));
+    const isOnce = modifiers.includes('once');
+
+    if (!query) {
+      warn(`A valid query modifier in parentheses is required for 'media' on`, el);
+      return null;
+    }
+
+    const mql = window.matchMedia(query);
+    let hasFired = false;
+    let cleanup: VoidFn = () => {};
+
+    const handleMatch = () => {
+      if (isOnce && hasFired) return;
+      hasFired = true;
+      action();
+      if (isOnce) cleanup();
+    };
+
+    if (mql.matches) {
+      handleMatch();
+      if (isOnce) return null;
+    }
+
+    const changeHandler = (e: MediaQueryListEvent) => {
+      if (e.matches) handleMatch();
+    };
+
+    mql.addEventListener('change', changeHandler);
+    cleanup = () => mql.removeEventListener('change', changeHandler);
+
+    return cleanup;
+  },
+
+  /** Element intersection with the viewport, supports `.once` */
+  intersect: ({ el, modifiers, action }) => {
+    const isOnce = modifiers.includes('once');
+    let hasFired = false;
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          if (isOnce && hasFired) return;
+          hasFired = true;
+          action();
+
+          if (isOnce) {
+            observer.disconnect();
+          }
+        }
+      });
+    });
+
+    observer.observe(el);
+
+    return () => observer.disconnect();
+  },
+
+  /** Aggregate proxy for 'mouseover', 'focusin', or 'touchstart', supports `.once` */
+  interaction: ({ el, modifiers, action }) => {
+    const isOnce = modifiers.includes('once');
+    const triggers = ['mouseover', 'focusin', 'touchstart'];
+    let hasFired = false;
+
+    const handler = (e: Event) => {
+      if (isOnce && hasFired) return;
+      hasFired = true;
+
+      // Pass the event along so modifiers or the underlying action can use it
+      action(e as any);
+
+      if (isOnce) cleanup();
+    };
+
+    const cleanup = () => {
+      triggers.forEach((evt) => el.removeEventListener(evt, handler));
+    };
+
+    triggers.forEach((evt) => el.addEventListener(evt, handler, { passive: true }));
+
+    return cleanup;
+  },
+
+  /** window.requestIdleCallback (one-time execution) */
+  idle: ({ action }) => {
+    if (typeof window.requestIdleCallback === 'function') {
+      const id = window.requestIdleCallback(() => action());
+      return () => window.cancelIdleCallback(id);
+    } else {
+      // Fallback for Safari since it doesn't support requestIdleCallback (as of May 2026)
+      const id = window.setTimeout(() => action(), 1);
+      return () => window.clearTimeout(id);
+    }
+  },
+};
+
+// =============================== SYNTHETIC EVENT HELPERS ===============================
+
+/**
+ * Helper that fires either window 'load' or document 'DOMContentLoaded' event.
+ * Returns a cleanup function if a listener had to be attached.
+ */
+function attachDocStateEvent(type: 'dom' | 'load', callback: VoidFn): VoidFn | null {
+  const isDom = type === 'dom';
+  const isReady = isDom
+    ? document.readyState !== 'loading'
+    : document.readyState === 'complete';
+
+  if (isReady) {
+    callback();
+    return null;
+  }
+
+  const target = isDom ? document : window;
+  const event = isDom ? 'DOMContentLoaded' : 'load';
+
+  target.addEventListener(event, callback, { once: true });
+
+  return () => target.removeEventListener(event, callback);
+}
+
+/**
+ * Helper for the `delay` and `interval` synthetic event functions.
+ */
+function attachTimingEvent(type: 'delay' | 'interval', ctx: TriggerContext) {
+  const timeModifier = ctx.modifiers.find(isTimeModifier);
+
+  if (!timeModifier) {
+    warn(`Missing timing modifier for '${type}' on`, ctx.el);
+    return null;
+  }
+
+  const ms = parseTime(timeModifier);
+  if (ms <= 0) return null;
+
+  const setup = type === 'delay' ? window.setTimeout : window.setInterval;
+  const clear = type === 'delay' ? window.clearTimeout : window.clearInterval;
+
+  const id = setup(ctx.action, ms);
+  return () => clear(id);
+}
+
+/**
  * Subscribes to a window-level event and returns a cleanup that
  * removes the listener.
  */
@@ -472,10 +455,10 @@ function attachWindowEvent(event: string, action: VoidFn): VoidFn {
 }
 
 /**
- * Subscribes to `document.visibilitychange`, firing `action` only
+ * Subscribes to the document `visibilitychange` event, firing `action`
  * when the document transitions to the specified state.
  */
-function attachVisibilityChange(action: VoidFn, state: 'visible' | 'hidden'): VoidFn {
+function attachVisibilityChange(state: 'visible' | 'hidden', action: VoidFn): VoidFn {
   const handler = () => {
     if (document.visibilityState === state) {
       action();

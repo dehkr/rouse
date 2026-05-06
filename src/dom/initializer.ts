@@ -47,7 +47,7 @@ export function initControllerElement(el: HTMLElement, app: RouseApp) {
     setup = controller;
   }
 
-  const strategies = rzWake.getConfig(el, app.config.ui.wakeStrategy);
+  const strategies = rzWake.getConfig(el, app);
 
   attachWakeStrategies(el, strategies, () => {
     // Props can't be passed to an alias so skip `resolveProps` in that case

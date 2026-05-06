@@ -1,6 +1,7 @@
-import { parseDirectiveValue } from '../core/parser';
+import type { RouseApp } from '../core/app';
+import { parseTriggers } from '../core/parser';
 import { getDirectiveValue, hasDirective } from '../core/shared';
-import type { ConfigDirective, DirectiveSlug } from '../types';
+import type { ConfigDirective, DirectiveSlug, TriggerDef } from '../types';
 
 // ============================== DIRECTIVE DEFINITION ===================================
 
@@ -11,12 +12,15 @@ export const rzWake = {
   existsOn: (el: Element) => hasDirective(el, SLUG),
   getValue: (el: Element) => getDirectiveValue(el, SLUG),
   getConfig,
-} as const satisfies ConfigDirective<[string, string][]>;
+} as const satisfies ConfigDirective<TriggerDef[]>;
 
 // =======================================================================================
 
-function getConfig(el: Element, defaultStrategy?: string): [string, string][] {
-  return parseDirectiveValue(
-    getDirectiveValue(el, SLUG)?.trim() || defaultStrategy || '',
-  );
+function getConfig(el: Element, app: RouseApp): TriggerDef[] {
+  const strategies = parseTriggers(getDirectiveValue(el, SLUG));
+  if (strategies.length === 0) {
+    return [{ event: app.config.ui.wakeStrategy, modifiers: [] }];
+  }
+
+  return strategies;
 }

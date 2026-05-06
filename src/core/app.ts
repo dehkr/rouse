@@ -32,7 +32,7 @@ export const defaultConfig = {
   ui: {
     errorClass: 'rz-error',
     loadingClass: 'rz-loading',
-    wakeStrategy: 'load',
+    wakeStrategy: 'ready',
   },
 };
 
@@ -254,13 +254,13 @@ export class RouseApp {
     });
 
     requestAnimationFrame(() => {
+      this.isReady = true;
       this.root.dispatchEvent(
         new CustomEvent('rz:app:ready', {
           bubbles: true,
           detail: { app: this },
         }),
       );
-      this.isReady = true;
     });
   }
 
