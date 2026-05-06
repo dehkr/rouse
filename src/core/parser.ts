@@ -56,8 +56,10 @@ export function parseModifiers(value: string): { key: string; modifiers: string[
  * Splits on whitespace, ignoring spaces inside quotes or boundaries.
  */
 export function parseTriggers(value: string | null | undefined): TriggerDef[] {
-  const rawTriggers = value?.trim();
+  let rawTriggers = value?.trim();
   if (!rawTriggers) return [];
+
+  rawTriggers = stripQuotes(rawTriggers);
 
   if (rawTriggers.includes(',')) {
     warn(
@@ -168,15 +170,12 @@ function parseSegment(segment: string, acc: ParsedDirectiveValue) {
   };
 
   if (splitIndex !== -1) {
-    const rawKey = trimmed.slice(0, splitIndex).trim();
-    let val = trimmed.slice(splitIndex + 1).trim();
-    if (isInQuotes(val)) {
-      val = val.slice(1, -1);
-    }
+    const rawKey = stripQuotes(trimmed.slice(0, splitIndex).trim());
+    const val = stripQuotes(trimmed.slice(splitIndex + 1).trim());
     processKey(rawKey, val);
   } else {
     // Key-only directive values
-    processKey(trimmed, '');
+    processKey(stripQuotes(trimmed), '');
   }
 }
 
@@ -234,6 +233,13 @@ function isInQuotes(val: string) {
   const last = val[val.length - 1];
 
   return (first === '"' || first === "'") && first === last;
+}
+
+function stripQuotes(val: string) {
+  if (isInQuotes(val)) {
+    return val.slice(1, -1).trim();
+  }
+  return val;
 }
 
 function hasTrailingWhiteSpace(text: string, index: number) {
