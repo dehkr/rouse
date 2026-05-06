@@ -458,10 +458,10 @@ function attachWindowEvent(event: string, action: VoidFn): VoidFn {
  * Subscribes to the document `visibilitychange` event, firing `action`
  * when the document transitions to the specified state.
  */
-function attachVisibilityChange(state: 'visible' | 'hidden', action: VoidFn): VoidFn {
-  const handler = () => {
+function attachVisibilityChange(state: 'visible' | 'hidden', action: ActionFn): VoidFn {
+  const handler = (e: Event) => {
     if (document.visibilityState === state) {
-      action();
+      action(e);
     }
   };
   document.addEventListener('visibilitychange', handler);
