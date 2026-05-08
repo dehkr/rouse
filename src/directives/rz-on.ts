@@ -4,7 +4,7 @@ import { getNestedVal } from '../core/path';
 import { resolveProps, splitInjection } from '../core/props';
 import { err, getDirectiveValue, hasDirective, warn } from '../core/shared';
 import { parseStoreLocator } from '../core/store';
-import { dispatchOne } from '../dom/scheduler';
+import { dispatchTrigger } from '../dom/scheduler';
 import { boundCleanup } from '../dom/utils';
 import type {
   ActionCtx,
@@ -74,7 +74,7 @@ function attach(
   const cleanups: Array<() => void> = [];
 
   for (const trigger of triggers) {
-    const cleanup = dispatchOne(trigger, {
+    const cleanup = dispatchTrigger(trigger, {
       el,
       app,
       action: (e?: Event) => {

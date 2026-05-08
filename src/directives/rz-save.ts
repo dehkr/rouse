@@ -3,7 +3,7 @@ import { parseTriggerSubjectPairs } from '../core/parser';
 import { getDirectiveValue, hasDirective, warn } from '../core/shared';
 import { resolveTarget } from '../core/store';
 import { applyTiming } from '../core/timing';
-import { dispatchOne } from '../dom/scheduler';
+import { dispatchTrigger } from '../dom/scheduler';
 import { resolveRequestConfig } from '../net/request';
 import { effect } from '../reactivity';
 import type { DirectiveSlug, ManagerDirective, TriggerDef, VoidFn } from '../types';
@@ -65,7 +65,7 @@ function initialize(el: Element, app: RouseApp) {
       continue;
     }
 
-    const cleanup = dispatchOne(trigger, { el, app, action: fire });
+    const cleanup = dispatchTrigger(trigger, { el, app, action: fire });
     if (cleanup) teardowns.push(cleanup);
   }
 

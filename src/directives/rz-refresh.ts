@@ -2,7 +2,7 @@ import type { RouseApp } from '../core/app';
 import { parseTriggerSubjectPairs } from '../core/parser';
 import { getDirectiveValue, hasDirective, warn } from '../core/shared';
 import { resolveTarget } from '../core/store';
-import { dispatchOne } from '../dom/scheduler';
+import { dispatchTrigger } from '../dom/scheduler';
 import { resolveRequestConfig } from '../net/request';
 import type { DirectiveSlug, ManagerDirective, VoidFn } from '../types';
 
@@ -50,7 +50,7 @@ function initialize(el: Element, app: RouseApp) {
 
     const { storeName } = target;
     const fire = () => triggerRefresh(el, app, storeName);
-    const cleanup = dispatchOne(trigger, { el, app, action: fire });
+    const cleanup = dispatchTrigger(trigger, { el, app, action: fire });
 
     if (cleanup) teardowns.push(cleanup);
   }

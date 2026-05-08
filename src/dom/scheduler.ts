@@ -6,6 +6,13 @@ import type { ActionFn, LifecycleEvent, TriggerDef, VoidFn } from '../types';
 import { applyModifiers, getListenerOptions, resolveListenerTarget } from './modifiers';
 import { isNativeNavigation } from './utils';
 
+export interface TriggerContext {
+  el: Element;
+  app?: RouseApp;
+  modifiers: string[];
+  action: ActionFn;
+}
+
 /**
  * Dispatches a custom event from an element.
  *
@@ -35,7 +42,7 @@ export function dispatch<T extends string, D = any>(
  * - Listener target resolution (`outside`) via `resolveListenerTarget`
  *
  * Does not apply pacing (debounce/throttle). Most callers should use the public
- * `on()` facade or `dispatchOne` instead. This is the primitive both build on.
+ * `on()` facade or `dispatchTrigger` instead. This is the primitive both build on.
  *
  * @returns Cleanup function that removes the listener.
  */
@@ -63,7 +70,7 @@ export function attachListener<D = any>(
 
 /**
  * Parses a multi-event + modifier string, dispatches each trigger through
- * the synthetic-event registry (via `dispatchOne` or `attachListener`),
+ * the synthetic-event registry (via `dispatchTrigger` or `attachListener`),
  * and returns a single aggregate cleanup that tears them all down.
  *
  * Backs `ctx.on` for controllers and is also exported for non-controller
@@ -94,7 +101,7 @@ export function on<D = any>(
   const cleanups: Array<VoidFn> = [];
 
   for (const trigger of triggers) {
-    const cleanup = dispatchOne(trigger, {
+    const cleanup = dispatchTrigger(trigger, {
       el: target as Element,
       app: undefined,
       action: callback as ActionFn,
@@ -125,11 +132,16 @@ export function on<D = any>(
  *
  * @returns Cleanup function, or `null` if the trigger has no teardown.
  */
-export function dispatchOne(
+export function dispatchTrigger(
   trigger: TriggerDef,
   base: Omit<TriggerContext, 'modifiers'>,
 ): VoidFn | null {
-  const paced = applyTiming(base.action, trigger.modifiers);
+  const appInst = base.app || getApp(base.el);
+  const paced = applyTiming(
+    base.action, 
+    trigger.modifiers, 
+    appInst?.config.timing
+  );
   const pacedAction: ActionFn = (e) => paced(e);
 
   // Ensure paced timers cancel on teardown
@@ -212,7 +224,7 @@ export function attachWakeStrategies(
       satisfy();
     };
 
-    const cleanup = dispatchOne(trigger, { el, action, app: undefined });
+    const cleanup = dispatchTrigger(trigger, { el, action, app: undefined });
     if (cleanup) cleanups.push(cleanup);
   }
 
@@ -225,13 +237,6 @@ export function attachWakeStrategies(
 }
 
 // ============================== SYNTHETIC EVENT REGISTRY ===============================
-
-export interface TriggerContext {
-  el: Element;
-  app?: RouseApp;
-  modifiers: string[];
-  action: ActionFn;
-}
 
 export type SyntheticEventHandler = (ctx: TriggerContext) => VoidFn | null;
 

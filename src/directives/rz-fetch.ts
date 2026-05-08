@@ -1,7 +1,7 @@
 import type { RouseApp } from '../core/app';
 import { parseTriggerSubjectPairs } from '../core/parser';
 import { getDirectiveValue, hasDirective, warn } from '../core/shared';
-import { attachListener, dispatchOne } from '../dom/scheduler';
+import { attachListener, dispatchTrigger } from '../dom/scheduler';
 import { is, isNativeNavigation } from '../dom/utils';
 import { handleFetch } from '../net/engine';
 import type { DirectiveSlug, ManagerDirective, VoidFn } from '../types';
@@ -50,7 +50,7 @@ function initialize(el: Element, app: RouseApp) {
       continue;
     }
 
-    const cleanup = dispatchOne(trigger, {
+    const cleanup = dispatchTrigger(trigger, {
       el,
       app,
       action: (e?: Event) => {
