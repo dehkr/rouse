@@ -28,7 +28,7 @@ export function updateHtml(el: Element, value: BindableValue) {
  * Handles setting value of modelable elements.
  */
 export function setModelableValue(el: Element, value: BindableValue) {
-  if (!(el instanceof HTMLElement)) return;
+  if (!is(el, 'HTML')) return;
 
   // Text of elements with `contenteditable` attribute are modelable
   if (el.isContentEditable) {
@@ -42,18 +42,26 @@ export function setModelableValue(el: Element, value: BindableValue) {
   // Handle input/select elements
   const input = el as HTMLInputElement | HTMLSelectElement;
 
+  // Checkbox
   if (input.type === 'checkbox') {
     input.checked = Boolean(value);
-  } else if (input.type === 'radio') {
+  }
+
+  // Radio buttons
+  else if (input.type === 'radio') {
     input.checked = input.value === String(value);
-  } else if (is(input, 'Select') && input.multiple && Array.isArray(value)) {
-    // Handle multi-select (array value)
+  }
+
+  // Multi-select (array value)
+  else if (is(input, 'Select') && input.multiple && Array.isArray(value)) {
     const vals = new Set(value.map(String));
     Array.from(input.options).forEach((opt) => {
       opt.selected = vals.has(opt.value);
     });
-  } else {
-    // Handle standard inputs (string value)
+  }
+
+  // Standard inputs (string value)
+  else {
     const strVal = String(value ?? '');
     // Only update if actually changed to prevent cursor jumping
     if (is(input, 'Input') || is(input, 'TextArea')) {
@@ -68,7 +76,7 @@ export function setModelableValue(el: Element, value: BindableValue) {
  * Returns current value of HTML element.
  */
 export function getModelableValue(el: Element): BindableValue {
-  if (!(el instanceof HTMLElement)) return;
+  if (!is(el, 'HTML')) return;
 
   // Text of elements with `contenteditable` attribute are modelable
   if (el.isContentEditable) {
@@ -132,7 +140,7 @@ export function updateClass(el: Element, value: BindableValue) {
  * Handles style attribute updates. Supports object syntax and string value.
  */
 export function updateStyle(el: Element, value: BindableValue) {
-  if (!(el instanceof HTMLElement || el instanceof SVGElement)) return;
+  if (!(is(el, 'HTML') || is(el, 'SVG'))) return;
 
   if (value && typeof value === 'object') {
     Object.assign(el.style, value);
