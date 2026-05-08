@@ -7,7 +7,7 @@ import {
   uniqueKey,
   warn,
 } from '../core/shared';
-import { rzSrc } from '../directives/rz-src';
+import { rzUrl } from '../directives';
 import { extractFieldValues } from '../dom/forms';
 import { dispatch } from '../dom/scheduler';
 import { is } from '../dom/utils';
@@ -73,7 +73,7 @@ async function executeFetch(el: Element, app: RouseApp, options: RouseRequest) {
 
   let url: string | null = options.url || null;
   if (!url) {
-    const srcUrl = rzSrc.getConfig(el).url;
+    const srcUrl = rzUrl.getConfig(el).url;
     if (srcUrl) url = srcUrl;
   }
 

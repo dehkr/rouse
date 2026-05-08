@@ -2,7 +2,7 @@ import { getDirectiveValue, hasDirective } from '../core/shared';
 import { is } from '../dom/utils';
 import type { ConfigDirective, DirectiveSlug } from '../types';
 
-const SLUG = 'src' as const satisfies DirectiveSlug;
+const SLUG = 'url' as const satisfies DirectiveSlug;
 
 /**
  * URL source of truth for an element. Falls back to `href` (anchors)
@@ -18,7 +18,7 @@ function getConfig(el: Element): { url: string } {
   return { url: '' };
 }
 
-export const rzSrc = {
+export const rzUrl = {
   slug: SLUG,
   existsOn: (el: Element) => hasDirective(el, SLUG),
   getValue: (el: Element) => getDirectiveValue(el, SLUG),

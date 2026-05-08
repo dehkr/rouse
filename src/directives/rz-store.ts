@@ -2,7 +2,7 @@ import { getApp, type RouseApp } from '../core/app';
 import { err, getDirectiveValue, hasDirective, warn } from '../core/shared';
 import { is } from '../dom/utils';
 import type { DirectiveSlug, ManagerDirective } from '../types';
-import { rzSrc } from './rz-src';
+import { rzUrl } from './rz-url';
 
 const SLUG = 'store' as const satisfies DirectiveSlug;
 const initialized = new WeakSet<HTMLScriptElement>();
@@ -22,7 +22,7 @@ function validate(el: Element, app: RouseApp): el is HTMLScriptElement {
 
 /**
  * Bootstraps a global reactive store from a `<script>` tag. Initializes the
- * reactive data registry and seeds the store's URL from `rz-src` if present.
+ * reactive data registry and seeds the store's URL from `rz-url` if present.
  *
  * Save/refresh triggers (`rz-save`, `rz-refresh`) are wired separately by
  * their own manager scans, so the store doesn't need to know about them.
@@ -56,9 +56,9 @@ function initialize(el: HTMLScriptElement, app: RouseApp) {
     }
   }
 
-  // Seed the store URL from rz-src
-  if (rzSrc.existsOn(el)) {
-    const { url } = rzSrc.getConfig(el);
+  // Seed the store URL from `rz-url`
+  if (rzUrl.existsOn(el)) {
+    const { url } = rzUrl.getConfig(el);
     if (url) app.stores.config(storeName, { url });
   }
 

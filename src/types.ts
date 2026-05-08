@@ -19,10 +19,10 @@ export type DirectiveSlug =
   | 'request-save'
   | 'save'
   | 'scope'
-  | 'src'
   | 'store'
   | 'target'
   | 'text'
+  | 'url'
   | 'validate'
   | 'wake';
 

@@ -12,5 +12,6 @@ export { rzScope } from './rz-scope';
 export { rzStore } from './rz-store';
 export { rzTarget } from './rz-target';
 export { rzText } from './rz-text';
+export { rzUrl } from './rz-url';
 export { rzValidate } from './rz-validate';
 export { rzWake } from './rz-wake';
