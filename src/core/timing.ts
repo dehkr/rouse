@@ -46,8 +46,8 @@ export function getTimingConfig(
       leading = true;
       trailing = false;
     } else if (mod === 'trailing') {
-      // TODO: address `throttle.trailing` not working
-      // Setting `leading` to true ensures the event fires
+      // TODO: investigate `throttle.trailing` not working
+      // Setting `leading` to true for now to ensure the event fires
       leading = true;
       trailing = true;
     } else if (mod === 'edges') {
@@ -85,7 +85,7 @@ export function getTimingConfig(
 type PacedOptions = { leading?: boolean; trailing?: boolean; signal?: AbortSignal };
 
 /**
- * Created a paced function. Used by `debounce` and `throttle`.
+ * Creates a paced function. Used by `debounce` and `throttle`.
  */
 function executePaced<T extends AnyFunction>(
   type: 'debounce' | 'throttle',

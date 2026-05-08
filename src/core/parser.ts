@@ -1,4 +1,4 @@
-import type { TriggerDef } from '../types';
+import type { TriggerDef, TriggerSubjectPair } from '../types';
 import { warn } from './shared';
 
 export type ParsedDirectiveValue = [string, string][];
@@ -177,6 +177,28 @@ function parseSegment(segment: string, acc: ParsedDirectiveValue) {
     // Key-only directive values
     processKey(stripQuotes(trimmed), '');
   }
+}
+
+/**
+ * Parses directive values shaped as `[trigger]: [subject]` pairs.
+ *
+ * Combines `parseDirectiveValue` (comma-separated groups) with `parseTriggers`
+ * (space-separated triggers within a group). Triggers in the same group share
+ * the group's subject. A missing subject is reported as `null`.
+ */
+export function parseTriggerSubjectPairs(
+  value: string | null | undefined,
+): TriggerSubjectPair[] {
+  const pairs: TriggerSubjectPair[] = [];
+
+  for (const [triggerStr, subjectStr] of parseDirectiveValue(value)) {
+    const subject = subjectStr === '' ? null : subjectStr;
+    for (const trigger of parseTriggers(triggerStr)) {
+      pairs.push({ trigger, subject });
+    }
+  }
+
+  return pairs;
 }
 
 const openers: Record<string, boolean> = { '(': true, '{': true, '[': true };

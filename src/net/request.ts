@@ -1,8 +1,18 @@
 import { defaultConfig, type RouseApp, type RouseConfig } from '../core/app';
 import { warn } from '../core/shared';
-import { rzHeaders } from '../directives/rz-headers';
-import { rzRequest } from '../directives/rz-request';
-import type { RequestError, RouseRequest, RouseResponse } from '../types';
+import {
+  rzHeaders,
+  rzHeadersFetch,
+  rzHeadersRefresh,
+  rzHeadersSave,
+} from '../directives/rz-headers';
+import {
+  rzRequest,
+  rzRequestFetch,
+  rzRequestRefresh,
+  rzRequestSave,
+} from '../directives/rz-request';
+import type { NetworkAction, RequestError, RouseRequest, RouseResponse } from '../types';
 import { preparePayload } from './payload';
 import { fallbackResponse, mapCatchError, normalizeResponse } from './response';
 
@@ -11,17 +21,29 @@ interface AbortEntry {
   ownerId: symbol;
 }
 
+const REQUEST_VARIANTS = {
+  fetch: rzRequestFetch,
+  save: rzRequestSave,
+  refresh: rzRequestRefresh,
+} as const;
+
+const HEADERS_VARIANTS = {
+  fetch: rzHeadersFetch,
+  save: rzHeadersSave,
+  refresh: rzHeadersRefresh,
+} as const;
+
 const abortRegistry = new Map<string | symbol, AbortEntry>();
 
 /**
  * A wrapper for the Fetch API providing request orchestration, including:
- * 
- * - Request, response, and error interceptors
- * - Automatic payload serialization (JSON, FormData, URL parameters)
- * - Concurrency management and cancellation via `abortKey`
- * - Absolute global request timeouts
- * - Configurable retries with custom delays and native 429/503 `Retry-After` support
- * - Automatic response normalization (JSON, Text, Blob)
+ *
+ *   - Request, response, and error interceptors
+ *   - Automatic payload serialization (JSON, FormData, URL parameters)
+ *   - Concurrency management and cancellation via `abortKey`
+ *   - Absolute global request timeouts
+ *   - Configurable retries with custom delays and native 429/503 `Retry-After` support
+ *   - Automatic response normalization (JSON, Text, Blob)
  */
 export async function request<T = any>(
   url: string,
@@ -172,28 +194,54 @@ export async function request<T = any>(
 }
 
 /**
- * Resolves the final network configuration by merging global and local config.
+ * Resolves the final network configuration by merging app-level defaults with
+ * directive-driven config layers in priority order (later wins):
+ *
+ *   1. global defaults (`app.config.network.fetch`)
+ *   2. `rz-request` on target element (save/refresh only)
+ *   3. `rz-request-<action>` on target element (save/refresh only)
+ *   4. `rz-request` on triggering element
+ *   5. `rz-request-<action>` on triggering element
+ *
+ * Headers follow the same chain, merged separately so per-key overrides win
+ * without losing unrelated header keys from earlier layers.
+ *
+ * `targetEl` applies to save/refresh, where the action is initiated by one
+ * element but configured on another (the store's owning element).
  */
 export function resolveRequestConfig(
-  el: Element,
-  app: RouseApp | undefined,
+  triggeringEl: Element,
+  action: NetworkAction,
+  app?: RouseApp,
+  targetEl?: Element,
 ): Partial<RouseRequest> {
   const globalConfig = app?.config.network.fetch || {};
-  const localConfig = rzRequest.getConfig(el, app);
+  const requestVariant = REQUEST_VARIANTS[action];
+  const headersVariant = HEADERS_VARIANTS[action];
 
-  return {
-    ...globalConfig,
-    ...localConfig,
-    headers: {
-      ...globalConfig.headers,
-      ...localConfig.headers,
-      ...rzHeaders.getConfig(el, app),
-    },
-  };
+  const layers: Partial<RouseRequest>[] = [globalConfig];
+  const headerLayers: (Record<string, string> | undefined)[] = [globalConfig.headers];
+
+  if (targetEl && targetEl !== triggeringEl) {
+    layers.push(rzRequest.getConfig(targetEl, app));
+    layers.push(requestVariant.getConfig(targetEl, app));
+    headerLayers.push(rzHeaders.getConfig(targetEl, app));
+    headerLayers.push(headersVariant.getConfig(targetEl, app));
+  }
+
+  layers.push(rzRequest.getConfig(triggeringEl, app));
+  layers.push(requestVariant.getConfig(triggeringEl, app));
+  headerLayers.push(rzHeaders.getConfig(triggeringEl, app));
+  headerLayers.push(headersVariant.getConfig(triggeringEl, app));
+
+  const merged = Object.assign({}, ...layers) as Partial<RouseRequest>;
+  merged.headers = Object.assign({}, ...headerLayers);
+
+  return merged;
 }
 
 /**
- * Wrap a RequestError into a RouseResponse
+ * Wrap a `RequestError` into a `RouseResponse`.
  */
 function wrapErrorResponse(error: RequestError, options: RouseRequest) {
   return {

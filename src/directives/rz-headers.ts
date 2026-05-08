@@ -4,22 +4,9 @@ import { resolveProps } from '../core/props';
 import { getDirectiveValue, hasDirective, warn } from '../core/shared';
 import type { ConfigDirective, DirectiveSlug } from '../types';
 
-// ============================== DIRECTIVE DEFINITION ===================================
-
-const SLUG = 'headers' as const satisfies DirectiveSlug;
-
-export const rzHeaders = {
-  slug: SLUG,
-  existsOn: (el: Element) => hasDirective(el, SLUG),
-  getValue: (el: Element) => getDirectiveValue(el, SLUG),
-  getConfig,
-} as const satisfies ConfigDirective<Record<string, string>>;
-
-// =======================================================================================
-
 /**
- * Parses the `rz-headers` directive to build a record of HTTP headers.
- * Supports entire object injection (`?`, `#`, `@`, `{`) or static key-value pairs. E.g.,
+ * Parses a `rz-headers*` directive value into a header record.
+ * Supports object injection (`?`, `#`, `@`, `{`) or static key-value pairs.
  *
  * - `rz-headers="Tenant: 123"`
  * - `rz-headers="@session.authHeaders"`
@@ -27,8 +14,10 @@ export const rzHeaders = {
  * - `rz-headers="?Tenant=123"`
  * - `rz-headers='{ "Tenant": 123 }'`
  */
-function getConfig(el: Element, app?: RouseApp): Record<string, string> {
-  const value = getDirectiveValue(el, SLUG);
+export function parseHeadersConfig(
+  value: string | null | undefined,
+  app?: RouseApp,
+): Record<string, string> {
   if (!value) return {};
 
   // Object injection
@@ -50,9 +39,7 @@ function getConfig(el: Element, app?: RouseApp): Record<string, string> {
 
   // Static key-value pairs
   const headers: Record<string, string> = {};
-  const parsed = parseDirectiveValue(value);
-
-  for (const [key, val] of parsed) {
+  for (const [key, val] of parseDirectiveValue(value)) {
     if (key && val !== undefined) {
       headers[key] = val;
     }
@@ -60,3 +47,22 @@ function getConfig(el: Element, app?: RouseApp): Record<string, string> {
 
   return headers;
 }
+
+/**
+ * Factory for `rz-headers` and its variants.
+ */
+export function defineHeadersDirective(
+  slug: DirectiveSlug,
+): ConfigDirective<Record<string, string>> {
+  return {
+    slug,
+    existsOn: (el) => hasDirective(el, slug),
+    getValue: (el) => getDirectiveValue(el, slug),
+    getConfig: (el, app) => parseHeadersConfig(getDirectiveValue(el, slug), app),
+  };
+}
+
+export const rzHeaders = defineHeadersDirective('headers');
+export const rzHeadersSave = defineHeadersDirective('headers-save');
+export const rzHeadersFetch = defineHeadersDirective('headers-fetch');
+export const rzHeadersRefresh = defineHeadersDirective('headers-refresh');

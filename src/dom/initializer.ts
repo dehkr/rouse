@@ -1,7 +1,7 @@
 import { getApp, type RouseApp } from '../core/app';
 import { resolveProps } from '../core/props';
 import { directiveSelector, queryTargets, warn } from '../core/shared';
-import { rzFetch, rzScope, rzStore, rzWake } from '../directives';
+import { rzFetch, rzRefresh, rzSave, rzScope, rzStore, rzWake } from '../directives';
 import {
   destroyInstance,
   initInstance,
@@ -67,6 +67,8 @@ export function initObserver(app: RouseApp) {
   const scopeSelector = directiveSelector('scope');
   const storeSelector = `script${directiveSelector('store')}`;
   const fetchSelector = directiveSelector('fetch');
+  const saveSelector = directiveSelector('save');
+  const refreshSelector = directiveSelector('refresh');
 
   return new MutationObserver((mutations) => {
     mutations.forEach((m) => {
@@ -85,7 +87,7 @@ export function initObserver(app: RouseApp) {
           // Check for controllers
           queryTargets<HTMLElement>(el, scopeSelector).forEach((el) => {
             // Confirm app ownership in case of nested apps
-            if (getApp(el) === app) {
+            if (getApp(el, app)) {
               initControllerElement(el, app);
             }
           });
@@ -95,16 +97,25 @@ export function initObserver(app: RouseApp) {
           if (
             ownerScope &&
             !rzScope.existsOn(el as HTMLElement) &&
-            getApp(ownerScope) === app // Nested app protection
+            getApp(ownerScope, app)
           ) {
             scanScopeNode(ownerScope, el);
           }
 
-          // Check for new fetch elements to bind polling/custom triggers
+          // Check for elements with network directives
           queryTargets(el, fetchSelector).forEach((el) => {
-            if (getApp(el) === app) {
-              // Nested app protection
+            if (getApp(el, app)) {
               rzFetch.initialize(el, app);
+            }
+          });
+          queryTargets(el, saveSelector).forEach((el) => {
+            if (getApp(el, app)) {
+              rzSave.initialize(el, app);
+            }
+          });
+          queryTargets(el, refreshSelector).forEach((el) => {
+            if (getApp(el, app)) {
+              rzRefresh.initialize(el, app);
             }
           });
         }
@@ -131,6 +142,8 @@ export function initObserver(app: RouseApp) {
 
           // Cleanup fetch elements
           queryTargets<HTMLElement>(el, fetchSelector).forEach(rzFetch.teardown);
+          queryTargets<HTMLElement>(el, saveSelector).forEach(rzSave.teardown);
+          queryTargets<HTMLElement>(el, refreshSelector).forEach(rzRefresh.teardown);
         }
       });
     });

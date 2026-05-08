@@ -7,6 +7,7 @@ import {
   uniqueKey,
   warn,
 } from '../core/shared';
+import { rzSrc } from '../directives/rz-src';
 import { extractFieldValues } from '../dom/forms';
 import { dispatch } from '../dom/scheduler';
 import { is } from '../dom/utils';
@@ -57,6 +58,7 @@ async function executeFetch(el: Element, app: RouseApp, options: RouseRequest) {
   const appConfig = app.config || defaultConfig;
   const loadingClass = appConfig.ui.loadingClass;
   const state = activeRequests.get(el);
+  const isFormEl = is(el, 'Form');
 
   // If the element is removed while the network request is actively in the air
   if (!el.isConnected) {
@@ -70,9 +72,12 @@ async function executeFetch(el: Element, app: RouseApp, options: RouseRequest) {
   }
 
   let url: string | null = options.url || null;
-  let formMethod: string | undefined;
+  if (!url) {
+    const srcUrl = rzSrc.getConfig(el).url;
+    if (srcUrl) url = srcUrl;
+  }
 
-  const isFormEl = is(el, 'Form');
+  let formMethod: string | undefined;
 
   // Fallbacks for URL and capture native form method
   if (isFormEl) {
@@ -94,7 +99,7 @@ async function executeFetch(el: Element, app: RouseApp, options: RouseRequest) {
   }
 
   // Resolve request inheritance overrides
-  const finalRequestInit = resolveRequestConfig(el, app);
+  const finalRequestInit = resolveRequestConfig(el, 'fetch', app);
 
   // Resolve method
   const method = (

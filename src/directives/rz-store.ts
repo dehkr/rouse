@@ -2,29 +2,13 @@ import { getApp, type RouseApp } from '../core/app';
 import { err, getDirectiveValue, hasDirective, warn } from '../core/shared';
 import { is } from '../dom/utils';
 import type { DirectiveSlug, ManagerDirective } from '../types';
-import { rzRefreshOn } from './rz-refresh-on';
-import { rzSaveOn } from './rz-save-on';
-import { rzSource } from './rz-source';
-
-// ============================== DIRECTIVE DEFINITION ===================================
+import { rzSrc } from './rz-src';
 
 const SLUG = 'store' as const satisfies DirectiveSlug;
-
-export const rzStore = {
-  slug: SLUG,
-  existsOn: (el: Element) => hasDirective(el, SLUG),
-  getValue: (el: Element) => getDirectiveValue(el, SLUG),
-  validate,
-  initialize,
-  teardown,
-} as const satisfies ManagerDirective<HTMLScriptElement>;
-
-// =======================================================================================
-
-const storeCleanups = new WeakMap<HTMLScriptElement, Array<() => void>>();
+const initialized = new WeakSet<HTMLScriptElement>();
 
 function validate(el: Element, app: RouseApp): el is HTMLScriptElement {
-  if (!(is(el, 'Script') && hasDirective(el, SLUG) && getApp(el) === app)) {
+  if (!(is(el, 'Script') && hasDirective(el, SLUG) && getApp(el, app))) {
     return false;
   }
 
@@ -37,12 +21,14 @@ function validate(el: Element, app: RouseApp): el is HTMLScriptElement {
 }
 
 /**
- * Bootstraps a global reactive store from a `<script>` tag.
- * Initializes the reactive data registry and attaches any declared
- * networking behaviors (`rz-source`, `rz-save-on`, `rz-refresh-on`).
+ * Bootstraps a global reactive store from a `<script>` tag. Initializes the
+ * reactive data registry and seeds the store's URL from `rz-src` if present.
+ *
+ * Save/refresh triggers (`rz-save`, `rz-refresh`) are wired separately by
+ * their own manager scans, so the store doesn't need to know about them.
  */
 function initialize(el: HTMLScriptElement, app: RouseApp) {
-  if (storeCleanups.has(el) || !app) return;
+  if (initialized.has(el) || !app) return;
 
   const storeName = getDirectiveValue(el, SLUG)?.trim();
   if (!storeName) return;
@@ -66,38 +52,31 @@ function initialize(el: HTMLScriptElement, app: RouseApp) {
     if (storeExists) {
       app.stores.update(storeName, state);
     } else {
-      app.stores.create(storeName, state);
+      app.stores.create(storeName, state, undefined, el);
     }
   }
 
-  const cleanups: Array<() => void> = [];
-
-  // Configure the store URL and HTTP method for saving
-  if (rzSource.existsOn(el)) {
-    const { method, url } = rzSource.getConfig(el);
-    app.stores.config(storeName, { saveMethod: method, url });
+  // Seed the store URL from rz-src
+  if (rzSrc.existsOn(el)) {
+    const { url } = rzSrc.getConfig(el);
+    if (url) app.stores.config(storeName, { url });
   }
 
-  // Attach save triggers and register cleanup functions
-  if (rzSaveOn.existsOn(el)) {
-    const saveCleanup = rzSaveOn.attachTriggers(el, app, storeName);
-    if (saveCleanup) {
-      cleanups.push(saveCleanup);
-    }
-  }
-
-  // Attach refresh triggers and register cleanup functions
-  if (rzRefreshOn.existsOn(el)) {
-    const refreshCleanup = rzRefreshOn.attachTriggers(el, app, storeName);
-    if (refreshCleanup) {
-      cleanups.push(refreshCleanup);
-    }
-  }
-
-  storeCleanups.set(el, cleanups);
+  initialized.add(el);
 }
 
 function teardown(el: HTMLScriptElement) {
-  storeCleanups.get(el)?.forEach((fn) => fn());
-  storeCleanups.delete(el);
+  initialized.delete(el);
 }
+
+/**
+ * Definition for the `rz-store` directive object.
+ */
+export const rzStore = {
+  slug: SLUG,
+  existsOn: (el: Element) => hasDirective(el, SLUG),
+  getValue: (el: Element) => getDirectiveValue(el, SLUG),
+  validate,
+  initialize,
+  teardown,
+} as const satisfies ManagerDirective<HTMLScriptElement>;

@@ -1,14 +1,20 @@
 import { request } from '../net/request';
 import { nonReactive, reactive, readOnly, trackDirty } from '../reactivity';
+import type { DirectiveSlug, RouseRequest } from '../types';
 import type { RouseConfig } from './app';
 import { getNestedVal } from './path';
-import { isPlainObject, warn } from './shared';
+import { getDirectiveValue, isPlainObject, warn } from './shared';
 
 export interface StoreStatus {
-  loading: boolean;
+  loading: false | 'save' | 'refresh';
   error: string | null;
   lastSync: number;
   dirty: Record<string, boolean>;
+}
+
+export interface StoreTarget {
+  storeName: string;
+  nestedPath: string;
 }
 
 export type RouseStore<T extends object = any> = T & {
@@ -20,6 +26,13 @@ export interface SyncConfig {
   saveMethod?: string;
   refreshMethod?: string;
   action?: 'replace' | 'merge';
+}
+
+export interface StoreRequestOptions {
+  url?: string;
+  method?: string;
+  overrides?: Partial<RouseRequest>;
+  nestedPath?: string;
 }
 
 export const STORE_PREFIX = '@';
@@ -44,6 +57,37 @@ export function parseStoreLocator(value: string): {
     storeName: path.slice(0, dotIndex),
     nestedPath: path.slice(dotIndex + 1),
   };
+}
+
+/**
+ * Resolves a save subject into a store name and optional nested path.
+ * `null` subject means self-target (use `rz-store` on the same element).
+ */
+export function resolveTarget(
+  el: Element,
+  slug: Extract<DirectiveSlug, 'save' | 'refresh'>,
+  subject: string | null,
+  supportsNestedPath = true,
+): StoreTarget | null {
+  if (subject) {
+    if (!subject.startsWith(STORE_PREFIX)) {
+      warn(`rz-${slug} target must be a store reference (e.g. '@store'): '${subject}'.`);
+      return null;
+    }
+    const { storeName, nestedPath } = parseStoreLocator(subject);
+    if (!storeName) {
+      warn(`rz-${slug}: invalid store reference '${subject}'.`);
+      return null;
+    }
+    return { storeName, nestedPath: supportsNestedPath ? nestedPath : '' };
+  }
+
+  const selfName = getDirectiveValue(el, 'store')?.trim();
+  if (!selfName) {
+    warn(`rz-${slug} requires rz-store on the same element.`);
+    return null;
+  }
+  return { storeName: selfName, nestedPath: '' };
 }
 
 /**
@@ -248,6 +292,7 @@ export class StoreManager {
   private _configs = new Map<string, SyncConfig>();
   private _initial = new Map<string, any>();
   private _activeReqs = new Map<string, symbol>();
+  private _elements = new Map<string, Element>();
 
   constructor(appConfig: RouseConfig) {
     this.appConfig = appConfig;
@@ -267,7 +312,12 @@ export class StoreManager {
     this._configs.set(id, { ...existing, ...partial });
   }
 
-  private _register(id: string, state: object, programmaticConfig?: Partial<SyncConfig>) {
+  private _register(
+    id: string,
+    state: object,
+    programmaticConfig?: Partial<SyncConfig>,
+    el?: Element,
+  ) {
     const status = this._createStatus();
     this._status.set(id, status);
 
@@ -305,6 +355,10 @@ export class StoreManager {
     if (programmaticConfig) {
       this._setConfig(id, programmaticConfig);
     }
+
+    if (el) {
+      this._elements.set(id, el);
+    }
   }
 
   private _getStore(id: string) {
@@ -326,20 +380,35 @@ export class StoreManager {
   private async _request(
     id: string,
     operation: 'save' | 'refresh',
-    manualConfig?: { url?: string; method?: string },
+    manualConfig?: StoreRequestOptions,
   ) {
     const store = this._getStore(id);
     if (!store) return;
 
     const { data, status, config } = store;
-    const url = manualConfig?.url || config?.url;
+    const overrides = manualConfig?.overrides ?? {};
+    const url = manualConfig?.url || overrides.url || config?.url;
     const defaultMethod = operation === 'save' ? 'POST' : 'GET';
     const storeMethod = operation === 'save' ? config?.saveMethod : config?.refreshMethod;
-    const method = manualConfig?.method || storeMethod || defaultMethod;
+    const method =
+      manualConfig?.method || overrides.method || storeMethod || defaultMethod;
 
     if (!url) {
       warn(`Cannot ${operation} store '${id}': No URL configured.`);
       return;
+    }
+
+    const requestOptions: RouseRequest = {
+      ...overrides,
+      method,
+      abortKey: overrides.abortKey ?? `${operation}_${id}`,
+    };
+
+    // Body for save: full data, or a nested slice if nestedPath is provided
+    if (operation === 'save') {
+      requestOptions.body = manualConfig?.nestedPath
+        ? getNestedVal(data, manualConfig.nestedPath)
+        : data;
     }
 
     // Unique token for this specific network request
@@ -348,30 +417,22 @@ export class StoreManager {
 
     // Snaphot used to diff the server and client state
     const snapshot = clone(data);
-    status.loading = true;
+    status.loading = operation;
     status.error = null;
 
     try {
-      const result = await request(
-        url,
-        {
-          method,
-          ...(operation === 'save' && { body: data }),
-          abortKey: `${operation}_${id}`,
-        },
-        this.appConfig,
-      );
+      const result = await request(url, requestOptions, this.appConfig);
 
       if (result.error) {
         if (result.error.status === 'CANCELED') return;
         throw result.error;
       }
 
-      // Successfully saved. Clear dirty flags.
-      // Ensure we only clear flags for properties that weren't mutated by
-      // the user while the request was in flight.
+      // Clear dirty flags only for what was actually saved.
       if (operation === 'save') {
-        for (const key in snapshot) {
+        const rootKey = manualConfig?.nestedPath?.split('.')[0];
+        const keys = rootKey ? [rootKey] : Object.keys(snapshot);
+        for (const key of keys) {
           if (Object.hasOwn(snapshot, key) && deepEqual(data[key], snapshot[key])) {
             delete status.dirty[key];
           }
@@ -457,17 +518,26 @@ export class StoreManager {
 
   // PUBLIC API
 
+  elementFor(name: string): Element | undefined {
+    return this._elements.get(name);
+  }
+
+  elements(): Iterable<Element> {
+    return this._elements.values();
+  }
+
   create<T extends object = any>(
     name: string,
     state: object,
     config?: Partial<SyncConfig>,
+    el?: Element,
   ): RouseStore<T> {
     if (this._data.has(name)) {
       throw new Error(`[Rouse] A store named '${name}' already exists.`);
     }
 
     this._processMeta(state);
-    this._register(name, state, config);
+    this._register(name, state, config, el);
 
     return this._data.get(name);
   }
@@ -519,11 +589,17 @@ export class StoreManager {
     this._setConfig(name, config);
   }
 
-  async save(name: string, config?: { url?: string; method?: string }): Promise<void> {
+  async save(name: string, config?: StoreRequestOptions): Promise<void> {
     return this._request(name, 'save', config);
   }
 
-  async refresh(name: string, config?: { url?: string; method?: string }): Promise<void> {
+  async refresh(
+    name: string,
+    config?: Omit<StoreRequestOptions, 'nestedPath'>,
+  ): Promise<void> {
+    // Avoid clobbering an in-flight save with stale server data
+    if (this.status(name)?.loading === 'save') return;
+
     return this._request(name, 'refresh', config);
   }
 
@@ -534,9 +610,7 @@ export class StoreManager {
       return warn(`Cannot reset store '${name}': Store not found.`);
     }
     if (!initial) {
-      return console.warn(
-        `[Rouse] Cannot reset store '${name}': No initial state cached.`,
-      );
+      return warn(`Cannot reset store '${name}': No initial state cached.`);
     }
     runPatch(data, clone(initial), 'replace');
   }
@@ -545,6 +619,7 @@ export class StoreManager {
     this._data.delete(name);
     this._status.delete(name);
     this._configs.delete(name);
+    this._elements.delete(name);
     this._initial.delete(name);
     this._activeReqs.delete(name);
   }

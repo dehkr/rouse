@@ -5,16 +5,21 @@ export type DirectiveSlug =
   | 'bind'
   | 'error'
   | 'fetch'
-  | 'fetch-on'
   | 'headers'
+  | 'headers-fetch'
+  | 'headers-refresh'
+  | 'headers-save'
   | 'html'
   | 'model'
   | 'on'
-  | 'refresh-on'
+  | 'refresh'
   | 'request'
-  | 'save-on'
+  | 'request-fetch'
+  | 'request-refresh'
+  | 'request-save'
+  | 'save'
   | 'scope'
-  | 'source'
+  | 'src'
   | 'store'
   | 'target'
   | 'text'
@@ -99,6 +104,12 @@ export type TriggerDef = {
   modifiers: string[];
 };
 
+/** A trigger paired with its resolved subject (URL, store ref, etc.) */
+export type TriggerSubjectPair = {
+  trigger: TriggerDef;
+  subject: string | null;
+};
+
 /** Base directive type. */
 export interface BaseDirective {
   slug: DirectiveSlug;
@@ -123,16 +134,14 @@ export interface ConfigDirective<T> extends BaseDirective {
   getConfig: (el: Element, ...args: any[]) => T;
 }
 
-/** A directive that attaches event/poll triggers. */
-export interface TriggerDirective extends BaseDirective {
-  attachTriggers: (el: Element, ...args: any[]) => (() => void) | undefined;
-}
-
 /** A directive that manages the lifecycle and wiring of related directives. */
 export interface ManagerDirective<T extends Element = Element> extends BaseDirective {
   initialize: (el: T, app: RouseApp) => void;
   teardown: (el: T) => void;
 }
+
+/** The kind of network action a directive describes. */
+export type NetworkAction = 'fetch' | 'save' | 'refresh';
 
 /** Custom error statuses for non-HTTP failures */
 export type CustomErrorStatus =
@@ -157,7 +166,7 @@ export interface RequestError {
 
 /** Global fetch configuration */
 export interface GlobalFetchConfig {
-  headers?: HeadersInit;
+  headers?: Record<string, string>;
   credentials?: RequestCredentials;
   mode?: RequestMode;
 }

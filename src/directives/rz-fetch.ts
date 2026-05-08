@@ -1,65 +1,28 @@
 import type { RouseApp } from '../core/app';
-import { getDirectiveValue, hasDirective, parseMethodAndUrl } from '../core/shared';
-import { attachListener } from '../dom/scheduler';
+import { parseTriggerSubjectPairs } from '../core/parser';
+import { getDirectiveValue, hasDirective, warn } from '../core/shared';
+import { attachListener, dispatchOne } from '../dom/scheduler';
 import { is, isNativeNavigation } from '../dom/utils';
 import { handleFetch } from '../net/engine';
-import type { ConfigDirective, DirectiveSlug, ManagerDirective, VoidFn } from '../types';
-import { rzFetchOn } from './rz-fetch-on';
-
-// ============================== DIRECTIVE DEFINITION ===================================
+import type { DirectiveSlug, ManagerDirective, VoidFn } from '../types';
 
 const SLUG = 'fetch' as const satisfies DirectiveSlug;
-
-export const rzFetch = {
-  slug: SLUG,
-  existsOn: (el: Element) => hasDirective(el, SLUG),
-  getValue: (el: Element) => getDirectiveValue(el, SLUG),
-  getConfig,
-  initialize,
-  teardown,
-} as const satisfies ConfigDirective<{ method?: string; url?: string }> &
-  ManagerDirective;
-
-// =======================================================================================
-
-const HTTP_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] as const;
-const fetchCleanups = new WeakMap<Element, Array<VoidFn>>();
-
-/**
- * Parses the rz-fetch attribute into a URL and method.
- * Supports the [method]: [url] format.
- *
- * - `rz-fetch="PUT: /api/users"`
- * - `rz-fetch="PUT"`
- * - `rz-fetch="/api/users"`
- */
-function getConfig(el: Element) {
-  return parseMethodAndUrl(getDirectiveValue(el, SLUG), {
-    allowedMethods: HTTP_METHODS,
-    label: 'fetch method',
-  });
-}
+const cleanups = new WeakMap<Element, Array<VoidFn>>();
 
 /**
  * Attaches synthetic events (like polling) and custom non-standard events
  * to an element and stores their cleanup functions.
  */
 function initialize(el: Element, app: RouseApp) {
-  if (fetchCleanups.has(el)) return;
+  if (cleanups.has(el)) return;
 
-  const cleanups: Array<VoidFn> = [];
-  const action = () => handleFetch(el, app, getConfig(el));
+  const value = getDirectiveValue(el, SLUG);
+  if (value === null) return;
 
-  let triggerCleanup: ReturnType<typeof rzFetchOn.attachTriggers>;
-  if (rzFetchOn.existsOn(el)) {
-    triggerCleanup = rzFetchOn.attachTriggers(el, app, action);
-  }
+  const teardowns: VoidFn[] = [];
 
-  // If triggers were processed, `triggerCleanup` will be truthy, and the explicit
-  // event triggers will be used. Otherwise, logical defaults are configured.
-  if (triggerCleanup) {
-    cleanups.push(triggerCleanup);
-  } else {
+  // If it's a bare attribute, configure the most appropriate default trigger
+  if (!value.trim()) {
     const defaultEvent = is(el, 'Form')
       ? 'submit'
       : is(el, 'Input') || is(el, 'Select') || is(el, 'TextArea')
@@ -70,18 +33,52 @@ function initialize(el: Element, app: RouseApp) {
       if (isNativeNavigation(el, e)) {
         e.preventDefault();
       }
-      action();
+      handleFetch(el, app, {});
     });
 
-    cleanups.push(cleanup);
+    teardowns.push(cleanup);
+    cleanups.set(el, teardowns);
+    return;
   }
 
-  if (cleanups.length > 0) {
-    fetchCleanups.set(el, cleanups);
+  const pairs = parseTriggerSubjectPairs(value);
+  if (pairs.length === 0) return;
+
+  for (const { trigger, subject } of pairs) {
+    if (subject?.startsWith('@')) {
+      warn(`rz-fetch cannot target stores: '${subject}'.`);
+      continue;
+    }
+
+    const cleanup = dispatchOne(trigger, {
+      el,
+      app,
+      action: (e?: Event) => {
+        if (e && isNativeNavigation(el, e)) {
+          e.preventDefault();
+        }
+        handleFetch(el, app, subject ? { url: subject } : {});
+      },
+    });
+
+    if (cleanup) teardowns.push(cleanup);
   }
+
+  if (teardowns.length > 0) cleanups.set(el, teardowns);
 }
 
 function teardown(el: Element) {
-  fetchCleanups.get(el)?.forEach((fn) => fn());
-  fetchCleanups.delete(el);
+  cleanups.get(el)?.forEach((fn) => fn());
+  cleanups.delete(el);
 }
+
+/**
+ * Definition for the `rz-fetch` directive object.
+ */
+export const rzFetch = {
+  slug: SLUG,
+  existsOn: (el: Element) => hasDirective(el, SLUG),
+  getValue: (el: Element) => getDirectiveValue(el, SLUG),
+  initialize,
+  teardown,
+} as const satisfies ManagerDirective;

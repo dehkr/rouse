@@ -255,8 +255,8 @@ export interface TriggerContext {
 export type SyntheticEventHandler = (ctx: TriggerContext) => VoidFn | null;
 
 /**
- * Universal synthetic events available to any TriggerDirective.
- * Store-specific events (mutate) stay inline in rz-save-on.
+ * Universal synthetic events available to directives and `on`.
+ * Store-specific events (mutate) stay inline in rz-save.
  */
 export const syntheticEvents: Record<string, SyntheticEventHandler> = {
   /** Fires as soon as the DOM node can be interacted with */

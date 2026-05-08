@@ -1,5 +1,5 @@
 import { directiveSelector, err, queryTargets, warn } from '../core/shared';
-import { rzFetch, rzStore } from '../directives';
+import { rzFetch, rzRefresh, rzSave, rzStore } from '../directives';
 import { controller, destroyInstance, IS_CONTROLLER } from '../dom/controller';
 import { initControllerElement, initObserver } from '../dom/initializer';
 import { initDomMutator } from '../dom/mutator';
@@ -237,19 +237,33 @@ export class RouseApp {
     this._observer = initObserver(this);
     this._observer.observe(this.root, { childList: true, subtree: true });
 
-    // Initial scan for controllers
+    // Initial scans
+
     const controllers = queryTargets<HTMLElement>(this.root, directiveSelector('scope'));
     controllers.forEach((el) => {
-      if (getApp(el) === this) {
+      if (getApp(el, this)) {
         initControllerElement(el, this);
       }
     });
 
-    // Initial scan for fetch elements
     const fetchNodes = queryTargets(this.root, directiveSelector('fetch'));
     fetchNodes.forEach((el) => {
-      if (getApp(el) === this) {
+      if (getApp(el, this)) {
         rzFetch.initialize(el, this);
+      }
+    });
+
+    const saveNodes = queryTargets(this.root, directiveSelector('save'));
+    saveNodes.forEach((el) => {
+      if (getApp(el, this)) {
+        rzSave.initialize(el, this);
+      }
+    });
+
+    const refreshNodes = queryTargets(this.root, directiveSelector('refresh'));
+    refreshNodes.forEach((el) => {
+      if (getApp(el, this)) {
+        rzRefresh.initialize(el, this);
       }
     });
 
@@ -281,16 +295,15 @@ export class RouseApp {
     const controllers = queryTargets<HTMLElement>(this.root, directiveSelector('scope'));
     controllers.forEach(destroyInstance);
 
-    // Clear all active fetch polling timers
-    const fetchNodes = queryTargets<HTMLElement>(this.root, directiveSelector('fetch'));
-    fetchNodes.forEach(rzFetch.teardown);
+    // Cleanup network directives
+    for (const d of [rzFetch, rzSave, rzRefresh]) {
+      queryTargets(this.root, directiveSelector(d.slug)).forEach(d.teardown);
+    };
 
     // Cleanup store directive side-effects
-    const storeScriptElements = queryTargets<HTMLScriptElement>(
-      this.root,
-      `script${directiveSelector('store')}`,
-    );
-    storeScriptElements.forEach(rzStore.teardown);
+    for (const el of this.stores.elements()) {
+      rzStore.teardown(el as HTMLScriptElement);
+    }
 
     // Remove the root indicator
     this.root.removeAttribute('data-rouse-app');
@@ -309,13 +322,20 @@ export class RouseApp {
 /**
  * Finds the parent app instance for any child element.
  */
-export function getApp(el: Element): RouseApp | undefined {
+export function getApp(el: Element, expected?: RouseApp): RouseApp | undefined {
   const root = el.closest<HTMLElement>('[data-rouse-app]');
   if (!root) {
-    warn('Element is not inside a Rouse app instance:', el);
+    warn('Element is not inside an app instance:', el);
     return undefined;
   }
-  return appInstances.get(root);
+
+  const found = appInstances.get(root);
+  if (expected && found !== expected) {
+    warn('Element does not belong to the expected app instance:', el);
+    return undefined;
+  }
+
+  return found;
 }
 
 /**
