@@ -50,9 +50,7 @@ export function setNestedVal(obj: any, path: string | undefined, value: any): vo
       // Convert to empty object to enable traversal
       current[part] = {};
     } else if (typeof current[part] !== 'object') {
-      console.warn(
-        `[Rouse] Cannot set value at path '${path}' because '${part}' is a primitive value.`,
-      );
+      warn(`Cannot set path value '${path}' because '${part}' is a primitive.`);
       return;
     }
     current = current[part];
@@ -125,9 +123,7 @@ export function writeState(
     const { fullPath, dotIndex } = getStorePath(path);
 
     if (dotIndex === -1) {
-      console.warn(
-        `[Rouse] Cannot overwrite an entire store via model binding: '${path}'`,
-      );
+      warn(`Cannot overwrite entire store via model binding: '${path}'`);
       return;
     }
 
