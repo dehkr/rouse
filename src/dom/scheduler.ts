@@ -112,25 +112,6 @@ export function on<D = any>(
 }
 
 /**
- * Dispatches an array of trigger definitions and collects their cleanups.
- * Used by trigger directives (`rz-fetch-on`, `rz-save-on`, `rz-refresh-on`)
- * to wire multiple triggers from a single attribute value.
- *
- * @returns Array of cleanup functions from triggers that produce teardown logic.
- */
-export function dispatchTriggers(
-  triggers: TriggerDef[],
-  base: Omit<TriggerContext, 'modifiers'>,
-): Array<VoidFn> {
-  const cleanups: Array<VoidFn> = [];
-  for (const trigger of triggers) {
-    const cleanup = dispatchOne(trigger, base);
-    if (cleanup) cleanups.push(cleanup);
-  }
-  return cleanups;
-}
-
-/**
  * Routes a single trigger to its handler. Synthetic events (`interval`,
  * `visible`, `online`, etc.) go through the `syntheticEvents` registry.
  * Standard DOM events fall through to `attachListener`.
