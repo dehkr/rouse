@@ -2,7 +2,7 @@ import type { RouseApp } from '../core/app';
 import { parseDirectiveValue } from '../core/parser';
 import { directiveSelector, err, hasDirective } from '../core/shared';
 import { rzBind, rzHtml, rzModel, rzOn, rzText } from '../directives';
-import type { BoundCleanupFn, BoundDirective, Controller, DirectiveSlug } from '../types';
+import type { BoundCleanupFn, Controller } from '../types';
 import { dispatch } from './scheduler';
 
 /**
@@ -17,21 +17,11 @@ export function attachController(
 ) {
   const elementCleanups = new Map<Element, (() => void)[]>();
   const boundNodes = new WeakSet<Element>();
-
-  const boundDirectives = {
-    bind: rzBind,
-    html: rzHtml,
-    model: rzModel,
-    on: rzOn,
-    text: rzText,
-  } as const satisfies Partial<Record<DirectiveSlug, BoundDirective>>;
-
-  const slugs = Object.keys(boundDirectives);
-  const directives = Object.values(boundDirectives);
+  const boundDirectives = [rzBind, rzHtml, rzModel, rzOn, rzText] as const;
 
   // Selector string of all DOM directives ([rz-bind], [data-rz-bind]...)
-  const directivesSelector = slugs
-    .map((slug) => directiveSelector(slug as DirectiveSlug))
+  const directivesSelector = boundDirectives
+    .map((directive) => directiveSelector(directive.slug))
     .join(', ');
 
   function addCleanup(el: Element, fn: BoundCleanupFn) {
@@ -66,7 +56,7 @@ export function attachController(
     if (boundNodes.has(el)) return;
     boundNodes.add(el);
 
-    for (const directive of directives) {
+    for (const directive of boundDirectives) {
       const value = directive.getValue(el);
 
       // Strict check to allow empty/boolean directives
