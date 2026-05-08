@@ -2,12 +2,7 @@ import { getApp, type RouseApp } from '../core/app';
 import { resolveProps } from '../core/props';
 import { directiveSelector, queryTargets, warn } from '../core/shared';
 import { rzFetch, rzRefresh, rzSave, rzScope, rzStore, rzWake } from '../directives';
-import {
-  destroyInstance,
-  initInstance,
-  scanScopeNode,
-  teardownScopeNode,
-} from '../dom/controller';
+import { destroyInstance, initControllerInstance, scanScopeNode, teardownScopeNode } from '../dom/controller';
 import type { ControllerFunction } from '../types';
 import { attachWakeStrategies } from './scheduler';
 
@@ -52,7 +47,7 @@ export function initControllerElement(el: HTMLElement, app: RouseApp) {
   attachWakeStrategies(el, strategies, () => {
     // Props can't be passed to an alias so skip `resolveProps` in that case
     const props = isAlias ? {} : resolveProps(rawPayload, app?.stores) || {};
-    initInstance(el, setup, props, { isAlias });
+    initControllerInstance(el, app, setup, props, { isAlias });
   });
 }
 

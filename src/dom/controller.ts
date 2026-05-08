@@ -1,5 +1,4 @@
-import { getApp } from '../core/app';
-import { warn } from '../core/shared';
+import type { RouseApp } from '../core/app';
 import { effectScope } from '../reactivity';
 import type { ControllerCtx, ControllerFunction, RouseRequest } from '../types';
 import { attachController } from './attacher';
@@ -25,14 +24,15 @@ export function teardownScopeNode(el: HTMLElement, removedNode: Element) {
 }
 
 // Initializes a controller instance on a specific element
-export function initInstance(
+export function initControllerInstance(
   el: HTMLElement,
+  app: RouseApp,
   setup: ControllerFunction,
   props: Record<string, any> = {},
   options: { isAlias?: boolean } = {},
 ) {
   if (instanceMap.has(el)) return;
-  instanceMap.set(el, createController(el, setup, props, options));
+  instanceMap.set(el, createController(el, app, setup, props, options));
 }
 
 export function destroyInstance(el: HTMLElement) {
@@ -60,6 +60,7 @@ export function controller<P extends Record<string, any> = Record<string, any>>(
  */
 export function createController(
   el: HTMLElement,
+  app: RouseApp,
   setup: ControllerFunction,
   props: Record<string, any> = {},
   options: { isAlias?: boolean } = {},
@@ -82,12 +83,6 @@ export function createController(
       cleanups.reverse().forEach((fn) => fn());
     },
   };
-
-  const app = getApp(el);
-  if (!app) {
-    warn('Cannot attach controller outside of an app instance:', el);
-    return handle;
-  }
 
   // Context object passed into the controller setup function
   const context: ControllerCtx = {
