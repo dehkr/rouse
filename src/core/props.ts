@@ -1,3 +1,4 @@
+import { STORE_PREFIX } from './constants';
 import { getNestedVal, KEY_BLOCKLIST } from './path';
 import { isPlainObject, warn } from './shared';
 import { parseStoreLocator, StoreManager } from './store';
@@ -32,7 +33,7 @@ export function resolveProps(
   let resolvedValue: any;
 
   // Store data
-  if (value.startsWith('@')) {
+  if (value.startsWith(STORE_PREFIX)) {
     if (!storeManager) {
       warn(`Cannot resolve '${value}' because StoreManager is missing.`);
       return undefined;

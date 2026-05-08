@@ -1,7 +1,7 @@
 import type { Controller } from '../types';
+import { STORE_PREFIX } from './constants';
 import { warn } from './shared';
 import type { StoreManager } from './store';
-import { STORE_PREFIX } from './store';
 
 export const KEY_BLOCKLIST = new Set(['__proto__', 'constructor', 'prototype']);
 

@@ -1,4 +1,5 @@
 import type { RouseApp } from '../core/app';
+import { STORE_PREFIX } from '../core/constants';
 import { parseDirectiveValue } from '../core/parser';
 import { warn } from '../core/shared';
 import { rzError, rzTarget } from '../directives';
@@ -56,7 +57,7 @@ function routeToStore(
   for (const [method, selector] of operations) {
     const target = selector || method;
 
-    if (target.startsWith('@')) {
+    if (target.startsWith(STORE_PREFIX)) {
       const storeName = target.substring(1);
 
       // Dispatch `before` event to enable payload mutation or cancellation

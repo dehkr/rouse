@@ -1,4 +1,5 @@
 import type { RouseApp } from '../core/app';
+import { STORE_PREFIX } from '../core/constants';
 import { parseTriggers } from '../core/parser';
 import { getNestedVal } from '../core/path';
 import { resolveProps, splitInjection } from '../core/props';
@@ -40,7 +41,7 @@ function attach(
   let context: unknown;
 
   // Global store (e.g., '@my-store.__actions.save' or '@theme.toggleMode')
-  if (methodName.startsWith('@')) {
+  if (methodName.startsWith(STORE_PREFIX)) {
     const { storeName, nestedPath } = parseStoreLocator(methodName);
     const storeData = app.stores.get(storeName);
 

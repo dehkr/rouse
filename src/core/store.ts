@@ -2,6 +2,7 @@ import { request } from '../net/request';
 import { nonReactive, reactive, readOnly, trackDirty } from '../reactivity';
 import type { DirectiveSlug, RouseRequest } from '../types';
 import type { RouseConfig } from './app';
+import { STORE_PREFIX } from './constants';
 import { getNestedVal } from './path';
 import { getDirectiveValue, isPlainObject, warn } from './shared';
 
@@ -34,8 +35,6 @@ export interface StoreRequestOptions {
   overrides?: Partial<RouseRequest>;
   nestedPath?: string;
 }
-
-export const STORE_PREFIX = '@';
 
 let _isPatching = false;
 

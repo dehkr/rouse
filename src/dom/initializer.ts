@@ -1,4 +1,5 @@
 import { getApp, type RouseApp } from '../core/app';
+import { STORE_PREFIX } from '../core/constants';
 import { resolveProps } from '../core/props';
 import { directiveSelector, queryTargets, warn } from '../core/shared';
 import { rzFetch, rzRefresh, rzSave, rzScope, rzStore, rzWake } from '../directives';
@@ -29,7 +30,7 @@ export function initControllerElement(el: HTMLElement, app: RouseApp) {
   let isAlias = false;
 
   // Context aliasing for stores
-  if (controllerName.startsWith('@')) {
+  if (controllerName.startsWith(STORE_PREFIX)) {
     isAlias = true;
     setup = () => {
       // Fetch the live proxy. Must be an object.

@@ -4,6 +4,7 @@ import {
   type InsertMethod,
   type InsertOperation,
 } from '../types';
+import { STORE_PREFIX } from './constants';
 import { parseDirectiveValue } from './parser';
 
 export const warn = (msg: string, ...args: any[]) => {
@@ -166,7 +167,9 @@ export function resolveInsertOperations(
 
   for (const [key, val] of parsed) {
     // Skip store targets
-    if (key.startsWith('@') || (val && val.startsWith('@'))) continue;
+    if (key.startsWith(STORE_PREFIX) || (val && val.startsWith(STORE_PREFIX))) {
+      continue;
+    }
 
     // "Strategy: Selector"
     if (val) {

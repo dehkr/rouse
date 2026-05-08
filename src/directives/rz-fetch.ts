@@ -1,4 +1,5 @@
 import type { RouseApp } from '../core/app';
+import { STORE_PREFIX } from '../core/constants';
 import { parseTriggerSubjectPairs } from '../core/parser';
 import { getDirectiveValue, hasDirective, warn } from '../core/shared';
 import { attachListener, dispatchTrigger } from '../dom/scheduler';
@@ -45,7 +46,7 @@ function initialize(el: Element, app: RouseApp) {
   if (pairs.length === 0) return;
 
   for (const { trigger, subject } of pairs) {
-    if (subject?.startsWith('@')) {
+    if (subject?.startsWith(STORE_PREFIX)) {
       warn(`rz-fetch cannot target stores: '${subject}'.`);
       continue;
     }
