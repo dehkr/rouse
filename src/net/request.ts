@@ -219,20 +219,35 @@ export function resolveRequestConfig(
   const requestVariant = REQUEST_VARIANTS[action];
   const headersVariant = HEADERS_VARIANTS[action];
 
-  const layers: Partial<RouseRequest>[] = [globalConfig];
-  const headerLayers: (Record<string, string> | undefined)[] = [globalConfig.headers];
+  const layers: Partial<RouseRequest>[] = [];
+  const headerLayers: (Record<string, string> | undefined)[] = [];
+
+  const addLayer = (cfg: Partial<RouseRequest>) => {
+    layers.push(cfg);
+    if (cfg.headers) {
+      headerLayers.push(cfg.headers as Record<string, string>);
+    }
+  };
+
+  const addHeaders = (hdrs: Record<string, string>) => {
+    if (Object.keys(hdrs).length > 0) {
+      headerLayers.push(hdrs);
+    }
+  };
+
+  addLayer(globalConfig);
 
   if (targetEl && targetEl !== triggeringEl) {
-    layers.push(rzRequest.getConfig(targetEl, app));
-    layers.push(requestVariant.getConfig(targetEl, app));
-    headerLayers.push(rzHeaders.getConfig(targetEl, app));
-    headerLayers.push(headersVariant.getConfig(targetEl, app));
+    addLayer(rzRequest.getConfig(targetEl, app));
+    addHeaders(rzHeaders.getConfig(targetEl, app));
+    addLayer(requestVariant.getConfig(targetEl, app));
+    addHeaders(headersVariant.getConfig(targetEl, app));
   }
 
-  layers.push(rzRequest.getConfig(triggeringEl, app));
-  layers.push(requestVariant.getConfig(triggeringEl, app));
-  headerLayers.push(rzHeaders.getConfig(triggeringEl, app));
-  headerLayers.push(headersVariant.getConfig(triggeringEl, app));
+  addLayer(rzRequest.getConfig(triggeringEl, app));
+  addHeaders(rzHeaders.getConfig(triggeringEl, app));
+  addLayer(requestVariant.getConfig(triggeringEl, app));
+  addHeaders(headersVariant.getConfig(triggeringEl, app));
 
   const merged = Object.assign({}, ...layers) as Partial<RouseRequest>;
   merged.headers = Object.assign({}, ...headerLayers);
