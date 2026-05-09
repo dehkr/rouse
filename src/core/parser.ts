@@ -8,6 +8,115 @@ const VALUE_DELIMITER = ',';
 const SEGMENT_DELIMITER = ':';
 const MODIFIER_DELIMITER = '.';
 
+const WHITESPACE_RE = /\s/;
+
+const openers: Record<string, boolean> = { '(': true, '{': true, '[': true };
+const closers: Record<string, string> = { ')': '(', '}': '{', ']': '[' };
+
+type BoundaryOpener = '(' | '{' | '[';
+
+/**
+ * Iterates through text and fires a callback for each character that is safe
+ * (i.e. not inside quotes, parentheses, curly braces, or square brackets).
+ *
+ * Returns the final scan state, which can be used to detect malformed input
+ * (e.g. unclosed brackets or quotes).
+ *
+ * Per-type depth counters are maintained to catch mismatched bracket pairs
+ * such as `(]`. A mismatch is warned and the closer is ignored.
+ */
+function scan(
+  text: string,
+  callback: (index: number, char: string, fullText: string) => boolean | undefined,
+): { depth: number; quote: string | null } {
+  const depths: Record<BoundaryOpener, number> = { '(': 0, '{': 0, '[': 0 };
+  let totalDepth = 0;
+  let quote: string | null = null;
+
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i] as string;
+    const prev = text[i - 1];
+
+    if (quote) {
+      if (char === quote && prev !== '\\') {
+        quote = null;
+      }
+    } else if (char === "'" || char === '"') {
+      quote = char;
+    } else if (openers[char]) {
+      depths[char as BoundaryOpener]++;
+      totalDepth++;
+    } else if (closers[char]) {
+      const opener = closers[char] as BoundaryOpener;
+      if (depths[opener] > 0) {
+        depths[opener]--;
+        totalDepth--;
+      } else {
+        warn(`Mismatched bracket '${char}' in value: '${text}'`);
+      }
+    } else if (totalDepth === 0) {
+      if (callback(i, char, text)) {
+        return { depth: totalDepth, quote };
+      }
+    }
+  }
+
+  return { depth: totalDepth, quote };
+}
+
+/**
+ * Splits `text` on every unescaped occurrence of `delimiter` at depth 0,
+ * returning the resulting segments. Empty segments are excluded.
+ *
+ * Centralises the start-pointer / slice / remainder pattern that would
+ * otherwise be repeated across every parsing function.
+ */
+function scanSplit(text: string, delimiter: string): string[] {
+  const parts: string[] = [];
+  let start = 0;
+
+  scan(text, (i, char) => {
+    if (char === delimiter) {
+      parts.push(text.slice(start, i));
+      start = i + 1;
+    }
+    return false;
+  });
+
+  parts.push(text.slice(start));
+
+  return parts.filter((p) => p.length > 0);
+}
+
+/**
+ * Check if a string is enclosed in matching quotation marks.
+ */
+function isInQuotes(val: string) {
+  if (val.length < 2) return false;
+  const first = val[0];
+  const last = val[val.length - 1];
+
+  return (first === '"' || first === "'") && first === last;
+}
+
+/**
+ * Strips matching outer quotes from a string and trims the result.
+ */
+function stripQuotes(val: string) {
+  if (isInQuotes(val)) {
+    return val.slice(1, -1).trim();
+  }
+  return val;
+}
+
+function hasTrailingWhitespace(text: string, index: number) {
+  return index + 1 < text.length && WHITESPACE_RE.test(text.charAt(index + 1));
+}
+
+// ---------------------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------------------
+
 /**
  * Utility for parsing a value that might have modifiers.
  * Safely extracts modifiers, ignoring dots inside quotes or boundaries.
@@ -16,40 +125,9 @@ const MODIFIER_DELIMITER = '.';
  * - `media.(max-width < 600px)` returns `{ key: 'media', modifiers: ['(max-width < 600px)']}`
  */
 export function parseModifiers(value: string): { key: string; modifiers: string[] } {
-  let firstDotIndex = -1;
-
-  // Separate the key from the modifiers
-  scan(value, (i, char) => {
-    if (char === MODIFIER_DELIMITER) {
-      firstDotIndex = i;
-      return true; // Stop scanning
-    }
-  });
-
-  if (firstDotIndex !== -1) {
-    const key = value.slice(0, firstDotIndex);
-    const modifiersRaw = value.slice(firstDotIndex + 1);
-    const modifiers: string[] = [];
-
-    let start = 0;
-
-    // Split the remaining modifiers
-    scan(modifiersRaw, (i, char, text) => {
-      if (char === MODIFIER_DELIMITER) {
-        modifiers.push(text.slice(start, i));
-        start = i + 1;
-      }
-      return false; // Keep scanning
-    });
-
-    if (start < modifiersRaw.length) {
-      modifiers.push(modifiersRaw.slice(start));
-    }
-
-    return { key, modifiers };
-  }
-
-  return { key: value, modifiers: [] };
+  const parts = scanSplit(value, MODIFIER_DELIMITER);
+  const [key = '', ...modifiers] = parts;
+  return { key, modifiers };
 }
 
 /**
@@ -63,35 +141,33 @@ export function parseTriggers(value: string | null | undefined): TriggerDef[] {
   rawTriggers = stripQuotes(rawTriggers);
 
   if (rawTriggers.includes(',')) {
-    warn(
-      `Multi-trigger values must be separated by spaces, not commas: '${rawTriggers}'.`,
-    );
+    warn(`Separate multi-trigger values by spaces, not commas: '${rawTriggers}'.`);
     return [];
   }
 
-  const parsed: string[] = [];
+  const parts: string[] = [];
   let start = 0;
 
   // Split on whitespace only when depth is 0
   scan(rawTriggers, (i, char, text) => {
-    if (/\s/.test(char)) {
+    if (char === ' ' || char === '\t' || char === '\n' || char === '\r') {
       if (start !== i) {
-        parsed.push(text.slice(start, i));
+        parts.push(text.slice(start, i));
       }
       start = i + 1;
     }
-    return false; // Keep scanning
+    return false; // keep scanning
   });
 
   if (start < rawTriggers.length) {
-    const remaining = rawTriggers.slice(start).trim();
+    const remaining = rawTriggers.slice(start);
     if (remaining) {
-      parsed.push(remaining);
+      parts.push(remaining);
     }
   }
 
   const triggers: TriggerDef[] = [];
-  for (const trigger of parsed) {
+  for (const trigger of parts) {
     const { key: event, modifiers } = parseModifiers(trigger);
     if (event) {
       triggers.push({ event, modifiers });
@@ -111,10 +187,9 @@ export function parseDirectiveValue(
   value: string | null | undefined,
 ): ParsedDirectiveValue {
   let cleanedValue = value?.trim();
-  if (!value || !cleanedValue) return [];
+  if (!cleanedValue) return [];
 
-  // Strip trailing commas from directive strings before processing to
-  // allow for trailing commas in multi-line formatting in HTML.
+  // Strip trailing commas to allow for multi-line HTML formatting.
   if (cleanedValue.endsWith(',')) {
     cleanedValue = cleanedValue.slice(0, -1).trim();
   }
@@ -124,59 +199,47 @@ export function parseDirectiveValue(
 
   // Scan for values separated by comma + space
   const scanResult = scan(cleanedValue, (i, char) => {
-    if (char === VALUE_DELIMITER) {
-      if (hasTrailingWhiteSpace(cleanedValue, i)) {
-        parseSegment(cleanedValue.slice(start, i), parsed);
-        start = i + 1;
-        // Keep scanning
-        return false;
-      }
+    if (char === VALUE_DELIMITER && hasTrailingWhitespace(cleanedValue, i)) {
+      parseSegment(cleanedValue.slice(start, i), parsed);
+      start = i + 1;
     }
+    return false; // keep scanning
   });
 
-  if (scanResult && (scanResult.depth > 0 || scanResult.quote)) {
+  if (scanResult.depth > 0 || scanResult.quote) {
     warn(`Malformed directive value: '${value}'`);
   }
 
-  // Process the final segment
+  // Final segment
   parseSegment(cleanedValue.slice(start), parsed);
 
   return parsed;
 }
 
 /**
- * Parse a single segment into [key, value].
+ * Parse a single segment into a [key, value] pair and push it onto `acc`.
  */
-function parseSegment(segment: string, acc: ParsedDirectiveValue) {
+function parseSegment(segment: string, acc: ParsedDirectiveValue): void {
   const trimmed = segment.trim();
   if (!trimmed) return;
 
   let splitIndex = -1;
 
-  // Scan for the first colon followed by whitespace
   scan(trimmed, (i, char, text) => {
-    if (char === SEGMENT_DELIMITER) {
-      if (hasTrailingWhiteSpace(text, i)) {
-        splitIndex = i;
-        // Stop scan after finding the first separator
-        return true;
-      }
+    if (char === SEGMENT_DELIMITER && hasTrailingWhitespace(text, i)) {
+      splitIndex = i;
+      return true; // stop at first valid separator
     }
+    return false; // otherwise keep scanning
   });
 
-  const processKey = (str: string, val: string) => {
-    if (str) {
-      acc.push([str, val]);
-    }
-  };
-
   if (splitIndex !== -1) {
-    const rawKey = stripQuotes(trimmed.slice(0, splitIndex).trim());
+    const key = stripQuotes(trimmed.slice(0, splitIndex).trim());
     const val = stripQuotes(trimmed.slice(splitIndex + 1).trim());
-    processKey(rawKey, val);
+    if (key) acc.push([key, val]);
   } else {
-    // Key-only directive values
-    processKey(stripQuotes(trimmed), '');
+    const key = stripQuotes(trimmed);
+    if (key) acc.push([key, '']);
   }
 }
 
@@ -222,71 +285,4 @@ export function parseUrlSubject(value: string | undefined | null): {
   }
 
   return { url: trimmed };
-}
-
-const openers: Record<string, boolean> = { '(': true, '{': true, '[': true };
-const closers: Record<string, string> = { ')': '(', '}': '{', ']': '[' };
-
-type BoundaryOpener = '(' | '{' | '[';
-
-/**
- * Iterates through text and fires callback when safe (i.e. not inside
- * quotes, parentheses, or braces).
- */
-function scan(
-  text: string,
-  callback: (index: number, char: string, fullText: string) => boolean | undefined,
-) {
-  const depths: Record<BoundaryOpener, number> = { '(': 0, '{': 0, '[': 0 };
-  let totalDepth = 0;
-  let quote: string | null = null;
-
-  for (let i = 0; i < text.length; i++) {
-    const char = text[i] as string;
-    const prev = text[i - 1];
-
-    // If inside a quote, check for matching closing quote
-    if (quote) {
-      if (char === quote && prev !== '\\') {
-        quote = null;
-      }
-    } else if (char === "'" || char === '"') {
-      quote = char;
-    } else if (openers[char]) {
-      depths[char as BoundaryOpener]++;
-      totalDepth++;
-    } else if (closers[char]) {
-      const opener = closers[char] as BoundaryOpener;
-      if (depths[opener] > 0) {
-        depths[opener]--;
-        totalDepth--;
-      }
-    } else if (totalDepth === 0) {
-      // callback return value dictates whether to return or not
-      if (callback(i, char, text)) {
-        return { depth: totalDepth, quote };
-      }
-    }
-  }
-
-  return { depth: totalDepth, quote };
-}
-
-function isInQuotes(val: string) {
-  if (val.length < 2) return false;
-  const first = val[0];
-  const last = val[val.length - 1];
-
-  return (first === '"' || first === "'") && first === last;
-}
-
-function stripQuotes(val: string) {
-  if (isInQuotes(val)) {
-    return val.slice(1, -1).trim();
-  }
-  return val;
-}
-
-function hasTrailingWhiteSpace(text: string, index: number) {
-  return index + 1 < text.length && /\s/.test(text.charAt(index + 1));
 }
