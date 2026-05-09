@@ -1,7 +1,9 @@
 import { getApp, type RouseApp } from '../core/app';
 import { err, getDirectiveValue, hasDirective, warn } from '../core/shared';
+import type { SyncConfig } from '../core/store';
 import { is } from '../dom/utils';
 import type { DirectiveSlug, ManagerDirective } from '../types';
+import { rzRefresh } from './rz-refresh';
 import { rzUrl } from './rz-url';
 
 const SLUG = 'store' as const satisfies DirectiveSlug;
@@ -58,8 +60,19 @@ function initialize(el: HTMLScriptElement, app: RouseApp) {
 
   // Seed the store URL from `rz-url`
   if (rzUrl.existsOn(el)) {
-    const { url } = rzUrl.getConfig(el);
-    if (url) app.stores.config(storeName, { url });
+    const { url, method } = rzUrl.getConfig(el);
+    const cfg: Partial<SyncConfig> = {};
+
+    if (url) cfg.url = url;
+    if (method) cfg.saveMethod = method;
+    if (Object.keys(cfg).length) app.stores.config(storeName, cfg);
+
+    if (method && method !== 'GET' && rzRefresh.existsOn(el)) {
+      warn(
+        `'${method}' on store '${storeName}' won't apply to refresh. Refresh will use 'GET'.`,
+        el,
+      );
+    }
   }
 
   initialized.add(el);

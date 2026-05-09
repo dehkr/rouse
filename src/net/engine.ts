@@ -71,41 +71,26 @@ async function executeFetch(el: Element, app: RouseApp, options: RouseRequest) {
     return fallbackResponse(options, 'Element is disabled');
   }
 
-  let url: string | null = options.url || null;
+  const { method: inlineMethod, url: inlineUrl } = rzUrl.getConfig(el);
+
+  const url = options.url || inlineUrl || null;
   if (!url) {
-    const srcUrl = rzUrl.getConfig(el).url;
-    if (srcUrl) url = srcUrl;
-  }
+    warn('A URL was not provided for rz-fetch.', el);
 
-  let formMethod: string | undefined;
-
-  // Fallbacks for URL and capture native form method
-  if (isFormEl) {
-    if (!url) {
-      url = el.action;
-    }
-    formMethod = el.getAttribute('method') || undefined;
-  } else if (is(el, 'Anchor')) {
-    if (!url) {
-      url = el.href;
-    }
-  }
-
-  if (!url) {
     const error = new Error('No URL specified for rz-fetch.');
-    warn('No URL specified for rz-fetch.', el);
     dispatch(el, 'rz:fetch:error', { error, config: options });
+
     return fallbackResponse(options, error.message, 'INTERNAL_ERROR');
   }
 
-  // Resolve request inheritance overrides
   const finalRequestInit = resolveRequestConfig(el, 'fetch', app);
+  const formMethod = isFormEl ? el.getAttribute('method') : undefined;
 
-  // Resolve method
   const method = (
-    options.method ||
-    finalRequestInit.method ||
-    formMethod ||
+    options.method || // rz-fetch
+    finalRequestInit.method || // rz-request / rz-request-fetch
+    inlineMethod || // rz-url
+    formMethod || // form native attribute
     'GET'
   ).toUpperCase();
 

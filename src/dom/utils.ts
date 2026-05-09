@@ -1,4 +1,5 @@
-import type { BoundCleanupFn, InsertMethod, VoidFn } from '../types';
+import type { InsertMethod } from '../core/constants';
+import type { BoundCleanupFn, VoidFn } from '../types';
 
 const elementMap = {
   Anchor: HTMLAnchorElement,

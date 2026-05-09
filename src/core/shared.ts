@@ -1,10 +1,10 @@
+import type { DirectiveSlug } from '../types';
 import {
+  DEFAULT_INSERT_METHOD,
   isInsertMethod,
-  type DirectiveSlug,
-  type InsertMethod,
+  STORE_PREFIX,
   type InsertOperation,
-} from '../types';
-import { STORE_PREFIX } from './constants';
+} from './constants';
 import { parseDirectiveValue } from './parser';
 
 export const warn = (msg: string, ...args: any[]) => {
@@ -134,8 +134,6 @@ let count = 46656;
 
 export const uniqueKey = (prefix = 'rz-') => prefix + session + (count++).toString(36);
 
-const DEFAULT_METHOD: InsertMethod = 'innerHTML';
-
 /**
  * Shared utility to parse target strings into DOM insertion operations.
  *
@@ -155,12 +153,12 @@ export function resolveInsertOperations(
   appRoot: Element,
 ): InsertOperation[] {
   if (!value?.trim()) {
-    return [{ targets: [hostEl], strategy: DEFAULT_METHOD }];
+    return [{ targets: [hostEl], strategy: DEFAULT_INSERT_METHOD }];
   }
 
   const parsed = parseDirectiveValue(value);
   if (parsed.length === 0) {
-    return [{ targets: [hostEl], strategy: DEFAULT_METHOD }];
+    return [{ targets: [hostEl], strategy: DEFAULT_INSERT_METHOD }];
   }
 
   const operations: InsertOperation[] = [];
@@ -173,7 +171,7 @@ export function resolveInsertOperations(
 
     // "Strategy: Selector"
     if (val) {
-      const strategy = isInsertMethod(key) ? key : DEFAULT_METHOD;
+      const strategy = isInsertMethod(key) ? key : DEFAULT_INSERT_METHOD;
       const nodeList = queryTargets(appRoot, val);
 
       if (nodeList.length === 0) {
@@ -198,53 +196,14 @@ export function resolveInsertOperations(
     const nodeList = queryTargets(appRoot, key);
     if (nodeList.length === 0) {
       warn(`No targets found for '${key}'.`);
-      operations.push({ targets: [], strategy: DEFAULT_METHOD });
+      operations.push({ targets: [], strategy: DEFAULT_INSERT_METHOD });
     } else {
       operations.push({
         targets: Array.from(nodeList),
-        strategy: DEFAULT_METHOD,
+        strategy: DEFAULT_INSERT_METHOD,
       });
     }
   }
 
   return operations;
-}
-
-interface ParseMethodAndUrlOptions {
-  allowedMethods: readonly string[];
-  defaultMethod?: string;
-  label: string;
-}
-
-export function parseMethodAndUrl(
-  value: string | null,
-  options: ParseMethodAndUrlOptions,
-): { method?: string; url?: string } {
-  let method: string | undefined = options.defaultMethod;
-  let url: string | undefined;
-
-  const parsed = parseDirectiveValue(value);
-  if (!parsed[0]) return { method, url };
-
-  const [key, val] = parsed[0];
-  const upperKey = key.toUpperCase();
-  const isValid = options.allowedMethods.includes(upperKey);
-
-  if (val) {
-    if (isValid) {
-      method = upperKey;
-    } else {
-      const suffix = options.defaultMethod ? ` Using '${options.defaultMethod}'.` : '';
-      warn(`Invalid ${options.label}: '${key}'.${suffix}`);
-    }
-    url = val;
-  } else {
-    if (isValid) {
-      method = upperKey;
-    } else {
-      url = key;
-    }
-  }
-
-  return { method, url };
 }

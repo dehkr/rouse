@@ -1,5 +1,6 @@
+import type { InsertMethod } from '../core/constants';
 import { rzError, rzTarget } from '../directives';
-import type { InsertMethod, RouseResponse } from '../types';
+import type { RouseResponse } from '../types';
 import { dispatch } from './scheduler';
 import { insert } from './utils';
 

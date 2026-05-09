@@ -1,7 +1,6 @@
+import type { InsertOperation } from '../core/constants';
 import { getDirectiveValue, hasDirective, resolveInsertOperations } from '../core/shared';
-import type { ConfigDirective, DirectiveSlug, InsertOperation } from '../types';
-
-// ============================== DIRECTIVE DEFINITION ===================================
+import type { ConfigDirective, DirectiveSlug } from '../types';
 
 const SLUG = 'error' as const satisfies DirectiveSlug;
 
@@ -17,5 +16,3 @@ export const rzError = {
     return resolveInsertOperations(value, el, appRoot);
   },
 } as const satisfies ConfigDirective<InsertOperation[]>;
-
-// =======================================================================================

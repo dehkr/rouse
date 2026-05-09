@@ -1,4 +1,5 @@
 import type { TriggerDef, TriggerSubjectPair } from '../types';
+import { isHttpMethod, type HttpMethod } from './constants';
 import { warn } from './shared';
 
 export type ParsedDirectiveValue = [string, string][];
@@ -199,6 +200,28 @@ export function parseTriggerSubjectPairs(
   }
 
   return pairs;
+}
+
+/**
+ * Parse HTTP method and URL from string value like 'GET /users/api'.
+ */
+export function parseUrlSubject(value: string | undefined | null): {
+  method?: HttpMethod;
+  url?: string;
+} {
+  const trimmed = value?.trim();
+  if (!trimmed || isHttpMethod(trimmed)) return {};
+
+  const match = trimmed.match(/^(\S+)\s+(.+)$/);
+
+  if (match) {
+    const [, initial, rest] = match;
+    if (isHttpMethod(initial)) {
+      return { method: initial, url: rest };
+    }
+  }
+
+  return { url: trimmed };
 }
 
 const openers: Record<string, boolean> = { '(': true, '{': true, '[': true };

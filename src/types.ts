@@ -1,4 +1,5 @@
 import type { RouseApp } from './core/app';
+import type { InsertMethod } from './core/constants';
 import type { StoreManager } from './core/store';
 
 export type DirectiveSlug =
@@ -60,27 +61,6 @@ export type BindableValue =
   | undefined
   | Record<string, boolean> // For class bindings
   | Record<string, string>; // For style bindings
-
-export const INSERT_METHODS = [
-  'innerHTML',
-  'outerHTML',
-  'beforebegin',
-  'afterbegin',
-  'beforeend',
-  'afterend',
-  'delete',
-] as const;
-
-export type InsertMethod = (typeof INSERT_METHODS)[number];
-
-export interface InsertOperation {
-  targets: Element[];
-  strategy: InsertMethod;
-}
-
-export function isInsertMethod(key: string): key is InsertMethod {
-  return INSERT_METHODS.includes(key as InsertMethod);
-}
 
 declare const CLEANUP: unique symbol;
 export type BoundCleanupFn = (() => void) & { [CLEANUP]: true };

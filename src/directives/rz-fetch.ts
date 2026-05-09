@@ -1,6 +1,6 @@
 import type { RouseApp } from '../core/app';
 import { STORE_PREFIX } from '../core/constants';
-import { parseTriggerSubjectPairs } from '../core/parser';
+import { parseTriggerSubjectPairs, parseUrlSubject } from '../core/parser';
 import { getDirectiveValue, hasDirective, warn } from '../core/shared';
 import { attachListener, dispatchTrigger } from '../dom/scheduler';
 import { is, isNativeNavigation } from '../dom/utils';
@@ -58,7 +58,7 @@ function initialize(el: Element, app: RouseApp) {
         if (e && isNativeNavigation(el, e)) {
           e.preventDefault();
         }
-        handleFetch(el, app, subject ? { url: subject } : {});
+        handleFetch(el, app, parseUrlSubject(subject));
       },
     });
 
