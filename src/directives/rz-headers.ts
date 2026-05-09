@@ -16,6 +16,7 @@ import type { ConfigDirective, DirectiveSlug } from '../types';
  */
 export function parseHeadersConfig(
   value: string | null | undefined,
+  el: Element,
   app?: RouseApp,
 ): Record<string, string> {
   if (!value) return {};
@@ -27,12 +28,10 @@ export function parseHeadersConfig(
 
     if (resolvedObject && typeof resolvedObject === 'object') {
       for (const [k, v] of Object.entries(resolvedObject)) {
-        if (v !== undefined && v !== null) {
-          headers[k] = String(v);
-        }
+        headers[k] = v === undefined || v === null ? '' : String(v);
       }
     } else {
-      warn(`rz-headers payload '${value}' did not resolve to an object.`);
+      warn(`rz-headers payload '${value}' does not resolve to an object.`, el);
     }
     return headers;
   }
@@ -40,9 +39,10 @@ export function parseHeadersConfig(
   // Static key-value pairs
   const headers: Record<string, string> = {};
   for (const [key, val] of parseDirectiveValue(value)) {
-    if (key && val !== undefined) {
-      headers[key] = val;
-    }
+    if (!key) continue;
+    // Treat unquoted `null` as the deletion sentinel, mirroring programmatic
+    // null. Quoted 'null' survives `stripQuotes` and would still be a string here.
+    headers[key] = val === 'null' ? '' : val;
   }
 
   return headers;
@@ -58,7 +58,7 @@ export function defineHeadersDirective(
     slug,
     existsOn: (el) => hasDirective(el, slug),
     getValue: (el) => getDirectiveValue(el, slug),
-    getConfig: (el, app) => parseHeadersConfig(getDirectiveValue(el, slug), app),
+    getConfig: (el, app) => parseHeadersConfig(getDirectiveValue(el, slug), el, app),
   };
 }
 
