@@ -137,11 +137,7 @@ export function dispatchTrigger(
   base: Omit<TriggerContext, 'modifiers'>,
 ): VoidFn | null {
   const appInst = base.app || getApp(base.el);
-  const paced = applyTiming(
-    base.action, 
-    trigger.modifiers, 
-    appInst?.config.timing
-  );
+  const paced = applyTiming(base.action, trigger.modifiers, appInst?.config.timing);
   const pacedAction: ActionFn = (e) => paced(e);
 
   // Ensure paced timers cancel on teardown

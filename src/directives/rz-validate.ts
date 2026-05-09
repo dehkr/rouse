@@ -40,7 +40,7 @@ function getConfig(el: Element): ValidateConfig | null {
   }
 
   const val = getDirectiveValue(el, SLUG)?.trim();
-  
+
   if (!val) {
     configCache.set(el, null);
     return null;

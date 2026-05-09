@@ -298,7 +298,7 @@ export class RouseApp {
     // Cleanup network directives
     for (const d of [rzFetch, rzSave, rzRefresh]) {
       queryTargets(this.root, directiveSelector(d.slug)).forEach(d.teardown);
-    };
+    }
 
     // Cleanup store directive side-effects
     for (const el of this.stores.elements()) {
