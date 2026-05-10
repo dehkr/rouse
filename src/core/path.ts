@@ -75,6 +75,11 @@ function getPathParts(path: string): string[] {
   return parts;
 }
 
+export function getRootSegment(path: string | undefined): string | undefined {
+  if (!path) return;
+  return getPathParts(path)[0];
+}
+
 /**
  * Resolves a path against either a global store or a local controller.
  */

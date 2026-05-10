@@ -1,10 +1,12 @@
 import { request } from '../net/request';
 import { nonReactive, reactive, readOnly, trackDirty } from '../reactivity';
-import type { DirectiveSlug, RouseRequest } from '../types';
+import type { DirectiveSlug, RouseRequest, RouseResponse } from '../types';
 import type { RouseConfig } from './app';
 import { STORE_PREFIX } from './constants';
-import { getNestedVal } from './path';
+import { parseStoreLocator } from './parser';
+import { getNestedVal, getRootSegment, setNestedVal } from './path';
 import { getDirectiveValue, isPlainObject, warn } from './shared';
+import { clone, deepEqual, patchState } from './state';
 
 export interface StoreStatus {
   loading: false | 'save' | 'refresh';
@@ -34,28 +36,6 @@ export interface StoreRequestOptions {
   method?: string;
   overrides?: Partial<RouseRequest>;
   nestedPath?: string;
-}
-
-let _isPatching = false;
-
-/**
- * Extracts the store name and the nested path (if any)
- */
-export function parseStoreLocator(value: string): {
-  storeName: string;
-  nestedPath: string;
-} {
-  const path = value.slice(STORE_PREFIX.length);
-  const dotIndex = path.indexOf('.');
-
-  if (dotIndex === -1) {
-    return { storeName: path, nestedPath: '' };
-  }
-
-  return {
-    storeName: path.slice(0, dotIndex),
-    nestedPath: path.slice(dotIndex + 1),
-  };
 }
 
 /**
@@ -90,196 +70,6 @@ export function resolveTarget(
 }
 
 /**
- * Deep oject cloner that enforces serializable state and
- * protects against circular references.
- */
-function clone<T>(obj: T, seen = new WeakMap(), path = 'root'): T {
-  if (obj === null || typeof obj !== 'object') {
-    return obj;
-  }
-
-  // Circular reference protection
-  if (seen.has(obj as any)) {
-    return seen.get(obj as any);
-  }
-
-  // Arrays
-  // JSON converts functions/undefined to null to preserve indexes.
-  // This also normalizes sparse arrays (holes become null).
-  if (Array.isArray(obj)) {
-    const arr = [] as any[];
-    seen.set(obj as any, arr);
-    for (let i = 0; i < obj.length; i++) {
-      const val = obj[i];
-      // Pass path + index for array debugging
-      arr[i] =
-        typeof val === 'function' || val === undefined
-          ? null
-          : clone(val, seen, `${path}[${i}]`);
-    }
-    return arr as unknown as T;
-  }
-
-  // Catch complex objects before network sync
-  if (!isPlainObject(obj)) {
-    warn(
-      `Non-serializable data found in store at '${path}'. Complex objects (Maps, Classes, etc.) cannot be synced or rolled back safely.`,
-    );
-    return {} as T;
-  }
-
-  // Objects
-  // JSON completely strips properties that are functions or undefined.
-  const result = {} as Record<string, any>;
-  seen.set(obj as any, result);
-
-  for (const key in obj) {
-    if (Object.hasOwn(obj, key)) {
-      const val = (obj as Record<string, any>)[key];
-      if (typeof val !== 'function' && val !== undefined) {
-        result[key] = clone(val, seen, `${path}.${key}`);
-      }
-    }
-  }
-
-  return result as T;
-}
-
-/**
- * Performant deep equality check with circular reference protection.
- * Ignores non-serializable properties (functions/undefined) to align with clone().
- */
-function deepEqual(a: any, b: any, seen = new WeakMap<object, any>()): boolean {
-  if (a === b) {
-    return true;
-  }
-  // Handle NaN (NaN !== NaN)
-  if (
-    typeof a === 'number' &&
-    typeof b === 'number' &&
-    Number.isNaN(a) &&
-    Number.isNaN(b)
-  ) {
-    return true;
-  }
-  if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) {
-    return false;
-  }
-
-  // Circular reference protection
-  if (seen.has(a)) {
-    return seen.get(a) === b;
-  }
-  seen.set(a, b);
-
-  // Fast path: constructor check
-  if (a.constructor !== b.constructor) {
-    return false;
-  }
-  if (a instanceof Date) {
-    return a.getTime() === b.getTime();
-  }
-  if (a instanceof RegExp) {
-    return a.toString() === b.toString();
-  }
-
-  // Arrays: match JSON behavior (functions/undefined become null)
-  if (Array.isArray(a)) {
-    if (a.length !== b.length) {
-      return false;
-    }
-    for (let i = 0; i < a.length; i++) {
-      const valA = typeof a[i] === 'function' || a[i] === undefined ? null : a[i];
-      const valB = typeof b[i] === 'function' || b[i] === undefined ? null : b[i];
-      if (!deepEqual(valA, valB, seen)) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  // Objects: O(N) traversal, ignoring non-serializable keys without allocating arrays
-  let validKeysA = 0;
-  for (const key in a) {
-    if (Object.hasOwn(a, key)) {
-      const valA = a[key];
-      if (typeof valA !== 'function' && valA !== undefined) {
-        validKeysA++;
-        if (!Object.hasOwn(b, key)) {
-          return false;
-        }
-        if (!deepEqual(valA, b[key], seen)) {
-          return false;
-        }
-      }
-    }
-  }
-
-  // Count valid keys in B to ensure no extra serializable keys exist
-  let validKeysB = 0;
-  for (const key in b) {
-    if (Object.hasOwn(b, key)) {
-      const valB = b[key];
-      if (typeof valB !== 'function' && valB !== undefined) {
-        validKeysB++;
-      }
-    }
-  }
-
-  return validKeysA === validKeysB;
-}
-
-/**
- * Replaces or merges the state of a reactive target with the source payload.
- * - 'replace': Strict overwrite. Deletes missing keys.
- * - 'merge': Deep merges plain objects. Strictly overwrites arrays and primitives.
- */
-function patchState(
-  target: Record<string, any>,
-  source: Record<string, any>,
-  strategy: 'replace' | 'merge' = 'replace',
-) {
-  if (strategy === 'replace') {
-    for (const key in target) {
-      if (!Object.hasOwn(source, key)) {
-        delete target[key];
-      }
-    }
-    Object.assign(target, source);
-    return;
-  }
-
-  // Merge strategy
-  for (const key in source) {
-    if (!Object.hasOwn(source, key)) continue;
-
-    const sourceVal = source[key];
-    const targetVal = target[key];
-
-    // If both source and target are plain objects, deep merge recursively
-    if (isPlainObject(sourceVal) && isPlainObject(targetVal)) {
-      patchState(targetVal, sourceVal, 'merge');
-    } else {
-      // Strictly replace arrays, primitives, or mismatched types
-      target[key] = sourceVal;
-    }
-  }
-}
-
-function runPatch(
-  target: Record<string, any>,
-  source: Record<string, any>,
-  strategy: 'replace' | 'merge' = 'replace',
-) {
-  _isPatching = true;
-  try {
-    patchState(target, source, strategy);
-  } finally {
-    _isPatching = false;
-  }
-}
-
-/**
  * The central manager for all reactive stores and their network logic.
  * Instantiated once per RouseApp to ensure isolation.
  */
@@ -292,6 +82,7 @@ export class StoreManager {
   private _initial = new Map<string, any>();
   private _activeReqs = new Map<string, symbol>();
   private _elements = new Map<string, Element>();
+  private _isPatching = false;
 
   constructor(appConfig: RouseConfig) {
     this.appConfig = appConfig;
@@ -326,7 +117,7 @@ export class StoreManager {
       reset: () => this.reset(id),
     };
 
-    // expose __actions invisibly
+    // Expose __actions invisibly
     Object.defineProperty(state, '__actions', {
       value: actions,
       enumerable: false,
@@ -334,7 +125,7 @@ export class StoreManager {
       writable: false,
     });
 
-    // expose __status invisibly
+    // Expose __status invisibly
     Object.defineProperty(state, '__status', {
       value: status,
       enumerable: false,
@@ -347,7 +138,7 @@ export class StoreManager {
     this._initial.set(id, clone(state));
 
     trackDirty(proxyState, (rootKey: string) => {
-      if (_isPatching) return;
+      if (this._isPatching) return;
       status.dirty[rootKey] = true;
     });
 
@@ -421,49 +212,92 @@ export class StoreManager {
 
     try {
       const result = await request(url, requestOptions, this.appConfig);
-
-      if (result.error) {
-        if (result.error.status === 'CANCELED') return;
-        throw result.error;
-      }
-
-      // Clear dirty flags only for what was actually saved.
-      if (operation === 'save') {
-        const rootKey = manualConfig?.nestedPath?.split('.')[0];
-        const keys = rootKey ? [rootKey] : Object.keys(snapshot);
-        for (const key of keys) {
-          if (Object.hasOwn(snapshot, key) && deepEqual(data[key], snapshot[key])) {
-            delete status.dirty[key];
-          }
-        }
-      }
-
-      if (result.data && typeof result.data === 'object') {
-        // Check if local state is being mutated while the network is busy
-        const isMutating = !deepEqual(data, snapshot);
-
-        if (!isMutating) {
-          // Safe to apply server update
-          const action = config?.action || 'replace';
-          runPatch(data, result.data, action);
-
-          if (operation === 'refresh') {
-            this._initial.set(id, clone(result.data));
-          }
-        }
-      }
-      status.lastSync = Date.now();
+      this._applyServerResponse(
+        id,
+        operation,
+        result,
+        data,
+        status,
+        config,
+        snapshot,
+        manualConfig,
+      );
     } catch (e: any) {
-      // If a save fails, roll back to the snapshot (unless mutated)
-      if (operation === 'save' && deepEqual(data, snapshot)) {
-        runPatch(data, snapshot, 'replace');
-      }
       status.error = e;
     } finally {
       // Only disable the loading state if this is the most recent request
       if (this._activeReqs.get(id) === reqToken) {
         status.loading = false;
         this._activeReqs.delete(id);
+      }
+    }
+  }
+
+  private _applyServerResponse(
+    id: string,
+    operation: 'save' | 'refresh',
+    result: RouseResponse,
+    data: any,
+    status: StoreStatus,
+    config: SyncConfig | undefined,
+    snapshot: any,
+    manualConfig?: StoreRequestOptions,
+  ) {
+    if (result.error) {
+      if (result.error.status === 'CANCELED') return;
+      throw result.error;
+    }
+
+    if (operation === 'save') {
+      // Save accepted = synced
+      status.lastSync = Date.now();
+
+      // Clear dirty flags only for what was actually saved
+      const rootKey = getRootSegment(manualConfig?.nestedPath);
+      const keys = rootKey ? [rootKey] : Object.keys(snapshot);
+      for (const key of keys) {
+        if (Object.hasOwn(snapshot, key) && deepEqual(data[key], snapshot[key])) {
+          delete status.dirty[key];
+        }
+      }
+    }
+
+    if (result.data && typeof result.data === 'object') {
+      const path = manualConfig?.nestedPath;
+      const localSlice = path ? getNestedVal(data, path) : data;
+      const snapSlice = path ? getNestedVal(snapshot, path) : snapshot;
+
+      // Check if local state is being mutated while the network is busy
+      const isMutating = !deepEqual(localSlice, snapSlice);
+
+      // Safe to apply server update
+      if (!isMutating) {
+        const action = config?.action || 'replace';
+        if (path) {
+          const incoming = getNestedVal(result.data, path);
+          if (incoming !== undefined) {
+            const target = getNestedVal(data, path);
+            if (
+              action === 'merge' &&
+              target &&
+              typeof target === 'object' &&
+              incoming &&
+              typeof incoming === 'object'
+            ) {
+              this._runPatch(target, incoming, 'merge');
+            } else {
+              setNestedVal(data, path, incoming);
+            }
+          }
+        } else {
+          this._runPatch(data, result.data, action);
+        }
+
+        if (operation === 'refresh') {
+          this._initial.set(id, clone(result.data));
+          // Refresh applied = synced
+          status.lastSync = Date.now();
+        }
       }
     }
   }
@@ -480,42 +314,58 @@ export class StoreManager {
       target !== undefined && typeof target === 'object' && target !== null;
 
     if (Array.isArray(meta.nonReactive)) {
-      meta.nonReactive.forEach((path: string) => {
+      for (const path of meta.nonReactive) {
         const target = getNestedVal(payload, path);
         if (isObject(target)) {
           nonReactive(target);
         }
-      });
+      }
     }
 
     // Handle readOnly paths
     if (Array.isArray(meta.readOnly)) {
-      meta.readOnly.forEach((path: string) => {
+      for (const path of meta.readOnly) {
         const keys = path.split('.');
         const lastKey = keys.pop();
-
-        if (!lastKey) return;
+        if (!lastKey) continue;
 
         let parent = payload;
+        let failed = false;
 
         // Traverse remaining keys to find the final parent
         for (const key of keys) {
-          const next = parent[key];
-          if (!isObject(next)) return;
-          parent = next;
+          if (!isObject(parent[key])) {
+            failed = true;
+            break;
+          }
+          parent = parent[key];
         }
 
-        const target = parent[lastKey];
-        if (isObject(target)) {
-          parent[lastKey] = readOnly(target);
+        if (!failed && isObject(parent[lastKey])) {
+          parent[lastKey] = readOnly(parent[lastKey]);
         }
-      });
+      }
     }
 
     delete payload.__meta;
   }
 
-  // PUBLIC API
+  private _runPatch(
+    target: Record<string, any>,
+    source: Record<string, any>,
+    strategy: 'replace' | 'merge' = 'replace',
+  ) {
+    this._isPatching = true;
+    try {
+      patchState(target, source, strategy);
+    } finally {
+      this._isPatching = false;
+    }
+  }
+
+  // -------------------------------------------------------------------------------------
+  // Public API
+  // -------------------------------------------------------------------------------------
 
   elementFor(name: string): Element | undefined {
     return this._elements.get(name);
@@ -553,7 +403,7 @@ export class StoreManager {
     this._processMeta(state);
 
     const action = config?.action || this._configs.get(name)?.action || 'replace';
-    runPatch(this._data.get(name), state, action);
+    this._runPatch(this._data.get(name), state, action);
 
     this._initial.set(name, clone(state));
     if (config) {
@@ -592,10 +442,7 @@ export class StoreManager {
     return this._request(name, 'save', config);
   }
 
-  async refresh(
-    name: string,
-    config?: Omit<StoreRequestOptions, 'nestedPath'>,
-  ): Promise<void> {
+  async refresh(name: string, config?: StoreRequestOptions): Promise<void> {
     // Avoid clobbering an in-flight save with stale server data
     if (this.status(name)?.loading === 'save') return;
 
@@ -611,7 +458,7 @@ export class StoreManager {
     if (!initial) {
       return warn(`Cannot reset store '${name}': No initial state cached.`);
     }
-    runPatch(data, clone(initial), 'replace');
+    this._runPatch(data, clone(initial), 'replace');
   }
 
   remove(name: string) {

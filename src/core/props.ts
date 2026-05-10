@@ -1,7 +1,8 @@
 import { STORE_PREFIX } from './constants';
+import { parseStoreLocator } from './parser';
 import { getNestedVal, KEY_BLOCKLIST } from './path';
 import { isPlainObject, warn } from './shared';
-import { parseStoreLocator, StoreManager } from './store';
+import { StoreManager } from './store';
 
 /**
  * Parse JSON with recursive check that blocks prototype pollution keys.

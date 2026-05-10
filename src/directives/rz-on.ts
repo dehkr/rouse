@@ -1,10 +1,9 @@
 import type { RouseApp } from '../core/app';
 import { STORE_PREFIX } from '../core/constants';
-import { parseTriggers } from '../core/parser';
+import { parseStoreLocator, parseTriggers } from '../core/parser';
 import { getNestedVal } from '../core/path';
 import { resolveProps, splitInjection } from '../core/props';
 import { err, getDirectiveValue, hasDirective, warn } from '../core/shared';
-import { parseStoreLocator } from '../core/store';
 import { dispatchTrigger } from '../dom/scheduler';
 import { boundCleanup } from '../dom/utils';
 import type {
@@ -15,18 +14,7 @@ import type {
   DirectiveSlug,
 } from '../types';
 
-// ============================== DIRECTIVE DEFINITION ===================================
-
 const SLUG = 'on' as const satisfies DirectiveSlug;
-
-export const rzOn = {
-  slug: SLUG,
-  existsOn: (el: Element) => hasDirective(el, SLUG),
-  getValue: (el: Element) => getDirectiveValue(el, SLUG),
-  attach,
-} as const satisfies BoundDirective;
-
-// =======================================================================================
 
 function attach(
   el: Element,
@@ -96,3 +84,10 @@ function attach(
     cleanups.forEach((fn) => fn());
   });
 }
+
+export const rzOn = {
+  slug: SLUG,
+  existsOn: (el: Element) => hasDirective(el, SLUG),
+  getValue: (el: Element) => getDirectiveValue(el, SLUG),
+  attach,
+} as const satisfies BoundDirective;

@@ -14,7 +14,12 @@ const cleanups = new WeakMap<Element, Array<VoidFn>>();
  * and dispatches the refresh through the store manager. Bails when the
  * target store isn't registered or already has a request in flight.
  */
-function triggerRefresh(triggeringEl: Element, app: RouseApp, storeName: string) {
+function triggerRefresh(
+  triggerEl: Element,
+  app: RouseApp,
+  storeName: string,
+  nestedPath?: string,
+) {
   const status = app.stores.status(storeName);
   if (!status) {
     warn(`Cannot refresh: store '${storeName}' not found.`);
@@ -23,9 +28,9 @@ function triggerRefresh(triggeringEl: Element, app: RouseApp, storeName: string)
   if (status.loading) return;
 
   const targetEl = app.stores.elementFor(storeName);
-  const overrides = resolveRequestConfig(triggeringEl, 'refresh', app, targetEl);
+  const overrides = resolveRequestConfig(triggerEl, 'refresh', app, targetEl);
 
-  app.stores.refresh(storeName, { overrides });
+  app.stores.refresh(storeName, { overrides, nestedPath });
 }
 
 /**
@@ -45,11 +50,11 @@ function initialize(el: Element, app: RouseApp) {
   const teardowns: VoidFn[] = [];
 
   for (const { trigger, subject } of pairs) {
-    const target = resolveTarget(el, 'refresh', subject, false);
+    const target = resolveTarget(el, 'refresh', subject, true);
     if (!target) continue;
 
-    const { storeName } = target;
-    const fire = () => triggerRefresh(el, app, storeName);
+    const { storeName, nestedPath } = target;
+    const fire = () => triggerRefresh(el, app, storeName, nestedPath);
     const cleanup = dispatchTrigger(trigger, { el, app, action: fire });
 
     if (cleanup) teardowns.push(cleanup);
@@ -72,7 +77,7 @@ function teardown(el: Element) {
  *
  * Each segment is `[trigger]: [@store]`. When the subject is omitted, the
  * directive targets the `rz-store` on the same element. Nested paths are
- * not supported (refresh always pulls the whole store).
+ * supported (e.g., rz-refresh="click: @store.user.notifications").
  */
 export const rzRefresh = {
   slug: SLUG,

@@ -1,5 +1,5 @@
 import type { TriggerDef, TriggerSubjectPair } from '../types';
-import { isHttpMethod, type HttpMethod } from './constants';
+import { isHttpMethod, STORE_PREFIX, type HttpMethod } from './constants';
 import { warn } from './shared';
 
 export type ParsedDirectiveValue = [string, string][];
@@ -285,4 +285,24 @@ export function parseUrlSubject(value: string | undefined | null): {
   }
 
   return { url: trimmed };
+}
+
+/**
+ * Extracts the store name and the nested path (if any) from a string value.
+ */
+export function parseStoreLocator(value: string): {
+  storeName: string;
+  nestedPath: string;
+} {
+  const path = value.slice(STORE_PREFIX.length);
+  const dotIndex = path.indexOf('.');
+
+  if (dotIndex === -1) {
+    return { storeName: path, nestedPath: '' };
+  }
+
+  return {
+    storeName: path.slice(0, dotIndex),
+    nestedPath: path.slice(dotIndex + 1),
+  };
 }
