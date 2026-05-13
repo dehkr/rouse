@@ -1,8 +1,8 @@
 import { request } from '../net/request';
 import { nonReactive, reactive, readOnly, trackDirty } from '../reactivity';
-import type { DirectiveSlug, RouseRequest, RouseResponse } from '../types';
+import type { DirectiveSlug, RouseRequest, RouseResponse, VoidFn } from '../types';
 import type { RouseConfig } from './app';
-import { STORE_PREFIX } from './constants';
+import { STORE_PREFIX, type HttpMethod, type PatchAction } from './constants';
 import { parseStoreLocator } from './parser';
 import { getNestedVal, getRootSegment, setNestedVal } from './path';
 import { getDirectiveValue, isPlainObject, warn } from './shared';
@@ -26,14 +26,15 @@ export type RouseStore<T extends object = any> = T & {
 
 export interface SyncConfig {
   url: string;
-  saveMethod?: string;
-  refreshMethod?: string;
-  action?: 'replace' | 'merge';
+  saveMethod?: HttpMethod;
+  refreshMethod?: HttpMethod;
+  action?: PatchAction;
 }
 
 export interface StoreRequestOptions {
   url?: string;
-  method?: string;
+  method?: HttpMethod;
+  action?: PatchAction;
   overrides?: Partial<RouseRequest>;
   nestedPath?: string;
 }
@@ -112,8 +113,8 @@ export class StoreManager {
     this._status.set(id, status);
 
     const actions = {
-      save: (config?: { url?: string; method?: string }) => this.save(id, config),
-      refresh: (config?: { url?: string; method?: string }) => this.refresh(id, config),
+      save: (config?: StoreRequestOptions) => this.save(id, config),
+      refresh: (config?: StoreRequestOptions) => this.refresh(id, config),
       reset: () => this.reset(id),
     };
 
@@ -213,7 +214,6 @@ export class StoreManager {
     try {
       const result = await request(url, requestOptions, this.appConfig);
       this._applyServerResponse(
-        id,
         operation,
         result,
         data,
@@ -234,7 +234,6 @@ export class StoreManager {
   }
 
   private _applyServerResponse(
-    id: string,
     operation: 'save' | 'refresh',
     result: RouseResponse,
     data: any,
@@ -272,30 +271,30 @@ export class StoreManager {
 
       // Safe to apply server update
       if (!isMutating) {
-        const action = config?.action || 'replace';
+        const action = manualConfig?.action || config?.action || 'replace';
         if (path) {
           const incoming = getNestedVal(result.data, path);
           if (incoming !== undefined) {
-            const target = getNestedVal(data, path);
-            if (
-              action === 'merge' &&
-              target &&
-              typeof target === 'object' &&
-              incoming &&
-              typeof incoming === 'object'
-            ) {
-              this._runPatch(target, incoming, 'merge');
-            } else {
-              setNestedVal(data, path, incoming);
-            }
+            this._withPatchGuard(() => {
+              const target = getNestedVal(data, path);
+              if (
+                action === 'merge' &&
+                target &&
+                typeof target === 'object' &&
+                incoming &&
+                typeof incoming === 'object'
+              ) {
+                patchState(target, incoming, 'merge');
+              } else {
+                setNestedVal(data, path, incoming);
+              }
+            });
           }
         } else {
-          this._runPatch(data, result.data, action);
+          this._withPatchGuard(() => patchState(data, result.data, action));
         }
 
         if (operation === 'refresh') {
-          this._initial.set(id, clone(result.data));
-          // Refresh applied = synced
           status.lastSync = Date.now();
         }
       }
@@ -350,14 +349,10 @@ export class StoreManager {
     delete payload.__meta;
   }
 
-  private _runPatch(
-    target: Record<string, any>,
-    source: Record<string, any>,
-    strategy: 'replace' | 'merge' = 'replace',
-  ) {
+  private _withPatchGuard(fn: VoidFn) {
     this._isPatching = true;
     try {
-      patchState(target, source, strategy);
+      fn();
     } finally {
       this._isPatching = false;
     }
@@ -403,7 +398,7 @@ export class StoreManager {
     this._processMeta(state);
 
     const action = config?.action || this._configs.get(name)?.action || 'replace';
-    this._runPatch(this._data.get(name), state, action);
+    this._withPatchGuard(() => patchState(this._data.get(name), state, action));
 
     this._initial.set(name, clone(state));
     if (config) {
@@ -458,7 +453,7 @@ export class StoreManager {
     if (!initial) {
       return warn(`Cannot reset store '${name}': No initial state cached.`);
     }
-    this._runPatch(data, clone(initial), 'replace');
+    this._withPatchGuard(() => patchState(data, clone(initial), 'replace'));
   }
 
   remove(name: string) {

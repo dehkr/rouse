@@ -1,9 +1,15 @@
 import type { RouseApp } from '../core/app';
-import { parseTriggerSubjectPairs } from '../core/parser';
+import type { PatchAction } from '../core/constants';
+import {
+  looksLikeStoreSubject,
+  parseStoreSubject,
+  parseTriggerSubjectPairs,
+} from '../core/parser';
 import { getDirectiveValue, hasDirective, warn } from '../core/shared';
 import { resolveTarget } from '../core/store';
 import { applyTiming } from '../core/timing';
 import { dispatchTrigger } from '../dom/scheduler';
+import { defaultTriggerFor } from '../dom/utils';
 import { resolveRequestConfig } from '../net/request';
 import { effect } from '../reactivity';
 import type { DirectiveSlug, ManagerDirective, TriggerDef, VoidFn } from '../types';
@@ -21,6 +27,7 @@ function triggerSave(
   app: RouseApp,
   storeName: string,
   nestedPath: string,
+  action?: PatchAction,
 ) {
   const status = app.stores.status(storeName);
   if (!status) {
@@ -32,13 +39,13 @@ function triggerSave(
   const targetEl = app.stores.elementFor(storeName);
   const overrides = resolveRequestConfig(triggerEl, 'save', app, targetEl);
 
-  app.stores.save(storeName, { overrides, nestedPath });
+  app.stores.save(storeName, { overrides, nestedPath, action });
 }
 
 /**
- * Manager entry for `rz-save`. Parses each `[trigger]: [@store]` pair from
- * the attribute value and wires the trigger to fire a save against the
- * resolved target. The synthetic `mutate` event fires whenever the target
+ * Manager entry for `rz-save`. Parses each `[trigger]: [[action] @store[.path]]`
+ * pair from the attribute value and wires the trigger to fire a save against
+ * the resolved target. The synthetic `mutate` event fires whenever the target
  * store's data changes, paced by any modifiers on the trigger.
  */
 function initialize(el: Element, app: RouseApp) {
@@ -47,25 +54,31 @@ function initialize(el: Element, app: RouseApp) {
   const value = getDirectiveValue(el, SLUG);
   if (value === null) return;
 
-  const pairs = parseTriggerSubjectPairs(value);
+  const pairs = parseTriggerSubjectPairs(value, looksLikeStoreSubject);
   if (pairs.length === 0) return;
 
   const teardowns: VoidFn[] = [];
 
   for (const { trigger, subject } of pairs) {
-    const target = resolveTarget(el, 'save', subject);
-    if (!target) continue;
+    const { action, target } = parseStoreSubject(subject);
+    const resolved = resolveTarget(el, 'save', target ?? null);
+    if (!resolved) continue;
 
-    const { storeName, nestedPath } = target;
+    const { storeName, nestedPath } = resolved;
+    const fire = () => triggerSave(el, app, storeName, nestedPath, action);
 
-    const fire = () => triggerSave(el, app, storeName, nestedPath);
-
-    if (trigger.event === 'mutate') {
+    // `mutate` is a reactive synthetic event that needs to be handled separately
+    if (trigger?.event === 'mutate') {
       teardowns.push(attachMutateEffect(app, storeName, trigger.modifiers, fire));
       continue;
     }
 
-    const cleanup = dispatchTrigger(trigger, { el, app, action: fire });
+    const resolvedTrigger = trigger ?? {
+      event: defaultTriggerFor(el),
+      modifiers: [],
+    };
+
+    const cleanup = dispatchTrigger(resolvedTrigger, { el, app, action: fire });
     if (cleanup) teardowns.push(cleanup);
   }
 
@@ -86,7 +99,7 @@ function attachMutateEffect(
   app: RouseApp,
   storeName: string,
   modifiers: TriggerDef['modifiers'],
-  fire: () => void,
+  fire: VoidFn,
 ): VoidFn {
   let isInitial = true;
   const teardowns: VoidFn[] = [];
@@ -105,8 +118,8 @@ function attachMutateEffect(
     }
     debouncedFire();
   });
-  teardowns.push(stopEffect);
 
+  teardowns.push(stopEffect);
   return () => teardowns.forEach((fn) => fn());
 }
 
@@ -114,9 +127,10 @@ function attachMutateEffect(
  * Definition for the `rz-save` directive. Wires events to push
  * local store state to the server.
  *
- * Each segment is `[trigger]: [store]`. The subject is a store reference,
- * optionally with a nested path. When omitted, the directive targets the
- * `rz-store` on the same element.
+ * Each segment is `[trigger]: [[action] @store[.path]]`. The action token
+ * (`replace` or `merge`) overrides the store-configured patch strategy for
+ * the response patch on this trigger only. When the subject is omitted, the
+ * directive targets the `rz-store` on the same element.
  */
 export const rzSave = {
   slug: SLUG,

@@ -28,7 +28,7 @@ export function parseHeadersConfig(
 
     if (resolvedObject && typeof resolvedObject === 'object') {
       for (const [k, v] of Object.entries(resolvedObject)) {
-        headers[k] = v === undefined || v === null ? '' : String(v);
+        headers[k] = v == null ? '' : String(v);
       }
     } else {
       warn(`rz-headers payload '${value}' does not resolve to an object.`, el);

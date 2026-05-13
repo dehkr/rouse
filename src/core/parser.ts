@@ -1,5 +1,11 @@
 import type { TriggerDef, TriggerSubjectPair } from '../types';
-import { isHttpMethod, STORE_PREFIX, type HttpMethod } from './constants';
+import {
+  isHttpMethod,
+  isPatchAction,
+  STORE_PREFIX,
+  type HttpMethod,
+  type PatchAction,
+} from './constants';
 import { warn } from './shared';
 
 export type ParsedDirectiveValue = [string, string][];
@@ -9,6 +15,8 @@ const SEGMENT_DELIMITER = ':';
 const MODIFIER_DELIMITER = '.';
 
 const WHITESPACE_RE = /\s/;
+const SUBJECT_RE = /^(\S+)\s+(.+)$/;
+const FETCH_URL_PREFIX_RE = /^(\/|\.\.?\/|https?:\/\/|\?)/;
 
 const openers: Record<string, boolean> = { '(': true, '{': true, '[': true };
 const closers: Record<string, string> = { ')': '(', '}': '{', ']': '[' };
@@ -118,66 +126,6 @@ function hasTrailingWhitespace(text: string, index: number) {
 // ---------------------------------------------------------------------------------------
 
 /**
- * Utility for parsing a value that might have modifiers.
- * Safely extracts modifiers, ignoring dots inside quotes or boundaries.
- *
- * - `click.debounce.400ms` returns `{ key: 'click', modifiers: ['debounce', '400ms']}`
- * - `media.(max-width < 600px)` returns `{ key: 'media', modifiers: ['(max-width < 600px)']}`
- */
-export function parseModifiers(value: string): { key: string; modifiers: string[] } {
-  const parts = scanSplit(value, MODIFIER_DELIMITER);
-  const [key = '', ...modifiers] = parts;
-  return { key, modifiers };
-}
-
-/**
- * Handles parsing raw directive values into an array of trigger definitions.
- * Splits on whitespace, ignoring spaces inside quotes or boundaries.
- */
-export function parseTriggers(value: string | null | undefined): TriggerDef[] {
-  let rawTriggers = value?.trim();
-  if (!rawTriggers) return [];
-
-  rawTriggers = stripQuotes(rawTriggers);
-
-  if (rawTriggers.includes(',')) {
-    warn(`Separate multi-trigger values by spaces, not commas: '${rawTriggers}'.`);
-    return [];
-  }
-
-  const parts: string[] = [];
-  let start = 0;
-
-  // Split on whitespace only when depth is 0
-  scan(rawTriggers, (i, char, text) => {
-    if (char === ' ' || char === '\t' || char === '\n' || char === '\r') {
-      if (start !== i) {
-        parts.push(text.slice(start, i));
-      }
-      start = i + 1;
-    }
-    return false; // keep scanning
-  });
-
-  if (start < rawTriggers.length) {
-    const remaining = rawTriggers.slice(start);
-    if (remaining) {
-      parts.push(remaining);
-    }
-  }
-
-  const triggers: TriggerDef[] = [];
-  for (const trigger of parts) {
-    const { key: event, modifiers } = parseModifiers(trigger);
-    if (event) {
-      triggers.push({ event, modifiers });
-    }
-  }
-
-  return triggers;
-}
-
-/**
  * Handles string splitting for directive values.
  *
  * rz-wake="visible, media: (min-width: 600px)" is parsed to:
@@ -244,21 +192,105 @@ function parseSegment(segment: string, acc: ParsedDirectiveValue): void {
 }
 
 /**
+ * Utility for parsing a value that might have modifiers.
+ * Safely extracts modifiers, ignoring dots inside quotes or boundaries.
+ *
+ * - `click.debounce.400ms` returns `{ key: 'click', modifiers: ['debounce', '400ms']}`
+ * - `media.(max-width < 600px)` returns `{ key: 'media', modifiers: ['(max-width < 600px)']}`
+ */
+export function parseModifiers(value: string): { key: string; modifiers: string[] } {
+  const parts = scanSplit(value, MODIFIER_DELIMITER);
+  const [key = '', ...modifiers] = parts;
+  return { key, modifiers };
+}
+
+/**
+ * Handles parsing raw directive values into an array of trigger definitions.
+ * Splits on whitespace, ignoring spaces inside quotes or boundaries.
+ */
+export function parseTriggers(value: string | null | undefined): TriggerDef[] {
+  let rawTriggers = value?.trim();
+  if (!rawTriggers) return [];
+
+  rawTriggers = stripQuotes(rawTriggers);
+
+  if (rawTriggers.includes(',')) {
+    warn(`Separate multi-trigger values by spaces, not commas: '${rawTriggers}'.`);
+    return [];
+  }
+
+  const parts: string[] = [];
+  let start = 0;
+
+  // Split on whitespace only when depth is 0
+  scan(rawTriggers, (i, char, text) => {
+    if (char === ' ' || char === '\t' || char === '\n' || char === '\r') {
+      if (start !== i) {
+        parts.push(text.slice(start, i));
+      }
+      start = i + 1;
+    }
+    return false; // keep scanning
+  });
+
+  if (start < rawTriggers.length) {
+    const remaining = rawTriggers.slice(start);
+    if (remaining) {
+      parts.push(remaining);
+    }
+  }
+
+  const triggers: TriggerDef[] = [];
+  for (const trigger of parts) {
+    const { key: event, modifiers } = parseModifiers(trigger);
+    if (event) {
+      triggers.push({ event, modifiers });
+    }
+  }
+
+  return triggers;
+}
+
+/**
  * Parses directive values shaped as `[trigger]: [subject]` pairs.
  *
  * Combines `parseDirectiveValue` (comma-separated groups) with `parseTriggers`
  * (space-separated triggers within a group). Triggers in the same group share
- * the group's subject. A missing subject is reported as `null`.
+ * the group's subject.
+ *
+ * Within a no-colon segment, `looksLikeSubject(segment)` decides whether to
+ * treat the segment as a subject (`{ trigger: null, subject }`) or as a
+ * trigger (one or more `{ trigger, subject: null }` pairs). `null` on either
+ * side means "use the directive's default" — consumers resolve it.
+ *
+ * Pass `() => false` to preserve legacy "no colon means trigger only" behavior.
  */
 export function parseTriggerSubjectPairs(
   value: string | null | undefined,
+  subjectDetector: (s: string) => boolean,
 ): TriggerSubjectPair[] {
+  const trimmed = value?.trim();
+  if (trimmed == null) return [];
+  if (trimmed === '') {
+    return [{ trigger: null, subject: null }];
+  }
+
   const pairs: TriggerSubjectPair[] = [];
 
-  for (const [triggerStr, subjectStr] of parseDirectiveValue(value)) {
-    const subject = subjectStr === '' ? null : subjectStr;
-    for (const trigger of parseTriggers(triggerStr)) {
-      pairs.push({ trigger, subject });
+  for (const [keyStr, subjectStr] of parseDirectiveValue(value)) {
+    if (subjectStr) {
+      // Trigger: Subject
+      for (const trigger of parseTriggers(keyStr)) {
+        pairs.push({ trigger, subject: subjectStr });
+      }
+    } else if (subjectDetector(keyStr)) {
+      // Subject only
+      pairs.push({ trigger: null, subject: keyStr });
+    } else {
+      // Trigger only
+      for (const trigger of parseTriggers(keyStr)) {
+        pairs.push({ trigger, subject: null });
+      }
     }
   }
 
@@ -273,18 +305,76 @@ export function parseUrlSubject(value: string | undefined | null): {
   url?: string;
 } {
   const trimmed = value?.trim();
-  if (!trimmed || isHttpMethod(trimmed)) return {};
+  if (!trimmed) return {};
+  if (isHttpMethod(trimmed)) {
+    return { method: trimmed.toUpperCase() as HttpMethod };
+  }
 
-  const match = trimmed.match(/^(\S+)\s+(.+)$/);
+  const match = trimmed.match(SUBJECT_RE);
 
   if (match) {
     const [, initial, rest] = match;
     if (isHttpMethod(initial)) {
-      return { method: initial, url: rest };
+      return { method: initial.toUpperCase() as HttpMethod, url: rest };
     }
   }
 
   return { url: trimmed };
+}
+
+/**
+ * Subject if the value starts with a URL-shaped prefix or its leading
+ * whitespace-split token is a known HTTP method.
+ *
+ * Otherwise treated as a trigger by `parseTriggerSubjectPairs`.
+ */
+export function looksLikeUrlSubject(s: string): boolean {
+  const trimmed = s.trim();
+  if (!trimmed) return false;
+  if (FETCH_URL_PREFIX_RE.test(trimmed)) return true;
+
+  const firstToken = trimmed.split(/\s+/, 1)[0];
+  return isHttpMethod(firstToken);
+}
+
+/**
+ * Parse optional action prefix and target from a store subject.
+ */
+export function parseStoreSubject(value: string | undefined | null): {
+  action?: PatchAction;
+  target?: string;
+} {
+  const trimmed = value?.trim();
+  if (!trimmed) return {};
+  if (isPatchAction(trimmed)) {
+    return { action: trimmed.toLowerCase() as PatchAction };
+  }
+
+  const match = trimmed.match(SUBJECT_RE);
+
+  if (match) {
+    const [, initial, rest] = match;
+    if (isPatchAction(initial)) {
+      return { action: initial.toLowerCase() as PatchAction, target: rest };
+    }
+  }
+
+  return { target: trimmed };
+}
+
+/**
+ * Subject if the value starts with the store prefix or its leading
+ * whitespace-split token is a known store action.
+ *
+ * Otherwise treated as a trigger by `parseTriggerSubjectPairs`.
+ */
+export function looksLikeStoreSubject(s: string): boolean {
+  const trimmed = s.trim();
+  if (!trimmed) return false;
+  if (trimmed.startsWith(STORE_PREFIX)) return true;
+
+  const firstToken = trimmed.split(/\s+/, 1)[0];
+  return isPatchAction(firstToken);
 }
 
 /**

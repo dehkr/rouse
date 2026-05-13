@@ -46,3 +46,14 @@ export type HttpMethod = (typeof HTTP_METHODS)[number];
 export function isHttpMethod(key: string | undefined): key is HttpMethod {
   return HTTP_METHODS.includes(key?.toUpperCase() as HttpMethod);
 }
+
+/** List of valid store patch methods. */
+export const PATCH_ACTIONS = ['replace', 'merge'] as const;
+
+/** Represents a valid store patch method string. */
+export type PatchAction = (typeof PATCH_ACTIONS)[number];
+
+/** Type guard to check if a given string is a valid {@link PatchAction}. */
+export function isPatchAction(key: string | undefined): key is PatchAction {
+  return PATCH_ACTIONS.includes(key?.toLowerCase() as PatchAction);
+}

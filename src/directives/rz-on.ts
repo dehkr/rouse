@@ -5,13 +5,14 @@ import { getNestedVal } from '../core/path';
 import { resolveProps, splitInjection } from '../core/props';
 import { err, getDirectiveValue, hasDirective, warn } from '../core/shared';
 import { dispatchTrigger } from '../dom/scheduler';
-import { boundCleanup } from '../dom/utils';
+import { boundCleanup, defaultTriggerFor } from '../dom/utils';
 import type {
   ActionCtx,
   BoundCleanupFn,
   BoundDirective,
   Controller,
   DirectiveSlug,
+  VoidFn,
 } from '../types';
 
 const SLUG = 'on' as const satisfies DirectiveSlug;
@@ -23,7 +24,10 @@ function attach(
   key: string,
   value: string,
 ): BoundCleanupFn | void {
-  const { key: methodName, rawPayload } = splitInjection(value);
+  const handlerRef = value || key;
+  const triggerSource = value ? key : defaultTriggerFor(el);
+
+  const { key: methodName, rawPayload } = splitInjection(handlerRef);
 
   let method: unknown;
   let context: unknown;
@@ -59,8 +63,8 @@ function attach(
     return;
   }
 
-  const triggers = parseTriggers(key);
-  const cleanups: Array<() => void> = [];
+  const triggers = parseTriggers(triggerSource);
+  const cleanups: VoidFn[] = [];
 
   for (const trigger of triggers) {
     const cleanup = dispatchTrigger(trigger, {

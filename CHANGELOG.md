@@ -9,25 +9,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Support server-driven flow control via HTTP response headers (`Rouse-Target`, `Rouse-Trigger`, `Rouse-Redirect`), allowing backends to dynamically override client-side routing, emit custom DOM events, and force window redirects.
-- Add `rz-headers` directive to simplify configuration of custom headers for declarative fetch requests.
+- Support server-driven flow control via `Rouse-Target`, `Rouse-Trigger`, and `Rouse-Redirect` headers allowing backends to dynamically override routing, emit DOM events, or force redirects.
+- Add `rz-headers` directive to simplify configuration of custom request headers.
+- Add per-action variants of `rz-request` and `rz-headers` (`rz-request-{save,fetch,refresh}` and `rz-headers-{save,fetch,refresh}`) to allow granular configuration of each operation type.
 - Add `rz-error` directive for handling HTML and JSON error routing.
 - Add `rz-validate` directive for granular field-level error feedback.
-- Implement form validation engine to map granular JSON errors to UI inputs; automatically inject error text, add styles, apply ARIA attributes, and clear errors on user interaction.
+- Implement form validation engine that maps JSON errors to UI inputs, including automatic error text injection, ARIA attributes, and state clearing on interaction.
 - Add lifecycle events `rz:fetch:update:store:before` and `rz:fetch:update:store` to make JSON payload events symmetrical with HTML payloads.
-- Add `retryDelay` configuration option (supports fixed numbers or functions); replaces implicit exponential backoff.
+- Add `retryDelay` configuration (supporting numbers or functions) to replace implicit exponential backoff.
+- Add `back`, `intersect`, `interaction`, `idle`, and `ready` synthetic events for use in directives and programmatic `on` utility.
+- Add `rz-url` directive to configure request URLs on any element, with automatic fallback to `href` or `action`.
+- Add `app.stores.elementFor(name)` accessor to retrieve the source `<script rz-store>` element for a registered store.
+- Add case-insensitive HTTP method shorthand for `rz-url` and `rz-fetch`. Supports `[METHOD] [URL]` syntax with automatic fallbacks to `action` or `href`.
+- Add inline patch action shorthand (`replace`, `merge`) for `rz-save` and `rz-refresh` to override store-level defaults.
+- Support nested-path refresh (e.g., `rz-refresh="@store.field"`) to allow targeted slice updates.
+- Add inferred default triggers across all network directives: `submit` for forms, `change` for inputs, and `click` for other elements.
 
 ### Changed
 
 - **Breaking:** Rename lifecycle event `rz:fetch:insert:before` to `rz:fetch:update:dom:before` and `rz:fetch:insert` to `rz:fetch:update:dom`.
-**Breaking:** Rename the `retries` configuration option to `retry`.
-**Breaking:** `timeout` now applies globally across all retry attempts.
-- Upgrade `rz-target` to support routing JSON payloads directly to global stores (e.g., `rz-target="@user-data"`).
-- Update request payloads to enable removal of the default `Rouse-Request` header to prevent CORS issues with 3rd-party APIs.
+- **Breaking:** Rename `retries` configuration option to `retry`.
+- **Breaking:** Rename `poll` synthetic event to `interval`.
+- **Breaking:** Replace `reconnect` synthetic event with `online` and `offline`.
+- **Breaking:** Replace `focus` synthetic event with `page-visible` and `page-hidden`.
+- **Breaking:** Standardize `rz-on` to split multi-event triggers by whitespace instead of commas.
+- **Breaking:** Unify network directive grammar (`rz-fetch`, `rz-save`, `rz-refresh`) to use the `[trigger]: [subject]` format.
+- Upgrade `rz-target` to support JSON payload routing to stores (e.g., `rz-target="@user-data"`).
+- Allow removal of default `Rouse-Request` header via `''` or `null` assignment to prevent CORS issues with 3rd-party APIs.
 
 ### Fixed
 
 - Fix `onError` interceptor to only fire on the final attempt.
+- Apply `timeout` across the entire request lifecycle instead of resetting per retry.
+- Resolve baseUrl against form `action` and anchor `href` attributes (was ignored when the page origin differed from the API origin).
+- Resolve `baseUrl` correctly against `action` and `href` attributes when the API and page origins differ.
+- Resolved slice-refresh dirty-flag leak by replacing `_runPatch()` with a generic `_withPatchGuard(fn)`.
+
+### Removed
+
+- **Breaking:** Remove `rz-trigger` directive; functionality is now handled by inline triggers in `rz-fetch`.
+- **Breaking:** Remove `rz-source` directive; replaced by `rz-url` and `rz-request-*` variants.
 
 ## [0.6.0] - 2026-04-20
 

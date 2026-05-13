@@ -1,9 +1,13 @@
 import type { RouseApp } from '../core/app';
 import { STORE_PREFIX } from '../core/constants';
-import { parseTriggerSubjectPairs, parseUrlSubject } from '../core/parser';
+import {
+  looksLikeUrlSubject,
+  parseTriggerSubjectPairs,
+  parseUrlSubject,
+} from '../core/parser';
 import { getDirectiveValue, hasDirective, warn } from '../core/shared';
-import { attachListener, dispatchTrigger } from '../dom/scheduler';
-import { is, isNativeNavigation } from '../dom/utils';
+import { dispatchTrigger } from '../dom/scheduler';
+import { defaultTriggerFor, isNativeNavigation } from '../dom/utils';
 import { handleFetch } from '../net/engine';
 import type { DirectiveSlug, ManagerDirective, VoidFn } from '../types';
 
@@ -20,30 +24,10 @@ function initialize(el: Element, app: RouseApp) {
   const value = getDirectiveValue(el, SLUG);
   if (value === null) return;
 
-  const teardowns: VoidFn[] = [];
-
-  // If it's a bare attribute, configure the most appropriate default trigger
-  if (!value.trim()) {
-    const defaultEvent = is(el, 'Form')
-      ? 'submit'
-      : is(el, 'Input') || is(el, 'Select') || is(el, 'TextArea')
-        ? 'change'
-        : 'click';
-
-    const cleanup = attachListener(el, defaultEvent, (e: Event) => {
-      if (isNativeNavigation(el, e)) {
-        e.preventDefault();
-      }
-      handleFetch(el, app, {});
-    });
-
-    teardowns.push(cleanup);
-    cleanups.set(el, teardowns);
-    return;
-  }
-
-  const pairs = parseTriggerSubjectPairs(value);
+  const pairs = parseTriggerSubjectPairs(value, looksLikeUrlSubject);
   if (pairs.length === 0) return;
+
+  const teardowns: VoidFn[] = [];
 
   for (const { trigger, subject } of pairs) {
     if (subject?.startsWith(STORE_PREFIX)) {
@@ -51,7 +35,12 @@ function initialize(el: Element, app: RouseApp) {
       continue;
     }
 
-    const cleanup = dispatchTrigger(trigger, {
+    const resolvedTrigger = trigger ?? {
+      event: defaultTriggerFor(el),
+      modifiers: [],
+    };
+
+    const cleanup = dispatchTrigger(resolvedTrigger, {
       el,
       app,
       action: (e?: Event) => {

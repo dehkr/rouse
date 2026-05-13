@@ -28,6 +28,19 @@ export function isNativeNavigation(el: Element, e: Event): boolean {
 }
 
 /**
+ * Returns the most appropriate default trigger for an element.
+ *
+ *  - `submit` for Form elements
+ *  - `change` for Input, TextArea, and Select elements
+ *  - `click` for everything else
+ */
+export function defaultTriggerFor(el: Element): string {
+  if (is(el, 'Form')) return 'submit';
+  if (is(el, 'Input') || is(el, 'Select') || is(el, 'TextArea')) return 'change';
+  return 'click';
+}
+
+/**
  * Handles inserting HTML partials into document
  */
 export function insert(

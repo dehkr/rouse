@@ -1,8 +1,14 @@
 import type { RouseApp } from '../core/app';
-import { parseTriggerSubjectPairs } from '../core/parser';
+import type { PatchAction } from '../core/constants';
+import {
+  looksLikeStoreSubject,
+  parseStoreSubject,
+  parseTriggerSubjectPairs,
+} from '../core/parser';
 import { getDirectiveValue, hasDirective, warn } from '../core/shared';
 import { resolveTarget } from '../core/store';
 import { dispatchTrigger } from '../dom/scheduler';
+import { defaultTriggerFor } from '../dom/utils';
 import { resolveRequestConfig } from '../net/request';
 import type { DirectiveSlug, ManagerDirective, VoidFn } from '../types';
 
@@ -19,6 +25,7 @@ function triggerRefresh(
   app: RouseApp,
   storeName: string,
   nestedPath?: string,
+  action?: PatchAction,
 ) {
   const status = app.stores.status(storeName);
   if (!status) {
@@ -30,13 +37,13 @@ function triggerRefresh(
   const targetEl = app.stores.elementFor(storeName);
   const overrides = resolveRequestConfig(triggerEl, 'refresh', app, targetEl);
 
-  app.stores.refresh(storeName, { overrides, nestedPath });
+  app.stores.refresh(storeName, { overrides, nestedPath, action });
 }
 
 /**
- * Manager entry for `rz-refresh`. Parses each `[trigger]: [@store]` pair
- * from the attribute value and wires the trigger to fire a refresh against
- * the resolved target.
+ * Manager entry for `rz-refresh`. Parses each `[trigger]: [[action] @store[.path]]`
+ * pair from the attribute value and wires the trigger to fire a refresh
+ * against the resolved target.
  */
 function initialize(el: Element, app: RouseApp) {
   if (cleanups.has(el)) return;
@@ -44,18 +51,24 @@ function initialize(el: Element, app: RouseApp) {
   const value = getDirectiveValue(el, SLUG);
   if (value === null) return;
 
-  const pairs = parseTriggerSubjectPairs(value);
+  const pairs = parseTriggerSubjectPairs(value, looksLikeStoreSubject);
   if (pairs.length === 0) return;
 
   const teardowns: VoidFn[] = [];
 
   for (const { trigger, subject } of pairs) {
-    const target = resolveTarget(el, 'refresh', subject, true);
-    if (!target) continue;
+    const { action, target } = parseStoreSubject(subject);
+    const resolved = resolveTarget(el, 'refresh', target ?? null, true);
+    if (!resolved) continue;
 
-    const { storeName, nestedPath } = target;
-    const fire = () => triggerRefresh(el, app, storeName, nestedPath);
-    const cleanup = dispatchTrigger(trigger, { el, app, action: fire });
+    const { storeName, nestedPath } = resolved;
+    const resolvedTrigger = trigger ?? {
+      event: defaultTriggerFor(el),
+      modifiers: [],
+    };
+
+    const fire = () => triggerRefresh(el, app, storeName, nestedPath, action);
+    const cleanup = dispatchTrigger(resolvedTrigger, { el, app, action: fire });
 
     if (cleanup) teardowns.push(cleanup);
   }
@@ -63,9 +76,6 @@ function initialize(el: Element, app: RouseApp) {
   if (teardowns.length > 0) cleanups.set(el, teardowns);
 }
 
-/**
- * Cleanup
- */
 function teardown(el: Element) {
   cleanups.get(el)?.forEach((fn) => fn());
   cleanups.delete(el);
@@ -75,9 +85,11 @@ function teardown(el: Element) {
  * Definition for the `rz-refresh` directive object. Wires events to pull
  * server state into a local store.
  *
- * Each segment is `[trigger]: [@store]`. When the subject is omitted, the
- * directive targets the `rz-store` on the same element. Nested paths are
- * supported (e.g., rz-refresh="click: @store.user.notifications").
+ * Each segment is `[trigger]: [[action] @store[.path]]`. The action token
+ * (`replace` or `merge`) overrides the store-configured patch strategy for
+ * this trigger only. The subject is optional; when omitted, the directive
+ * targets the `rz-store` on the same element. Nested paths are supported
+ * (e.g., `rz-refresh="click: merge @user.notifications"`).
  */
 export const rzRefresh = {
   slug: SLUG,

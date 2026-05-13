@@ -64,7 +64,8 @@ export function deepEqual(a: any, b: any, seen = new WeakMap<object, any>()): bo
   if (a === b) {
     return true;
   }
-  // Handle NaN (NaN !== NaN)
+
+  // Handle NaN !== NaN
   if (
     typeof a === 'number' &&
     typeof b === 'number' &&
@@ -73,6 +74,7 @@ export function deepEqual(a: any, b: any, seen = new WeakMap<object, any>()): bo
   ) {
     return true;
   }
+
   if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) {
     return false;
   }
@@ -148,31 +150,27 @@ export function deepEqual(a: any, b: any, seen = new WeakMap<object, any>()): bo
 export function patchState(
   target: Record<string, any>,
   source: Record<string, any>,
-  strategy: 'replace' | 'merge' = 'replace',
+  action: 'replace' | 'merge' = 'replace',
 ) {
-  if (strategy === 'replace') {
-    for (const key in target) {
-      if (!Object.hasOwn(source, key)) {
-        delete target[key];
-      }
+  // Replace
+  if (action === 'replace') {
+    for (const key of Object.keys(target)) {
+      if (!Object.hasOwn(source, key)) delete target[key];
     }
     Object.assign(target, source);
     return;
   }
 
-  // Merge strategy
-  for (const key in source) {
-    if (!Object.hasOwn(source, key)) continue;
-
-    const sourceVal = source[key];
-    const targetVal = target[key];
+  // Merge
+  for (const [sourceKey, sourceVal] of Object.entries(source)) {
+    const targetVal = target[sourceKey];
 
     // If both source and target are plain objects, deep merge recursively
     if (isPlainObject(sourceVal) && isPlainObject(targetVal)) {
       patchState(targetVal, sourceVal, 'merge');
     } else {
-      // Strictly replace arrays, primitives, or mismatched types
-      target[key] = sourceVal;
+      // Strict replace for arrays, primitives, or mismatched types
+      target[sourceKey] = sourceVal;
     }
   }
 }
