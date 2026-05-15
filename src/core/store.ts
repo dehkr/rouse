@@ -112,20 +112,6 @@ export class StoreManager {
     const status = this._createStatus();
     this._status.set(id, status);
 
-    const actions = {
-      save: (config?: StoreRequestOptions) => this.save(id, config),
-      refresh: (config?: StoreRequestOptions) => this.refresh(id, config),
-      reset: () => this.reset(id),
-    };
-
-    // Expose __actions invisibly
-    Object.defineProperty(state, '__actions', {
-      value: actions,
-      enumerable: false,
-      configurable: true,
-      writable: false,
-    });
-
     // Expose __status invisibly
     Object.defineProperty(state, '__status', {
       value: status,
@@ -438,9 +424,7 @@ export class StoreManager {
   }
 
   async refresh(name: string, config?: StoreRequestOptions): Promise<void> {
-    // Avoid clobbering an in-flight save with stale server data
     if (this.status(name)?.loading === 'save') return;
-
     return this._request(name, 'refresh', config);
   }
 
@@ -448,10 +432,12 @@ export class StoreManager {
     const data = this._data.get(name);
     const initial = this._initial.get(name);
     if (!data) {
-      return warn(`Cannot reset store '${name}': Store not found.`);
+      warn(`Cannot reset store '${name}': Store not found.`);
+      return;
     }
     if (!initial) {
-      return warn(`Cannot reset store '${name}': No initial state cached.`);
+      warn(`Cannot reset store '${name}': No initial state cached.`);
+      return;
     }
     this._withPatchGuard(() => patchState(data, clone(initial), 'replace'));
   }

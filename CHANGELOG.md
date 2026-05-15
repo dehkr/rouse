@@ -41,7 +41,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fix `onError` interceptor to only fire on the final attempt.
 - Apply `timeout` across the entire request lifecycle instead of resetting per retry.
-- Resolve baseUrl against form `action` and anchor `href` attributes (was ignored when the page origin differed from the API origin).
 - Resolve `baseUrl` correctly against `action` and `href` attributes when the API and page origins differ.
 - Resolved slice-refresh dirty-flag leak by replacing `_runPatch()` with a generic `_withPatchGuard(fn)`.
 
@@ -49,6 +48,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Breaking:** Remove `rz-trigger` directive; functionality is now handled by inline triggers in `rz-fetch`.
 - **Breaking:** Remove `rz-source` directive; replaced by `rz-url` and `rz-request-*` variants.
+- **Breaking:** Remove `__actions` object from stores; subsumed by `rz-refresh` and `rz-save` updates.
 
 ## [0.6.0] - 2026-04-20
 

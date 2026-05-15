@@ -32,7 +32,7 @@ function attach(
   let method: unknown;
   let context: unknown;
 
-  // Global store (e.g., '@my-store.__actions.save' or '@theme.toggleMode')
+  // Global store (e.g., @theme.toggleMode')
   if (methodName.startsWith(STORE_PREFIX)) {
     const { storeName, nestedPath } = parseStoreLocator(methodName);
     const storeData = app.stores.get(storeName);
