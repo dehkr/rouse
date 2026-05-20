@@ -1,11 +1,10 @@
 import type { RouseApp } from '../core/app';
-import { STORE_PREFIX } from '../core/constants';
 import {
   looksLikeUrlSubject,
   parseTriggerSubjectPairs,
   parseUrlSubject,
 } from '../core/parser';
-import { getDirectiveValue, hasDirective, warn } from '../core/shared';
+import { getDirectiveValue, hasDirective } from '../core/shared';
 import { dispatchTrigger } from '../dom/scheduler';
 import { defaultTriggerFor, isNativeNavigation } from '../dom/utils';
 import { handleFetch } from '../net/engine';
@@ -30,11 +29,6 @@ function initialize(el: Element, app: RouseApp) {
   const teardowns: VoidFn[] = [];
 
   for (const { trigger, subject } of pairs) {
-    if (subject?.startsWith(STORE_PREFIX)) {
-      warn(`rz-fetch cannot target stores: '${subject}'.`);
-      continue;
-    }
-
     const resolvedTrigger = trigger ?? {
       event: defaultTriggerFor(el),
       modifiers: [],

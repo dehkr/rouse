@@ -323,7 +323,7 @@ export function parseUrlSubject(value: string | undefined | null): {
 }
 
 /**
- * Subject if the value starts with a URL-shaped prefix or its leading
+ * Check if the value starts with a URL-shaped prefix or its leading
  * whitespace-split token is a known HTTP method.
  *
  * Otherwise treated as a trigger by `parseTriggerSubjectPairs`.
@@ -331,7 +331,9 @@ export function parseUrlSubject(value: string | undefined | null): {
 export function looksLikeUrlSubject(s: string): boolean {
   const trimmed = s.trim();
   if (!trimmed) return false;
-  if (FETCH_URL_PREFIX_RE.test(trimmed)) return true;
+  if (FETCH_URL_PREFIX_RE.test(trimmed) || trimmed.startsWith(STORE_PREFIX)) {
+    return true;
+  }
 
   const firstToken = trimmed.split(/\s+/, 1)[0];
   return isHttpMethod(firstToken);

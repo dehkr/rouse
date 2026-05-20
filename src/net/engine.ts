@@ -7,6 +7,7 @@ import {
   uniqueKey,
   warn,
 } from '../core/shared';
+import { resolveStoreUrl } from '../core/store';
 import { rzUrl } from '../directives';
 import { extractFieldValues } from '../dom/forms';
 import { dispatch } from '../dom/scheduler';
@@ -73,7 +74,9 @@ async function executeFetch(el: Element, app: RouseApp, options: RouseRequest) {
 
   const { method: inlineMethod, url: inlineUrl } = rzUrl.getConfig(el);
 
-  const url = options.url || inlineUrl || null;
+  let url = options.url || inlineUrl || null;
+  if (url) url = resolveStoreUrl(url, app.stores);
+
   if (!url) {
     warn('A URL was not provided for rz-fetch.', el);
 

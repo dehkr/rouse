@@ -36,6 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Breaking:** Unify network directive grammar (`rz-fetch`, `rz-save`, `rz-refresh`) to use the `[trigger]: [subject]` format.
 - Upgrade `rz-target` to support JSON payload routing to stores (e.g., `rz-target="@user-data"`).
 - Allow removal of default `Rouse-Request` header via `''` or `null` assignment to prevent CORS issues with 3rd-party APIs.
+- Enable store paths that resolve to strings to be used as URL values for `rz-fetch` and `rz-url`.
 
 ### Fixed
 
@@ -48,7 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Breaking:** Remove `rz-trigger` directive; functionality is now handled by inline triggers in `rz-fetch`.
 - **Breaking:** Remove `rz-source` directive; replaced by `rz-url` and `rz-request-*` variants.
-- **Breaking:** Remove `__actions` object from stores; subsumed by `rz-refresh` and `rz-save` updates.
+- **Breaking:** Remove `__actions` property from stores; subsumed by `rz-refresh` and `rz-save` updates.
 
 ## [0.6.0] - 2026-04-20
 

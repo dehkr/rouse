@@ -71,6 +71,25 @@ export function resolveTarget(
 }
 
 /**
+ * Resolves a store reference to a string value intended for use as a URL.
+ */
+export function resolveStoreUrl(ref: string, stores: StoreManager): string | null {
+  if (!ref.startsWith(STORE_PREFIX)) return ref;
+
+  const { storeName, nestedPath } = parseStoreLocator(ref);
+  const storeData = stores.get(storeName);
+
+  const value = getNestedVal(storeData, nestedPath);
+
+  if (!value || typeof value !== 'string' || !value.trim()) {
+    warn(`Invalid URL. '${ref}' does not resolve to a string.`);
+    return null;
+  }
+
+  return value;
+}
+
+/**
  * The central manager for all reactive stores and their network logic.
  * Instantiated once per RouseApp to ensure isolation.
  */
@@ -164,14 +183,17 @@ export class StoreManager {
 
     const { data, status, config } = store;
     const overrides = manualConfig?.overrides ?? {};
-    const url = manualConfig?.url || overrides.url || config?.url;
+
+    const rawUrl = manualConfig?.url || overrides.url || config?.url;
+    const url = rawUrl ? resolveStoreUrl(rawUrl, this) : null;
+
     const defaultMethod = operation === 'save' ? 'POST' : 'GET';
     const storeMethod = operation === 'save' ? config?.saveMethod : config?.refreshMethod;
     const method =
       manualConfig?.method || overrides.method || storeMethod || defaultMethod;
 
     if (!url) {
-      warn(`Cannot ${operation} store '${id}': No URL configured.`);
+      warn(`Cannot ${operation} store '${id}': URL not configured.`);
       return;
     }
 
