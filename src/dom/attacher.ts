@@ -5,6 +5,13 @@ import { rzBind, rzHtml, rzModel, rzOn, rzText } from '../directives';
 import type { BoundCleanupFn, Controller } from '../types';
 import { dispatch } from './scheduler';
 
+const BOUND_DIRECTIVES = [rzBind, rzHtml, rzModel, rzOn, rzText] as const;
+
+// Selector string of all DOM directives ([rz-bind], [data-rz-bind]...)
+const DIRECTIVES_SELECTOR = BOUND_DIRECTIVES.map((directive) =>
+  directiveSelector(directive.slug),
+).join(', ');
+
 /**
  * Binds the controller instance to the DOM.
  * Returns internal lifecycle methods so the app can delegate DOM mutations.
@@ -17,12 +24,6 @@ export function attachController(
 ) {
   const elementCleanups = new Map<Element, (() => void)[]>();
   const boundNodes = new WeakSet<Element>();
-  const boundDirectives = [rzBind, rzHtml, rzModel, rzOn, rzText] as const;
-
-  // Selector string of all DOM directives ([rz-bind], [data-rz-bind]...)
-  const directivesSelector = boundDirectives
-    .map((directive) => directiveSelector(directive.slug))
-    .join(', ');
 
   function addCleanup(el: Element, fn: BoundCleanupFn) {
     const cleanups = elementCleanups.get(el) ?? [];
@@ -56,21 +57,16 @@ export function attachController(
     if (boundNodes.has(el)) return;
     boundNodes.add(el);
 
-    for (const directive of boundDirectives) {
+    for (const directive of BOUND_DIRECTIVES) {
       const value = directive.getValue(el);
 
       // Strict check to allow empty/boolean directives
       if (value === null) continue;
 
-      const registerCleanup = (cleanup: BoundCleanupFn | void) => {
-        if (cleanup) {
-          addCleanup(el, cleanup);
-        }
-      };
-
       const parsed = parseDirectiveValue(value);
       for (const [key, val] of parsed) {
-        registerCleanup(directive.attach(el, instance, app, key, val));
+        const cleanup = directive.attach(el, instance, app, key, val);
+        if (cleanup) addCleanup(el, cleanup);
       }
     }
   }
@@ -90,27 +86,35 @@ export function attachController(
           return NodeFilter.FILTER_REJECT;
         }
         // Skip nodes that don't match but continue walking
-        return el.matches(directivesSelector)
+        return el.matches(DIRECTIVES_SELECTOR)
           ? NodeFilter.FILTER_ACCEPT
           : NodeFilter.FILTER_SKIP;
       },
     });
 
     // Check startEl manually
-    if (startEl.matches(directivesSelector)) {
+    if (startEl.matches(DIRECTIVES_SELECTOR)) {
       attachDirectives(startEl as HTMLElement);
     }
 
     // Apply accepted nodes
-    while (walker.nextNode()) {
-      attachDirectives(walker.currentNode as HTMLElement);
+    let node: Node | null;
+    while ((node = walker.nextNode())) {
+      attachDirectives(node as HTMLElement);
     }
   }
 
   function teardown(removedEl: Element) {
-    for (const boundEl of [...elementCleanups.keys()]) {
-      if (removedEl === boundEl || removedEl.contains(boundEl)) {
-        runCleanup(boundEl);
+    if (elementCleanups.has(removedEl)) {
+      runCleanup(removedEl);
+    }
+
+    const walker = document.createTreeWalker(removedEl, NodeFilter.SHOW_ELEMENT);
+    let node: Node | null;
+    while ((node = walker.nextNode())) {
+      const el = node as Element;
+      if (elementCleanups.has(el)) {
+        runCleanup(el);
       }
     }
   }
@@ -127,7 +131,7 @@ export function attachController(
 
   // Disconnects the entire controller
   function unbindDom() {
-    for (const el of [...elementCleanups.keys()]) {
+    for (const el of elementCleanups.keys()) {
       runCleanup(el);
     }
     if (typeof instance.disconnect === 'function' && !skipLifecycles) {
