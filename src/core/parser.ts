@@ -33,7 +33,7 @@ type BoundaryOpener = '(' | '{' | '[';
  * Per-type depth counters are maintained to catch mismatched bracket pairs
  * such as `(]`. A mismatch is warned and the closer is ignored.
  */
-function scan(
+function forEachSafeChar(
   text: string,
   callback: (index: number, char: string, fullText: string) => boolean | undefined,
 ): { depth: number; quote: string | null } {
@@ -45,16 +45,26 @@ function scan(
     const char = text[i] as string;
     const prev = text[i - 1];
 
+    // Inside a quote: look for the unescaped closing quote
     if (quote) {
       if (char === quote && prev !== '\\') {
         quote = null;
       }
-    } else if (char === "'" || char === '"') {
+    }
+
+    // Entering a new quote
+    else if (char === "'" || char === '"') {
       quote = char;
-    } else if (openers[char]) {
+    }
+
+    // Entering a nested block (increment depth)
+    else if (openers[char]) {
       depths[char as BoundaryOpener]++;
       totalDepth++;
-    } else if (closers[char]) {
+    }
+
+    // Exiting a block (decrement depth and validate matching pairs)
+    else if (closers[char]) {
       const opener = closers[char] as BoundaryOpener;
       if (depths[opener] > 0) {
         depths[opener]--;
@@ -62,7 +72,10 @@ function scan(
       } else {
         warn(`Mismatched bracket '${char}' in value: '${text}'`);
       }
-    } else if (totalDepth === 0) {
+    }
+
+    // Safe top-level character: trigger the callback
+    else if (totalDepth === 0) {
       if (callback(i, char, text)) {
         return { depth: totalDepth, quote };
       }
@@ -79,11 +92,11 @@ function scan(
  * Centralises the start-pointer / slice / remainder pattern that would
  * otherwise be repeated across every parsing function.
  */
-function scanSplit(text: string, delimiter: string): string[] {
+function splitOnSafeDelimiter(text: string, delimiter: string): string[] {
   const parts: string[] = [];
   let start = 0;
 
-  scan(text, (i, char) => {
+  forEachSafeChar(text, (i, char) => {
     if (char === delimiter) {
       parts.push(text.slice(start, i));
       start = i + 1;
@@ -146,7 +159,7 @@ export function parseDirectiveValue(
   let start = 0;
 
   // Scan for values separated by comma + space
-  const scanResult = scan(cleanedValue, (i, char) => {
+  const scanResult = forEachSafeChar(cleanedValue, (i, char) => {
     if (char === VALUE_DELIMITER && hasTrailingWhitespace(cleanedValue, i)) {
       parseSegment(cleanedValue.slice(start, i), parsed);
       start = i + 1;
@@ -173,7 +186,7 @@ function parseSegment(segment: string, acc: ParsedDirectiveValue): void {
 
   let splitIndex = -1;
 
-  scan(trimmed, (i, char, text) => {
+  forEachSafeChar(trimmed, (i, char, text) => {
     if (char === SEGMENT_DELIMITER && hasTrailingWhitespace(text, i)) {
       splitIndex = i;
       return true; // stop at first valid separator
@@ -199,7 +212,7 @@ function parseSegment(segment: string, acc: ParsedDirectiveValue): void {
  * - `media.(max-width < 600px)` returns `{ key: 'media', modifiers: ['(max-width < 600px)']}`
  */
 export function parseModifiers(value: string): { key: string; modifiers: string[] } {
-  const parts = scanSplit(value, MODIFIER_DELIMITER);
+  const parts = splitOnSafeDelimiter(value, MODIFIER_DELIMITER);
   const [key = '', ...modifiers] = parts;
   return { key, modifiers };
 }
@@ -223,7 +236,7 @@ export function parseTriggers(value: string | null | undefined): TriggerDef[] {
   let start = 0;
 
   // Split on whitespace only when depth is 0
-  scan(rawTriggers, (i, char, text) => {
+  forEachSafeChar(rawTriggers, (i, char, text) => {
     if (char === ' ' || char === '\t' || char === '\n' || char === '\r') {
       if (start !== i) {
         parts.push(text.slice(start, i));
