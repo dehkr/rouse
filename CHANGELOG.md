@@ -44,6 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Apply `timeout` across the entire request lifecycle instead of resetting per retry.
 - Resolve `baseUrl` correctly against `action` and `href` attributes when the API and page origins differ.
 - Resolved slice-refresh dirty-flag leak by replacing `_runPatch()` with a generic `_withPatchGuard(fn)`.
+- Honor `formaction` and `formmethod` attributes on `rz-fetch` form submit buttons.
 
 ### Removed
 
