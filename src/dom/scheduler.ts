@@ -262,7 +262,7 @@ export const syntheticEvents: Record<string, SyntheticEventHandler> = {
   },
 
   /** Fires once after a specified period */
-  delay: (ctx) => attachTimingEvent('delay', ctx),
+  timeout: (ctx) => attachTimingEvent('timeout', ctx),
 
   /** Repeating timer */
   interval: (ctx) => attachTimingEvent('interval', ctx),
@@ -405,9 +405,9 @@ function attachDocStateEvent(type: 'dom' | 'load', callback: VoidFn): VoidFn | n
 }
 
 /**
- * Helper for the `delay` and `interval` synthetic event functions.
+ * Helper for the `timeout` and `interval` synthetic event functions.
  */
-function attachTimingEvent(type: 'delay' | 'interval', ctx: TriggerContext) {
+function attachTimingEvent(type: 'timeout' | 'interval', ctx: TriggerContext) {
   const timeModifier = ctx.modifiers.find(isTimeModifier);
 
   if (!timeModifier) {
@@ -418,8 +418,8 @@ function attachTimingEvent(type: 'delay' | 'interval', ctx: TriggerContext) {
   const ms = parseTime(timeModifier);
   if (ms <= 0) return null;
 
-  const setup = type === 'delay' ? window.setTimeout : window.setInterval;
-  const clear = type === 'delay' ? window.clearTimeout : window.clearInterval;
+  const setup = type === 'timeout' ? window.setTimeout : window.setInterval;
+  const clear = type === 'timeout' ? window.clearTimeout : window.clearInterval;
 
   const id = setup(ctx.action, ms);
   return () => clear(id);
