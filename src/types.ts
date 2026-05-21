@@ -1,5 +1,5 @@
 import type { RouseApp } from './core/app';
-import type { InsertMethod } from './core/constants';
+import type { InsertMethod, PatchAction } from './core/constants';
 import type { StoreManager } from './core/store';
 
 export type DirectiveSlug =
@@ -47,10 +47,44 @@ export type LifecycleEvent =
   | 'rz:fetch:error:file'
   | 'rz:fetch:abort'
   | 'rz:fetch:end'
-  | 'rz:fetch:update:dom:before'
-  | 'rz:fetch:update:dom'
-  | 'rz:fetch:update:store:before'
-  | 'rz:fetch:update:store';
+  | 'rz:store:sync:before'
+  | 'rz:store:sync'
+  | 'rz:store:sync:conflict'
+  | 'rz:store:sync:error'
+  | 'rz:dom:update:before'
+  | 'rz:dom:update';
+
+export interface BaseStoreSync {
+  storeName: string;
+  operation: 'save' | 'refresh';
+  nestedPath?: string;
+  action?: PatchAction;
+}
+
+export interface StoreSyncDetail extends BaseStoreSync {
+  data: any;
+  response?: RouseResponse;
+  payload?: any;
+}
+
+export interface StoreSyncConflictDetail extends BaseStoreSync {
+  localData: any;
+  serverData: any;
+  response: RouseResponse;
+  reason: 'mutating';
+}
+
+export interface StoreSyncErrorDetail extends BaseStoreSync {
+  data: any;
+  error: any;
+}
+
+export interface DomUpdateDetail {
+  target: Element;
+  strategy: InsertMethod;
+  payload: string;
+  source: 'fetch' | 'programmatic';
+}
 
 export type BindableValue =
   | string

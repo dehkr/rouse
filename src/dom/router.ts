@@ -29,14 +29,12 @@ export function initStoreRouter(app: RouseApp, signal: AbortSignal) {
       event,
       (e) => {
         const { target: el, detail: result } = e as CustomEvent<RouseResponse>;
-        const triggerEl = el as Element;
 
         routeToStore(
           app,
           // `targetOverride` (e.g., a server header) beats the attribute value
           result.targetOverride || directive.getValue(el as Element),
           getPayload(result),
-          triggerEl,
         );
       },
       { signal },
@@ -44,12 +42,7 @@ export function initStoreRouter(app: RouseApp, signal: AbortSignal) {
   });
 }
 
-function routeToStore(
-  app: RouseApp,
-  targetStr: string | null,
-  payload: any,
-  triggerEl: Element,
-) {
+function routeToStore(app: RouseApp, targetStr: string | null, payload: any) {
   if (!targetStr?.trim()) return;
 
   const operations = parseDirectiveValue(targetStr);
@@ -59,12 +52,13 @@ function routeToStore(
 
     if (target.startsWith(STORE_PREFIX)) {
       const storeName = target.substring(1);
+      const targetEl = app.stores.elementFor(storeName) || app.root;
 
       // Dispatch `before` event to enable payload mutation or cancellation
       const beforeEvent = dispatch(
-        triggerEl,
-        'rz:fetch:update:store:before',
-        { store: storeName, payload, triggerEl },
+        targetEl,
+        'rz:store:sync:before',
+        { storeName, operation: 'refresh', data: app.stores.get(storeName), payload },
         { cancelable: true },
       );
 
@@ -73,7 +67,11 @@ function routeToStore(
       // Perform the update using the potentially mutated payload
       app.stores.update(storeName, beforeEvent.detail.payload as object);
 
-      dispatch(triggerEl, 'rz:fetch:update:store', { store: storeName, triggerEl });
+      dispatch(targetEl, 'rz:store:sync', {
+        storeName,
+        operation: 'refresh',
+        data: app.stores.get(storeName),
+      });
     } else {
       warn(`Cannot route JSON payload to DOM target '${target}'.`);
     }

@@ -1,6 +1,16 @@
+import { dispatch } from '../dom/scheduler';
 import { request } from '../net/request';
 import { nonReactive, reactive, readOnly, trackDirty } from '../reactivity';
-import type { DirectiveSlug, RouseRequest, RouseResponse, VoidFn } from '../types';
+import type {
+  DirectiveSlug,
+  LifecycleEvent,
+  RouseRequest,
+  RouseResponse,
+  StoreSyncConflictDetail,
+  StoreSyncDetail,
+  StoreSyncErrorDetail,
+  VoidFn,
+} from '../types';
 import type { RouseConfig } from './app';
 import { STORE_PREFIX, type HttpMethod, type PatchAction } from './constants';
 import { parseStoreLocator } from './parser';
@@ -170,6 +180,16 @@ export class StoreManager {
     return { data, status, config };
   }
 
+  private _dispatchSyncEvent(
+    eventName: LifecycleEvent,
+    detail: StoreSyncDetail | StoreSyncConflictDetail | StoreSyncErrorDetail,
+    storeName: string,
+    options: CustomEventInit = { cancelable: false },
+  ) {
+    const target = this.elementFor(storeName) || (this.appConfig.root as Element);
+    return dispatch(target, eventName, detail, options);
+  }
+
   /**
    * Internal unified request handler for save and refresh operations.
    */
@@ -222,6 +242,7 @@ export class StoreManager {
     try {
       const result = await request(url, requestOptions, this.appConfig);
       this._applyServerResponse(
+        id,
         operation,
         result,
         data,
@@ -232,6 +253,11 @@ export class StoreManager {
       );
     } catch (e: any) {
       status.error = e;
+      this._dispatchSyncEvent(
+        'rz:store:sync:error',
+        { storeName: id, operation, data, error: e },
+        id,
+      );
     } finally {
       // Only disable the loading state if this is the most recent request
       if (this._activeReqs.get(id) === reqToken) {
@@ -242,6 +268,7 @@ export class StoreManager {
   }
 
   private _applyServerResponse(
+    storeName: string,
     operation: 'save' | 'refresh',
     result: RouseResponse,
     data: any,
@@ -255,12 +282,21 @@ export class StoreManager {
       throw result.error;
     }
 
+    const action = manualConfig?.action || config?.action || 'replace';
+    const nestedPath = manualConfig?.nestedPath;
+
+    this._dispatchSyncEvent(
+      'rz:store:sync:before',
+      { storeName, operation, data, nestedPath, action },
+      storeName,
+    );
+
     if (operation === 'save') {
       // Save accepted = synced
       status.lastSync = Date.now();
 
       // Clear dirty flags only for what was actually saved
-      const rootKey = getRootSegment(manualConfig?.nestedPath);
+      const rootKey = getRootSegment(nestedPath);
       const keys = rootKey ? [rootKey] : Object.keys(snapshot);
       for (const key of keys) {
         if (Object.hasOwn(snapshot, key) && deepEqual(data[key], snapshot[key])) {
@@ -270,21 +306,17 @@ export class StoreManager {
     }
 
     if (result.data && typeof result.data === 'object') {
-      const path = manualConfig?.nestedPath;
-      const localSlice = path ? getNestedVal(data, path) : data;
-      const snapSlice = path ? getNestedVal(snapshot, path) : snapshot;
-
-      // Check if local state is being mutated while the network is busy
+      const localSlice = nestedPath ? getNestedVal(data, nestedPath) : data;
+      const snapSlice = nestedPath ? getNestedVal(snapshot, nestedPath) : snapshot;
       const isMutating = !deepEqual(localSlice, snapSlice);
 
-      // Safe to apply server update
+      // Apply server update if local state is not being mutated during request
       if (!isMutating) {
-        const action = manualConfig?.action || config?.action || 'replace';
-        if (path) {
-          const incoming = getNestedVal(result.data, path);
+        if (nestedPath) {
+          const incoming = getNestedVal(result.data, nestedPath);
           if (incoming !== undefined) {
             this._withPatchGuard(() => {
-              const target = getNestedVal(data, path);
+              const target = getNestedVal(data, nestedPath);
               if (
                 action === 'merge' &&
                 target &&
@@ -294,7 +326,7 @@ export class StoreManager {
               ) {
                 patchState(target, incoming, 'merge');
               } else {
-                setNestedVal(data, path, incoming);
+                setNestedVal(data, nestedPath, incoming);
               }
             });
           }
@@ -305,8 +337,32 @@ export class StoreManager {
         if (operation === 'refresh') {
           status.lastSync = Date.now();
         }
+      } else {
+        // Is mutating. Sync conflict lifecycle event.
+        this._dispatchSyncEvent(
+          'rz:store:sync:conflict',
+          {
+            storeName,
+            operation,
+            localData: localSlice,
+            serverData: nestedPath ? getNestedVal(result.data, nestedPath) : result.data,
+            response: result,
+            nestedPath,
+            action,
+            reason: 'mutating',
+          },
+          storeName,
+        );
+
+        return;
       }
     }
+
+    this._dispatchSyncEvent(
+      'rz:store:sync',
+      { storeName, operation, data, response: result, nestedPath, action },
+      storeName,
+    );
   }
 
   /**

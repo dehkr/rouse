@@ -1,7 +1,6 @@
 import type { InsertMethod } from '../core/constants';
 import { rzError, rzTarget } from '../directives';
 import type { RouseResponse } from '../types';
-import { dispatch } from './scheduler';
 import { insert } from './utils';
 
 interface InsertionOptions {
@@ -58,36 +57,6 @@ export function initDomMutator(appRoot: Element, abortSignal: AbortSignal) {
 /**
  * Helper to handle the specific logic of a single DOM mutation.
  */
-function performInsertion({
-  data,
-  triggerEl,
-  targetEl,
-  strategy,
-  response,
-  appRoot,
-}: InsertionOptions) {
-  // Dispatch `before` event to enable payload mutation or cancellation
-  const beforeEvent = dispatch(
-    targetEl,
-    'rz:fetch:update:dom:before',
-    { data, triggerEl, targetEl, strategy, response },
-    { cancelable: true },
-  );
-
-  if (beforeEvent.defaultPrevented) return;
-
-  // Determine where to dispatch the update event if the target element
-  // is removed as a result of the operation.
-  const dispatcherEl =
-    strategy === 'outerHTML' || strategy === 'delete'
-      ? targetEl.parentElement || appRoot
-      : targetEl;
-
-  insert(beforeEvent.detail.data, targetEl, strategy);
-
-  dispatch(dispatcherEl, 'rz:fetch:update:dom', {
-    triggerEl,
-    targetEl,
-    strategy,
-  });
+function performInsertion({ data, targetEl, strategy }: InsertionOptions) {
+  insert(data, targetEl, strategy, 'fetch');
 }

@@ -1,5 +1,6 @@
 import type { InsertMethod } from '../core/constants';
 import type { BoundCleanupFn, VoidFn } from '../types';
+import { dispatch } from './scheduler';
 
 const elementMap = {
   Anchor: HTMLAnchorElement,
@@ -47,20 +48,43 @@ export function insert(
   content: string,
   target: Element,
   method: InsertMethod = 'innerHTML',
+  source: 'fetch' | 'programmatic' = 'programmatic',
 ) {
+  const dispatcherEl =
+    method === 'outerHTML' || method === 'delete'
+      ? target.parentElement || target
+      : target;
+
+  const beforeEvent = dispatch(
+    dispatcherEl,
+    'rz:dom:update:before',
+    { target, strategy: method, payload: content, source },
+    { cancelable: true },
+  );
+
+  if (beforeEvent.defaultPrevented) return;
+  const finalContent = beforeEvent.detail.payload;
+
   switch (method) {
     case 'delete':
       target.remove();
       break;
     case 'innerHTML':
-      target.innerHTML = content;
+      target.innerHTML = finalContent;
       break;
     case 'outerHTML':
-      target.outerHTML = content;
+      target.outerHTML = finalContent;
       break;
     default:
-      target.insertAdjacentHTML(method, content);
+      target.insertAdjacentHTML(method, finalContent);
   }
+
+  dispatch(dispatcherEl, 'rz:dom:update', {
+    target,
+    strategy: method,
+    payload: finalContent,
+    source,
+  });
 }
 
 /**

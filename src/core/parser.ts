@@ -135,7 +135,7 @@ function hasTrailingWhitespace(text: string, index: number) {
 }
 
 // ---------------------------------------------------------------------------------------
-// Public API
+// PUBLIC API
 // ---------------------------------------------------------------------------------------
 
 /**
@@ -291,16 +291,20 @@ export function parseTriggerSubjectPairs(
   const pairs: TriggerSubjectPair[] = [];
 
   for (const [keyStr, subjectStr] of parseDirectiveValue(value)) {
+    // Trigger + subject
     if (subjectStr) {
-      // Trigger: Subject
       for (const trigger of parseTriggers(keyStr)) {
         pairs.push({ trigger, subject: subjectStr });
       }
-    } else if (subjectDetector(keyStr)) {
-      // Subject only
+    }
+
+    // Subject only
+    else if (subjectDetector(keyStr)) {
       pairs.push({ trigger: null, subject: keyStr });
-    } else {
-      // Trigger only
+    }
+
+    // Trigger only
+    else {
       for (const trigger of parseTriggers(keyStr)) {
         pairs.push({ trigger, subject: null });
       }
