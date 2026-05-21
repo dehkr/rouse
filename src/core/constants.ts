@@ -1,4 +1,5 @@
 export const STORE_PREFIX = '@';
+export const KEY_BLOCKLIST = ['__proto__', 'constructor', 'prototype'];
 
 /** List of valid HTML DOM insert methods. */
 export const INSERT_METHODS = [

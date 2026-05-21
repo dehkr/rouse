@@ -1,6 +1,6 @@
-import { STORE_PREFIX } from './constants';
+import { KEY_BLOCKLIST, STORE_PREFIX } from './constants';
 import { parseStoreLocator } from './parser';
-import { getNestedVal, KEY_BLOCKLIST } from './path';
+import { getNestedVal } from './path';
 import { isPlainObject, warn } from './shared';
 import { StoreManager } from './store';
 
@@ -9,7 +9,7 @@ import { StoreManager } from './store';
  */
 function safeJSONParse(text: string): unknown {
   return JSON.parse(text, (key, value) => {
-    if (KEY_BLOCKLIST.has(key)) {
+    if (KEY_BLOCKLIST.includes(key)) {
       warn(`Blocked forbidden key in JSON: '${key}'.`);
       return undefined;
     }

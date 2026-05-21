@@ -1,9 +1,7 @@
 import type { Controller } from '../types';
-import { STORE_PREFIX } from './constants';
+import { KEY_BLOCKLIST, STORE_PREFIX } from './constants';
 import { warn } from './shared';
 import type { StoreManager } from './store';
-
-export const KEY_BLOCKLIST = new Set(['__proto__', 'constructor', 'prototype']);
 
 const MAX_CACHE_SIZE = 500;
 const pathCache = new Map<string, string[]>();
@@ -38,13 +36,13 @@ export function setNestedVal(obj: any, path: string | undefined, value: any): vo
   const lastKey = parts[parts.length - 1];
 
   // Early exit if last key is on block list
-  if (lastKey === undefined || KEY_BLOCKLIST.has(lastKey)) return;
+  if (lastKey === undefined || KEY_BLOCKLIST.includes(lastKey)) return;
 
   let current = obj;
 
   for (let i = 0; i < parts.length - 1; i++) {
     const part = parts[i] as string;
-    if (KEY_BLOCKLIST.has(part)) return;
+    if (KEY_BLOCKLIST.includes(part)) return;
 
     if (!(part in current) || current[part] == null) {
       // Convert to empty object to enable traversal
