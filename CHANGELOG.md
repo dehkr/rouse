@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+No unreleased changes.
+
+## [0.7.0] - 2026-05-20
+
 ### Added
 
 - Support server-driven flow control via `Rouse-Target`, `Rouse-Trigger`, and `Rouse-Redirect` headers allowing backends to dynamically override routing, emit DOM events, or force redirects.
@@ -15,9 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add `rz-error` directive for handling HTML and JSON error routing.
 - Add `rz-validate` directive for granular field-level error feedback.
 - Implement form validation engine that maps JSON errors to UI inputs, including automatic error text injection, ARIA attributes, and state clearing on interaction.
-- Add lifecycle events `rz:fetch:update:store:before` and `rz:fetch:update:store` to make JSON payload events symmetrical with HTML payloads.
+- Add `rz:store:sync:before`, `rz:store:sync`, `rz:store:sync:conflict`, and `rz:store:sync:error` lifecycle events.
 - Add `retryDelay` configuration (supporting numbers or functions) to replace implicit exponential backoff.
-- Add `back`, `intersect`, `interaction`, `idle`, and `ready` synthetic events for use in directives and programmatic `on` utility.
+- Add `back`, `intersect`, `interaction`, `idle`, `timeout`, `media`, `dom`, `load`, and `ready` synthetic events for use in directives and programmatic `on` utility.
 - Add `rz-url` directive to configure request URLs on any element, with automatic fallback to `href` or `action`.
 - Add `app.stores.elementFor(name)` accessor to retrieve the source `<script rz-store>` element for a registered store.
 - Add case-insensitive HTTP method shorthand for `rz-url` and `rz-fetch`. Supports `[METHOD] [URL]` syntax with automatic fallbacks to `action` or `href`.
@@ -27,7 +31,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Breaking:** Rename lifecycle event `rz:fetch:insert:before` to `rz:fetch:update:dom:before` and `rz:fetch:insert` to `rz:fetch:update:dom`.
+- **Breaking:** Rename lifecycle events:
+  - `rz:fetch:insert:before` to `rz:dom:update:before`.
+  - `rz:fetch:insert` to `rz:dom:update`.
 - **Breaking:** Rename `retries` configuration option to `retry`.
 - **Breaking:** Rename `poll` synthetic event to `interval`.
 - **Breaking:** Replace `reconnect` synthetic event with `online` and `offline`.
@@ -50,7 +56,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Breaking:** Remove `rz-trigger` directive; functionality is now handled by inline triggers in `rz-fetch`.
 - **Breaking:** Remove `rz-source` directive; replaced by `rz-url` and `rz-request-*` variants.
-- **Breaking:** Remove `__actions` property from stores; subsumed by `rz-refresh` and `rz-save` updates.
 
 ## [0.6.0] - 2026-04-20
 
@@ -69,7 +74,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Breaking:** Rename `el` to `scope` and `abortSignal` to `term` in controller context.
 - **Breaking:** Update event actions to receive a context object `{ el, e, props }` instead of positional arguments.
 - **Breaking:** Standardize on kebab-case for directive values and modifiers (e.g., `stop-immediate`, `abort-key`).
-- **Breaking:** Rename `app.addStore()` to `app.createStore()` and return the store instance instead of the app instance.
+- **Breaking:** Rename `app.addStore()` to `app.store()` and return the store instance instead of the app instance.
 - **Breaking:** Split `app.stores.define` into strict `create` and `update` methods.
 - Refactor DOM observation to use a single app-level `MutationObserver`, significantly reducing memory overhead in deep trees.
 - Make the target element argument optional for `on` and `dispatch` utilities in the controller context.
