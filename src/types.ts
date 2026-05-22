@@ -51,6 +51,7 @@ export type LifecycleEvent =
   | 'rz:store:sync'
   | 'rz:store:sync:conflict'
   | 'rz:store:sync:error'
+  | 'rz:store:sync:rollback'
   | 'rz:dom:update:before'
   | 'rz:dom:update';
 
@@ -77,6 +78,13 @@ export interface StoreSyncConflictDetail extends BaseStoreSync {
 export interface StoreSyncErrorDetail extends BaseStoreSync {
   data: any;
   error: any;
+}
+
+export interface StoreSyncRollbackDetail extends BaseStoreSync {
+  data: any;
+  rolledBackTo: any;
+  error: unknown;
+  reason: 'save-error';
 }
 
 export interface DomUpdateDetail {
@@ -201,6 +209,8 @@ export interface FetchConfig {
   skipInterceptors?: boolean;
   retry?: number;
   retryDelay?: number | ((attempt: number) => number);
+  /** When true, auto-revert local state on save failure. Ignored by fetch and refresh. */
+  rollbackOnError?: boolean;
   timeout?: number;
   abortKey?: string | symbol;
 }

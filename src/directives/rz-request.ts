@@ -5,7 +5,7 @@ import { getDirectiveValue, hasDirective, kebabToCamel } from '../core/shared';
 import { parseTime } from '../core/timing';
 import type { ConfigDirective, DirectiveSlug, RouseRequest } from '../types';
 
-const BOOLEAN_KEYS = ['keepalive', 'mutate', 'dispatch-events'];
+const BOOLEAN_KEYS = ['keepalive', 'mutate', 'dispatch-events', 'rollback-on-error'];
 const TIME_KEYS = ['timeout', 'retry-delay'];
 
 /**

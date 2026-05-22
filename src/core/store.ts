@@ -3,12 +3,14 @@ import { request } from '../net/request';
 import { nonReactive, reactive, readOnly, trackDirty } from '../reactivity';
 import type {
   DirectiveSlug,
+  FetchConfig,
   LifecycleEvent,
   RouseRequest,
   RouseResponse,
   StoreSyncConflictDetail,
   StoreSyncDetail,
   StoreSyncErrorDetail,
+  StoreSyncRollbackDetail,
   VoidFn,
 } from '../types';
 import type { RouseConfig } from './app';
@@ -39,6 +41,7 @@ export interface SyncConfig {
   saveMethod?: HttpMethod;
   refreshMethod?: HttpMethod;
   action?: PatchAction;
+  rollbackOnError?: boolean;
 }
 
 export interface StoreRequestOptions {
@@ -47,6 +50,7 @@ export interface StoreRequestOptions {
   action?: PatchAction;
   overrides?: Partial<RouseRequest>;
   nestedPath?: string;
+  rollbackOnError?: boolean;
 }
 
 /**
@@ -110,6 +114,7 @@ export class StoreManager {
   private _status = new Map<string, StoreStatus>();
   private _configs = new Map<string, SyncConfig>();
   private _initial = new Map<string, any>();
+  private _lastGood = new Map<string, any>();
   private _activeReqs = new Map<string, symbol>();
   private _elements = new Map<string, Element>();
   private _isPatching = false;
@@ -195,9 +200,17 @@ export class StoreManager {
     return { data, status, config };
   }
 
+  private _refreshLastGood(storeName: string, data: any) {
+    this._lastGood.set(storeName, clone(data));
+  }
+
   private _dispatchSyncEvent(
     eventName: LifecycleEvent,
-    detail: StoreSyncDetail | StoreSyncConflictDetail | StoreSyncErrorDetail,
+    detail:
+      | StoreSyncDetail
+      | StoreSyncConflictDetail
+      | StoreSyncErrorDetail
+      | StoreSyncRollbackDetail,
     storeName: string,
     options: CustomEventInit = { cancelable: false },
   ) {
@@ -268,11 +281,23 @@ export class StoreManager {
       );
     } catch (e: any) {
       status.error = e;
+
       this._dispatchSyncEvent(
         'rz:store:sync:error',
         { storeName: id, operation, data, error: e },
         id,
       );
+
+      // Rollback resolution chain
+      const rollbackOnError =
+        manualConfig?.rollbackOnError ??
+        (requestOptions as FetchConfig).rollbackOnError ??
+        config?.rollbackOnError ??
+        false;
+
+      if (operation === 'save' && rollbackOnError) {
+        this._maybeRollback(id, data, status, snapshot, manualConfig?.nestedPath, e);
+      }
     } finally {
       // Only disable the loading state if this is the most recent request
       if (this._activeReqs.get(id) === reqToken) {
@@ -348,10 +373,6 @@ export class StoreManager {
         } else {
           this._withPatchGuard(() => patchState(data, result.data, action));
         }
-
-        if (operation === 'refresh') {
-          status.lastSync = Date.now();
-        }
       } else {
         // Is mutating. Sync conflict lifecycle event.
         this._dispatchSyncEvent(
@@ -372,6 +393,12 @@ export class StoreManager {
         return;
       }
     }
+
+    if (operation === 'refresh') {
+      status.lastSync = Date.now();
+    }
+
+    this._refreshLastGood(storeName, data);
 
     this._dispatchSyncEvent(
       'rz:store:sync',
@@ -437,8 +464,61 @@ export class StoreManager {
     }
   }
 
+  private _maybeRollback(
+    storeName: string,
+    data: any,
+    status: StoreStatus,
+    snapshot: any,
+    nestedPath: string | undefined,
+    error: unknown,
+  ): boolean {
+    const lastGood = this._lastGood.get(storeName);
+    if (lastGood === undefined) return false;
+
+    // Skip rollback when the user has kept editing during flight
+    const localSlice = nestedPath ? getNestedVal(data, nestedPath) : data;
+    const snapSlice = nestedPath ? getNestedVal(snapshot, nestedPath) : snapshot;
+    if (!deepEqual(localSlice, snapSlice)) return false;
+
+    const rolledBackTo = nestedPath
+      ? clone(getNestedVal(lastGood, nestedPath))
+      : clone(lastGood);
+
+    this._withPatchGuard(() => {
+      if (nestedPath) {
+        setNestedVal(data, nestedPath, rolledBackTo);
+      } else {
+        patchState(data, rolledBackTo, 'replace');
+      }
+    });
+
+    const rootKey = getRootSegment(nestedPath);
+    const keys = rootKey ? [rootKey] : Object.keys(lastGood);
+    for (const key of keys) {
+      if (Object.hasOwn(lastGood, key) && deepEqual(data[key], lastGood[key])) {
+        delete status.dirty[key];
+      }
+    }
+
+    this._dispatchSyncEvent(
+      'rz:store:sync:rollback',
+      {
+        storeName,
+        operation: 'save',
+        data,
+        rolledBackTo,
+        nestedPath,
+        error,
+        reason: 'save-error',
+      },
+      storeName,
+    );
+
+    return true;
+  }
+
   // -------------------------------------------------------------------------------------
-  // Public API
+  // PUBLIC API
   // -------------------------------------------------------------------------------------
 
   elementFor(name: string): Element | undefined {
@@ -461,6 +541,7 @@ export class StoreManager {
 
     this._processMeta(state);
     this._register(name, state, config, el);
+    this._refreshLastGood(name, state);
 
     return this._data.get(name);
   }
@@ -477,9 +558,11 @@ export class StoreManager {
     this._processMeta(state);
 
     const action = config?.action || this._configs.get(name)?.action || 'replace';
-    this._withPatchGuard(() => patchState(this._data.get(name), state, action));
 
+    this._withPatchGuard(() => patchState(this._data.get(name), state, action));
     this._initial.set(name, clone(state));
+    this._refreshLastGood(name, state);
+
     if (config) {
       this._setConfig(name, config);
     }
@@ -533,6 +616,7 @@ export class StoreManager {
       return;
     }
     this._withPatchGuard(() => patchState(data, clone(initial), 'replace'));
+    this._refreshLastGood(name, data);
   }
 
   remove(name: string) {
@@ -541,6 +625,7 @@ export class StoreManager {
     this._configs.delete(name);
     this._elements.delete(name);
     this._initial.delete(name);
+    this._lastGood.delete(name);
     this._activeReqs.delete(name);
   }
 }

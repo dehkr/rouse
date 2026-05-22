@@ -4,6 +4,7 @@ import type { SyncConfig } from '../core/store';
 import { is } from '../dom/utils';
 import type { DirectiveSlug, ManagerDirective } from '../types';
 import { rzRefresh } from './rz-refresh';
+import { rzRequest, rzRequestSave } from './rz-request';
 import { rzUrl } from './rz-url';
 
 const SLUG = 'store' as const satisfies DirectiveSlug;
@@ -58,21 +59,29 @@ function initialize(el: HTMLScriptElement, app: RouseApp) {
     }
   }
 
+  const cfg: Partial<SyncConfig> = {};
+
   // Seed the store URL from `rz-url`
   if (rzUrl.existsOn(el)) {
     const { url, method } = rzUrl.getConfig(el);
-    const cfg: Partial<SyncConfig> = {};
-
     if (url) cfg.url = url;
     if (method) cfg.saveMethod = method;
-    if (Object.keys(cfg).length) app.stores.config(storeName, cfg);
-
     if (method && method !== 'GET' && rzRefresh.existsOn(el)) {
-      warn(
-        `'${method}' on store '${storeName}' won't apply to refresh. Refresh will use 'GET'.`,
-        el,
-      );
+      warn(`'${method}' won't apply to refresh. Refresh will use 'GET'.`, el);
     }
+  }
+
+  // Capture declarative rollback config for store-level default
+  const reqBase = rzRequest.getConfig(el, app);
+  const reqSave = rzRequestSave.getConfig(el, app);
+  const rollbackOnError = reqSave.rollbackOnError ?? reqBase.rollbackOnError;
+
+  if (rollbackOnError !== undefined) {
+    cfg.rollbackOnError = rollbackOnError;
+  }
+
+  if (Object.keys(cfg).length) {
+    app.stores.config(storeName, cfg);
   }
 
   initialized.add(el);
