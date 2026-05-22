@@ -30,7 +30,11 @@ export const handlers: ProxyHandler<object> = {
       const rawChild = getRaw(value);
       const parentTracker = dirtyTrackers.get(target);
 
-      if (parentTracker && !dirtyTrackers.has(rawChild)) {
+      if (
+        parentTracker &&
+        !dirtyTrackers.has(rawChild) &&
+        Object.getOwnPropertyDescriptor(target, key)?.enumerable !== false
+      ) {
         dirtyTrackers.set(rawChild, parentTracker);
         objectRootKeys.set(rawChild, getRootKey(target, key));
       }
