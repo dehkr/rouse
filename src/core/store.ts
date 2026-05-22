@@ -175,7 +175,9 @@ export class StoreManager {
 
     trackDirty(proxyState, (rootKey: string) => {
       if (this._isPatching) return;
-      status.dirty[rootKey] = true;
+      this._withPatchGuard(() => {
+        status.dirty[rootKey] = true;
+      });
     });
 
     if (programmaticConfig) {
