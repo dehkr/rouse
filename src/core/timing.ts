@@ -33,15 +33,15 @@ export function getTimingConfig(
     throttleWait: DEFAULT_THROTTLE_MS,
   },
 ): TimingConfig {
-  let strategy: TimingConfig['strategy'];
+  let strategy: TimingConfig['strategy'] = undefined;
   let explicitWait: number | undefined;
 
   let leading: boolean | undefined;
   let trailing: boolean | undefined;
 
   for (const mod of modifiers) {
-    if (['debounce', 'throttle'].includes(mod)) {
-      strategy = mod as TimingConfig['strategy'];
+    if (mod === 'debounce' || mod === 'throttle') {
+      strategy = mod;
     } else if (mod === 'leading') {
       leading = true;
       trailing = false;
@@ -53,20 +53,17 @@ export function getTimingConfig(
     } else if (mod === 'edges') {
       leading = true;
       trailing = true;
-    } else {
-      // Suffix required in this regex. Time value must have an explicit suffix.
-      // This prevents collisions with keyboard key modifiers (e.g., 'keydown.debounce.5').
-      if (/^(\d*\.?\d+)(ms|s|m)$/.test(mod)) {
-        explicitWait = parseTime(mod);
-      }
+    } else if (/^(\d*\.?\d+)(ms|s|m)$/.test(mod)) {
+      // Regex ensures time value has an explicit suffix to prevent collisions
+      // with keyboard key modifiers (e.g., 'keydown.debounce.5').
+      explicitWait = parseTime(mod);
     }
   }
 
   // Determine final wait time (explicit > strategy default > safe fallback)
-  let wait = explicitWait ?? defaults.debounceWait;
-  if (explicitWait === undefined && strategy === 'throttle') {
-    wait = defaults.throttleWait;
-  }
+  const defaultWait =
+    strategy === 'throttle' ? defaults.throttleWait : defaults.debounceWait;
+  const wait = explicitWait ?? defaultWait;
 
   // Apply common pattern defaults for leading/trailing edge execution
   if (leading === undefined && trailing === undefined) {
