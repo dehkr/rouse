@@ -2,9 +2,9 @@ import { defaultConfig, type RouseApp, type RouseConfig } from '../core/app';
 import { warn } from '../core/shared';
 import {
   rzHeaders,
-  rzHeadersFetch,
-  rzHeadersRefresh,
-  rzHeadersSave,
+  rzFetchHeaders,
+  rzRefreshHeaders,
+  rzSaveHeaders,
 } from '../directives/rz-headers';
 import {
   rzFetchRequest,
@@ -28,9 +28,9 @@ const REQUEST_VARIANTS = {
 } as const;
 
 const HEADERS_VARIANTS = {
-  fetch: rzHeadersFetch,
-  save: rzHeadersSave,
-  refresh: rzHeadersRefresh,
+  fetch: rzFetchHeaders,
+  save: rzSaveHeaders,
+  refresh: rzRefreshHeaders,
 } as const;
 
 const abortRegistry = new Map<string | symbol, AbortEntry>();

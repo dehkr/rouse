@@ -1,7 +1,7 @@
 export { rzBind } from './rz-bind';
 export { rzError } from './rz-error';
 export { rzFetch } from './rz-fetch';
-export { rzHeaders, rzHeadersFetch, rzHeadersRefresh, rzHeadersSave } from './rz-headers';
+export { rzFetchHeaders, rzHeaders, rzRefreshHeaders, rzSaveHeaders } from './rz-headers';
 export { rzHtml } from './rz-html';
 export { rzModel } from './rz-model';
 export { rzOn } from './rz-on';
