@@ -12,6 +12,7 @@ import {
 import type { ControllerFunction } from '../types';
 import {
   mountGlobalBinding,
+  resolveRemovedOwner,
   teardownGlobalBindings,
   walkBoundElements,
 } from './attacher';
@@ -149,9 +150,11 @@ export function initObserver(app: RouseApp) {
           // Cleanup controllers
           queryTargets<HTMLElement>(el, scopeSelector).forEach(destroyInstance);
 
-          // Delegate removed standard elements to their owning controller's teardown
-          const ownerScope = el.closest<HTMLElement>(scopeSelector);
-          if (ownerScope && !rzScope.existsOn(el as HTMLElement)) {
+          // Ownership resolved against the controllerBindings WeakMap, not DOM
+          // ancestry. Survives detached parents, cross-boundary moves, and
+          // sync-detachment edge cases.
+          const ownerScope = resolveRemovedOwner(el);
+          if (ownerScope && !rzScope.existsOn(el)) {
             teardownScopeNode(ownerScope, el);
           }
 

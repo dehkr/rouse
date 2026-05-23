@@ -5,11 +5,16 @@ import { rzBind, rzHtml, rzModel, rzOn, rzText } from '../directives';
 import type { BoundCleanupFn, Controller } from '../types';
 import { dispatch } from './scheduler';
 
-// Registry to track cleanup functions of globally mounted directives
+/** Registry to track cleanup functions of globally mounted directives. */
 const globalBindings = new WeakMap<Element, BoundCleanupFn[]>();
 
+/** Registry mapping controller-bound elements to their scope root element. */
+const controllerBindings = new WeakMap<Element, HTMLElement>();
+
+/** Directives that can be bound to local controller scope. */
 const BOUND_DIRECTIVES = [rzBind, rzHtml, rzModel, rzOn, rzText] as const;
 
+/** Selector string of all controller-bound directives. */
 export const DIRECTIVES_SELECTOR = BOUND_DIRECTIVES.map((directive) =>
   directiveSelector(directive.slug),
 ).join(', ');
@@ -71,9 +76,11 @@ export function walkBoundElements(
     },
   });
 
-  let node: Node | null;
-  while ((node = walker.nextNode())) {
+  let node = walker.nextNode();
+
+  while (node !== null) {
     callback(node as Element);
+    node = walker.nextNode();
   }
 }
 
@@ -84,11 +91,13 @@ export function walkBoundElements(
 export function mountGlobalBinding(el: Element, app: RouseApp): void {
   if (globalBindings.has(el)) return;
   const cleanups = bindDirectives(el, EMPTY_SCOPE, app);
-  if (cleanups.length) globalBindings.set(el, cleanups);
+  if (cleanups.length) {
+    globalBindings.set(el, cleanups);
+  }
 }
 
 /**
- * Traverses a removed DOM subtree and executes cleanup functions for 
+ * Traverses a removed DOM subtree and executes cleanup functions for
  * any globally mounted directives.
  */
 export function teardownGlobalBindings(root: Element): void {
@@ -99,6 +108,27 @@ export function teardownGlobalBindings(root: Element): void {
     globalBindings.delete(el);
     runCleanups(el, cleanups);
   });
+}
+
+/**
+ * Resolves the scope root that owns a removed subtree.
+ * Tries the element itself first then falls back to scanning the subtree
+ * for any bound descendant (all share the same owner). Returns null for
+ * globally-bound or unbound subtrees.
+ */
+export function resolveRemovedOwner(el: Element): HTMLElement | null {
+  const direct = controllerBindings.get(el);
+  if (direct) return direct;
+
+  let found: HTMLElement | null = null;
+  walkBoundElements(el, (boundEl) => {
+    if (!found) {
+      const owner = controllerBindings.get(boundEl);
+      if (owner) found = owner;
+    }
+  });
+
+  return found;
 }
 
 function runCleanups(el: Element, fns: BoundCleanupFn[]): void {
@@ -128,6 +158,7 @@ export function attachController(
     const cleanups = elementCleanups.get(el) ?? [];
     if (!elementCleanups.has(el)) {
       elementCleanups.set(el, cleanups);
+      controllerBindings.set(el, root);
     }
     cleanups.push(fn);
   }
@@ -139,6 +170,7 @@ export function attachController(
     if (!cleanups) return;
 
     elementCleanups.delete(el);
+    controllerBindings.delete(el);
     runCleanups(el, cleanups);
   }
 
@@ -169,12 +201,12 @@ export function attachController(
     }
 
     const walker = document.createTreeWalker(removedEl, NodeFilter.SHOW_ELEMENT);
-    let node: Node | null;
-    while ((node = walker.nextNode())) {
+    let node = walker.nextNode();
+
+    while (node !== null) {
       const el = node as Element;
-      if (elementCleanups.has(el)) {
-        runCleanup(el);
-      }
+      if (elementCleanups.has(el)) runCleanup(el);
+      node = walker.nextNode();
     }
   }
 
