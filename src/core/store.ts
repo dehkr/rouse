@@ -380,7 +380,7 @@ export class StoreManager {
           this._withPatchGuard(() => patchState(data, result.data, action));
         }
       } else {
-        // Is mutating. Sync conflict lifecycle event.
+        // Is mutating. Dispatch sync conflict lifecycle event.
         this._dispatchSyncEvent(
           'rz:store:sync:conflict',
           {
@@ -414,7 +414,7 @@ export class StoreManager {
   }
 
   /**
-   * Intercepts the raw payload to apply framework instructions (like nonReactive)
+   * Intercepts the raw payload to apply framework instructions (like `nonReactive`)
    * before the data is wrapped in proxies or merged into state.
    */
   private _processMeta(payload: unknown) {
@@ -433,7 +433,7 @@ export class StoreManager {
       }
     }
 
-    // Handle readOnly paths
+    // Handle `readOnly` paths
     if (Array.isArray(meta.readOnly)) {
       for (const path of meta.readOnly) {
         const keys = path.split('.');
@@ -553,18 +553,19 @@ export class StoreManager {
     }
   }
 
-  // -------------------------------------------------------------------------------------
+  // =====================================================================================
   // PUBLIC API
-  // -------------------------------------------------------------------------------------
+  // =====================================================================================
 
+  /**
+   * Listens for user-driven mutations to the store. Returns a cleanup function.
+   */
   onMutate(name: string, callback: () => void): VoidFn {
     let listeners = this._mutateListeners.get(name);
     if (!listeners) {
       listeners = new Set();
       this._mutateListeners.set(name, listeners);
-      // Seed lazy tracker propagation across the initial tree.
-      // Without this, mutations to never-read nested branches wouldn't fire
-      // because the get-trap propagation never reached them.
+      // Seed lazy tracker propagation across the initial tree
       const data = this._data.get(name);
       if (data) seedPropagation(data);
     }
@@ -575,15 +576,24 @@ export class StoreManager {
     };
   }
 
-  /** Retrieves the source <script rz-store> element for a registered store. */
+  /**
+   * Retrieves the source `<script rz-store>` element for a registered store.
+   */
   elementFor(name: string): Element | undefined {
     return this._elements.get(name);
   }
 
+  /**
+   * Returns an iterable object containing every `<script rz-store>` element
+   * registered in the store manager.
+   */
   elements(): Iterable<Element> {
     return this._elements.values();
   }
 
+  /**
+   * Registers a new store and returns its reactive proxy.
+   */
   create<T extends object = any>(
     name: string,
     state: object,
@@ -601,6 +611,10 @@ export class StoreManager {
     return this._data.get(name);
   }
 
+  /**
+   * Overwrites store state, clears dirty flags, resets the store's initial data
+   * snapshot, and refreshes the snapshop of the most recently server-confirmed state.
+   */
   update<T extends object = any>(
     name: string,
     state: object,
@@ -619,28 +633,46 @@ export class StoreManager {
     this._refreshLastGood(name, state);
     this._clearAllDirty(name);
 
-    if (config) this._setConfig(name, config);
+    if (config) {
+      this._setConfig(name, config);
+    }
 
     return this._data.get(name);
   }
 
+  /**
+   * Returns the reactive proxy for a store, or `undefined`.
+   */
   get<T extends object = any>(name: string): RouseStore<T> | undefined {
     return this._data.get(name);
   }
 
+  /**
+   * Returns a deep-cloned non-reactive copy of the store's current data.
+   */
   snapshot<T = any>(name: string): T | undefined {
     const data = this._data.get(name);
     return data ? clone(data) : undefined;
   }
 
+  /**
+   * Returns `true` if a store with the provided name exists.
+   */
   has(name: string): boolean {
     return this._data.has(name);
   }
 
+  /**
+   * Returns the status object for a store, or `undefined`. Available store
+   * status properties are `loading`, `error`, `lastSync`, and `dirty`.
+   */
   status(name: string): StoreStatus | undefined {
     return this._status.get(name);
   }
 
+  /**
+   * Patches `SyncConfig` for a store. Warns if the store is missing.
+   */
   config(name: string, config: Partial<SyncConfig>) {
     if (!this.has(name)) {
       warn(`Cannot configure '${name}'. Store not found.`);
@@ -649,15 +681,25 @@ export class StoreManager {
     this._setConfig(name, config);
   }
 
+  /**
+   * Triggers a manual store save with optional request overrides.
+   */
   async save(name: string, config?: StoreRequestOptions): Promise<void> {
     return this._request(name, 'save', config);
   }
 
+  /**
+   * Pulls fresh store data from the server, unless a save is currently in flight.
+   */
   async refresh(name: string, config?: StoreRequestOptions): Promise<void> {
     if (this.status(name)?.loading === 'save') return;
     return this._request(name, 'refresh', config);
   }
 
+  /**
+   * Reverts a store to its initial state, clears dirty flags, and refreshes
+   * the snapshop of the most recently server-confirmed state.
+   */
   reset(name: string) {
     const data = this._data.get(name);
     const initial = this._initial.get(name);
@@ -677,6 +719,10 @@ export class StoreManager {
     this._clearAllDirty(name);
   }
 
+  /**
+   * Drops all per-store state from the manager. Existing references to the proxy
+   * keep working but desync. Intended for tear-down of dynamically-created stores.
+   */
   remove(name: string) {
     this._data.delete(name);
     this._status.delete(name);
