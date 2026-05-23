@@ -7,7 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-No unreleased changes.
+### Added
+
+- Add `rollbackOnError` option for store saves to auto-revert local state on save failure.
+
+### Fixed
+
+- Fix `rz-save="mutate"` firing on framework-driven store writes. The mutate trigger now fires only on user mutations.
+- Clear `status.dirty` flags on `app.stores.update()` and `app.stores.reset()`.
 
 ## [0.7.0] - 2026-05-20
 
@@ -27,7 +34,7 @@ No unreleased changes.
 - Add case-insensitive HTTP method shorthand for `rz-url` and `rz-fetch`. Supports `[METHOD] [URL]` syntax with automatic fallbacks to `action` or `href`.
 - Add inline patch action shorthand (`replace`, `merge`) for `rz-save` and `rz-refresh` to override store-level defaults.
 - Support nested-path refresh (e.g., `rz-refresh="@store.field"`) to allow targeted slice updates.
-- Add inferred default triggers across all network directives: `submit` for forms, `change` for inputs, and `click` for other elements.
+- Add inferred default triggers across all network directives and `rz-on`: `submit` for forms, `change` for inputs, and `click` for other elements.
 
 ### Changed
 
@@ -49,7 +56,7 @@ No unreleased changes.
 - Fix `onError` interceptor to only fire on the final attempt.
 - Apply `timeout` across the entire request lifecycle instead of resetting per retry.
 - Resolve `baseUrl` correctly against `action` and `href` attributes when the API and page origins differ.
-- Resolved slice-refresh dirty-flag leak by replacing `_runPatch()` with a generic `_withPatchGuard(fn)`.
+- Resolve slice-refresh dirty-flag leak by replacing `_runPatch()` with a generic `_withPatchGuard(fn)`.
 - Honor `formaction` and `formmethod` attributes on `rz-fetch` form submit buttons.
 
 ### Removed
