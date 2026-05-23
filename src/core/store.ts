@@ -1,6 +1,7 @@
 import { dispatch } from '../dom/scheduler';
 import { request } from '../net/request';
 import { nonReactive, reactive, readOnly, trackDirty } from '../reactivity';
+import { seedPropagation } from '../reactivity/reactive';
 import type {
   DirectiveSlug,
   FetchConfig,
@@ -117,6 +118,8 @@ export class StoreManager {
   private _lastGood = new Map<string, any>();
   private _activeReqs = new Map<string, symbol>();
   private _elements = new Map<string, Element>();
+  private _mutateListeners = new Map<string, Set<VoidFn>>();
+  private _pendingMutates = new Set<string>();
   private _isPatching = false;
 
   constructor(appConfig: RouseConfig) {
@@ -178,6 +181,7 @@ export class StoreManager {
       this._withPatchGuard(() => {
         status.dirty[rootKey] = true;
       });
+      this._scheduleMutate(id);
     });
 
     if (programmaticConfig) {
@@ -466,6 +470,14 @@ export class StoreManager {
     }
   }
 
+  private _clearAllDirty(storeName: string) {
+    const status = this._status.get(storeName);
+    if (!status) return;
+    for (const key of Object.keys(status.dirty)) {
+      delete status.dirty[key];
+    }
+  }
+
   private _maybeRollback(
     storeName: string,
     data: any,
@@ -477,10 +489,14 @@ export class StoreManager {
     const lastGood = this._lastGood.get(storeName);
     if (lastGood === undefined) return false;
 
-    // Skip rollback when the user has kept editing during flight
+    // Skip when the user has kept editing during flight
     const localSlice = nestedPath ? getNestedVal(data, nestedPath) : data;
     const snapSlice = nestedPath ? getNestedVal(snapshot, nestedPath) : snapshot;
     if (!deepEqual(localSlice, snapSlice)) return false;
+
+    // Skip if data already equals lastGood (avoids firing errant signals)
+    const lastGoodSlice = nestedPath ? getNestedVal(lastGood, nestedPath) : lastGood;
+    if (deepEqual(localSlice, lastGoodSlice)) return false;
 
     const rolledBackTo = nestedPath
       ? clone(getNestedVal(lastGood, nestedPath))
@@ -519,9 +535,45 @@ export class StoreManager {
     return true;
   }
 
+  private _scheduleMutate(name: string) {
+    if (!this._mutateListeners.has(name)) return;
+    const wasEmpty = this._pendingMutates.size === 0;
+    this._pendingMutates.add(name);
+    if (wasEmpty) {
+      queueMicrotask(() => {
+        const toNotify = [...this._pendingMutates];
+        this._pendingMutates.clear();
+        for (const n of toNotify) {
+          const listeners = this._mutateListeners.get(n);
+          if (listeners) {
+            for (const cb of listeners) cb();
+          }
+        }
+      });
+    }
+  }
+
   // -------------------------------------------------------------------------------------
   // PUBLIC API
   // -------------------------------------------------------------------------------------
+
+  onMutate(name: string, callback: () => void): VoidFn {
+    let listeners = this._mutateListeners.get(name);
+    if (!listeners) {
+      listeners = new Set();
+      this._mutateListeners.set(name, listeners);
+      // Seed lazy tracker propagation across the initial tree.
+      // Without this, mutations to never-read nested branches wouldn't fire
+      // because the get-trap propagation never reached them.
+      const data = this._data.get(name);
+      if (data) seedPropagation(data);
+    }
+    listeners.add(callback);
+    return () => {
+      listeners.delete(callback);
+      if (listeners.size === 0) this._mutateListeners.delete(name);
+    };
+  }
 
   elementFor(name: string): Element | undefined {
     return this._elements.get(name);
@@ -564,10 +616,9 @@ export class StoreManager {
     this._withPatchGuard(() => patchState(this._data.get(name), state, action));
     this._initial.set(name, clone(state));
     this._refreshLastGood(name, state);
+    this._clearAllDirty(name);
 
-    if (config) {
-      this._setConfig(name, config);
-    }
+    if (config) this._setConfig(name, config);
 
     return this._data.get(name);
   }
@@ -609,16 +660,20 @@ export class StoreManager {
   reset(name: string) {
     const data = this._data.get(name);
     const initial = this._initial.get(name);
+
     if (!data) {
       warn(`Cannot reset store '${name}': Store not found.`);
       return;
     }
+
     if (!initial) {
       warn(`Cannot reset store '${name}': No initial state cached.`);
       return;
     }
+
     this._withPatchGuard(() => patchState(data, clone(initial), 'replace'));
     this._refreshLastGood(name, data);
+    this._clearAllDirty(name);
   }
 
   remove(name: string) {

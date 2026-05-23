@@ -112,3 +112,13 @@ export function trackDirty<T extends object>(
     dirtyTrackers.set(raw, callback);
   }
 }
+
+/** Read every enumerable key through the proxy to fire the get trap. */
+export function seedPropagation(obj: any, seen = new WeakSet()): void {
+  if (!obj || typeof obj !== 'object' || seen.has(obj)) return;
+  seen.add(obj);
+  for (const key of Object.keys(obj)) {
+    const value = obj[key];
+    seedPropagation(value, seen);
+  }
+}

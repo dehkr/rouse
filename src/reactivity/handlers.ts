@@ -67,6 +67,18 @@ export const handlers: ProxyHandler<object> = {
       const tracker = dirtyTrackers.get(target);
       if (tracker) {
         tracker(getRootKey(target, key));
+        // Propagate the tracker to the newly-assigned object.
+        // Mirrors the lazy propagation in the get trap.
+        if (proxiable(value)) {
+          const rawNew = getRaw(value);
+          if (
+            !dirtyTrackers.has(rawNew) &&
+            Object.getOwnPropertyDescriptor(target, key)?.enumerable !== false
+          ) {
+            dirtyTrackers.set(rawNew, tracker);
+            objectRootKeys.set(rawNew, getRootKey(target, key));
+          }
+        }
       }
 
       // Trigger the iteration on structural changes (new keys, or any array mutation)

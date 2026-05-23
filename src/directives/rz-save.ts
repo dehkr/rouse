@@ -11,7 +11,6 @@ import { applyTiming } from '../core/timing';
 import { dispatchTrigger } from '../dom/scheduler';
 import { defaultTriggerFor } from '../dom/utils';
 import { resolveRequestConfig } from '../net/request';
-import { effect } from '../reactivity';
 import type { DirectiveSlug, ManagerDirective, TriggerDef, VoidFn } from '../types';
 
 const SLUG = 'save' as const satisfies DirectiveSlug;
@@ -101,26 +100,13 @@ function attachMutateEffect(
   modifiers: TriggerDef['modifiers'],
   fire: VoidFn,
 ): VoidFn {
-  let isInitial = true;
-  const teardowns: VoidFn[] = [];
-
   const debouncedFire = applyTiming(fire, modifiers, app.config.timing);
-  teardowns.push(() => debouncedFire.cancel());
-
-  const stopEffect = effect(() => {
-    const data = app.stores.get(storeName);
-    if (!data) return;
-    JSON.stringify(data); // deep-read to register dependencies
-
-    if (isInitial) {
-      isInitial = false;
-      return;
-    }
-    debouncedFire();
-  });
-
-  teardowns.push(stopEffect);
-  return () => teardowns.forEach((fn) => fn());
+  const stopListener = app.stores.onMutate(storeName, debouncedFire);
+  
+  return () => {
+    debouncedFire.cancel();
+    stopListener();
+  };
 }
 
 /**
