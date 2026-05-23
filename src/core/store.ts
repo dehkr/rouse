@@ -575,6 +575,7 @@ export class StoreManager {
     };
   }
 
+  /** Retrieves the source <script rz-store> element for a registered store. */
   elementFor(name: string): Element | undefined {
     return this._elements.get(name);
   }

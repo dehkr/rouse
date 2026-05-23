@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add `rollbackOnError` option for store saves to auto-revert local state on save failure.
 
+### Changed
+
+- Enable found directives (`rz-bind`, `rz-html`, `rz-model`, `rz-on`, `rz-text`) to live outside a local controller scope (`rz-scope`). They will now mount to the global scope and resolve against reactive stores (`@store`).
+
 ### Fixed
 
 - Fix `rz-save="mutate"` firing on framework-driven store writes. The mutate trigger now fires only on user mutations.
