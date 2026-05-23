@@ -10,6 +10,11 @@ import {
   teardownScopeNode,
 } from '../dom/controller';
 import type { ControllerFunction } from '../types';
+import {
+  mountGlobalBinding,
+  teardownGlobalBindings,
+  walkBoundElements,
+} from './attacher';
 import { attachWakeStrategies } from './scheduler';
 
 /**
@@ -119,6 +124,15 @@ export function initObserver(app: RouseApp) {
               rzRefresh.initialize(el, app);
             }
           });
+
+          // If the newly added element doesn't belong to a controller,
+          // walk its tree and auto-mount any bound directives globally.
+          if (!ownerScope) {
+            walkBoundElements(el, (boundEl) => {
+              if (!getApp(boundEl, app)) return;
+              mountGlobalBinding(boundEl, app);
+            });
+          }
         }
       });
 
@@ -145,6 +159,11 @@ export function initObserver(app: RouseApp) {
           queryTargets<HTMLElement>(el, fetchSelector).forEach(rzFetch.teardown);
           queryTargets<HTMLElement>(el, saveSelector).forEach(rzSave.teardown);
           queryTargets<HTMLElement>(el, refreshSelector).forEach(rzRefresh.teardown);
+
+          // Global teardown
+          if (!ownerScope) {
+            teardownGlobalBindings(el);
+          }
         }
       });
     });

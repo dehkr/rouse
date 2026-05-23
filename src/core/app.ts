@@ -1,5 +1,10 @@
 import { directiveSelector, err, queryTargets, warn } from '../core/shared';
 import { rzFetch, rzRefresh, rzSave, rzStore } from '../directives';
+import {
+  mountGlobalBinding,
+  teardownGlobalBindings,
+  walkBoundElements,
+} from '../dom/attacher';
 import { controller, destroyInstance, IS_CONTROLLER } from '../dom/controller';
 import { initControllerElement, initObserver } from '../dom/initializer';
 import { initDomMutator } from '../dom/mutator';
@@ -267,6 +272,13 @@ export class RouseApp {
       }
     });
 
+    if (!this.root.closest(directiveSelector('scope'))) {
+      walkBoundElements(this.root, (el) => {
+        if (!getApp(el, this)) return;
+        mountGlobalBinding(el, this);
+      });
+    }
+
     requestAnimationFrame(() => {
       this.isReady = true;
       this.root.dispatchEvent(
@@ -304,6 +316,9 @@ export class RouseApp {
     for (const el of this.stores.elements()) {
       rzStore.teardown(el as HTMLScriptElement);
     }
+
+    // Cleanup global bindings
+    teardownGlobalBindings(this.root);
 
     // Remove the root indicator
     this.root.removeAttribute('data-rouse-app');

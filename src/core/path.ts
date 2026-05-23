@@ -1,6 +1,6 @@
 import type { Controller } from '../types';
 import { KEY_BLOCKLIST, STORE_PREFIX } from './constants';
-import { warn } from './shared';
+import { EMPTY_SCOPE, warn } from './shared';
 import type { StoreManager } from './store';
 
 const MAX_CACHE_SIZE = 500;
@@ -138,6 +138,13 @@ export function writeState(
   }
 
   // Fallback to local controller state
+  if (controller === EMPTY_SCOPE) {
+    warn(
+      `Local path used outside of controller scope: '${path}'. Use '@' to target a store.`,
+    );
+    return;
+  }
+
   setNestedVal(controller, path, value);
 }
 

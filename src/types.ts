@@ -140,7 +140,11 @@ export interface BaseDirective {
   [key: string]: unknown;
 }
 
-/** A directive that is bound to the DOM with a reactive effect. */
+/**
+ * A directive that establishes a persistent data or event binding between
+ * the DOM and application state. These bindings can be scoped locally to
+ * a controller or mounted globally against reactive stores.
+ */
 export interface BoundDirective extends BaseDirective {
   attach: (
     el: Element,
