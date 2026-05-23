@@ -5,6 +5,7 @@ import {
   parseStoreSubject,
   parseTriggerSubjectPairs,
 } from '../core/parser';
+import { getRootSegment } from '../core/path';
 import { getDirectiveValue, hasDirective, warn } from '../core/shared';
 import { resolveTarget } from '../core/store';
 import { applyTiming } from '../core/timing';
@@ -68,7 +69,9 @@ function initialize(el: Element, app: RouseApp) {
 
     // `mutate` is a reactive synthetic event that needs to be handled separately
     if (trigger?.event === 'mutate') {
-      teardowns.push(attachMutateEffect(app, storeName, trigger.modifiers, fire));
+      teardowns.push(
+        attachMutateEffect(app, storeName, trigger.modifiers, fire, nestedPath),
+      );
       continue;
     }
 
@@ -99,10 +102,23 @@ function attachMutateEffect(
   storeName: string,
   modifiers: TriggerDef['modifiers'],
   fire: VoidFn,
+  nestedPath: string,
 ): VoidFn {
-  const debouncedFire = applyTiming(fire, modifiers, app.config.timing);
+  const rootKey = nestedPath ? getRootSegment(nestedPath) : null;
+
+  const guardedFire = () => {
+    const status = app.stores.status(storeName);
+    if (!status) return;
+    const hasDirty = rootKey
+      ? !!status.dirty[rootKey]
+      : Object.keys(status.dirty).length > 0;
+    if (!hasDirty) return; // nothing to save
+    fire();
+  };
+
+  const debouncedFire = applyTiming(guardedFire, modifiers, app.config.timing);
   const stopListener = app.stores.onMutate(storeName, debouncedFire);
-  
+
   return () => {
     debouncedFire.cancel();
     stopListener();
