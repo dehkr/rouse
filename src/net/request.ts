@@ -7,10 +7,10 @@ import {
   rzHeadersSave,
 } from '../directives/rz-headers';
 import {
+  rzFetchRequest,
+  rzRefreshRequest,
   rzRequest,
-  rzRequestFetch,
-  rzRequestRefresh,
-  rzRequestSave,
+  rzSaveRequest,
 } from '../directives/rz-request';
 import type { NetworkAction, RequestError, RouseRequest, RouseResponse } from '../types';
 import { preparePayload } from './payload';
@@ -22,9 +22,9 @@ interface AbortEntry {
 }
 
 const REQUEST_VARIANTS = {
-  fetch: rzRequestFetch,
-  save: rzRequestSave,
-  refresh: rzRequestRefresh,
+  fetch: rzFetchRequest,
+  save: rzSaveRequest,
+  refresh: rzRefreshRequest,
 } as const;
 
 const HEADERS_VARIANTS = {
@@ -199,9 +199,9 @@ export async function request<T = any>(
  *
  *   1. global defaults (`app.config.network.fetch`)
  *   2. `rz-request` on target element (save/refresh only)
- *   3. `rz-request-<action>` on target element (save/refresh only)
+ *   3. `rz-<save|refresh>-request` on target element (save/refresh only)
  *   4. `rz-request` on triggering element
- *   5. `rz-request-<action>` on triggering element
+ *   5. `rz-<action>-request` on triggering element
  *
  * Headers follow the same chain, merged separately so per-key overrides win
  * without losing unrelated header keys from earlier layers.

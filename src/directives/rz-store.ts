@@ -4,7 +4,7 @@ import type { SyncConfig } from '../core/store';
 import { is } from '../dom/utils';
 import type { DirectiveSlug, ManagerDirective } from '../types';
 import { rzRefresh } from './rz-refresh';
-import { rzRequest, rzRequestSave } from './rz-request';
+import { rzRequest, rzSaveRequest } from './rz-request';
 import { rzUrl } from './rz-url';
 
 const SLUG = 'store' as const satisfies DirectiveSlug;
@@ -73,7 +73,7 @@ function initialize(el: HTMLScriptElement, app: RouseApp) {
 
   // Capture declarative rollback config for store-level default
   const reqBase = rzRequest.getConfig(el, app);
-  const reqSave = rzRequestSave.getConfig(el, app);
+  const reqSave = rzSaveRequest.getConfig(el, app);
   const rollbackOnError = reqSave.rollbackOnError ?? reqBase.rollbackOnError;
 
   if (rollbackOnError !== undefined) {

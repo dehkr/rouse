@@ -71,6 +71,6 @@ export function defineRequestDirective(
 }
 
 export const rzRequest = defineRequestDirective('request');
-export const rzRequestSave = defineRequestDirective('request-save');
-export const rzRequestFetch = defineRequestDirective('request-fetch');
-export const rzRequestRefresh = defineRequestDirective('request-refresh');
+export const rzSaveRequest = defineRequestDirective('save-request');
+export const rzFetchRequest = defineRequestDirective('fetch-request');
+export const rzRefreshRequest = defineRequestDirective('refresh-request');

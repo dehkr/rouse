@@ -6,7 +6,7 @@ export { rzHtml } from './rz-html';
 export { rzModel } from './rz-model';
 export { rzOn } from './rz-on';
 export { rzRefresh } from './rz-refresh';
-export { rzRequest, rzRequestFetch, rzRequestRefresh, rzRequestSave } from './rz-request';
+export { rzFetchRequest, rzRefreshRequest, rzRequest, rzSaveRequest } from './rz-request';
 export { rzSave } from './rz-save';
 export { rzScope } from './rz-scope';
 export { rzStore } from './rz-store';

@@ -91,7 +91,7 @@ async function executeFetch(el: Element, app: RouseApp, options: RouseRequest) {
 
   const method = (
     options.method || // rz-fetch
-    finalRequestInit.method || // rz-request / rz-request-fetch
+    finalRequestInit.method || // rz-request / rz-fetch-request
     inlineMethod || // rz-url
     formMethod || // form native attribute
     'GET'
@@ -109,7 +109,7 @@ async function executeFetch(el: Element, app: RouseApp, options: RouseRequest) {
   // an element can never have conflicting requests.
   let autoAbortKey = state?.abortKey;
   if (!autoAbortKey) {
-    autoAbortKey = uniqueKey('rz-abort-');
+    autoAbortKey = uniqueKey('rz_abort_');
     activeRequests.set(el, { ...state, abortKey: autoAbortKey });
   }
 
