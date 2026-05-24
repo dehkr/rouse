@@ -15,6 +15,6 @@ export type {
   ActionCtx,
   BindableValue,
   ControllerCtx,
-  ControllerFunction,
+  ControllerFn,
   LifecycleEvent,
 } from './types';

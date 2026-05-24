@@ -1,6 +1,6 @@
 import type { RouseApp } from '../core/app';
 import { effectScope } from '../reactivity';
-import type { ControllerCtx, ControllerFunction, RouseRequest } from '../types';
+import type { ControllerCtx, ControllerFn, RouseRequest } from '../types';
 import { attachController } from './attacher';
 import { dispatch, on } from './scheduler';
 import { insert } from './utils';
@@ -27,7 +27,7 @@ export function teardownScopeNode(el: HTMLElement, removedNode: Element) {
 export function initControllerInstance(
   el: HTMLElement,
   app: RouseApp,
-  setup: ControllerFunction,
+  setup: ControllerFn,
   props: Record<string, any> = {},
   options: { isAlias?: boolean } = {},
 ) {
@@ -49,8 +49,8 @@ export function destroyInstance(el: HTMLElement) {
  * Identity function for TypeScript inference.
  */
 export function controller<P extends Record<string, any> = Record<string, any>>(
-  fn: ControllerFunction<P>,
-): ControllerFunction<P> {
+  fn: ControllerFn<P>,
+): ControllerFn<P> {
   (fn as any)[IS_CONTROLLER] = true;
   return fn;
 }
@@ -61,7 +61,7 @@ export function controller<P extends Record<string, any> = Record<string, any>>(
 export function createController(
   el: HTMLElement,
   app: RouseApp,
-  setup: ControllerFunction,
+  setup: ControllerFn,
   props: Record<string, any> = {},
   options: { isAlias?: boolean } = {},
 ) {

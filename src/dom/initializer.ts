@@ -9,7 +9,7 @@ import {
   scanScopeNode,
   teardownScopeNode,
 } from '../dom/controller';
-import type { ControllerFunction } from '../types';
+import type { ControllerFn } from '../types';
 import {
   mountGlobalBinding,
   resolveRemovedOwner,
@@ -32,7 +32,7 @@ export function initControllerElement(el: HTMLElement, app: RouseApp) {
 
   const { controllerName, rawPayload } = scopeValue;
 
-  let setup: ControllerFunction;
+  let setup: ControllerFn;
   let isAlias = false;
 
   // Context aliasing for stores

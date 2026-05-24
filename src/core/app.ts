@@ -13,7 +13,7 @@ import { initFormValidationEngine } from '../dom/validation';
 import { handleFetch } from '../net/engine';
 import { fallbackResponse } from '../net/response';
 import type {
-  ControllerFunction,
+  ControllerFn,
   FetchInterceptors,
   GlobalFetchConfig,
   RouseRequest,
@@ -131,12 +131,12 @@ export class RouseApp {
    */
   register<P extends Record<string, any>>(
     name: string,
-    setup: ControllerFunction<P>,
+    setup: ControllerFn<P>,
   ): this;
-  register(controllers: Record<string, ControllerFunction<any>>): this;
+  register(controllers: Record<string, ControllerFn<any>>): this;
   register(
-    nameOrControllers: string | Record<string, ControllerFunction<any>>,
-    setup?: ControllerFunction<any>,
+    nameOrControllers: string | Record<string, ControllerFn<any>>,
+    setup?: ControllerFn<any>,
   ): this {
     const map =
       typeof nameOrControllers === 'string'

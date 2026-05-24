@@ -104,12 +104,12 @@ export type BindableValue =
   | Record<string, boolean> // For class bindings
   | Record<string, string>; // For style bindings
 
-declare const CLEANUP: unique symbol;
-export type BoundCleanupFn = (() => void) & { [CLEANUP]: true };
-
 export type AnyFunction = (...args: any[]) => any;
 export type VoidFn = () => void;
 export type ActionFn = (e?: Event) => void;
+
+declare const CLEANUP: unique symbol;
+export type BoundCleanupFn = VoidFn & { [CLEANUP]: true };
 
 /**
  * The object returned by a setup function.
@@ -247,6 +247,12 @@ export interface FetchInterceptors {
   ) => RequestError | Promise<RequestError>;
 }
 
+/** The definition of a setup function. */
+export type ControllerFn<
+  P extends Record<string, any> = Record<string, any>,
+  T extends Element = HTMLElement,
+> = (ctx: ControllerCtx<P, T>) => Controller;
+
 /**
  * The context object passed into every controller setup function.
  * @template P - The type of the props.
@@ -291,12 +297,6 @@ export type ControllerCtx<
   insert: (content: string, target: Element, method: InsertMethod) => void;
   scan: (newNode: Element) => void;
 };
-
-/** The definition of a setup function. */
-export type ControllerFunction<
-  P extends Record<string, any> = Record<string, any>,
-  T extends Element = HTMLElement,
-> = (ctx: ControllerCtx<P, T>) => Controller;
 
 /**
  * The context object passed as an argument to controller methods via `rz-on`.
