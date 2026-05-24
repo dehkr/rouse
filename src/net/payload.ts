@@ -1,14 +1,9 @@
-import type { RouseConfig } from '../core/app';
 import type { RouseRequest } from '../types';
 
 /**
  * Prepares the URL, headers, and body for a network request.
  */
-export function preparePayload(
-  url: string,
-  options: RouseRequest,
-  globalConfig: RouseConfig,
-) {
+export function preparePayload(url: string, options: RouseRequest, baseUrl: string) {
   const { headers = {}, body, form, params, ...restOptions } = options;
   const method = (options.method || 'GET').toUpperCase();
 
@@ -23,14 +18,11 @@ export function preparePayload(
       urlObj = new URL(url);
     } else {
       let base: string;
-
-      if (globalConfig.network?.baseUrl) {
-        const configBase = globalConfig.network.baseUrl;
-        base = configBase.endsWith('/') ? configBase : `${configBase}/`;
+      if (baseUrl) {
+        base = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
       } else {
         base = typeof document !== 'undefined' ? document.baseURI : 'http://localhost';
       }
-
       urlObj = new URL(url, base);
     }
   } catch (err) {

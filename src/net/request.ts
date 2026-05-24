@@ -1,4 +1,4 @@
-import { defaultConfig, type RouseApp } from '../core/app';
+import type { RouseApp } from '../core/app';
 import { warn } from '../core/shared';
 import {
   rzFetchHeaders,
@@ -48,12 +48,11 @@ const abortRegistry = new Map<string | symbol, AbortEntry>();
 export async function request<T = any>(
   url: string,
   options: RouseRequest = {},
-  app?: RouseApp,
+  app: RouseApp,
 ): Promise<RouseResponse<T>> {
   let currentOptions = { ...options };
-  const appConfig = app?.config ?? defaultConfig;
 
-  if (!currentOptions.skipInterceptors && app) {
+  if (!currentOptions.skipInterceptors) {
     try {
       for (const fn of app._interceptors.request) {
         currentOptions = await fn(currentOptions);
@@ -70,7 +69,7 @@ export async function request<T = any>(
   const { finalUrl, method, reqHeaders, finalBody, restOptions } = preparePayload(
     url,
     currentOptions,
-    appConfig,
+    app.config.baseUrl,
   );
 
   // Enforce no body on GET/HEAD
@@ -143,7 +142,7 @@ export async function request<T = any>(
       const normalized = await normalizeResponse(response, currentOptions);
 
       // Run response/error interceptors
-      if (!currentOptions.skipInterceptors && app) {
+      if (!currentOptions.skipInterceptors) {
         if (normalized.error) {
           for (const fn of app._interceptors.error) {
             normalized.error = await fn(normalized.error, currentOptions);
@@ -160,7 +159,7 @@ export async function request<T = any>(
       }
       return normalized;
     } catch (err: any) {
-      let errorPayload = mapCatchError(err, Boolean(mainSignal?.aborted));
+      let errorPayload = mapCatchError(err, !!mainSignal?.aborted);
 
       if (errorPayload.status !== 'CANCELED' && errorPayload.status !== 'TIMEOUT') {
         const delay = getRetryDelay(attempt, retry, currentOptions);
@@ -170,8 +169,8 @@ export async function request<T = any>(
         }
       }
 
-      // Error interceptor runs on the final failure or explicit cancellation
-      if (!currentOptions.skipInterceptors && app) {
+      // Error interceptors run on the final failure or explicit cancellation
+      if (!currentOptions.skipInterceptors) {
         for (const fn of app._interceptors.error) {
           errorPayload = await fn(errorPayload, currentOptions);
         }
@@ -198,7 +197,7 @@ export async function request<T = any>(
  * Resolves the final network configuration by merging app-level defaults with
  * directive-driven config layers in priority order (later wins):
  *
- *   1. global defaults (`app.config.network.fetch`)
+ *   1. global defaults (`app.config.*`)
  *   2. `rz-request` on target element (save/refresh only)
  *   3. `rz-<save|refresh>-request` on target element (save/refresh only)
  *   4. `rz-request` on triggering element
@@ -213,10 +212,13 @@ export async function request<T = any>(
 export function resolveRequestConfig(
   triggeringEl: Element,
   action: NetworkAction,
-  app?: RouseApp,
+  app: RouseApp,
   targetEl?: Element,
 ): Partial<RouseRequest> {
-  const globalConfig = app?.config.network.fetch || {};
+  const globalConfig: Partial<RouseRequest> = {
+    headers: app.config.headers,
+    credentials: app.config.credentials,
+  };
   const requestVariant = REQUEST_VARIANTS[action];
   const headersVariant = HEADERS_VARIANTS[action];
 

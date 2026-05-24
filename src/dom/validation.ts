@@ -5,7 +5,9 @@ import type { RouseResponse } from '../types';
 import { is } from './utils';
 
 const originalStyles = new WeakMap<Element, string>();
+
 const ERROR_FLAG = 'data-rouse-err';
+const ERROR_CLASS = 'rz-error';
 
 /**
  * Initializes the global form validation engine.
@@ -13,14 +15,11 @@ const ERROR_FLAG = 'data-rouse-err';
  * to UI inputs, manage ARIA attributes, and handle optimistic clearing.
  */
 export function initFormValidationEngine(app: RouseApp, signal: AbortSignal) {
-  const appConfig = app.config;
-
   const sweepForm = (e: Event) => {
     const triggerEl = e.target as Element;
     const form = is(triggerEl, 'Form') ? triggerEl : triggerEl.closest('form');
     if (!form) return;
-
-    clearFormErrors(form, appConfig.ui.errorClass);
+    clearFormErrors(form);
   };
 
   app.root.addEventListener('rz:fetch:start', sweepForm, { signal });
@@ -33,8 +32,6 @@ export function initFormValidationEngine(app: RouseApp, signal: AbortSignal) {
     const triggerEl = target as Element;
     const form = is(triggerEl, 'Form') ? triggerEl : triggerEl.closest('form');
     if (!form) return;
-
-    const globalErrorClass = appConfig.ui.errorClass;
 
     const validateEls = queryTargets(form, directiveSelector(rzValidate.slug));
     let firstInvalidInput: HTMLElement | null = null;
@@ -64,7 +61,7 @@ export function initFormValidationEngine(app: RouseApp, signal: AbortSignal) {
       // Group-level abort controller for optimistic clearing
       const ac = new AbortController();
       const clearOptimistic = () => {
-        clearFieldErrors(inputs, el, globalErrorClass, valConfig);
+        clearFieldErrors(inputs, el, valConfig);
         ac.abort();
       };
 
@@ -76,10 +73,8 @@ export function initFormValidationEngine(app: RouseApp, signal: AbortSignal) {
         ariaTokens.add(el.id);
         input.setAttribute('aria-describedby', Array.from(ariaTokens).join(' '));
 
-        // Apply classes
-        if (globalErrorClass) {
-          input.classList.add(...globalErrorClass.split(/\s+/));
-        }
+        input.classList.add(ERROR_CLASS);
+
         if (valConfig.errorClass) {
           input.classList.add(...valConfig.errorClass.split(/\s+/));
         }
@@ -122,7 +117,7 @@ export function initFormValidationEngine(app: RouseApp, signal: AbortSignal) {
 /**
  * Locates all `rz-validate` elements within the form and resets their associated inputs.
  */
-function clearFormErrors(form: Element, globalErrorClass?: string) {
+function clearFormErrors(form: Element) {
   const validateEls = queryTargets(form, directiveSelector(rzValidate.slug));
   for (const el of validateEls) {
     if (!el.hasAttribute(ERROR_FLAG)) continue;
@@ -131,7 +126,7 @@ function clearFormErrors(form: Element, globalErrorClass?: string) {
     if (!valConfig) continue;
 
     const inputs = getInputsForField(form, valConfig.field);
-    clearFieldErrors(inputs, el, globalErrorClass, valConfig);
+    clearFieldErrors(inputs, el, valConfig);
   }
 }
 
@@ -143,7 +138,6 @@ function clearFormErrors(form: Element, globalErrorClass?: string) {
 function clearFieldErrors(
   inputs: Iterable<HTMLElement>,
   validateEl: Element,
-  globalErrorClass?: string,
   valConfig?: ValidateConfig,
 ) {
   validateEl.textContent = '';
@@ -164,9 +158,7 @@ function clearFieldErrors(
       }
     }
 
-    if (globalErrorClass) {
-      input.classList.remove(...globalErrorClass.split(/\s+/));
-    }
+    input.classList.remove(ERROR_CLASS);
 
     if (valConfig?.errorClass) {
       input.classList.remove(...valConfig.errorClass.split(/\s+/));

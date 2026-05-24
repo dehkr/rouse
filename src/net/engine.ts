@@ -1,4 +1,4 @@
-import { defaultConfig, type RouseApp } from '../core/app';
+import type { RouseApp } from '../core/app';
 import {
   err,
   isFileType,
@@ -56,8 +56,6 @@ export async function handleFetch(
  * @param options - The sanitized request config passed to the network orchestrator.
  */
 async function executeFetch(el: Element, app: RouseApp, options: RouseRequest) {
-  const appConfig = app.config || defaultConfig;
-  const loadingClass = appConfig.ui.loadingClass;
   const state = activeRequests.get(el);
   const isFormEl = is(el, 'Form');
 
@@ -138,7 +136,7 @@ async function executeFetch(el: Element, app: RouseApp, options: RouseRequest) {
     }
   }
 
-  el.classList.add(loadingClass);
+  el.classList.add('rz-loading');
   el.setAttribute('aria-busy', 'true');
 
   if (shouldDispatch) {
@@ -203,7 +201,7 @@ async function executeFetch(el: Element, app: RouseApp, options: RouseRequest) {
       'INTERNAL_ERROR',
     );
   } finally {
-    el.classList.remove(loadingClass);
+    el.classList.remove('rz-loading');
     el.removeAttribute('aria-busy');
 
     if (shouldDispatch) {

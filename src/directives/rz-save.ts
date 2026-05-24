@@ -19,8 +19,7 @@ const cleanups = new WeakMap<Element, Array<VoidFn>>();
 
 /**
  * Resolves the merged request config from the trigger and target elements
- * and dispatches the save through the store manager. Bails when the target
- * store isn't registered or already has a request in flight.
+ * and dispatches the save through the store manager.
  */
 function triggerSave(
   triggerEl: Element,
@@ -43,10 +42,8 @@ function triggerSave(
 }
 
 /**
- * Manager entry for `rz-save`. Parses each `[trigger]: [[action] @store[.path]]`
- * pair from the attribute value and wires the trigger to fire a save against
- * the resolved target. The synthetic `mutate` event fires whenever the target
- * store's data changes, paced by any modifiers on the trigger.
+ * Parses each `[trigger]: [[action] @store[.path]]` pair from the attribute
+ * value and wires the trigger to fire a save against the resolved target.
  */
 function initialize(el: Element, app: RouseApp) {
   if (cleanups.has(el)) return;
@@ -95,7 +92,7 @@ function teardown(el: Element) {
 }
 
 /**
- * Reactive 'mutate' event — fires `triggerSave` whenever the store data changes.
+ * Fires `triggerSave` whenever the store data changes.
  */
 function attachMutateEffect(
   app: RouseApp,
@@ -116,7 +113,7 @@ function attachMutateEffect(
     fire();
   };
 
-  const debouncedFire = applyTiming(guardedFire, modifiers, app.config.timing);
+  const debouncedFire = applyTiming(guardedFire, modifiers);
   const stopListener = app.stores.onMutate(storeName, debouncedFire);
 
   return () => {
@@ -126,13 +123,7 @@ function attachMutateEffect(
 }
 
 /**
- * Definition for the `rz-save` directive. Wires events to push
- * local store state to the server.
- *
- * Each segment is `[trigger]: [[action] @store[.path]]`. The action token
- * (`replace` or `merge`) overrides the store-configured patch strategy for
- * the response patch on this trigger only. When the subject is omitted, the
- * directive targets the `rz-store` on the same element.
+ * Wires events to push local store state to the server.
  */
 export const rzSave = {
   slug: SLUG,

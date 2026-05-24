@@ -190,13 +190,6 @@ export interface RequestError {
   parseError?: string;
 }
 
-/** Global fetch configuration */
-export interface GlobalFetchConfig {
-  headers?: Record<string, string>;
-  credentials?: RequestCredentials;
-  mode?: RequestMode;
-}
-
 /** Framework-specific execution and UI options */
 export interface FetchConfig {
   url?: string;

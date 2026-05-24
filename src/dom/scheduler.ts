@@ -136,8 +136,7 @@ export function dispatchTrigger(
   trigger: TriggerDef,
   base: Omit<TriggerContext, 'modifiers'>,
 ): VoidFn | null {
-  const appInst = base.app || getApp(base.el);
-  const paced = applyTiming(base.action, trigger.modifiers, appInst?.config.timing);
+  const paced = applyTiming(base.action, trigger.modifiers);
   const pacedAction: ActionFn = (e) => paced(e);
 
   // Ensure paced timers cancel on teardown
@@ -232,7 +231,9 @@ export function attachWakeStrategies(
   };
 }
 
-// ============================== SYNTHETIC EVENT REGISTRY ===============================
+// =======================================================================================
+// SYNTHETIC EVENT REGISTRY
+// =======================================================================================
 
 export type SyntheticEventHandler = (ctx: TriggerContext) => VoidFn | null;
 
@@ -379,7 +380,9 @@ export const syntheticEvents: Record<string, SyntheticEventHandler> = {
   },
 };
 
-// =============================== SYNTHETIC EVENT HELPERS ===============================
+// =======================================================================================
+// SYNTHETIC EVENT HELPERS
+// =======================================================================================
 
 /**
  * Helper that fires either window 'load' or document 'DOMContentLoaded' event.

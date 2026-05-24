@@ -15,7 +15,6 @@ import { fallbackResponse } from '../net/response';
 import type {
   ControllerFn,
   ErrorInterceptor,
-  GlobalFetchConfig,
   InterceptorPhase,
   RequestInterceptor,
   ResponseInterceptor,
@@ -23,33 +22,29 @@ import type {
   VoidFn,
 } from '../types';
 import { Registry } from './registry';
-import { deepFreeze } from './shared';
 import { StoreManager } from './store';
-import { DEFAULT_DEBOUNCE_MS, DEFAULT_THROTTLE_MS } from './timing';
 
-export const defaultConfig = {
-  root: document.body,
-  timing: {
-    debounceWait: DEFAULT_DEBOUNCE_MS,
-    throttleWait: DEFAULT_THROTTLE_MS,
-  },
-  network: {
-    baseUrl: '',
-    fetch: {} as GlobalFetchConfig,
-  },
-  ui: {
-    errorClass: 'rz-error',
-    loadingClass: 'rz-loading',
-    wakeStrategy: 'ready',
-  },
-};
-
-export type RouseConfig = {
+export interface RouseConfig {
+  /** Element or selector where the app mounts. Defaults to `document.body`. */
   root?: string | HTMLElement;
-  timing?: Partial<typeof defaultConfig.timing>;
-  network?: Partial<typeof defaultConfig.network>;
-  ui?: Partial<typeof defaultConfig.ui>;
-};
+  /** Prepended to relative URLs in `rz-fetch`, `rz-save`, `rz-refresh`, and `app.fetch()`. */
+  baseUrl?: string;
+  /** Default headers applied to every request. Merged with per-request and directive-level headers. */
+  headers?: Record<string, string>;
+  /** Standard fetch `credentials` value applied to every request. */
+  credentials?: RequestCredentials;
+  /** Default controller activation strategy. Overridden by `rz-wake`. */
+  wake?: string;
+}
+
+interface ResolvedConfig {
+  root: HTMLElement;
+  baseUrl: string;
+  headers: Record<string, string>;
+  // Left undefined when not configured; fetch()'s native default is 'same-origin'.
+  credentials?: RequestCredentials;
+  wake: string;
+}
 
 const appInstances = new WeakMap<HTMLElement, RouseApp>();
 
@@ -57,10 +52,10 @@ const appInstances = new WeakMap<HTMLElement, RouseApp>();
  * Core class for instantiating Rouse app instances.
  */
 export class RouseApp {
-  public root: HTMLElement;
+  public readonly root: HTMLElement;
+  public readonly config: Readonly<ResolvedConfig>;
   public stores: StoreManager;
   public registry: Registry;
-  public config: typeof defaultConfig;
   public isReady: boolean;
   public _interceptors: {
     request: Set<RequestInterceptor>;
@@ -76,44 +71,32 @@ export class RouseApp {
     const rootEl =
       typeof config.root === 'string'
         ? (document.querySelector(config.root) as HTMLElement)
-        : (config.root ?? defaultConfig.root);
+        : (config.root ?? document.body);
 
     if (!rootEl) {
       throw new Error('[Rouse] Root element not found.');
     }
 
-    // Only one instance per element allowed
     if (appInstances.has(rootEl)) {
       throw new Error('[Rouse] An app instance is already attached to this element.');
     }
 
-    // Merge defaults with user-provided config
+    this.root = rootEl;
+
     this.config = {
       root: rootEl,
-      timing: {
-        ...defaultConfig.timing,
-        ...config.timing,
-      },
-      ui: {
-        ...defaultConfig.ui,
-        ...config.ui,
-      },
-      network: {
-        ...defaultConfig.network,
-        ...config.network,
-        fetch: {
-          ...defaultConfig.network.fetch,
-          ...config.network?.fetch,
-        },
-      },
+      baseUrl: config.baseUrl ?? '',
+      headers: config.headers ?? {},
+      credentials: config.credentials,
+      wake: config.wake?.trim() || 'ready',
     };
 
-    this.root = rootEl;
     this._interceptors = {
       request: new Set(),
       response: new Set(),
       error: new Set(),
     };
+
     this.stores = new StoreManager(this);
     this.registry = new Registry();
     this.isReady = false;
@@ -240,9 +223,6 @@ export class RouseApp {
       warn(`'start()' called multiple times. Ignoring.`);
       return;
     }
-
-    // Lock the configuration for this app instance
-    deepFreeze(this.config);
 
     this._hasStarted = true;
     this._abortController = new AbortController();
