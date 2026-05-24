@@ -9,11 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Add `rollbackOnError` option for store saves to auto-revert local state on save failure.
+- Add `rollbackOnError` option for store saves to enable auto-reverting local state on save failure.
 
 ### Changed
 
-- Enable found directives (`rz-bind`, `rz-html`, `rz-model`, `rz-on`, `rz-text`) to live outside a local controller scope (`rz-scope`). They will now mount to the global scope and resolve against reactive stores (`@store`).
+- **Breaking:** Rename `rz-request` and `rz-headers` variants to `rz-{save,fetch,refresh}-request` and `rz-{save,fetch,refresh}-headers`
+- **Breaking:** Rename `app.register()` to `app.controller()`
+- **Breaking:** Rename `controller()` to `defineController()`
+- **Breaking:** Flatten and simplify app config. Migration:
+  - `network.baseUrl` to `baseUrl`
+  - `network.fetch.headers` to `headers`
+  - `network.fetch.credentials` to `credentials`
+  - `ui.wakeStrategy` to `wake`
+  - `timing.*`, `ui.errorClass`, `ui.loadingClass`, and `network.fetch.mode` removed
+- Enable bound directives (`rz-bind`, `rz-html`, `rz-model`, `rz-on`, `rz-text`) to live outside a local controller scope (`rz-scope`). They will now mount to the global scope and resolve against reactive stores (`@store`).
+- Convert network interceptors from a static, single-function configuration model (`app.config.network.interceptors`) to a dynamic, composable registry (`app.interceptor()`).
 
 ### Fixed
 
