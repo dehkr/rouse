@@ -14,9 +14,13 @@ import { handleFetch } from '../net/engine';
 import { fallbackResponse } from '../net/response';
 import type {
   ControllerFn,
-  FetchInterceptors,
+  ErrorInterceptor,
   GlobalFetchConfig,
+  InterceptorPhase,
+  RequestInterceptor,
+  ResponseInterceptor,
   RouseRequest,
+  VoidFn,
 } from '../types';
 import { Registry } from './registry';
 import { deepFreeze } from './shared';
@@ -32,7 +36,6 @@ export const defaultConfig = {
   network: {
     baseUrl: '',
     fetch: {} as GlobalFetchConfig,
-    interceptors: {} as FetchInterceptors,
   },
   ui: {
     errorClass: 'rz-error',
@@ -58,7 +61,12 @@ export class RouseApp {
   public stores: StoreManager;
   public registry: Registry;
   public config: typeof defaultConfig;
-  public isReady: Boolean;
+  public isReady: boolean;
+  public _interceptors: {
+    request: Set<RequestInterceptor>;
+    response: Set<ResponseInterceptor>;
+    error: Set<ErrorInterceptor>;
+  };
 
   private _hasStarted = false;
   private _observer?: MutationObserver;
@@ -97,15 +105,16 @@ export class RouseApp {
           ...defaultConfig.network.fetch,
           ...config.network?.fetch,
         },
-        interceptors: {
-          ...defaultConfig.network.interceptors,
-          ...config.network?.interceptors,
-        },
       },
     };
 
     this.root = rootEl;
-    this.stores = new StoreManager(this.config);
+    this._interceptors = {
+      request: new Set(),
+      response: new Set(),
+      error: new Set(),
+    };
+    this.stores = new StoreManager(this);
     this.registry = new Registry();
     this.isReady = false;
 
@@ -162,6 +171,36 @@ export class RouseApp {
    */
   store(name: string, state: object, config?: any) {
     return this.stores.create(name, state, config);
+  }
+
+  /**
+   * Registers a network interceptor. Interceptors run in FIFO order and are
+   * `await`ed sequentially, so async interceptors block subsequent ones in
+   * the same phase.
+   *
+   * @returns A teardown closure that unregisters the interceptor.
+   *
+   * @example
+   * const remove = app.interceptor('request', (config) => {
+   *   config.headers = { ...config.headers, Authorization: `Bearer ${token}` };
+   *   return config;
+   * });
+   *
+   * // Later, e.g. in a controller's disconnect():
+   * remove();
+   */
+  interceptor(phase: 'request', fn: RequestInterceptor): VoidFn;
+  interceptor(phase: 'response', fn: ResponseInterceptor): VoidFn;
+  interceptor(phase: 'error', fn: ErrorInterceptor): VoidFn;
+  interceptor(phase: InterceptorPhase, fn: any): VoidFn {
+    const set = this._interceptors[phase];
+    if (!set) {
+      throw new Error(
+        `[Rouse] Invalid interceptor phase: '${phase}'. Expected 'request', 'response', or 'error'.`,
+      );
+    }
+    set.add(fn);
+    return () => set.delete(fn);
   }
 
   /**

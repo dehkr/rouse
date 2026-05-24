@@ -14,7 +14,7 @@ import type {
   StoreSyncRollbackDetail,
   VoidFn,
 } from '../types';
-import type { RouseConfig } from './app';
+import type { RouseApp } from './app';
 import { STORE_PREFIX, type HttpMethod, type PatchAction } from './constants';
 import { parseStoreLocator } from './parser';
 import { getNestedVal, getRootSegment, setNestedVal } from './path';
@@ -109,7 +109,7 @@ export function resolveStoreUrl(ref: string, stores: StoreManager): string | nul
  * Instantiated once per RouseApp to ensure isolation.
  */
 export class StoreManager {
-  private appConfig: RouseConfig;
+  private app: RouseApp;
 
   private _data = new Map<string, any>();
   private _status = new Map<string, StoreStatus>();
@@ -122,8 +122,8 @@ export class StoreManager {
   private _pendingMutates = new Set<string>();
   private _isPatching = false;
 
-  constructor(appConfig: RouseConfig) {
-    this.appConfig = appConfig;
+  constructor(app: RouseApp) {
+    this.app = app;
   }
 
   private _createStatus(): StoreStatus {
@@ -220,7 +220,7 @@ export class StoreManager {
     storeName: string,
     options: CustomEventInit = { cancelable: false },
   ) {
-    const target = this.elementFor(storeName) || (this.appConfig.root as Element);
+    const target = this.elementFor(storeName) || (this.app.config.root as Element);
     return dispatch(target, eventName, detail, options);
   }
 
@@ -274,7 +274,7 @@ export class StoreManager {
     status.error = null;
 
     try {
-      const result = await request(url, requestOptions, this.appConfig);
+      const result = await request(url, requestOptions, this.app);
       this._applyServerResponse(
         id,
         operation,

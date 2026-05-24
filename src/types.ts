@@ -233,19 +233,24 @@ export interface RouseResponse<T = any> {
   targetOverride?: string | null;
 }
 
-/** Network interceptors */
-export interface FetchInterceptors {
-  onRequest?: (config: RouseRequest) => RouseRequest | Promise<RouseRequest>;
-  onResponse?: (
-    data: any,
-    response: Response,
-    config: RouseRequest,
-  ) => any | Promise<any>;
-  onError?: (
-    error: RequestError,
-    config: RouseRequest,
-  ) => RequestError | Promise<RequestError>;
-}
+// Network interceptors
+
+export type RequestInterceptor = (
+  config: RouseRequest,
+) => RouseRequest | Promise<RouseRequest>;
+
+export type ResponseInterceptor = (
+  data: any,
+  response: Response,
+  config: RouseRequest,
+) => any | Promise<any>;
+
+export type ErrorInterceptor = (
+  error: RequestError,
+  config: RouseRequest,
+) => RequestError | Promise<RequestError>;
+
+export type InterceptorPhase = 'request' | 'response' | 'error';
 
 /** The definition of a setup function. */
 export type ControllerFn<

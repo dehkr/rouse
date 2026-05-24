@@ -1,8 +1,8 @@
-import { defaultConfig, type RouseApp, type RouseConfig } from '../core/app';
+import { defaultConfig, type RouseApp } from '../core/app';
 import { warn } from '../core/shared';
 import {
-  rzHeaders,
   rzFetchHeaders,
+  rzHeaders,
   rzRefreshHeaders,
   rzSaveHeaders,
 } from '../directives/rz-headers';
@@ -48,27 +48,25 @@ const abortRegistry = new Map<string | symbol, AbortEntry>();
 export async function request<T = any>(
   url: string,
   options: RouseRequest = {},
-  appConfig: RouseConfig = defaultConfig,
+  app?: RouseApp,
 ): Promise<RouseResponse<T>> {
   let currentOptions = { ...options };
-  const interceptors = appConfig.network?.interceptors || {};
+  const appConfig = app?.config ?? defaultConfig;
 
-  // Run request interceptor
-  if (!currentOptions.skipInterceptors && interceptors.onRequest) {
+  if (!currentOptions.skipInterceptors && app) {
     try {
-      currentOptions = await interceptors.onRequest(currentOptions);
+      for (const fn of app._interceptors.request) {
+        currentOptions = await fn(currentOptions);
+      }
     } catch (e: unknown) {
       let errorPayload = mapCatchError(e, false);
-
-      if (interceptors.onError) {
-        errorPayload = await interceptors.onError(errorPayload, currentOptions);
+      for (const fn of app._interceptors.error) {
+        errorPayload = await fn(errorPayload, currentOptions);
       }
-
       return wrapErrorResponse(errorPayload, currentOptions);
     }
   }
 
-  // Prepare payload (URL, headers, body)
   const { finalUrl, method, reqHeaders, finalBody, restOptions } = preparePayload(
     url,
     currentOptions,
@@ -100,10 +98,8 @@ export async function request<T = any>(
   // Handle concurrency and establish the primary abort signal
   if (abortKey) {
     abortRegistry.get(abortKey)?.controller.abort('Replacement request started');
-
     const controller = new AbortController();
     ownerId = Symbol('abort-owner');
-
     abortRegistry.set(abortKey, { controller, ownerId });
     mainSignal = controller.signal;
   } else if (externalSignal) {
@@ -147,16 +143,19 @@ export async function request<T = any>(
       const normalized = await normalizeResponse(response, currentOptions);
 
       // Run response/error interceptors
-      if (!currentOptions.skipInterceptors) {
-        if (normalized.error && interceptors.onError) {
-          normalized.error = await interceptors.onError(normalized.error, currentOptions);
-        } else if (!normalized.error && interceptors.onResponse) {
-          // Success (parsed data can safely be mutated)
-          normalized.data = await interceptors.onResponse(
-            normalized.data,
-            normalized.response as Response,
-            currentOptions,
-          );
+      if (!currentOptions.skipInterceptors && app) {
+        if (normalized.error) {
+          for (const fn of app._interceptors.error) {
+            normalized.error = await fn(normalized.error, currentOptions);
+          }
+        } else {
+          for (const fn of app._interceptors.response) {
+            normalized.data = await fn(
+              normalized.data,
+              normalized.response as Response,
+              currentOptions,
+            );
+          }
         }
       }
       return normalized;
@@ -172,8 +171,10 @@ export async function request<T = any>(
       }
 
       // Error interceptor runs on the final failure or explicit cancellation
-      if (!currentOptions.skipInterceptors && interceptors.onError) {
-        errorPayload = await interceptors.onError(errorPayload, currentOptions);
+      if (!currentOptions.skipInterceptors && app) {
+        for (const fn of app._interceptors.error) {
+          errorPayload = await fn(errorPayload, currentOptions);
+        }
       }
 
       return wrapErrorResponse(errorPayload, currentOptions);

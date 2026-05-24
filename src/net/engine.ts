@@ -146,7 +146,7 @@ async function executeFetch(el: Element, app: RouseApp, options: RouseRequest) {
   }
 
   try {
-    const result = await request(url, finalOptions, appConfig);
+    const result = await request(url, finalOptions, app);
     const rouseHeaders = extractRouseHeaders(result.headers);
 
     if (rouseHeaders.redirect) {
