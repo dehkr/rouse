@@ -119,22 +119,19 @@ export class RouseApp {
    *
    * @example
    * // Single registration
-   * app.register('counter', counter);
-   * app.register('cart', cart);
+   * app.controller('counter', counter);
+   * app.controller('cart', cart);
    *
    * @example
    * // Object shorthand for bulk registration
-   * app.register({ counter, cart });
+   * app.controller({ counter, cart });
    *
    * @param nameOrControllers - Either the unique string name of a controller, or an object mapping names to setup functions.
    * @param setup - The setup function (only required when the first argument is a string).
    */
-  register<P extends Record<string, any>>(
-    name: string,
-    setup: ControllerFn<P>,
-  ): this;
-  register(controllers: Record<string, ControllerFn<any>>): this;
-  register(
+  controller<P extends Record<string, any>>(name: string, setup: ControllerFn<P>): this;
+  controller(controllers: Record<string, ControllerFn<any>>): this;
+  controller(
     nameOrControllers: string | Record<string, ControllerFn<any>>,
     setup?: ControllerFn<any>,
   ): this {
