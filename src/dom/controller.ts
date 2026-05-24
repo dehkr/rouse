@@ -48,7 +48,7 @@ export function destroyInstance(el: HTMLElement) {
 /**
  * Identity function for TypeScript inference.
  */
-export function controller<P extends Record<string, any> = Record<string, any>>(
+export function defineController<P extends Record<string, any> = Record<string, any>>(
   fn: ControllerFn<P>,
 ): ControllerFn<P> {
   (fn as any)[IS_CONTROLLER] = true;

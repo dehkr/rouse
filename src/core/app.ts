@@ -5,7 +5,7 @@ import {
   teardownGlobalBindings,
   walkBoundElements,
 } from '../dom/attacher';
-import { controller, destroyInstance, IS_CONTROLLER } from '../dom/controller';
+import { defineController, destroyInstance, IS_CONTROLLER } from '../dom/controller';
 import { initControllerElement, initObserver } from '../dom/initializer';
 import { initDomMutator } from '../dom/mutator';
 import { initStoreRouter } from '../dom/router';
@@ -153,7 +153,7 @@ export class RouseApp {
       }
 
       // Auto-wrap functions with `controller()` if they weren't already
-      const finalSetup = (fn as any)[IS_CONTROLLER] ? fn : controller(fn);
+      const finalSetup = (fn as any)[IS_CONTROLLER] ? fn : defineController(fn);
       this.registry.register(name, finalSetup);
     }
 
