@@ -149,8 +149,24 @@ async function executeFetch(el: Element, app: RouseApp, options: RouseRequest) {
 
     if (rouseHeaders.redirect) {
       activeRequests.delete(el);
-      window.location.href = rouseHeaders.redirect;
+      window.location.assign(rouseHeaders.redirect);
       return result;
+    }
+
+    // Native browser-followed redirect (e.g., expired session -> login page).
+    // Server intent via Rouse-Redirect wins. Falls through to the redirected
+    // short-circuit in the error block below.
+    if (result.response?.redirected) {
+      if (isSameOrigin(result.response.url)) {
+        activeRequests.delete(el);
+        window.location.assign(result.response.url);
+        return result;
+      }
+      warn(`Cross-origin redirect blocked: '${result.response.url}'.`);
+      result.error = {
+        message: 'Cross-origin redirect blocked',
+        status: 'REDIRECTED',
+      };
     }
 
     applyUrlChange(rouseHeaders.pushUrl, rouseHeaders.replaceUrl);
@@ -166,8 +182,17 @@ async function executeFetch(el: Element, app: RouseApp, options: RouseRequest) {
         }
         return result;
       }
-      // It's an HTTP error (4xx/5xx) or parse error.
-      // Dispatch the error event and return the result object.
+
+      if (result.error.status === 'REDIRECTED') {
+        // For cross-origin redirects, fire the error event for observability,
+        // but do not route the payload.
+        if (shouldDispatch) {
+          dispatch(el, 'rz:fetch:error', { error: result.error, config: finalOptions });
+        }
+        return result;
+      }
+
+      // HTTP error (4xx/5xx) or parse error: dispatch error event and route payload.
       if (shouldDispatch) {
         dispatch(el, 'rz:fetch:error', { error: result.error, config: finalOptions });
 
@@ -178,7 +203,6 @@ async function executeFetch(el: Element, app: RouseApp, options: RouseRequest) {
       return result;
     }
 
-    // Handle success
     if (shouldDispatch) {
       dispatch(el, 'rz:fetch:success', result);
 

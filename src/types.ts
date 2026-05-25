@@ -175,7 +175,8 @@ export type CustomErrorStatus =
   | 'TIMEOUT' // Request exceeded timeout threshold
   | 'NETWORK_ERROR' // Fetch failed (offline, DNS, CORS, etc.)
   | 'PARSE_ERROR' // Response body couldn't be parsed
-  | 'INTERNAL_ERROR'; // Unexpected error in request engine
+  | 'INTERNAL_ERROR' // Unexpected error in request engine
+  | 'REDIRECTED'; // Cross-origin redirect refused by the fetch engine
 
 /** HTTP status codes (2xx-5xx) or custom error status */
 export type ErrorStatus = CustomErrorStatus | number;
