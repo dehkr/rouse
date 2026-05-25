@@ -2,7 +2,7 @@ import { getApp, type RouseApp } from '../core/app';
 import { parseTriggers } from '../core/parser';
 import { warn } from '../core/shared';
 import { applyTiming, isTimeModifier, parseTime } from '../core/timing';
-import type { ActionFn, LifecycleEvent, TriggerDef, VoidFn } from '../types';
+import type { ActionFn, LifecycleEventMap, TriggerDef, VoidFn } from '../types';
 import { applyModifiers, getListenerOptions, resolveListenerTarget } from './modifiers';
 import { isNativeNavigation } from './utils';
 
@@ -18,12 +18,19 @@ export interface TriggerContext {
  *
  * @param options - Allows overriding cancelable/bubbles
  */
-export function dispatch<T extends string, D = any>(
+export function dispatch<N extends string>(
   el: EventTarget,
-  name: T | LifecycleEvent,
-  detail: D = {} as D,
+  name: N,
+  detail?: N extends keyof LifecycleEventMap ? LifecycleEventMap[N] : any,
+  options?: CustomEventInit,
+): CustomEvent<N extends keyof LifecycleEventMap ? LifecycleEventMap[N] : any>;
+
+export function dispatch(
+  el: EventTarget,
+  name: string,
+  detail: any = {},
   options: CustomEventInit = {},
-): CustomEvent<D> {
+): CustomEvent {
   const event = new CustomEvent(name, {
     bubbles: true,
     cancelable: false,
@@ -76,23 +83,23 @@ export function attachListener<D = any>(
  * Backs `ctx.on` for controllers and is also exported for non-controller
  * code that needs the same trigger semantics as the declarative directives.
  *
- * @param target - Element (or other event target) to bind to.
- * @param events - Whitespace-separated event names with optional modifiers.
- * @param callback - Invoked when any of the events fires.
- * @param abortSignal - Optional signal that triggers cleanup on abort.
- * @returns Cleanup function that removes all attached listeners.
- *
  * @example
- * on(el, 'click.debounce.100ms', handleClick);
- * on(el, 'mouseenter mouseleave', toggleHover);
- * on(el, 'visible online', refetch);
- * on(el, 'interval.5s', tick);
- * on(el, 'interval.10s.once', delayed);
+ * on(el, 'click.debounce.500ms', handleClick);
+ * on(el, 'page-visible online', refetch);
  */
-export function on<D = any>(
+export function on<N extends string>(
+  target: EventTarget,
+  events: N,
+  callback: (
+    ev: CustomEvent<N extends keyof LifecycleEventMap ? LifecycleEventMap[N] : any>,
+  ) => void,
+  abortSignal?: AbortSignal,
+): VoidFn;
+
+export function on(
   target: EventTarget,
   events: string,
-  callback: (ev: CustomEvent<D>) => void,
+  callback: (ev: CustomEvent<any>) => void,
   abortSignal?: AbortSignal,
 ): VoidFn {
   const triggers = parseTriggers(events);

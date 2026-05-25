@@ -27,33 +27,49 @@ export type DirectiveSlug =
   | 'validate'
   | 'wake';
 
-export type LifecycleEvent =
-  | 'rz:app:start'
-  | 'rz:app:ready'
-  | 'rz:app:destroy'
-  | 'rz:controller:init'
-  | 'rz:controller:connect'
-  | 'rz:controller:disconnect'
-  | 'rz:controller:destroy'
-  | 'rz:fetch:config'
-  | 'rz:fetch:start'
-  | 'rz:fetch:success'
-  | 'rz:fetch:success:json'
-  | 'rz:fetch:success:html'
-  | 'rz:fetch:success:file'
-  | 'rz:fetch:error'
-  | 'rz:fetch:error:html'
-  | 'rz:fetch:error:json'
-  | 'rz:fetch:error:file'
-  | 'rz:fetch:abort'
-  | 'rz:fetch:end'
-  | 'rz:store:sync:before'
-  | 'rz:store:sync'
-  | 'rz:store:sync:conflict'
-  | 'rz:store:sync:error'
-  | 'rz:store:sync:rollback'
-  | 'rz:dom:update:before'
-  | 'rz:dom:update';
+export interface AppEventDetail {
+  app: RouseApp;
+}
+
+/** `rz:controller:init` — fires after the setup function runs, before bindings attach. */
+export interface ControllerInitDetail {
+  context: ControllerCtx;
+  instance: Controller;
+}
+
+/** `rz:controller:connect` / `rz:controller:disconnect` — bindings attach / detach. */
+export interface ControllerLifecycleDetail {
+  instance: Controller;
+}
+
+/** `rz:fetch:config` — pre-flight; cancelable. Listeners can mutate `config`. */
+export interface FetchConfigDetail {
+  config: RouseRequest;
+  url: string;
+  method: string;
+}
+
+/** `rz:fetch:start`, `rz:fetch:abort`, `rz:fetch:end` — config-only fetch lifecycle. */
+export interface FetchLifecycleDetail {
+  config: RouseRequest;
+}
+
+/** `rz:fetch:error` — normalized error plus the request config. */
+export interface FetchErrorDetail {
+  error: RequestError | Error;
+  config: RouseRequest;
+}
+
+/** `rz:fetch:success` and the typed `:json` / `:html` / `:file` sub-events. */
+export type FetchSuccessDetail = RouseResponse;
+export type FetchSuccessJsonDetail = RouseResponse<Record<string, any> | any[]>;
+export type FetchSuccessHtmlDetail = RouseResponse<string>;
+export type FetchSuccessFileDetail = RouseResponse<Blob | ArrayBuffer>;
+
+/** `rz:fetch:error:json` / `:html` / `:file` — error responses with a routable body. */
+export type FetchErrorJsonDetail = RouseResponse<Record<string, any> | any[]>;
+export type FetchErrorHtmlDetail = RouseResponse<string>;
+export type FetchErrorFileDetail = RouseResponse<Blob | ArrayBuffer>;
 
 export interface BaseStoreSync {
   storeName: string;
@@ -65,6 +81,12 @@ export interface BaseStoreSync {
 export interface StoreSyncDetail extends BaseStoreSync {
   data: any;
   response?: RouseResponse;
+  payload?: any;
+}
+
+/** Fires before the local store is patched from server data. */
+export interface StoreSyncBeforeDetail extends BaseStoreSync {
+  data: any;
   payload?: any;
 }
 
@@ -93,6 +115,42 @@ export interface DomUpdateDetail {
   payload: string;
   source: 'fetch' | 'programmatic';
 }
+
+/** Maps every lifecycle event name to the shape of `event.detail`. */
+export interface LifecycleEventMap {
+  'rz:app:start': AppEventDetail;
+  'rz:app:ready': AppEventDetail;
+  'rz:app:destroy': AppEventDetail;
+
+  'rz:controller:init': ControllerInitDetail;
+  'rz:controller:connect': ControllerLifecycleDetail;
+  'rz:controller:disconnect': ControllerLifecycleDetail;
+  'rz:controller:destroy': undefined;
+
+  'rz:fetch:config': FetchConfigDetail;
+  'rz:fetch:start': FetchLifecycleDetail;
+  'rz:fetch:abort': FetchLifecycleDetail;
+  'rz:fetch:end': FetchLifecycleDetail;
+  'rz:fetch:success': FetchSuccessDetail;
+  'rz:fetch:success:json': FetchSuccessJsonDetail;
+  'rz:fetch:success:html': FetchSuccessHtmlDetail;
+  'rz:fetch:success:file': FetchSuccessFileDetail;
+  'rz:fetch:error': FetchErrorDetail;
+  'rz:fetch:error:json': FetchErrorJsonDetail;
+  'rz:fetch:error:html': FetchErrorHtmlDetail;
+  'rz:fetch:error:file': FetchErrorFileDetail;
+
+  'rz:store:sync:before': StoreSyncBeforeDetail;
+  'rz:store:sync': StoreSyncDetail;
+  'rz:store:sync:conflict': StoreSyncConflictDetail;
+  'rz:store:sync:error': StoreSyncErrorDetail;
+  'rz:store:sync:rollback': StoreSyncRollbackDetail;
+
+  'rz:dom:update:before': DomUpdateDetail;
+  'rz:dom:update': DomUpdateDetail;
+}
+
+export type LifecycleEvent = keyof LifecycleEventMap;
 
 export type BindableValue =
   | string
@@ -267,28 +325,32 @@ export type ControllerCtx<
   stores: StoreManager;
   term: AbortSignal;
   dispatch: {
-    <T extends string, D = any>(
-      name: T | LifecycleEvent,
-      detail?: D,
+    <N extends string>(
+      name: N,
+      detail?: N extends keyof LifecycleEventMap ? LifecycleEventMap[N] : any,
       options?: CustomEventInit,
-    ): CustomEvent<D>;
-    <T extends string, D = any>(
+    ): CustomEvent<N extends keyof LifecycleEventMap ? LifecycleEventMap[N] : any>;
+    <N extends string>(
       target: EventTarget,
-      name: T | LifecycleEvent,
-      detail?: D,
+      name: N,
+      detail?: N extends keyof LifecycleEventMap ? LifecycleEventMap[N] : any,
       options?: CustomEventInit,
-    ): CustomEvent<D>;
+    ): CustomEvent<N extends keyof LifecycleEventMap ? LifecycleEventMap[N] : any>;
   };
   on: {
-    <D = any>(
-      events: string,
-      callback: (ev: CustomEvent<D>) => void,
+    <N extends string>(
+      events: N,
+      callback: (
+        ev: CustomEvent<N extends keyof LifecycleEventMap ? LifecycleEventMap[N] : any>,
+      ) => void,
       customSignal?: AbortSignal,
     ): () => void;
-    <D = any>(
+    <N extends string>(
       target: EventTarget,
-      events: string,
-      callback: (ev: CustomEvent<D>) => void,
+      events: N,
+      callback: (
+        ev: CustomEvent<N extends keyof LifecycleEventMap ? LifecycleEventMap[N] : any>,
+      ) => void,
       customSignal?: AbortSignal,
     ): () => void;
   };
