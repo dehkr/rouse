@@ -153,6 +153,8 @@ async function executeFetch(el: Element, app: RouseApp, options: RouseRequest) {
       return result;
     }
 
+    applyUrlChange(rouseHeaders.pushUrl, rouseHeaders.replaceUrl);
+
     if (rouseHeaders.target) {
       result.targetOverride = rouseHeaders.target;
     }
@@ -246,5 +248,40 @@ function routePayload(type: 'error' | 'success', el: Element, result: RouseRespo
   if (data !== null && data !== undefined) {
     const typeName = data?.constructor?.name || typeof data;
     warn(`Unsupported payload: ${typeName}.`);
+  }
+}
+
+/**
+ * Applies a server-directed URL change via history.pushState / replaceState.
+ * Rejects cross-origin URLs to defend against a compromised backend.
+ */
+function applyUrlChange(pushUrl: string | null, replaceUrl: string | null): void {
+  const url = pushUrl ?? replaceUrl;
+  if (url === null) return;
+
+  if (pushUrl && replaceUrl) {
+    warn('Both Rouse-Push-Url and Rouse-Replace-Url present. Using Push.');
+  }
+
+  if (!isSameOrigin(url)) {
+    const headerName = pushUrl ? 'Rouse-Push-Url' : 'Rouse-Replace-Url';
+    warn(`${headerName} rejected: cross-origin URL '${url}'.`);
+    return;
+  }
+
+  const method = pushUrl ? 'pushState' : 'replaceState';
+
+  try {
+    history[method]({}, '', url);
+  } catch (e) {
+    warn(`${method} failed for URL '${url}':`, e);
+  }
+}
+
+function isSameOrigin(url: string): boolean {
+  try {
+    return new URL(url, window.location.href).origin === window.location.origin;
+  } catch {
+    return false;
   }
 }
