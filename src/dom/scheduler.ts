@@ -279,16 +279,13 @@ export const syntheticEvents: Record<string, SyntheticEventHandler> = {
   'page-visible': ({ action }) => attachVisibilityChange('visible', action),
   'page-hidden': ({ action }) => attachVisibilityChange('hidden', action),
 
-  /** Page show (initial load + bfcache restore) */
-  back: ({ action }) => attachWindowEvent('pageshow', action),
-
   /** Listens to a media query, supports `.once` */
   media: ({ el, modifiers, action }) => {
     const query = modifiers.find((m) => m.startsWith('(') && m.endsWith(')'));
     const isOnce = modifiers.includes('once');
 
     if (!query) {
-      warn(`A valid query modifier in parentheses is required for 'media' on`, el);
+      warn(`The 'media' event requires a query modifier in parentheses.`, el);
       return null;
     }
 
@@ -343,7 +340,7 @@ export const syntheticEvents: Record<string, SyntheticEventHandler> = {
   },
 
   /** Aggregate proxy for 'mouseover', 'focusin', or 'touchstart', supports `.once` */
-  interaction: ({ el, modifiers, action }) => {
+  interact: ({ el, modifiers, action }) => {
     const isOnce = modifiers.includes('once');
     const triggers = ['mouseover', 'focusin', 'touchstart'];
     let hasFired = false;

@@ -560,7 +560,7 @@ export class StoreManager {
   /**
    * Listens for user-driven mutations to the store. Returns a cleanup function.
    */
-  onMutate(name: string, callback: () => void): VoidFn {
+  onEdit(name: string, callback: () => void): VoidFn {
     let listeners = this._mutateListeners.get(name);
     if (!listeners) {
       listeners = new Set();

@@ -16,18 +16,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Breaking:** Rename `rz-request` and `rz-headers` variants to `rz-{save,fetch,refresh}-request` and `rz-{save,fetch,refresh}-headers`
 - **Breaking:** Rename `app.register()` to `app.controller()`
 - **Breaking:** Rename `controller()` to `defineController()`
-- **Breaking:** Flatten and simplify app config. Migration:
-  - `network.baseUrl` to `baseUrl`
-  - `network.fetch.headers` to `headers`
-  - `network.fetch.credentials` to `credentials`
-  - `ui.wakeStrategy` to `wake`
-  - `timing.*`, `ui.errorClass`, `ui.loadingClass`, and `network.fetch.mode` removed
+- **Breaking:** Flatten and simplify app config:
+  - Migrate `network.baseUrl` to `baseUrl`
+  - Migrate `network.fetch.headers` to `headers`
+  - Migrate `network.fetch.credentials` to `credentials`
+  - Migrate `ui.wakeStrategy` to `wake`
+  - Remove `timing.*`, `ui.errorClass`, `ui.loadingClass`, and `network.fetch.mode`
+- **Breaking:** Clean up and rename synthetic events:
+  - Rename `mutate` to `edit`
+  - Rename `interaction` to `interact`
+  - Remove `back`
 - Enable bound directives (`rz-bind`, `rz-html`, `rz-model`, `rz-on`, `rz-text`) to live outside a local controller scope (`rz-scope`). They will now mount to the global scope and resolve against reactive stores (`@store`).
 - Convert network interceptors from a static, single-function configuration model (`app.config.network.interceptors`) to a dynamic, composable registry (`app.interceptor()`).
 
 ### Fixed
 
-- Fix `rz-save="mutate"` firing on framework-driven store writes. The mutate trigger now fires only on user mutations.
+- Fix `rz-save="edit"` firing on framework-driven store writes. The `edit` trigger now fires only on user edits to store data.
 - Clear `status.dirty` flags on `app.stores.update()` and `app.stores.reset()`.
 
 ## [0.7.0] - 2026-05-20

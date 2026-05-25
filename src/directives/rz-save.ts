@@ -64,8 +64,8 @@ function initialize(el: Element, app: RouseApp) {
     const { storeName, nestedPath } = resolved;
     const fire = () => triggerSave(el, app, storeName, nestedPath, action);
 
-    // `mutate` is a reactive synthetic event that needs to be handled separately
-    if (trigger?.event === 'mutate') {
+    // `edit` is a reactive synthetic event that needs to be handled separately
+    if (trigger?.event === 'edit') {
       teardowns.push(
         attachMutateEffect(app, storeName, trigger.modifiers, fire, nestedPath),
       );
@@ -114,7 +114,7 @@ function attachMutateEffect(
   };
 
   const debouncedFire = applyTiming(guardedFire, modifiers);
-  const stopListener = app.stores.onMutate(storeName, debouncedFire);
+  const stopListener = app.stores.onEdit(storeName, debouncedFire);
 
   return () => {
     debouncedFire.cancel();
