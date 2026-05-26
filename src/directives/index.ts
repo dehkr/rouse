@@ -1,4 +1,4 @@
-export { rzBind } from './rz-bind';
+export { rzAttr } from './rz-attr';
 export { rzError } from './rz-error';
 export { rzFetch } from './rz-fetch';
 export { rzFetchHeaders, rzHeaders, rzRefreshHeaders, rzSaveHeaders } from './rz-headers';

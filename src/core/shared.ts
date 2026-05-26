@@ -22,7 +22,7 @@ export const kebabToCamel = (str: string) =>
 
 /**
  * Generates a CSS selector that matches both prefix styles.
- * Example: "[rz-bind], [data-rz-bind]"
+ * Example: "[rz-text], [data-rz-text]"
  */
 export function directiveSelector(slug: DirectiveSlug): string {
   return `[rz-${slug}], [data-rz-${slug}]`;

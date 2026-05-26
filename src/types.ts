@@ -3,7 +3,7 @@ import type { InsertMethod, PatchAction } from './core/constants';
 import type { StoreManager } from './core/store';
 
 export type DirectiveSlug =
-  | 'bind'
+  | 'attr'
   | 'error'
   | 'fetch'
   | 'fetch-headers'

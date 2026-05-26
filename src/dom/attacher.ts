@@ -1,7 +1,7 @@
 import type { RouseApp } from '../core/app';
 import { parseDirectiveValue } from '../core/parser';
 import { directiveSelector, EMPTY_SCOPE, err } from '../core/shared';
-import { rzBind, rzHtml, rzModel, rzOn, rzText } from '../directives';
+import { rzAttr, rzHtml, rzModel, rzOn, rzText } from '../directives';
 import type { BoundCleanupFn, Controller } from '../types';
 import { dispatch } from './scheduler';
 
@@ -12,7 +12,7 @@ const globalBindings = new WeakMap<Element, BoundCleanupFn[]>();
 const controllerBindings = new WeakMap<Element, HTMLElement>();
 
 /** Directives that can be bound to local controller scope. */
-const BOUND_DIRECTIVES = [rzBind, rzHtml, rzModel, rzOn, rzText] as const;
+const BOUND_DIRECTIVES = [rzAttr, rzHtml, rzModel, rzOn, rzText] as const;
 
 /** Selector string of all controller-bound directives. */
 export const DIRECTIVES_SELECTOR = BOUND_DIRECTIVES.map((directive) =>

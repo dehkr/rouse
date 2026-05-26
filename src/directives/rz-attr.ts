@@ -14,9 +14,9 @@ import type {
 
 // ============================== DIRECTIVE DEFINITION ===================================
 
-const SLUG = 'bind' as const satisfies DirectiveSlug;
+const SLUG = 'attr' as const satisfies DirectiveSlug;
 
-export const rzBind = {
+export const rzAttr = {
   slug: SLUG,
   existsOn: (el: Element) => hasDirective(el, SLUG),
   getValue: (el: Element) => getDirectiveValue(el, SLUG),
