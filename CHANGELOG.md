@@ -7,27 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+No unreleased changes.
+
+## [0.8.0] - 2026-05-25
+
 ### Added
 
 - Add `rollbackOnError` option for store saves to enable auto-reverting local state on save failure.
+- Add support for `Rouse-Push-Url` and `Rouse-Replace-Url` response headers to allow server-side browser address bar updates after fragment fetches.
+- Add native redirect detection to handle server redirects (e.g., expired sessions routing to `/login`) by redirecting the browser instead of injecting the response into the page fragment.
+- Add security block for cross-origin redirects, surfacing them as catchable errors.
 
 ### Changed
 
-- **Breaking:** Rename `rz-request` and `rz-headers` variants to `rz-{save,fetch,refresh}-request` and `rz-{save,fetch,refresh}-headers`
-- **Breaking:** Rename `app.register()` to `app.controller()`
-- **Breaking:** Rename `controller()` to `defineController()`
+- **Breaking:** Rename `rz-request` and `rz-headers` variants to `rz-{save,fetch,refresh}-request` and `rz-{save,fetch,refresh}-headers`.
+- **Breaking:** Rename `app.register()` to `app.controller()`.
+- **Breaking:** Rename `controller()` to `defineController()`.
 - **Breaking:** Flatten and simplify app config:
-  - Migrate `network.baseUrl` to `baseUrl`
-  - Migrate `network.fetch.headers` to `headers`
-  - Migrate `network.fetch.credentials` to `credentials`
-  - Migrate `ui.wakeStrategy` to `wake`
-  - Remove `timing.*`, `ui.errorClass`, `ui.loadingClass`, and `network.fetch.mode`
+  - Move `network.baseUrl` to `baseUrl`.
+  - Move `network.fetch.headers` to `headers`.
+  - Move `network.fetch.credentials` to `credentials`.
+  - Move `ui.wakeStrategy` to `wake`.
+  - Remove `timing.*`, `ui.errorClass`, `ui.loadingClass`, and `network.fetch.mode`.
 - **Breaking:** Clean up and rename synthetic events:
-  - Rename `mutate` to `edit`
-  - Rename `interaction` to `interact`
-  - Remove `back`
+  - Rename `mutate` to `edit`.
+  - Rename `interaction` to `interact`.
+  - Remove `back` event.
 - Enable bound directives (`rz-bind`, `rz-html`, `rz-model`, `rz-on`, `rz-text`) to live outside a local controller scope (`rz-scope`). They will now mount to the global scope and resolve against reactive stores (`@store`).
 - Convert network interceptors from a static, single-function configuration model (`app.config.network.interceptors`) to a dynamic, composable registry (`app.interceptor()`).
+- Type-narrow `dispatch()` and `on()` against a new `LifecycleEventMap`. Listener callbacks and dispatch sites now receive (and check) the correct `event.detail` shape for every `rz:*` event.
 
 ### Fixed
 
