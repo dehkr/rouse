@@ -596,7 +596,7 @@ export class StoreManager {
    */
   create<T extends object = any>(
     name: string,
-    state: object,
+    state: T,
     config?: Partial<SyncConfig>,
     el?: Element,
   ): RouseStore<T> {

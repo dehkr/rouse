@@ -152,8 +152,8 @@ export class RouseApp {
   /**
    * Creates a new reactive store.
    */
-  store(name: string, state: object, config?: any) {
-    return this.stores.create(name, state, config);
+  store<T extends object>(name: string, state: T, config?: any) {
+    return this.stores.create<T>(name, state, config);
   }
 
   /**

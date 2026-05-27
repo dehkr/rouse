@@ -27,6 +27,24 @@ export function getNestedVal<T = unknown>(
 }
 
 /**
+ * Returns true if every segment of a dot-notation path is present on `obj`.
+ */
+export function hasNestedPath(obj: unknown, path: string | undefined): boolean {
+  if (obj == null || typeof obj !== 'object' || !path) return false;
+
+  const parts = getPathParts(path);
+  let current: any = obj;
+
+  for (const part of parts) {
+    if (current == null || typeof current !== 'object') return false;
+    if (!(part in current)) return false;
+    current = current[part];
+  }
+
+  return true;
+}
+
+/**
  * Set a value at a dot-notation path.
  */
 export function setNestedVal(obj: any, path: string | undefined, value: any): void {
@@ -48,7 +66,7 @@ export function setNestedVal(obj: any, path: string | undefined, value: any): vo
       // Convert to empty object to enable traversal
       current[part] = {};
     } else if (typeof current[part] !== 'object') {
-      warn(`Cannot set path value '${path}' because '${part}' is a primitive.`);
+      warn(`Cannot write to '${path}': '${part}' is a primitive.`);
       return;
     }
     current = current[part];
@@ -88,7 +106,7 @@ export function resolveState<T = unknown>(
 ): T | undefined {
   if (path.startsWith(STORE_PREFIX)) {
     if (!storeManager) {
-      warn(`StoreManager required to resolve path: ${path}`);
+      warn(`StoreManager required to resolve '${path}'.`);
       return undefined;
     }
 
@@ -119,14 +137,14 @@ export function writeState(
 ): void {
   if (path.startsWith(STORE_PREFIX)) {
     if (!storeManager) {
-      warn(`StoreManager required to write to path: '${path}'`);
+      warn(`StoreManager required to write to '${path}'.`);
       return;
     }
 
     const { fullPath, dotIndex } = getStorePath(path);
 
     if (dotIndex === -1) {
-      warn(`Cannot overwrite entire store via model binding: '${path}'`);
+      warn(`Cannot overwrite entire store via model binding: '${path}'.`);
       return;
     }
 
@@ -139,9 +157,7 @@ export function writeState(
 
   // Fallback to local controller state
   if (controller === EMPTY_SCOPE) {
-    warn(
-      `Local path used outside of controller scope: '${path}'. Use '@' to target a store.`,
-    );
+    warn(`'${path}' used outside controller scope. Use '@' to target a store.`);
     return;
   }
 

@@ -1,39 +1,23 @@
 import type { RouseApp } from '../core/app';
-import { resolveState } from '../core/path';
+import { NO_UPDATE, resolveBoundValue } from '../core/props';
 import { getDirectiveValue, hasDirective } from '../core/shared';
 import { updateAttr, updateClass, updateStyle } from '../dom/updater';
 import { boundCleanup } from '../dom/utils';
 import { effect } from '../reactivity';
-import type {
-  BindableValue,
-  BoundCleanupFn,
-  BoundDirective,
-  Controller,
-  DirectiveSlug,
-} from '../types';
-
-// ============================== DIRECTIVE DEFINITION ===================================
+import type { BoundCleanupFn, BoundDirective, Controller, DirectiveSlug } from '../types';
 
 const SLUG = 'attr' as const satisfies DirectiveSlug;
-
-export const rzAttr = {
-  slug: SLUG,
-  existsOn: (el: Element) => hasDirective(el, SLUG),
-  getValue: (el: Element) => getDirectiveValue(el, SLUG),
-  attach,
-} as const satisfies BoundDirective;
-
-// =======================================================================================
 
 function attach(
   el: Element,
   scope: Controller,
   app: RouseApp,
   type: string,
-  path: string,
+  raw: string,
 ): BoundCleanupFn {
   const stopEffect = effect(() => {
-    const val = resolveState<BindableValue>(path, scope, app.stores);
+    const val = resolveBoundValue(raw, scope, app.stores, el, SLUG);
+    if (val === NO_UPDATE) return;
 
     if (type === 'class') {
       updateClass(el, val);
@@ -46,3 +30,10 @@ function attach(
 
   return boundCleanup(stopEffect);
 }
+
+export const rzAttr = {
+  slug: SLUG,
+  existsOn: (el: Element) => hasDirective(el, SLUG),
+  getValue: (el: Element) => getDirectiveValue(el, SLUG),
+  attach,
+} as const satisfies BoundDirective;

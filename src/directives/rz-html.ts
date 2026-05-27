@@ -1,20 +1,27 @@
 import type { RouseApp } from '../core/app';
-import { resolveState } from '../core/path';
+import { NO_UPDATE, resolveBoundValue } from '../core/props';
 import { getDirectiveValue, hasDirective } from '../core/shared';
 import { updateHtml } from '../dom/updater';
 import { boundCleanup } from '../dom/utils';
 import { effect } from '../reactivity';
-import type {
-  BindableValue,
-  BoundCleanupFn,
-  BoundDirective,
-  Controller,
-  DirectiveSlug,
-} from '../types';
-
-// ============================== DIRECTIVE DEFINITION ===================================
+import type { BoundCleanupFn, BoundDirective, Controller, DirectiveSlug } from '../types';
 
 const SLUG = 'html' as const satisfies DirectiveSlug;
+
+function attach(
+  el: Element,
+  scope: Controller,
+  app: RouseApp,
+  raw: string,
+): BoundCleanupFn {
+  const stopEffect = effect(() => {
+    const val = resolveBoundValue(raw, scope, app.stores, el, SLUG);
+    if (val === NO_UPDATE) return;
+    updateHtml(el, val);
+  });
+
+  return boundCleanup(stopEffect);
+}
 
 export const rzHtml = {
   slug: SLUG,
@@ -22,19 +29,3 @@ export const rzHtml = {
   getValue: (el: Element) => getDirectiveValue(el, SLUG),
   attach,
 } as const satisfies BoundDirective;
-
-// =======================================================================================
-
-function attach(
-  el: Element,
-  scope: Controller,
-  app: RouseApp,
-  path: string,
-): BoundCleanupFn {
-  const stopEffect = effect(() => {
-    const val = resolveState<BindableValue>(path, scope, app.stores);
-    updateHtml(el, val);
-  });
-
-  return boundCleanup(stopEffect);
-}

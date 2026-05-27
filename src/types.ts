@@ -360,12 +360,12 @@ export type ControllerCtx<
 };
 
 /**
- * The context object passed as an argument to controller methods via `rz-on`.
+ * The context object passed as an argument to controller methods.
  * @template P - The type of the props.
  * @template T - The Element type.
  */
-export type ActionCtx<P = Record<string, any>, T extends Element = HTMLElement> = {
+export type HandlerCtx<P = Record<string, any>, T extends Element = HTMLElement> = {
+  props: P;
   el: T;
   e: Event;
-  props?: P;
 };

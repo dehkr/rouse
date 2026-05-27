@@ -7,11 +7,11 @@ import { err, getDirectiveValue, hasDirective, warn } from '../core/shared';
 import { dispatchTrigger } from '../dom/scheduler';
 import { boundCleanup, defaultTriggerFor } from '../dom/utils';
 import type {
-  ActionCtx,
   BoundCleanupFn,
   BoundDirective,
   Controller,
   DirectiveSlug,
+  HandlerCtx,
   VoidFn,
 } from '../types';
 
@@ -73,8 +73,8 @@ function attach(
       action: (e?: Event) => {
         try {
           const props =
-            rawPayload !== undefined ? resolveProps(rawPayload, app.stores) : undefined;
-          const args = { props, e, el } as ActionCtx;
+            rawPayload !== undefined ? (resolveProps(rawPayload, app.stores) ?? {}) : {};
+          const args = { props, e, el } as HandlerCtx;
           method.call(context, args);
         } catch (error) {
           err(`Failed to execute '${methodName}()'.`, error);

@@ -12,9 +12,9 @@ export {
   trigger,
 } from './reactivity';
 export type {
-  ActionCtx,
   BindableValue,
   ControllerCtx,
   ControllerFn,
+  HandlerCtx,
   LifecycleEvent,
 } from './types';
