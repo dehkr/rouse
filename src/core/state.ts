@@ -1,21 +1,34 @@
 import { isPlainObject, warn } from './shared';
 
 /**
- * Deep object cloner that enforces serializable state and
- * protects against circular references.
+ * Returns true if `obj[key]` is a serializable own data property. Excludes
+ * accessors (get/set) and function-valued properties. Used by `clone`,
+ * `deepEqual`, and `patchState` so all three agree on what counts as state
+ * worth snapshotting, diffing, or writing back.
+ */
+function isOwnDataProp(obj: object, key: string): boolean {
+  const desc = Object.getOwnPropertyDescriptor(obj, key);
+  if (!desc) return false;
+  if (desc.get || desc.set) return false;
+  if (typeof desc.value === 'function') return false;
+  return true;
+}
+
+/**
+ * Deep-clone `obj`, stripping non-serializable properties (functions,
+ * `undefined`, and accessors). Produces snapshots safe to JSON-serialize,
+ * diff, or use as rollback targets.
  */
 export function clone<T>(obj: T, seen = new WeakMap(), path = 'root'): T {
   if (obj === null || typeof obj !== 'object') {
     return obj;
   }
 
-  // Circular reference protection
   if (seen.has(obj as any)) {
     return seen.get(obj as any);
   }
 
-  // Arrays
-  // JSON converts functions/undefined to null to preserve indexes.
+  // Arrays: JSON converts functions/undefined to null to preserve indexes.
   // This also normalizes sparse arrays (holes become null).
   if (Array.isArray(obj)) {
     const arr = [] as any[];
@@ -34,22 +47,20 @@ export function clone<T>(obj: T, seen = new WeakMap(), path = 'root'): T {
   // Catch complex objects before network sync
   if (!isPlainObject(obj)) {
     warn(
-      `Non-serializable data found in store at '${path}'. Complex objects (Maps, Classes, etc.) cannot be synced or rolled back safely.`,
+      `Non-serializable value at '${path}'. Use plain objects, arrays, or primitives.`,
     );
     return {} as T;
   }
 
-  // Objects
-  // JSON completely strips properties that are functions or undefined.
+  // Objects: JSON completely strips properties that are functions or undefined.
   const result = {} as Record<string, any>;
   seen.set(obj as any, result);
 
   for (const key in obj) {
-    if (Object.hasOwn(obj, key)) {
-      const val = (obj as Record<string, any>)[key];
-      if (typeof val !== 'function' && val !== undefined) {
-        result[key] = clone(val, seen, `${path}.${key}`);
-      }
+    if (!isOwnDataProp(obj as object, key)) continue;
+    const val = (obj as Record<string, any>)[key];
+    if (val !== undefined) {
+      result[key] = clone(val, seen, `${path}.${key}`);
     }
   }
 
@@ -57,8 +68,8 @@ export function clone<T>(obj: T, seen = new WeakMap(), path = 'root'): T {
 }
 
 /**
- * Performant deep equality check with circular reference protection.
- * Ignores non-serializable properties (functions/undefined) to align with clone().
+ * Compare two values for deep equality. Skip the same properties `clone()` strips,
+ * so a value always compares equal to its own clone.
  */
 export function deepEqual(a: any, b: any, seen = new WeakMap<object, any>()): boolean {
   if (a === b) {
@@ -79,7 +90,6 @@ export function deepEqual(a: any, b: any, seen = new WeakMap<object, any>()): bo
     return false;
   }
 
-  // Circular reference protection
   if (seen.has(a)) {
     return seen.get(a) === b;
   }
@@ -96,7 +106,7 @@ export function deepEqual(a: any, b: any, seen = new WeakMap<object, any>()): bo
     return a.toString() === b.toString();
   }
 
-  // Arrays: match JSON behavior (functions/undefined become null)
+  // Arrays: match JSON behavior by converting functions/undefined to null
   if (Array.isArray(a)) {
     if (a.length !== b.length) {
       return false;
@@ -111,31 +121,25 @@ export function deepEqual(a: any, b: any, seen = new WeakMap<object, any>()): bo
     return true;
   }
 
-  // Objects: O(N) traversal, ignoring non-serializable keys without allocating arrays
+  // Objects
   let validKeysA = 0;
   for (const key in a) {
-    if (Object.hasOwn(a, key)) {
-      const valA = a[key];
-      if (typeof valA !== 'function' && valA !== undefined) {
-        validKeysA++;
-        if (!Object.hasOwn(b, key)) {
-          return false;
-        }
-        if (!deepEqual(valA, b[key], seen)) {
-          return false;
-        }
-      }
+    if (!isOwnDataProp(a, key)) continue;
+    const valA = a[key];
+    if (valA !== undefined) {
+      validKeysA++;
+      if (!Object.hasOwn(b, key)) return false;
+      if (!deepEqual(valA, b[key], seen)) return false;
     }
   }
 
   // Count valid keys in B to ensure no extra serializable keys exist
   let validKeysB = 0;
   for (const key in b) {
-    if (Object.hasOwn(b, key)) {
-      const valB = b[key];
-      if (typeof valB !== 'function' && valB !== undefined) {
-        validKeysB++;
-      }
+    if (!isOwnDataProp(b, key)) continue;
+    const valB = b[key];
+    if (valB !== undefined) {
+      validKeysB++;
     }
   }
 
@@ -144,6 +148,7 @@ export function deepEqual(a: any, b: any, seen = new WeakMap<object, any>()): bo
 
 /**
  * Replaces or merges the state of a reactive target with the source payload.
+ *
  * - 'replace': Strict overwrite. Deletes missing keys.
  * - 'merge': Deep merges plain objects. Strictly overwrites arrays and primitives.
  */
@@ -155,21 +160,41 @@ export function patchState(
   // Replace
   if (action === 'replace') {
     for (const key of Object.keys(target)) {
+      if (!isOwnDataProp(target, key)) continue;
       if (!Object.hasOwn(source, key)) delete target[key];
     }
-    Object.assign(target, source);
+    // Write source values into target, skipping keys where target has an accessor.
+    // Writing through a getter-only accessor would throw, and even when a setter
+    // exists, this loop is for data-property merge.
+    for (const key of Object.keys(source)) {
+      if (!isOwnDataProp(target, key) && Object.getOwnPropertyDescriptor(target, key)) {
+        continue;
+      }
+      target[key] = source[key];
+    }
     return;
   }
 
   // Merge
-  for (const [sourceKey, sourceVal] of Object.entries(source)) {
+  for (const sourceKey of Object.keys(source)) {
+    if (!isOwnDataProp(source, sourceKey)) continue;
+
+    const sourceVal = (source as Record<string, any>)[sourceKey];
+    if (sourceVal === undefined) continue;
+
+    // Skip if target has an accessor at this key. Can't write to derived state.
+    if (
+      !isOwnDataProp(target, sourceKey) &&
+      Object.getOwnPropertyDescriptor(target, sourceKey)
+    ) {
+      continue;
+    }
+
     const targetVal = target[sourceKey];
 
-    // If both source and target are plain objects, deep merge recursively
     if (isPlainObject(sourceVal) && isPlainObject(targetVal)) {
       patchState(targetVal, sourceVal, 'merge');
     } else {
-      // Strict replace for arrays, primitives, or mismatched types
       target[sourceKey] = sourceVal;
     }
   }

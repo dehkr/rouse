@@ -7,7 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-No unreleased changes.
+### Added
+
+- Enable `rz-text`, `rz-html`, and `rz-attr` to invoke controller or store functions with a resolved payload, using the same `?`, `{`, `@`, `#` delimiter protocol as `rz-on` and `rz-scope`. Functions receive a `HandlerCtx` where `e` is a synthetic `CustomEvent` typed as `rz:${slug}`.
+- Add `hasNestedPath()` to `core/path.ts` for distinguishing a missing key from a key that exists but holds an `undefined` value.
+
+### Changed
+
+- **Breaking:** Rename `ActionCtx` to `HandlerCtx` to reflect that the same context shape is now used for both event handlers (`rz-on`) and one-way binding formatters (`rz-text`, `rz-html`, `rz-attr`).
+- **Breaking:** Make `HandlerCtx.props` required (now defaulting to `{}` when no payload is provided) to allow user code to read `props.x` without optional-chaining guards.
+- **Breaking:** Rename `rz-bind` to `rz-attr`.
+- Wrap store and reactive proxy getters in `computed()`, binding `this` to the proxy.
+- Pass the state-literal type through `app.store()` and `StoreManager.create()` as a generic parameter to ensure `this` inside object-literal getters resolves to the store shape.
+
+### Fixed
+
+- Prevent store getters from firing during snapshot creation which froze derived values.
+- Prevent store methods from being deleted on `reset()` and `update()`.
 
 ## [0.8.0] - 2026-05-25
 

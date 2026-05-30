@@ -1,4 +1,4 @@
-import { signal, trigger } from 'alien-signals';
+import { computed, signal, trigger } from 'alien-signals';
 import { warn } from '../core/shared';
 import { methodIntercepts } from './arrays';
 import {
@@ -13,7 +13,9 @@ import {
 } from './reactive';
 
 export const ITERATION_KEY = Symbol('rz_iteration');
+
 const signalCache = new WeakMap<object, Map<string | symbol, any>>();
+const computedCache = new WeakMap<object, Map<string | symbol, () => any>>();
 
 export const handlers: ProxyHandler<object> = {
   get(target: object, key: string | symbol, receiver: object): any {
@@ -21,6 +23,14 @@ export const handlers: ProxyHandler<object> = {
 
     if (Array.isArray(target) && Object.hasOwn(methodIntercepts, key)) {
       return Reflect.get(methodIntercepts, key, receiver);
+    }
+
+    // Accessor: wrap getters in `computed` so reads track deps and
+    // re-evaluate when those deps change.
+    const desc = Object.getOwnPropertyDescriptor(target, key);
+    if (desc && typeof desc.get === 'function') {
+      const comp = getComputed(target, key, desc.get, receiver)();
+      return proxiable(comp) ? reactive(comp) : comp;
     }
 
     const value = getSignal(target, key)();
@@ -51,6 +61,13 @@ export const handlers: ProxyHandler<object> = {
     value: unknown,
     receiver: object,
   ): boolean {
+    // Accessor: delegate to the setter if defined. Otherwise `Reflect.set`
+    // returns `false` which would cause the write to throw in JS strict mode.
+    const desc = Object.getOwnPropertyDescriptor(target, key);
+    if (desc && (typeof desc.get === 'function' || typeof desc.set === 'function')) {
+      return Reflect.set(target, key, value, receiver);
+    }
+
     const hadKey = Object.hasOwn(target, key);
     let oldValue = target[key];
     value = getRaw(value);
@@ -60,15 +77,14 @@ export const handlers: ProxyHandler<object> = {
     if (value !== oldValue) {
       const sig = getSignal(target, key);
 
-      // If the value actually changed (reference change), set it
-      // If it's the same object (mutation), use trigger
+      // If the value actually changed (reference change), set it.
+      // If it's the same object (mutation), use trigger.
       value !== sig() ? sig(value) : trigger(sig);
 
       const tracker = dirtyTrackers.get(target);
       if (tracker) {
         tracker(getRootKey(target, key));
-        // Propagate the tracker to the newly-assigned object.
-        // Mirrors the lazy propagation in the get trap.
+        // Propagate the tracker to the newly-assigned object
         if (proxiable(value)) {
           const rawNew = getRaw(value);
           if (
@@ -81,7 +97,7 @@ export const handlers: ProxyHandler<object> = {
         }
       }
 
-      // Trigger the iteration on structural changes (new keys, or any array mutation)
+      // Trigger the iteration on structural changes (new keys or any array mutation)
       if (!hadKey || Array.isArray(target)) {
         trigger(getSignal(target, ITERATION_KEY));
       }
@@ -121,7 +137,7 @@ export const handlers: ProxyHandler<object> = {
 };
 
 /**
- * Proxy handlers specifically for readOnly() objects.
+ * Proxy handlers specifically for `readOnly()` objects.
  * Deeply wraps nested objects on access and blocks all mutations.
  */
 export const readOnlyHandlers: ProxyHandler<object> = {
@@ -131,7 +147,6 @@ export const readOnlyHandlers: ProxyHandler<object> = {
 
     const value = Reflect.get(target, key);
 
-    // Lazily wrap nested objects
     if (proxiable(value)) {
       return readOnly(value);
     }
@@ -152,12 +167,8 @@ export const readOnlyHandlers: ProxyHandler<object> = {
 };
 
 /**
- * Gets the signal associated with a specific property on a target object.
+ * Returns the signal associated with a specific property on a target object.
  * If the signal doesn't exist in the cache, it's created lazily.
- *
- * @param target - The original raw object holding the property.
- * @param key - The property key (string or symbol) to retrieve the signal for.
- * @returns The signal instance for the requested property.
  */
 export function getSignal(target: object, key: string | symbol) {
   let props = signalCache.get(target);
@@ -171,6 +182,30 @@ export function getSignal(target: object, key: string | symbol) {
     props.set(key, sig);
   }
   return sig;
+}
+
+/**
+ * Returns the computed associated with an accessor property on `target`.
+ * Created lazily and bound to `receiver` so `this` inside the getter
+ * resolves to the proxy and reads track through it.
+ */
+function getComputed(
+  target: object,
+  key: string | symbol,
+  getter: () => any,
+  receiver: object,
+) {
+  let cache = computedCache.get(target);
+  if (!cache) {
+    cache = new Map();
+    computedCache.set(target, cache);
+  }
+  let comp = cache.get(key);
+  if (!comp) {
+    comp = computed(() => getter.call(receiver));
+    cache.set(key, comp);
+  }
+  return comp;
 }
 
 function getRootKey(target: object, key: string | symbol) {
