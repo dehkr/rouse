@@ -1,3 +1,4 @@
+import { is } from '../dom/utils';
 import type {
   AnyFunction,
   BindableValue,
@@ -6,7 +7,7 @@ import type {
   HandlerCtx,
 } from '../types';
 import { KEY_BLOCKLIST, STORE_PREFIX } from './constants';
-import { parseStoreLocator } from './parser';
+import { parseStoreLocator, splitLocator } from './parser';
 import { getNestedVal, hasNestedPath, resolveState } from './path';
 import { err, isPlainObject, warn } from './shared';
 import type { StoreManager } from './store';
@@ -78,21 +79,16 @@ export function resolveProps(
     resolvedValue = nestedPath ? getNestedVal(storeData, nestedPath) : storeData;
   }
 
-  // URL query params
-  else if (value.startsWith('?')) {
-    const params = new URLSearchParams(value.slice(1));
-    resolvedValue = Object.fromEntries(params.entries());
-  }
-
   // DOM script ID
   else if (value.startsWith('#')) {
-    const id = value.slice(1);
+    const { head: id, nestedPath } = splitLocator(value);
     const el = document.getElementById(id);
-    if (el && el instanceof HTMLScriptElement && el.type === 'application/json') {
+    if (el && is(el, 'Script') && el.type === 'application/json') {
       const content = el.textContent?.trim();
       if (content) {
         try {
-          resolvedValue = safeJSONParse(content);
+          const parsed = safeJSONParse(content);
+          resolvedValue = nestedPath ? getNestedVal(parsed, nestedPath) : parsed;
         } catch (e) {
           warn(`Invalid JSON in #${id}.`, e);
         }
@@ -124,15 +120,15 @@ export function resolveProps(
 
 /**
  * Splits an injection string into its key and raw payload components.
- * Supports `?`, `{`, `@`, and `#` as payload delimiters.
+ * Supports `{`, `@`, and `#` as payload delimiters.
  */
 export function splitInjection(raw: string): {
   key: string;
   rawPayload: string | undefined;
 } {
-  // Find the first index of ?, #, @, or { starting after the first character.
+  // Find the first index of a payload delimiter starting after the first character.
   // This accomodates store keys like '@my-store.method{ "id": 234 }'
-  const matchIndex = raw.substring(1).search(/[?#@{]/);
+  const matchIndex = raw.substring(1).search(/[#@{]/);
 
   if (matchIndex === -1) {
     return { key: raw.trim(), rawPayload: undefined };

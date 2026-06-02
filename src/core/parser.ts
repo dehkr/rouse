@@ -397,21 +397,34 @@ export function looksLikeStoreSubject(s: string): boolean {
 }
 
 /**
+ * Splits a prefixed locator into its head (the segment after the single-char
+ * prefix) and the nested dot-path, if any. Shared by `@` store references and
+ * `#` script-id references.
+ */
+export function splitLocator(value: string): {
+  head: string;
+  nestedPath: string;
+} {
+  const path = value.slice(1);
+  const dotIndex = path.indexOf('.');
+
+  if (dotIndex === -1) {
+    return { head: path, nestedPath: '' };
+  }
+
+  return {
+    head: path.slice(0, dotIndex),
+    nestedPath: path.slice(dotIndex + 1),
+  };
+}
+
+/**
  * Extracts the store name and the nested path (if any) from a string value.
  */
 export function parseStoreLocator(value: string): {
   storeName: string;
   nestedPath: string;
 } {
-  const path = value.slice(STORE_PREFIX.length);
-  const dotIndex = path.indexOf('.');
-
-  if (dotIndex === -1) {
-    return { storeName: path, nestedPath: '' };
-  }
-
-  return {
-    storeName: path.slice(0, dotIndex),
-    nestedPath: path.slice(dotIndex + 1),
-  };
+  const { head, nestedPath } = splitLocator(value);
+  return { storeName: head, nestedPath };
 }
