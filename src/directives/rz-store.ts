@@ -47,7 +47,7 @@ function initialize(el: HTMLScriptElement, app: RouseApp) {
     let state: any;
     try {
       state = JSON.parse(textContent || '{}');
-    } catch (e) {
+    } catch (_e) {
       err(`Invalid JSON in '${storeName}'.`);
       return;
     }

@@ -15,7 +15,7 @@ import type {
   VoidFn,
 } from '../types';
 import type { RouseApp } from './app';
-import { STORE_PREFIX, type HttpMethod, type PatchAction } from './constants';
+import { type HttpMethod, type PatchAction, STORE_PREFIX } from './constants';
 import { parseStoreLocator } from './parser';
 import { getNestedVal, getRootSegment, setNestedVal } from './path';
 import { getDirectiveValue, isPlainObject, warn } from './shared';

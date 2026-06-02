@@ -1,10 +1,10 @@
 import type { TriggerDef, TriggerSubjectPair } from '../types';
 import {
+  type HttpMethod,
   isHttpMethod,
   isPatchAction,
-  STORE_PREFIX,
-  type HttpMethod,
   type PatchAction,
+  STORE_PREFIX,
 } from './constants';
 import { warn } from './shared';
 

@@ -23,7 +23,7 @@ function attach(
   app: RouseApp,
   key: string,
   value: string,
-): BoundCleanupFn | void {
+): BoundCleanupFn | undefined {
   const handlerRef = value || key;
   const triggerSource = value ? key : defaultTriggerFor(el);
 

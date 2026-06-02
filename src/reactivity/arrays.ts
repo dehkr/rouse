@@ -1,8 +1,9 @@
 import { endBatch, startBatch, trigger } from 'alien-signals';
+import type { AnyFunction } from '../types';
 import { getSignal, ITERATION_KEY } from './handlers';
 import { createProxy, dirtyTrackers, getRaw, objectRootKeys } from './reactive';
 
-export const methodIntercepts: Record<string | symbol, Function> = {};
+export const methodIntercepts: Record<string | symbol, AnyFunction> = {};
 
 /**
  * Run methods on the raw array, not the proxy

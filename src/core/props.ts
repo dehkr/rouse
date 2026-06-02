@@ -9,7 +9,7 @@ import { KEY_BLOCKLIST, STORE_PREFIX } from './constants';
 import { parseStoreLocator } from './parser';
 import { getNestedVal, hasNestedPath, resolveState } from './path';
 import { err, isPlainObject, warn } from './shared';
-import { StoreManager } from './store';
+import type { StoreManager } from './store';
 
 export const NO_UPDATE = Symbol('rz:no-update');
 

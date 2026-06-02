@@ -210,7 +210,7 @@ export interface BoundDirective extends BaseDirective {
     app: RouseApp,
     key: string,
     value: string,
-  ) => BoundCleanupFn | void;
+  ) => BoundCleanupFn | undefined;
 }
 
 /** A directive that parses its attribute value into a typed config object. */

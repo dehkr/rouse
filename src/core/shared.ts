@@ -1,9 +1,9 @@
 import type { Controller, DirectiveSlug } from '../types';
 import {
   DEFAULT_INSERT_METHOD,
+  type InsertOperation,
   isInsertMethod,
   STORE_PREFIX,
-  type InsertOperation,
 } from './constants';
 import { parseDirectiveValue } from './parser';
 
@@ -89,7 +89,7 @@ export function queryTargets<T extends Element = Element>(
       targets.unshift(el as T);
     }
     return targets;
-  } catch (e) {
+  } catch (_e) {
     // Fails gracefully on invalid CSS selectors
     return [];
   }
@@ -131,7 +131,7 @@ export function resolveInsertOperations(
 
   for (const [key, val] of parsed) {
     // Skip store targets
-    if (key.startsWith(STORE_PREFIX) || (val && val.startsWith(STORE_PREFIX))) {
+    if (key.startsWith(STORE_PREFIX) || val?.startsWith(STORE_PREFIX)) {
       continue;
     }
 

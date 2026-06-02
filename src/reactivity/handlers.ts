@@ -7,9 +7,9 @@ import {
   objectRootKeys,
   proxiable,
   RAW,
+  READONLY,
   reactive,
   readOnly,
-  READONLY,
 } from './reactive';
 
 export const ITERATION_KEY = Symbol('rz_iteration');
@@ -69,7 +69,8 @@ export const handlers: ProxyHandler<object> = {
     }
 
     const hadKey = Object.hasOwn(target, key);
-    let oldValue = target[key];
+    const oldValue = target[key];
+
     value = getRaw(value);
 
     const result = Reflect.set(target, key, value, receiver);

@@ -33,7 +33,7 @@ export function getTimingConfig(
     throttleWait: DEFAULT_THROTTLE_MS,
   },
 ): TimingConfig {
-  let strategy: TimingConfig['strategy'] = undefined;
+  let strategy: TimingConfig['strategy'];
   let explicitWait: number | undefined;
 
   let leading: boolean | undefined;

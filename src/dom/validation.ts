@@ -1,4 +1,4 @@
-import { RouseApp } from '../core/app';
+import type { RouseApp } from '../core/app';
 import { directiveSelector, queryTargets, uniqueKey } from '../core/shared';
 import { rzValidate, type ValidateConfig } from '../directives/rz-validate';
 import type { RouseResponse } from '../types';
