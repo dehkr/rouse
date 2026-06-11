@@ -27,6 +27,11 @@ function attach(
   const handlerRef = value || key;
   const triggerSource = value ? key : defaultTriggerFor(el);
 
+  if (!triggerSource) {
+    warn(`rz-on on <${el.tagName.toLowerCase()}> needs an explicit trigger.`);
+    return undefined;
+  }
+
   const { key: methodName, rawPayload } = splitInjection(handlerRef);
 
   let method: unknown;

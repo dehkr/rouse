@@ -6,7 +6,7 @@ import {
 } from '../core/parser';
 import { getDirectiveValue, hasDirective } from '../core/shared';
 import { dispatchTrigger } from '../dom/scheduler';
-import { defaultTriggerFor, isNativeNavigation } from '../dom/utils';
+import { isNativeNavigation, resolveDefaultTrigger } from '../dom/utils';
 import { handleFetch } from '../net/engine';
 import type { DirectiveSlug, ManagerDirective, RouseRequest, VoidFn } from '../types';
 
@@ -49,10 +49,8 @@ function initialize(el: Element, app: RouseApp) {
   const teardowns: VoidFn[] = [];
 
   for (const { trigger, subject } of pairs) {
-    const resolvedTrigger = trigger ?? {
-      event: defaultTriggerFor(el),
-      modifiers: [],
-    };
+    const resolvedTrigger = resolveDefaultTrigger(trigger, el, SLUG);
+    if (!resolvedTrigger) continue;
 
     const cleanup = dispatchTrigger(resolvedTrigger, {
       el,

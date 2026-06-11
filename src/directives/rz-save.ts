@@ -10,7 +10,7 @@ import { getDirectiveValue, hasDirective, warn } from '../core/shared';
 import { resolveTarget } from '../core/store';
 import { applyTiming } from '../core/timing';
 import { dispatchTrigger } from '../dom/scheduler';
-import { defaultTriggerFor } from '../dom/utils';
+import { resolveDefaultTrigger } from '../dom/utils';
 import { resolveRequestConfig } from '../net/request';
 import type { DirectiveSlug, ManagerDirective, TriggerDef, VoidFn } from '../types';
 
@@ -72,10 +72,8 @@ function initialize(el: Element, app: RouseApp) {
       continue;
     }
 
-    const resolvedTrigger = trigger ?? {
-      event: defaultTriggerFor(el),
-      modifiers: [],
-    };
+    const resolvedTrigger = resolveDefaultTrigger(trigger, el, SLUG);
+    if (!resolvedTrigger) continue;
 
     const cleanup = dispatchTrigger(resolvedTrigger, { el, app, action: fire });
     if (cleanup) teardowns.push(cleanup);
