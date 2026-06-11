@@ -1,5 +1,5 @@
 import type { RouseApp } from '../core/app';
-import { NO_UPDATE, resolveBoundValue } from '../core/props';
+import { resolveBoundValue } from '../core/props';
 import { getDirectiveValue, hasDirective } from '../core/shared';
 import { updateHtml } from '../dom/updater';
 import { boundCleanup } from '../dom/utils';
@@ -16,7 +16,6 @@ function attach(
 ): BoundCleanupFn {
   const stopEffect = effect(() => {
     const val = resolveBoundValue(raw, scope, app.stores, el, SLUG);
-    if (val === NO_UPDATE) return;
     updateHtml(el, val);
   });
 

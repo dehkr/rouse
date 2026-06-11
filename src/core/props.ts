@@ -8,29 +8,9 @@ import type {
 } from '../types';
 import { KEY_BLOCKLIST, STORE_PREFIX } from './constants';
 import { parseStoreLocator, splitLocator } from './parser';
-import { getNestedVal, hasNestedPath, resolveState } from './path';
+import { getNestedVal, resolveState } from './path';
 import { err, isPlainObject, warn } from './shared';
 import type { StoreManager } from './store';
-
-export const NO_UPDATE = Symbol('rz:no-update');
-
-/**
- * Returns `true` if every segment of the binding key exists on the
- * controller scope (or store, for `@`-prefixed keys).
- */
-function hasBindingTarget(
-  key: string,
-  scope: Controller,
-  storeManager: StoreManager,
-): boolean {
-  if (key.startsWith(STORE_PREFIX)) {
-    const { storeName, nestedPath } = parseStoreLocator(key);
-    if (!storeManager.has(storeName)) return false;
-    if (!nestedPath) return true;
-    return hasNestedPath(storeManager.get(storeName), nestedPath);
-  }
-  return hasNestedPath(scope, key);
-}
 
 /**
  * Parse JSON with recursive check that blocks prototype pollution keys.
@@ -151,8 +131,9 @@ export function splitInjection(raw: string): {
  * `e` is a synthetic CustomEvent typed `rz:${slug}`. If a payload was provided
  * but the target is not callable, logs a warning and returns the static state.
  *
- * Returns `NO_UPDATE` when the key does not resolve to an existing property.
- * Callers must check for this before passing the result to a DOM updater.
+ * Returns `undefined` when the key resolves to nothing. An absent path is a
+ * valid empty state, not an error, so callers render it as empty rather than
+ * preserving stale content.
  */
 export function resolveBoundValue(
   raw: string,
@@ -160,13 +141,8 @@ export function resolveBoundValue(
   storeManager: StoreManager,
   el: Element,
   slug: DirectiveSlug,
-): BindableValue | typeof NO_UPDATE {
+): BindableValue {
   const { key, rawPayload } = splitInjection(raw);
-
-  if (!hasBindingTarget(key, scope, storeManager)) {
-    warn(`'${key}' not found.`);
-    return NO_UPDATE;
-  }
 
   const state = resolveState<unknown>(key, scope, storeManager);
 

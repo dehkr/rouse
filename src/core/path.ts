@@ -27,24 +27,6 @@ export function getNestedVal<T = unknown>(
 }
 
 /**
- * Returns true if every segment of a dot-notation path is present on `obj`.
- */
-export function hasNestedPath(obj: unknown, path: string | undefined): boolean {
-  if (obj == null || typeof obj !== 'object' || !path) return false;
-
-  const parts = getPathParts(path);
-  let current: any = obj;
-
-  for (const part of parts) {
-    if (current == null || typeof current !== 'object') return false;
-    if (!(part in current)) return false;
-    current = current[part];
-  }
-
-  return true;
-}
-
-/**
  * Set a value at a dot-notation path.
  */
 export function setNestedVal(obj: any, path: string | undefined, value: any): void {
