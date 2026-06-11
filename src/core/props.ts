@@ -94,7 +94,11 @@ export function resolveProps(
         }
       }
     } else {
-      warn(`#${id} must be a <script type="application/json">.`);
+      warn(
+        el
+          ? `#${id} is not a script tag of type "application/json".`
+          : `#${id} not found.`,
+      );
     }
   }
 

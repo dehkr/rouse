@@ -238,24 +238,20 @@ export function attachWakeStrategies(
   };
 }
 
-// =======================================================================================
-// SYNTHETIC EVENT REGISTRY
-// =======================================================================================
-
 export type SyntheticEventHandler = (ctx: TriggerContext) => VoidFn | null;
 
 /**
  * Universal synthetic events available to directives and `on`.
- * Store-specific events (mutate) stay inline in rz-save.
+ * Store-specific events (`edit`) stay inline in rz-save.
  */
 export const syntheticEvents: Record<string, SyntheticEventHandler> = {
-  /** Fires as soon as the DOM node can be interacted with */
+  /** Fires as soon as the DOM node can be interacted with. */
   dom: ({ action }) => attachDocStateEvent('dom', action),
 
-  /** Fires when all assets (images, etc.) are fully loaded */
+  /** Fires when all assets (images, etc.) are fully loaded. */
   load: ({ action }) => attachDocStateEvent('load', action),
 
-  /** Fires when the RouseApp instance is fully initialized */
+  /** Fires when the RouseApp instance is fully initialized. */
   ready: ({ el, app, action }) => {
     const inst = app || getApp(el);
     if (!inst) return null;
@@ -269,24 +265,26 @@ export const syntheticEvents: Record<string, SyntheticEventHandler> = {
     return () => inst.root.removeEventListener('rz:app:ready', action);
   },
 
-  /** Fires once after a specified period */
+  /** Fires once after a specified period (`setTimeout`). */
   timeout: (ctx) => attachTimingEvent('timeout', ctx),
 
-  /** Repeating timer */
+  /** Repeating timer (`setInterval`). */
   interval: (ctx) => attachTimingEvent('interval', ctx),
 
-  /** Explicit no-op (opts the directive out of all auto-binding) */
+  /** Explicit no-op (opts the directive out of all auto-binding). */
   none: () => null,
 
-  /** Connectivity */
+  /** Fires when the browser gains access to the network. */
   online: ({ action }) => attachWindowEvent('online', action),
+
+  /** Fires when the browser loses access to the network. */
   offline: ({ action }) => attachWindowEvent('offline', action),
 
-  /** Document visibility (tab switch / minimize) */
+  /** Document visibility (tab switch / minimize). */
   'page-visible': ({ action }) => attachVisibilityChange('visible', action),
   'page-hidden': ({ action }) => attachVisibilityChange('hidden', action),
 
-  /** Listens to a media query, supports `.once` */
+  /** Listens to a media query. Supports `.once`. */
   media: ({ el, modifiers, action }) => {
     const query = modifiers.find((m) => m.startsWith('(') && m.endsWith(')'));
     const isOnce = modifiers.includes('once');
@@ -322,7 +320,7 @@ export const syntheticEvents: Record<string, SyntheticEventHandler> = {
     return cleanup;
   },
 
-  /** Element intersection with the viewport, supports `.once` */
+  /** Element intersection with the viewport, supports `.once`. */
   intersect: ({ el, modifiers, action }) => {
     const isOnce = modifiers.includes('once');
     let hasFired = false;
@@ -346,7 +344,7 @@ export const syntheticEvents: Record<string, SyntheticEventHandler> = {
     return () => observer.disconnect();
   },
 
-  /** Aggregate proxy for 'mouseover', 'focusin', or 'touchstart', supports `.once` */
+  /** Aggregate proxy for 'mouseover', 'focusin', or 'touchstart'. Supports `.once`. */
   interact: ({ el, modifiers, action }) => {
     const isOnce = modifiers.includes('once');
     const triggers = ['mouseover', 'focusin', 'touchstart'];
@@ -371,7 +369,7 @@ export const syntheticEvents: Record<string, SyntheticEventHandler> = {
     return cleanup;
   },
 
-  /** window.requestIdleCallback (one-time execution) */
+  /** window.requestIdleCallback (one-time execution). */
   idle: ({ action }) => {
     if (typeof window.requestIdleCallback === 'function') {
       const id = window.requestIdleCallback(() => action());
@@ -383,10 +381,6 @@ export const syntheticEvents: Record<string, SyntheticEventHandler> = {
     }
   },
 };
-
-// =======================================================================================
-// SYNTHETIC EVENT HELPERS
-// =======================================================================================
 
 /**
  * Helper that fires either window 'load' or document 'DOMContentLoaded' event.

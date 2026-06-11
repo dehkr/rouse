@@ -179,7 +179,7 @@ export class RouseApp {
     const set = this._interceptors[phase];
     if (!set) {
       throw new Error(
-        `[Rouse] Invalid interceptor phase: '${phase}'. Expected 'request', 'response', or 'error'.`,
+        `[Rouse] Invalid interceptor: '${phase}'. Expected 'request', 'response', or 'error'.`,
       );
     }
     set.add(fn);

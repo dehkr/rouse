@@ -19,11 +19,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Breaking:** Rename `rz-bind` to `rz-attr`.
 - Wrap store and reactive proxy getters in `computed()`, binding `this` to the proxy.
 - Pass the state-literal type through `app.store()` and `StoreManager.create()` as a generic parameter to ensure `this` inside object-literal getters resolves to the store shape.
+- Allow passing data slices when using JSON-script (`#`) data payloads (e.g., `rz-html="displayItems#inventory.items"`).
 
 ### Fixed
 
 - Prevent store getters from firing during snapshot creation which froze derived values.
 - Prevent store methods from being deleted on `reset()` and `update()`.
+
+### Removed
+
+- Remove URL params option for injecting data payloads
 
 ## [0.8.0] - 2026-05-25
 
@@ -160,7 +165,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Breaking:** Rename `appRoot` to `root` in controller context for API consistency.
 - **Breaking:** Update `rz-fetch` and `rz-autosave` syntax to use comma-separated values.
 - **Breaking:** Update `rz-autosave` to accept an HTTP method and debounce override (e.g., `rz-autosave="PUT, 800ms"`).
-- **Breaking:** Refactor global configuration into a domain-driven schema (`timing`, `network`, `ui`): 
+- **Breaking:** Refactor global configuration into a domain-driven schema (`timing`, `network`, `ui`):
   - Move fetch defaults to `app.config.network.fetch` and restrict properties to `headers`, `credentials`, and `mode`.
   - Remove global `retry` and `timeout` settings; these can be configured per-request.
 - Inject the controller `AbortSignal` into `ctx.fetch()` options to automatically cancel background requests when a controller disconnects.
