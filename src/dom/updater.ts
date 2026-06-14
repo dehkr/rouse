@@ -52,23 +52,30 @@ export function setModelableValue(el: Element, value: BindableValue) {
     input.checked = input.value === String(value);
   }
 
-  // Multi-select (array value)
-  else if (is(input, 'Select') && input.multiple && Array.isArray(value)) {
-    const vals = new Set(value.map(String));
-    Array.from(input.options).forEach((opt) => {
-      opt.selected = vals.has(opt.value);
-    });
+  // Select (single or multiple)
+  else if (is(input, 'Select')) {
+    if (input.multiple && Array.isArray(value)) {
+      const vals = new Set(value.map(String));
+      Array.from(input.options).forEach((opt) => {
+        opt.selected = vals.has(opt.value);
+      });
+    } else {
+      input.value = value == null ? '' : String(value);
+    }
   }
 
   // Standard inputs (string value)
-  else {
+  else if (is(input, 'Input') || is(input, 'TextArea')) {
     const strVal = String(value ?? '');
     // Only update if actually changed to prevent cursor jumping
-    if (is(input, 'Input') || is(input, 'TextArea')) {
-      if (input.value !== strVal) {
-        input.value = strVal;
-      }
+    if (input.value !== strVal) {
+      input.value = strVal;
     }
+  }
+
+  // Custom or form elements that expose a `value` property
+  else if ('value' in el) {
+    el.value = value;
   }
 }
 

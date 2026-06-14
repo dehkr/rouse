@@ -1,6 +1,8 @@
 import type { RouseApp } from '../core/app';
+import { parseTriggers } from '../core/parser';
 import { resolveState, writeState } from '../core/path';
-import { getDirectiveValue, hasDirective } from '../core/shared';
+import { getDirectiveValue, hasDirective, warn } from '../core/shared';
+import { dispatchTrigger } from '../dom/scheduler';
 import { getModelableValue, setModelableValue } from '../dom/updater';
 import { boundCleanup, is } from '../dom/utils';
 import { effect } from '../reactivity';
@@ -10,11 +12,75 @@ import type {
   BoundDirective,
   Controller,
   DirectiveSlug,
+  TriggerDef,
+  VoidFn,
 } from '../types';
 
-// ============================== DIRECTIVE DEFINITION ===================================
-
 const SLUG = 'model' as const satisfies DirectiveSlug;
+
+/**
+ * Returns the default trigger for a given element. Custom elements and
+ * anything without a known default return `null`.
+ */
+function modelDefaultTrigger(el: Element): TriggerDef | null {
+  const def = (event: string) => ({ event, modifiers: [] });
+
+  if (is(el, 'TextArea') || (el as HTMLElement).isContentEditable) {
+    return def('input');
+  }
+  if (is(el, 'Input')) {
+    return el.type === 'checkbox' || el.type === 'radio' ? def('change') : def('input');
+  }
+  if (is(el, 'Select')) {
+    return def('change');
+  }
+
+  return null;
+}
+
+/**
+ * Two-way binding for form elements.
+ */
+function attach(
+  el: Element,
+  scope: Controller,
+  app: RouseApp,
+  key: string,
+  value: string,
+): BoundCleanupFn | undefined {
+  const subject = value || key;
+
+  let triggers: TriggerDef[];
+  if (value) {
+    triggers = parseTriggers(key);
+  } else {
+    const def = modelDefaultTrigger(el);
+    if (!def) {
+      warn(`rz-model on <${el.tagName.toLowerCase()}> requires an explicit trigger.`);
+      return;
+    }
+    triggers = [def];
+  }
+
+  // State -> DOM
+  const stopEffect = effect(() => {
+    setModelableValue(el, resolveState<BindableValue>(subject, scope, app.stores));
+  });
+
+  // DOM -> State
+  const action = () => writeState(subject, getModelableValue(el), scope, app.stores);
+
+  const teardowns: VoidFn[] = [];
+  for (const trigger of triggers) {
+    const cleanup = dispatchTrigger(trigger, { el, app, action });
+    if (cleanup) teardowns.push(cleanup);
+  }
+
+  return boundCleanup(() => {
+    stopEffect();
+    teardowns.forEach((fn) => fn());
+  });
+}
 
 export const rzModel = {
   slug: SLUG,
@@ -22,38 +88,3 @@ export const rzModel = {
   getValue: (el: Element) => getDirectiveValue(el, SLUG),
   attach,
 } as const satisfies BoundDirective;
-
-// =======================================================================================
-
-/**
- * Two-way binding for form elements
- */
-function attach(
-  el: Element,
-  scope: Controller,
-  app: RouseApp,
-  prop: string,
-): BoundCleanupFn {
-  // State -> DOM
-  const stopEffect = effect(() => {
-    const val = resolveState<BindableValue>(prop, scope, app.stores);
-    setModelableValue(el, val);
-  });
-
-  // Determine best event type
-  const isBinary = is(el, 'Input') && (el.type === 'checkbox' || el.type === 'radio');
-  const eventType = is(el, 'Select') || isBinary ? 'change' : 'input';
-
-  // State <- DOM
-  const handler = () => {
-    const newVal = getModelableValue(el);
-    writeState(prop, newVal, scope, app.stores);
-  };
-
-  el.addEventListener(eventType, handler);
-
-  return boundCleanup(() => {
-    stopEffect();
-    el.removeEventListener(eventType, handler);
-  });
-}

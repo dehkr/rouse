@@ -28,7 +28,7 @@ function attach(
   const triggerSource = value ? key : defaultTriggerFor(el);
 
   if (!triggerSource) {
-    warn(`rz-on on <${el.tagName.toLowerCase()}> needs an explicit trigger.`);
+    warn(`rz-on on <${el.tagName.toLowerCase()}> requires an explicit trigger.`);
     return undefined;
   }
 
