@@ -5,6 +5,7 @@ export { rzFetchHeaders, rzHeaders, rzRefreshHeaders, rzSaveHeaders } from './rz
 export { rzHtml } from './rz-html';
 export { rzModel } from './rz-model';
 export { rzOn } from './rz-on';
+export { rzProp } from './rz-prop';
 export { rzRefresh } from './rz-refresh';
 export { rzFetchRequest, rzRefreshRequest, rzRequest, rzSaveRequest } from './rz-request';
 export { rzSave } from './rz-save';

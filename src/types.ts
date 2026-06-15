@@ -12,6 +12,7 @@ export type DirectiveSlug =
   | 'html'
   | 'model'
   | 'on'
+  | 'prop'
   | 'refresh'
   | 'refresh-headers'
   | 'refresh-request'

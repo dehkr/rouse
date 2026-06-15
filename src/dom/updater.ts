@@ -107,7 +107,7 @@ export function getModelableValue(el: Element): BindableValue {
 
 /**
  * Handles class attribute updates.
- * Object syntax toggles class: { 'active': bool } or { 'active bg-red: bool' }.
+ * Object syntax toggles class: `{ 'active': bool }` or `{ 'active bg-red: bool' }`.
  * String value swaps class w/out replacing existing classes: 'active' or 'active bg-red'.
  */
 export function updateClass(el: Element, value: BindableValue) {
@@ -165,6 +165,15 @@ export function updateAttr(el: Element, attr: string, value: BindableValue) {
   } else {
     el.setAttribute(attr, value === true ? '' : String(value));
   }
+}
+
+/**
+ * Assigns a value to an element property. Use of `Reflect` means it fails
+ * silently instead of throwing a `TypeError`.
+ */
+export function updateProp(el: Element, name: string, value: BindableValue) {
+  // TODO: consider adding warning if set fails
+  Reflect.set(el, name, value);
 }
 
 /**
