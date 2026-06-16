@@ -4,6 +4,7 @@ import type { StoreManager } from './core/store';
 
 export type DirectiveSlug =
   | 'attr'
+  | 'class'
   | 'error'
   | 'fetch'
   | 'fetch-headers'
@@ -22,6 +23,7 @@ export type DirectiveSlug =
   | 'save-request'
   | 'scope'
   | 'store'
+  | 'style'
   | 'target'
   | 'text'
   | 'url'

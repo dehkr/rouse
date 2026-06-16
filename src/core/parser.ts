@@ -428,3 +428,15 @@ export function parseStoreLocator(value: string): {
   const { head, nestedPath } = splitLocator(value);
   return { storeName: head, nestedPath };
 }
+
+/**
+ * Parses a CSS declaration string into [property, value] pairs.
+ */
+export function parseDeclarations(decl: string): Array<[string, string]> {
+  return splitOnSafeDelimiter(decl, ';')
+    .map((d) => {
+      const [prop = '', ...rest] = splitOnSafeDelimiter(d, ':');
+      return [prop.trim(), rest.join(':').trim()] as [string, string];
+    })
+    .filter(([prop]) => prop);
+}

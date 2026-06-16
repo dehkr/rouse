@@ -1,7 +1,9 @@
+import { parseDeclarations } from '../core/parser';
 import type { BindableValue } from '../types';
 import { is } from './utils';
 
 const prevClasses = new WeakMap<Element, string>();
+const prevStyles = new WeakMap<Element, string>();
 
 /**
  * Handles innerText updates.
@@ -144,6 +146,34 @@ export function updateClass(el: Element, value: BindableValue) {
 }
 
 /**
+ * Add or remove every declaration in a style string, leaving other props intact.
+ */
+export function applyStyles(el: Element, decl: string, active: boolean) {
+  if (!(is(el, 'HTML') || is(el, 'SVG'))) return;
+
+  for (const [prop, value] of parseDeclarations(decl)) {
+    if (active) {
+      el.style.setProperty(prop, value);
+    } else {
+      el.style.removeProperty(prop);
+    }
+  }
+}
+
+/**
+ * Set one CSS property to a resolved value. Nullish clears it.
+ */
+export function setStyleProperty(el: Element, prop: string, value: BindableValue) {
+  if (!(is(el, 'HTML') || is(el, 'SVG'))) return;
+
+  if (value == null) {
+    el.style.removeProperty(prop);
+  } else {
+    el.style.setProperty(prop, String(value));
+  }
+}
+
+/**
  * Handles style attribute updates. Supports object syntax and string value.
  */
 export function updateStyle(el: Element, value: BindableValue) {
@@ -151,8 +181,21 @@ export function updateStyle(el: Element, value: BindableValue) {
 
   if (value && typeof value === 'object') {
     Object.assign(el.style, value);
+    return;
+  }
+
+  const next = String(value ?? '').trim();
+  const prev = prevStyles.get(el);
+
+  if (prev) {
+    applyStyles(el, prev, false);
+  }
+
+  if (next) {
+    applyStyles(el, next, true);
+    prevStyles.set(el, next);
   } else {
-    el.style.cssText = String(value ?? '').trim();
+    prevStyles.delete(el);
   }
 }
 
