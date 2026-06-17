@@ -4,7 +4,7 @@ import {
   mountGlobalBinding,
   teardownGlobalBindings,
   walkBoundElements,
-} from '../dom/attacher';
+} from '../dom/binder';
 import { defineController, destroyInstance, IS_CONTROLLER } from '../dom/controller';
 import { initControllerElement, initObserver } from '../dom/initializer';
 import { initDomMutator } from '../dom/mutator';

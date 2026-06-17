@@ -1,7 +1,7 @@
 import type { RouseApp } from '../core/app';
 import { effectScope } from '../reactivity';
 import type { ControllerCtx, ControllerFn, RouseRequest } from '../types';
-import { attachController } from './attacher';
+import { bindController } from './binder';
 import { dispatch, on } from './scheduler';
 import { insert } from './utils';
 
@@ -169,7 +169,7 @@ export function createController(
   // Captures effects created by bindings (text, atts, etc.) so the UI auto updates
   if (instance !== undefined) {
     const stopBindingScope = effectScope(() => {
-      const { unbindDom, scan, teardown } = attachController(
+      const { unbindDom, scan, teardown } = bindController(
         el,
         instance,
         app,

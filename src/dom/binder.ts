@@ -163,7 +163,7 @@ function runCleanups(el: Element, fns: BoundCleanupFn[]): void {
  * Binds the controller instance to the DOM.
  * Returns internal lifecycle methods so the app can delegate DOM mutations.
  */
-export function attachController(
+export function bindController(
   root: HTMLElement,
   instance: Controller,
   app: RouseApp,
@@ -193,7 +193,7 @@ export function attachController(
   }
 
   /** Process DOM directives and register their cleanup functions. */
-  function attachDirectives(el: Element) {
+  function bindNode(el: Element) {
     if (boundNodes.has(el)) return;
     boundNodes.add(el);
 
@@ -208,7 +208,7 @@ export function attachController(
     const owner = startEl.closest(scopeSelector);
     if (!owner || owner !== root) return;
 
-    walkBoundElements(startEl, attachDirectives, {
+    walkBoundElements(startEl, bindNode, {
       acceptScopeRoot: startEl === root,
     });
   }

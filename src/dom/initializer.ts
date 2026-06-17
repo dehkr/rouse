@@ -15,7 +15,7 @@ import {
   resolveRemovedOwner,
   teardownGlobalBindings,
   walkBoundElements,
-} from './attacher';
+} from './binder';
 import { attachWakeStrategies } from './scheduler';
 
 /**
