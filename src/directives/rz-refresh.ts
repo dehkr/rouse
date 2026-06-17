@@ -5,12 +5,12 @@ import {
   parseStoreSubject,
   parseTriggerSubjectPairs,
 } from '../core/parser';
-import { getDirectiveValue, hasDirective, warn } from '../core/shared';
+import { getDirectiveValue, warn } from '../core/shared';
 import { resolveTarget } from '../core/store';
 import { dispatchTrigger } from '../dom/scheduler';
 import { resolveDefaultTrigger } from '../dom/utils';
 import { resolveRequestConfig } from '../net/request';
-import type { DirectiveSlug, ManagerDirective, VoidFn } from '../types';
+import type { DirectiveSlug, StandaloneDirective, VoidFn } from '../types';
 
 const SLUG = 'refresh' as const satisfies DirectiveSlug;
 const cleanups = new WeakMap<Element, Array<VoidFn>>();
@@ -82,17 +82,9 @@ function teardown(el: Element) {
 /**
  * Definition for the `rz-refresh` directive object. Wires events to pull
  * server state into a local store.
- *
- * Each segment is `[trigger]: [[action] @store[.path]]`. The action token
- * (`replace` or `merge`) overrides the store-configured patch strategy for
- * this trigger only. The subject is optional; when omitted, the directive
- * targets the `rz-store` on the same element. Nested paths are supported
- * (e.g., `rz-refresh="click: merge @user.notifications"`).
  */
 export const rzRefresh = {
   slug: SLUG,
-  existsOn: (el: Element) => hasDirective(el, SLUG),
-  getValue: (el: Element) => getDirectiveValue(el, SLUG),
   initialize,
   teardown,
-} as const satisfies ManagerDirective;
+} as const satisfies StandaloneDirective;

@@ -2,8 +2,7 @@ import { getApp, type RouseApp } from '../core/app';
 import { err, getDirectiveValue, hasDirective, warn } from '../core/shared';
 import type { SyncConfig } from '../core/store';
 import { is } from '../dom/utils';
-import type { DirectiveSlug, ManagerDirective } from '../types';
-import { rzRefresh } from './rz-refresh';
+import type { DirectiveSlug, StoreDirective } from '../types';
 import { rzRequest, rzSaveRequest } from './rz-request';
 import { rzUrl } from './rz-url';
 
@@ -62,11 +61,11 @@ function initialize(el: HTMLScriptElement, app: RouseApp) {
   const cfg: Partial<SyncConfig> = {};
 
   // Seed the store URL from `rz-url`
-  if (rzUrl.existsOn(el)) {
+  if (hasDirective(el, 'url')) {
     const { url, method } = rzUrl.getConfig(el);
     if (url) cfg.url = url;
     if (method) cfg.saveMethod = method;
-    if (method && method !== 'GET' && rzRefresh.existsOn(el)) {
+    if (method && method !== 'GET' && hasDirective(el, 'refresh')) {
       warn(`'${method}' won't apply to refresh. Refresh will use 'GET'.`, el);
     }
   }
@@ -96,9 +95,7 @@ function teardown(el: HTMLScriptElement) {
  */
 export const rzStore = {
   slug: SLUG,
-  existsOn: (el: Element) => hasDirective(el, SLUG),
-  getValue: (el: Element) => getDirectiveValue(el, SLUG),
   validate,
   initialize,
   teardown,
-} as const satisfies ManagerDirective<HTMLScriptElement>;
+} as const satisfies StoreDirective;

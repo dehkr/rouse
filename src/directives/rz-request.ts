@@ -1,7 +1,7 @@
 import type { RouseApp } from '../core/app';
 import { parseDirectiveValue } from '../core/parser';
 import { resolveProps } from '../core/props';
-import { getDirectiveValue, hasDirective, kebabToCamel } from '../core/shared';
+import { getDirectiveValue, kebabToCamel } from '../core/shared';
 import { parseTime } from '../core/timing';
 import type { ConfigDirective, DirectiveSlug, RouseRequest } from '../types';
 
@@ -71,8 +71,6 @@ export function defineRequestDirective(
 ): ConfigDirective<Partial<RouseRequest>> {
   return {
     slug,
-    existsOn: (el) => hasDirective(el, slug),
-    getValue: (el) => getDirectiveValue(el, slug),
     getConfig: (el, app) => parseRequestConfig(getDirectiveValue(el, slug), app),
   };
 }

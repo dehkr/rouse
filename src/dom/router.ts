@@ -1,7 +1,7 @@
 import type { RouseApp } from '../core/app';
 import { STORE_PREFIX } from '../core/constants';
 import { parseDirectiveValue } from '../core/parser';
-import { warn } from '../core/shared';
+import { getDirectiveValue, warn } from '../core/shared';
 import { rzError, rzTarget } from '../directives';
 import type { RouseResponse } from '../types';
 import { dispatch } from './scheduler';
@@ -33,7 +33,7 @@ export function initStoreRouter(app: RouseApp, signal: AbortSignal) {
         routeToStore(
           app,
           // `targetOverride` (e.g., a server header) beats the attribute value
-          result.targetOverride || directive.getValue(el as Element),
+          result.targetOverride || getDirectiveValue(el as Element, directive.slug),
           getPayload(result),
         );
       },

@@ -1,7 +1,7 @@
 import type { RouseApp } from '../core/app';
 import { parseDirectiveValue } from '../core/parser';
 import { resolveProps } from '../core/props';
-import { getDirectiveValue, hasDirective, warn } from '../core/shared';
+import { getDirectiveValue, warn } from '../core/shared';
 import type { ConfigDirective, DirectiveSlug } from '../types';
 
 /**
@@ -56,8 +56,6 @@ export function defineHeadersDirective(
 ): ConfigDirective<Record<string, string>> {
   return {
     slug,
-    existsOn: (el) => hasDirective(el, slug),
-    getValue: (el) => getDirectiveValue(el, slug),
     getConfig: (el, app) => parseHeadersConfig(getDirectiveValue(el, slug), el, app),
   };
 }

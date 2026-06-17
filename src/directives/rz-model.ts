@@ -1,7 +1,7 @@
 import type { RouseApp } from '../core/app';
 import { parseTriggers } from '../core/parser';
 import { resolveState, writeState } from '../core/path';
-import { getDirectiveValue, hasDirective, warn } from '../core/shared';
+import { warn } from '../core/shared';
 import { dispatchTrigger } from '../dom/scheduler';
 import { getModelableValue, setModelableValue } from '../dom/updater';
 import { boundCleanup, is } from '../dom/utils';
@@ -84,7 +84,5 @@ function attach(
 
 export const rzModel = {
   slug: SLUG,
-  existsOn: (el: Element) => hasDirective(el, SLUG),
-  getValue: (el: Element) => getDirectiveValue(el, SLUG),
   attach,
 } as const satisfies BoundDirective;

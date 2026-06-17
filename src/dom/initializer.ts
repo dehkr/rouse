@@ -1,7 +1,7 @@
 import { getApp, type RouseApp } from '../core/app';
 import { STORE_PREFIX } from '../core/constants';
 import { resolveProps } from '../core/props';
-import { directiveSelector, queryTargets, warn } from '../core/shared';
+import { directiveSelector, hasDirective, queryTargets, warn } from '../core/shared';
 import { rzFetch, rzRefresh, rzSave, rzScope, rzStore, rzWake } from '../directives';
 import {
   destroyInstance,
@@ -103,7 +103,7 @@ export function initObserver(app: RouseApp) {
           const ownerScope = el.closest<HTMLElement>(scopeSelector);
           if (
             ownerScope &&
-            !rzScope.existsOn(el as HTMLElement) &&
+            !hasDirective(el as HTMLElement, 'scope') &&
             getApp(ownerScope, app)
           ) {
             scanScopeNode(ownerScope, el);
@@ -154,7 +154,7 @@ export function initObserver(app: RouseApp) {
           // ancestry. Survives detached parents, cross-boundary moves, and
           // sync-detachment edge cases.
           const ownerScope = resolveRemovedOwner(el);
-          if (ownerScope && !rzScope.existsOn(el)) {
+          if (ownerScope && !hasDirective(el, 'scope')) {
             teardownScopeNode(ownerScope, el);
           }
 

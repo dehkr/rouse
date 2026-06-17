@@ -4,11 +4,11 @@ import {
   parseTriggerSubjectPairs,
   parseUrlSubject,
 } from '../core/parser';
-import { getDirectiveValue, hasDirective } from '../core/shared';
+import { getDirectiveValue } from '../core/shared';
 import { dispatchTrigger } from '../dom/scheduler';
 import { isNativeNavigation, resolveDefaultTrigger } from '../dom/utils';
 import { handleFetch } from '../net/engine';
-import type { DirectiveSlug, ManagerDirective, RouseRequest, VoidFn } from '../types';
+import type { DirectiveSlug, RouseRequest, StandaloneDirective, VoidFn } from '../types';
 
 const SLUG = 'fetch' as const satisfies DirectiveSlug;
 const cleanups = new WeakMap<Element, Array<VoidFn>>();
@@ -84,8 +84,6 @@ function teardown(el: Element) {
  */
 export const rzFetch = {
   slug: SLUG,
-  existsOn: (el: Element) => hasDirective(el, SLUG),
-  getValue: (el: Element) => getDirectiveValue(el, SLUG),
   initialize,
   teardown,
-} as const satisfies ManagerDirective;
+} as const satisfies StandaloneDirective;

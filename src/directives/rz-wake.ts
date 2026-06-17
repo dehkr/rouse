@@ -1,6 +1,6 @@
 import type { RouseApp } from '../core/app';
 import { parseTriggers } from '../core/parser';
-import { getDirectiveValue, hasDirective } from '../core/shared';
+import { getDirectiveValue } from '../core/shared';
 import type { ConfigDirective, DirectiveSlug, TriggerDef } from '../types';
 
 const SLUG = 'wake' as const satisfies DirectiveSlug;
@@ -21,7 +21,5 @@ function getConfig(el: Element, app: RouseApp): TriggerDef[] {
 
 export const rzWake = {
   slug: SLUG,
-  existsOn: (el: Element) => hasDirective(el, SLUG),
-  getValue: (el: Element) => getDirectiveValue(el, SLUG),
   getConfig,
 } as const satisfies ConfigDirective<TriggerDef[]>;

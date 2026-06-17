@@ -1,19 +1,8 @@
 import { parseDirectiveValue } from '../core/parser';
-import { getDirectiveValue, hasDirective, warn } from '../core/shared';
+import { getDirectiveValue, warn } from '../core/shared';
 import type { ConfigDirective, DirectiveSlug } from '../types';
 
-// ============================== DIRECTIVE DEFINITION ===================================
-
 const SLUG = 'validate' as const satisfies DirectiveSlug;
-
-export const rzValidate = {
-  slug: SLUG,
-  existsOn: (el: Element) => hasDirective(el, SLUG),
-  getValue: (el: Element) => getDirectiveValue(el, SLUG),
-  getConfig,
-} as const satisfies ConfigDirective<ValidateConfig | null>;
-
-// =======================================================================================
 
 export interface ValidateConfig {
   field: string;
@@ -78,3 +67,8 @@ function getConfig(el: Element): ValidateConfig | null {
 
   return result;
 }
+
+export const rzValidate = {
+  slug: SLUG,
+  getConfig,
+} as const satisfies ConfigDirective<ValidateConfig | null>;

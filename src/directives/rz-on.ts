@@ -3,7 +3,7 @@ import { STORE_PREFIX } from '../core/constants';
 import { parseStoreLocator, parseTriggers } from '../core/parser';
 import { getNestedVal } from '../core/path';
 import { resolveProps, splitInjection } from '../core/props';
-import { err, getDirectiveValue, hasDirective, warn } from '../core/shared';
+import { err, warn } from '../core/shared';
 import { dispatchTrigger } from '../dom/scheduler';
 import { boundCleanup, defaultTriggerFor } from '../dom/utils';
 import type {
@@ -96,7 +96,5 @@ function attach(
 
 export const rzOn = {
   slug: SLUG,
-  existsOn: (el: Element) => hasDirective(el, SLUG),
-  getValue: (el: Element) => getDirectiveValue(el, SLUG),
   attach,
 } as const satisfies BoundDirective;

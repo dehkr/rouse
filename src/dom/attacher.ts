@@ -1,6 +1,6 @@
 import type { RouseApp } from '../core/app';
 import { parseDirectiveValue } from '../core/parser';
-import { directiveSelector, EMPTY_SCOPE, err } from '../core/shared';
+import { directiveSelector, EMPTY_SCOPE, err, getDirectiveValue } from '../core/shared';
 import {
   rzAttr,
   rzClass,
@@ -48,7 +48,7 @@ export function bindDirectives(
   const cleanups: BoundCleanupFn[] = [];
 
   for (const directive of BOUND_DIRECTIVES) {
-    const value = directive.getValue(el);
+    const value = getDirectiveValue(el, directive.slug);
 
     // Strict check to allow empty/boolean directives
     if (value === null) continue;

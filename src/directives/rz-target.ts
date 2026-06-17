@@ -1,13 +1,11 @@
 import type { InsertOperation } from '../core/constants';
-import { getDirectiveValue, hasDirective, resolveInsertOperations } from '../core/shared';
+import { getDirectiveValue, resolveInsertOperations } from '../core/shared';
 import type { ConfigDirective, DirectiveSlug } from '../types';
 
 const SLUG = 'target' as const satisfies DirectiveSlug;
 
 export const rzTarget = {
   slug: SLUG,
-  existsOn: (el: Element) => hasDirective(el, SLUG),
-  getValue: (el: Element) => getDirectiveValue(el, SLUG),
   getConfig: (el: Element, appRoot: Element, overrideValue?: string | null) => {
     const value = overrideValue || getDirectiveValue(el, SLUG);
     return resolveInsertOperations(value, el, appRoot);

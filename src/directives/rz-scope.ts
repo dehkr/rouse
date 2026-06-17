@@ -1,22 +1,8 @@
 import { splitInjection } from '../core/props';
-import { getDirectiveValue, hasDirective } from '../core/shared';
+import { getDirectiveValue } from '../core/shared';
 import type { ConfigDirective, DirectiveSlug } from '../types';
 
-// ============================== DIRECTIVE DEFINITION ===================================
-
 const SLUG = 'scope' as const satisfies DirectiveSlug;
-
-export const rzScope = {
-  slug: SLUG,
-  existsOn: (el: Element) => hasDirective(el, SLUG),
-  getValue: (el: Element) => getDirectiveValue(el, SLUG),
-  getConfig,
-} as const satisfies ConfigDirective<{
-  controllerName: string;
-  rawPayload: string | undefined;
-} | null>;
-
-// =======================================================================================
 
 function getConfig(
   el: Element,
@@ -28,3 +14,11 @@ function getConfig(
 
   return { controllerName, rawPayload };
 }
+
+export const rzScope = {
+  slug: SLUG,
+  getConfig,
+} as const satisfies ConfigDirective<{
+  controllerName: string;
+  rawPayload: string | undefined;
+} | null>;

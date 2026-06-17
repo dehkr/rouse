@@ -1,6 +1,5 @@
 import type { RouseApp } from '../core/app';
 import { resolveBoundValue } from '../core/props';
-import { getDirectiveValue, hasDirective } from '../core/shared';
 import { applyStyles, setStyleProperty, updateStyle } from '../dom/updater';
 import { boundCleanup } from '../dom/utils';
 import { effect } from '../reactivity';
@@ -33,7 +32,5 @@ function attach(
 
 export const rzStyle = {
   slug: SLUG,
-  existsOn: (el: Element) => hasDirective(el, SLUG),
-  getValue: (el: Element) => getDirectiveValue(el, SLUG),
   attach,
 } as const satisfies BoundDirective;

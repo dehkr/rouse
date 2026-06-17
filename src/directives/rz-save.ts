@@ -6,13 +6,13 @@ import {
   parseTriggerSubjectPairs,
 } from '../core/parser';
 import { getRootSegment } from '../core/path';
-import { getDirectiveValue, hasDirective, warn } from '../core/shared';
+import { getDirectiveValue, warn } from '../core/shared';
 import { resolveTarget } from '../core/store';
 import { applyTiming } from '../core/timing';
 import { dispatchTrigger } from '../dom/scheduler';
 import { resolveDefaultTrigger } from '../dom/utils';
 import { resolveRequestConfig } from '../net/request';
-import type { DirectiveSlug, ManagerDirective, TriggerDef, VoidFn } from '../types';
+import type { DirectiveSlug, StandaloneDirective, TriggerDef, VoidFn } from '../types';
 
 const SLUG = 'save' as const satisfies DirectiveSlug;
 const cleanups = new WeakMap<Element, Array<VoidFn>>();
@@ -125,8 +125,6 @@ function attachMutateEffect(
  */
 export const rzSave = {
   slug: SLUG,
-  existsOn: (el: Element) => hasDirective(el, SLUG),
-  getValue: (el: Element) => getDirectiveValue(el, SLUG),
   initialize,
   teardown,
-} as const satisfies ManagerDirective;
+} as const satisfies StandaloneDirective;

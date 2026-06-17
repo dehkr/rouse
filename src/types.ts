@@ -193,18 +193,33 @@ export type TriggerSubjectPair = {
   subject: string | null;
 };
 
-/** Base directive type. */
+/**
+ * Shared base interface for all directives in the framework.
+ */
 export interface BaseDirective {
   slug: DirectiveSlug;
-  existsOn: (el: Element) => boolean;
-  getValue: (el: Element) => string | null;
-  [key: string]: unknown;
 }
 
 /**
- * A directive that establishes a persistent data or event binding between
- * the DOM and application state. These bindings can be scoped locally to
- * a controller or mounted globally against reactive stores.
+ * A stateless directive used to parse DOM attributes into a typed
+ * configuration object.
+ *
+ * - **Lifecycle:** None. It does not maintain state or cleanups.
+ * - **Consumption:** `getConfig` is read on-demand by other directives or the
+ *   network layer.
+ */
+export interface ConfigDirective<T> extends BaseDirective {
+  getConfig: (el: Element, ...args: any[]) => T;
+}
+
+/**
+ * Represents a persistent data or event binding between the DOM and application state.
+ *
+ * - **Discovery:** Scanned and processed by `dom/attacher.ts`.
+ * - **Execution:** `attach` runs once per comma-separated `[key: value]` segment
+ *   (pre-split via `parseDirectiveValue`).
+ * - **Scope:** `scope` represents the owning `Controller`. If mounted globally
+ *   against `app.stores`, it defaults to `EMPTY_SCOPE`.
  */
 export interface BoundDirective extends BaseDirective {
   attach: (
@@ -216,15 +231,29 @@ export interface BoundDirective extends BaseDirective {
   ) => BoundCleanupFn | undefined;
 }
 
-/** A directive that parses its attribute value into a typed config object. */
-export interface ConfigDirective<T> extends BaseDirective {
-  getConfig: (el: Element, ...args: any[]) => T;
-}
-
-/** A directive that manages the lifecycle and wiring of related directives. */
-export interface ManagerDirective<T extends Element = Element> extends BaseDirective {
+/**
+ * A directive that manages its own explicit initialization and teardown lifecycle.
+ *
+ * - **Lifecycle:** Unlike `BoundDirective`, this tracks its own cleanups
+ *   internally instead of returning them.
+ * - **Scope:** Scope-independent. Scanned by both `app.start()` and the
+ *   `initObserver` in `initializer.ts`.
+ * - **Placement:** Can attach anywhere in the DOM, including `<script rz-store>`
+ *   tags outside of any active scope.
+ */
+export interface StandaloneDirective<T extends Element = Element> extends BaseDirective {
   initialize: (el: T, app: RouseApp) => void;
   teardown: (el: T) => void;
+}
+
+/**
+ * A specialized `StandaloneDirective` explicitly tailored for `<script rz-store>` tags.
+ *
+ * - **Validation:** Adds a `validate` type-guard that scanners (`app.start()`,
+ *   `initObserver`) execute *before* calling `initialize`.
+ */
+export interface StoreDirective extends StandaloneDirective<HTMLScriptElement> {
+  validate: (el: Element, app: RouseApp) => el is HTMLScriptElement;
 }
 
 /** The kind of network action a directive describes. */
@@ -315,6 +344,7 @@ export type ControllerFn<
 
 /**
  * The context object passed into every controller setup function.
+ * 
  * @template P - The type of the props.
  * @template T - The Element type.
  */
@@ -364,6 +394,7 @@ export type ControllerCtx<
 
 /**
  * The context object passed as an argument to controller methods.
+ * 
  * @template P - The type of the props.
  * @template T - The Element type.
  */
