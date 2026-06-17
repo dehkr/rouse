@@ -55,7 +55,7 @@ export function bindDirectives(
 
     const parsed = parseDirectiveValue(value);
     for (const [key, val] of parsed) {
-      const cleanup = directive.attach(el, scope, app, key, val);
+      const cleanup = directive.bind(el, scope, app, key, val);
       if (cleanup) cleanups.push(cleanup);
     }
   }

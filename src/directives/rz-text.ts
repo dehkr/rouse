@@ -7,7 +7,7 @@ import type { BoundCleanupFn, BoundDirective, Controller, DirectiveSlug } from '
 
 const SLUG = 'text' as const satisfies DirectiveSlug;
 
-function attach(
+function bind(
   el: Element,
   scope: Controller,
   app: RouseApp,
@@ -23,5 +23,5 @@ function attach(
 
 export const rzText = {
   slug: SLUG,
-  attach,
+  bind,
 } as const satisfies BoundDirective;

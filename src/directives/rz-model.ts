@@ -41,7 +41,7 @@ function modelDefaultTrigger(el: Element): TriggerDef | null {
 /**
  * Two-way binding for form elements.
  */
-function attach(
+function bind(
   el: Element,
   scope: Controller,
   app: RouseApp,
@@ -84,5 +84,5 @@ function attach(
 
 export const rzModel = {
   slug: SLUG,
-  attach,
+  bind,
 } as const satisfies BoundDirective;

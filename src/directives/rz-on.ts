@@ -17,7 +17,7 @@ import type {
 
 const SLUG = 'on' as const satisfies DirectiveSlug;
 
-function attach(
+function bind(
   el: Element,
   scope: Controller,
   app: RouseApp,
@@ -96,5 +96,5 @@ function attach(
 
 export const rzOn = {
   slug: SLUG,
-  attach,
+  bind,
 } as const satisfies BoundDirective;

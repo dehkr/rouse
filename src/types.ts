@@ -222,7 +222,7 @@ export interface ConfigDirective<T> extends BaseDirective {
  *   against `app.stores`, it defaults to `EMPTY_SCOPE`.
  */
 export interface BoundDirective extends BaseDirective {
-  attach: (
+  bind: (
     el: Element,
     scope: Controller,
     app: RouseApp,

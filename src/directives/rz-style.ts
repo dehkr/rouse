@@ -7,7 +7,7 @@ import type { BoundCleanupFn, BoundDirective, Controller, DirectiveSlug } from '
 
 const SLUG = 'style' as const satisfies DirectiveSlug;
 
-function attach(
+function bind(
   el: Element,
   scope: Controller,
   app: RouseApp,
@@ -32,5 +32,5 @@ function attach(
 
 export const rzStyle = {
   slug: SLUG,
-  attach,
+  bind,
 } as const satisfies BoundDirective;
