@@ -215,8 +215,8 @@ export interface ConfigDirective<T> extends BaseDirective {
 /**
  * Represents a persistent data or event binding between the DOM and application state.
  *
- * - **Discovery:** Scanned and processed by `dom/attacher.ts`.
- * - **Execution:** `attach` runs once per comma-separated `[key: value]` segment
+ * - **Discovery:** Scanned and processed by `dom/binder.ts`.
+ * - **Execution:** `bind` runs once per comma-separated `[key: value]` segment
  *   (pre-split via `parseDirectiveValue`).
  * - **Scope:** `scope` represents the owning `Controller`. If mounted globally
  *   against `app.stores`, it defaults to `EMPTY_SCOPE`.
