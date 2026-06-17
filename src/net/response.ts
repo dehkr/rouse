@@ -1,4 +1,4 @@
-import { isJsonType, isPlainObject } from '../core/shared';
+import { isJsonType } from '../core/shared';
 import type {
   CustomErrorStatus,
   ErrorStatus,
@@ -68,32 +68,6 @@ export async function normalizeResponse(
       status: response.status,
       parseError: error?.status === 'PARSE_ERROR' ? error.message : undefined,
     };
-
-    const contentType = response.headers.get('Content-Type') || '';
-
-    // Auto-parse RFC 9457 problem details
-    if (contentType.includes('application/problem+json') && isPlainObject(data)) {
-      // Generic error message
-      error.detail = data.detail || data.title;
-
-      // Granular validation array
-      if (Array.isArray(data.errors)) {
-        error.validation = data.errors.reduce(
-          (acc: Record<string, string>, errItem: any) => {
-            // Extract the identifier
-            const rawKey = errItem.pointer || errItem.field || errItem.name;
-            if (rawKey) {
-              // Strip JSON pointers (e.g., "#/profile/color" -> "profile.color")
-              const cleanKey = String(rawKey).replace(/^#?\//, '').replace(/\//g, '.');
-              acc[cleanKey] =
-                errItem.detail || errItem.message || errItem.title || 'Invalid';
-            }
-            return acc;
-          },
-          {},
-        );
-      }
-    }
   }
 
   return {

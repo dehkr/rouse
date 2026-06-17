@@ -9,7 +9,6 @@ import { defineController, destroyInstance, IS_CONTROLLER } from '../dom/control
 import { initControllerElement, initObserver } from '../dom/initializer';
 import { initDomMutator } from '../dom/mutator';
 import { initStoreRouter } from '../dom/router';
-import { initFormValidationEngine } from '../dom/validation';
 import { handleFetch } from '../net/engine';
 import { fallbackResponse } from '../net/response';
 import type {
@@ -239,9 +238,6 @@ export class RouseApp {
 
     // Watch for JSON fetch responses
     initStoreRouter(this, this._abortController.signal);
-
-    // Manage granular JSON error states
-    initFormValidationEngine(this, this._abortController.signal);
 
     // Scan for store <script> elements to ensure state exists first
     const storeScriptElements = queryTargets(

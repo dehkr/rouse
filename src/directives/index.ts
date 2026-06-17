@@ -16,5 +16,4 @@ export { rzStyle } from './rz-style';
 export { rzTarget } from './rz-target';
 export { rzText } from './rz-text';
 export { rzUrl } from './rz-url';
-export { rzValidate } from './rz-validate';
 export { rzWake } from './rz-wake';

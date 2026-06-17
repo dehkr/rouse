@@ -27,7 +27,6 @@ export type DirectiveSlug =
   | 'target'
   | 'text'
   | 'url'
-  | 'validate'
   | 'wake';
 
 export interface AppEventDetail {
@@ -344,7 +343,7 @@ export type ControllerFn<
 
 /**
  * The context object passed into every controller setup function.
- * 
+ *
  * @template P - The type of the props.
  * @template T - The Element type.
  */
@@ -394,7 +393,7 @@ export type ControllerCtx<
 
 /**
  * The context object passed as an argument to controller methods.
- * 
+ *
  * @template P - The type of the props.
  * @template T - The Element type.
  */
