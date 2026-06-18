@@ -6,19 +6,19 @@ const SLUG = 'scope' as const satisfies DirectiveSlug;
 
 function getConfig(
   el: Element,
-): { controllerName: string; rawPayload: string | undefined } | null {
+): { scopeName: string; rawPayload: string | undefined } | null {
   const value = getDirectiveValue(el, SLUG);
   if (value === null) return null;
 
-  const { key: controllerName, rawPayload } = splitInjection(value);
+  const { key: scopeName, rawPayload } = splitInjection(value);
 
-  return { controllerName, rawPayload };
+  return { scopeName, rawPayload };
 }
 
 export const rzScope = {
   slug: SLUG,
   getConfig,
 } as const satisfies ConfigDirective<{
-  controllerName: string;
+  scopeName: string;
   rawPayload: string | undefined;
 } | null>;

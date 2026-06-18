@@ -1,4 +1,4 @@
-import type { Controller } from '../types';
+import type { Scope } from '../types';
 import { KEY_BLOCKLIST, STORE_PREFIX } from './constants';
 import { EMPTY_SCOPE, warn } from './shared';
 import type { StoreManager } from './store';
@@ -79,11 +79,11 @@ export function getRootSegment(path: string | undefined): string | undefined {
 }
 
 /**
- * Resolves a path against either a global store or a local controller.
+ * Resolves a path against either a global store or a local scope.
  */
 export function resolveState<T = unknown>(
   path: string,
-  controller: Controller,
+  scope: Scope,
   storeManager?: StoreManager,
 ): T | undefined {
   if (path.startsWith(STORE_PREFIX)) {
@@ -104,17 +104,17 @@ export function resolveState<T = unknown>(
     return getNestedVal<T>(storeManager.get(storeName), nestedPath);
   }
 
-  // Fallback to local controller state
-  return getNestedVal<T>(controller, path);
+  // Fallback to local scope state
+  return getNestedVal<T>(scope, path);
 }
 
 /**
- * Writes a value to either a global store or a local controller.
+ * Writes a value to either a global store or a local scope.
  */
 export function writeState(
   path: string,
   value: unknown,
-  controller: Controller,
+  scope: Scope,
   storeManager?: StoreManager,
 ): void {
   if (path.startsWith(STORE_PREFIX)) {
@@ -137,13 +137,13 @@ export function writeState(
     return;
   }
 
-  // Fallback to local controller state
-  if (controller === EMPTY_SCOPE) {
-    warn(`'${path}' used outside controller scope. Use '@' to target a store.`);
+  // Fallback to local scope state
+  if (scope === EMPTY_SCOPE) {
+    warn(`'${path}' used outside scope. Use '@' to target a store.`);
     return;
   }
 
-  setNestedVal(controller, path, value);
+  setNestedVal(scope, path, value);
 }
 
 function getStorePath(path: string) {

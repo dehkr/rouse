@@ -9,9 +9,9 @@ import { boundCleanup, defaultTriggerFor } from '../dom/utils';
 import type {
   BoundCleanupFn,
   BoundDirective,
-  Controller,
   DirectiveSlug,
   HandlerCtx,
+  Scope,
   VoidFn,
 } from '../types';
 
@@ -19,7 +19,7 @@ const SLUG = 'on' as const satisfies DirectiveSlug;
 
 function bind(
   el: Element,
-  scope: Controller,
+  scope: Scope,
   app: RouseApp,
   key: string,
   value: string,
@@ -56,7 +56,7 @@ function bind(
     context = storeData;
   }
 
-  // Local controller method
+  // Local scope method
   else {
     method = scope[methodName];
     context = scope;

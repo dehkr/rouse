@@ -2,9 +2,9 @@ import { is } from '../dom/utils';
 import type {
   AnyFunction,
   BindableValue,
-  Controller,
   DirectiveSlug,
   HandlerCtx,
+  Scope,
 } from '../types';
 import { KEY_BLOCKLIST, STORE_PREFIX } from './constants';
 import { parseStoreLocator, splitLocator } from './parser';
@@ -137,7 +137,7 @@ export function splitInjection(raw: string): {
  */
 export function resolveBoundValue(
   raw: string,
-  scope: Controller,
+  scope: Scope,
   storeManager: StoreManager,
   el: Element,
   slug: DirectiveSlug,

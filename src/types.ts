@@ -33,15 +33,15 @@ export interface AppEventDetail {
   app: RouseApp;
 }
 
-/** `rz:controller:init` — fires after the setup function runs, before bindings attach. */
-export interface ControllerInitDetail {
-  context: ControllerCtx;
-  instance: Controller;
+/** `rz:scope:init` — fires after the setup function runs, before bindings attach. */
+export interface ScopeInitDetail {
+  context: ScopeCtx;
+  instance: Scope;
 }
 
-/** `rz:controller:connect` / `rz:controller:disconnect` — bindings attach / detach. */
-export interface ControllerLifecycleDetail {
-  instance: Controller;
+/** `rz:scope:connect` / `rz:scope:disconnect` — bindings attach / detach. */
+export interface ScopeLifecycleDetail {
+  instance: Scope;
 }
 
 /** `rz:fetch:config` — pre-flight; cancelable. Listeners can mutate `config`. */
@@ -124,10 +124,10 @@ export interface LifecycleEventMap {
   'rz:app:ready': AppEventDetail;
   'rz:app:destroy': AppEventDetail;
 
-  'rz:controller:init': ControllerInitDetail;
-  'rz:controller:connect': ControllerLifecycleDetail;
-  'rz:controller:disconnect': ControllerLifecycleDetail;
-  'rz:controller:destroy': undefined;
+  'rz:scope:init': ScopeInitDetail;
+  'rz:scope:connect': ScopeLifecycleDetail;
+  'rz:scope:disconnect': ScopeLifecycleDetail;
+  'rz:scope:destroy': undefined;
 
   'rz:fetch:config': FetchConfigDetail;
   'rz:fetch:start': FetchLifecycleDetail;
@@ -175,7 +175,7 @@ export type BoundCleanupFn = VoidFn & { [CLEANUP]: true };
  * The object returned by a setup function.
  * Includes standard lifecycle hooks and any custom state/methods.
  */
-export type Controller = Record<string, any> & {
+export type Scope = Record<string, any> & {
   connect?: () => void;
   disconnect?: () => void;
 };
@@ -217,13 +217,13 @@ export interface ConfigDirective<T> extends BaseDirective {
  * - **Discovery:** Scanned and processed by `dom/binder.ts`.
  * - **Execution:** `bind` runs once per comma-separated `[key: value]` segment
  *   (pre-split via `parseDirectiveValue`).
- * - **Scope:** `scope` represents the owning `Controller`. If mounted globally
+ * - **Scope:** `scope` represents the owning `Scope`. If mounted globally
  *   against `app.stores`, it defaults to `EMPTY_SCOPE`.
  */
 export interface BoundDirective extends BaseDirective {
   bind: (
     el: Element,
-    scope: Controller,
+    scope: Scope,
     app: RouseApp,
     key: string,
     value: string,
@@ -336,18 +336,18 @@ export type ErrorInterceptor = (
 export type InterceptorPhase = 'request' | 'response' | 'error';
 
 /** The definition of a setup function. */
-export type ControllerFn<
+export type ScopeFn<
   P extends Record<string, any> = Record<string, any>,
   T extends Element = HTMLElement,
-> = (ctx: ControllerCtx<P, T>) => Controller;
+> = (ctx: ScopeCtx<P, T>) => Scope;
 
 /**
- * The context object passed into every controller setup function.
+ * The context object passed into every scope setup function.
  *
  * @template P - The type of the props.
  * @template T - The Element type.
  */
-export type ControllerCtx<
+export type ScopeCtx<
   P extends Record<string, any> = Record<string, any>,
   T extends Element = HTMLElement,
 > = {
@@ -392,7 +392,7 @@ export type ControllerCtx<
 };
 
 /**
- * The context object passed as an argument to controller methods.
+ * The context object passed as an argument to scope methods.
  *
  * @template P - The type of the props.
  * @template T - The Element type.

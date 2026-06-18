@@ -3,13 +3,7 @@ import { STORE_PREFIX } from '../core/constants';
 import { resolveProps } from '../core/props';
 import { directiveSelector, hasDirective, queryTargets, warn } from '../core/shared';
 import { rzFetch, rzRefresh, rzSave, rzScope, rzStore, rzWake } from '../directives';
-import {
-  destroyInstance,
-  initControllerInstance,
-  scanScopeNode,
-  teardownScopeNode,
-} from '../dom/controller';
-import type { ControllerFn } from '../types';
+import type { ScopeFn } from '../types';
 import {
   mountGlobalBinding,
   resolveRemovedOwner,
@@ -17,41 +11,47 @@ import {
   walkBoundElements,
 } from './binder';
 import { attachWakeStrategies } from './scheduler';
+import {
+  destroyInstance,
+  initScopeInstance,
+  scanScopeNode,
+  teardownScopeNode,
+} from './scope';
 
 /**
- * Initializes a controller element by parsing its directive, resolving its
+ * Initializes a scope element by parsing its directive, resolving its
  * setup function from the registry, and mounting the reactive instance.
  * Honors the specified `wake` strategy before executing the mount.
  *
  * @param el - The DOM element containing the `rz-scope` directive.
  * @param defaultWake - The fallback wake strategy if the element doesn't specify one.
  */
-export function initControllerElement(el: HTMLElement, app: RouseApp) {
+export function initScopeElement(el: HTMLElement, app: RouseApp) {
   const scopeValue = rzScope.getConfig(el);
   if (scopeValue === null) return;
 
-  const { controllerName, rawPayload } = scopeValue;
+  const { scopeName, rawPayload } = scopeValue;
 
-  let setup: ControllerFn;
+  let setup: ScopeFn;
   let isAlias = false;
 
   // Context aliasing for stores
-  if (controllerName.startsWith(STORE_PREFIX)) {
+  if (scopeName.startsWith(STORE_PREFIX)) {
     isAlias = true;
     setup = () => {
       // Fetch the live proxy. Must be an object.
-      const storeData = resolveProps(controllerName, app.stores, true);
+      const storeData = resolveProps(scopeName, app.stores, true);
       return storeData || {};
     };
-  } else if (controllerName === '') {
+  } else if (scopeName === '') {
     setup = () => ({});
   } else {
-    const controller = app.registry.get(controllerName);
-    if (!controller) {
-      warn(`Controller '${controllerName}' is not registered.`);
+    const scope = app.registry.get(scopeName);
+    if (!scope) {
+      warn(`Scope '${scopeName}' is not registered.`);
       return;
     }
-    setup = controller;
+    setup = scope;
   }
 
   const strategies = rzWake.getConfig(el, app);
@@ -59,13 +59,13 @@ export function initControllerElement(el: HTMLElement, app: RouseApp) {
   attachWakeStrategies(el, strategies, () => {
     // Props can't be passed to an alias so skip `resolveProps` in that case
     const props = isAlias ? {} : resolveProps(rawPayload, app?.stores) || {};
-    initControllerInstance(el, app, setup, props, { isAlias });
+    initScopeInstance(el, app, setup, props, { isAlias });
   });
 }
 
 /**
  * Creates a MutationObserver scoped to the provided app instance.
- * Watches for new controller, store, and fetch elements. Also handles cleanup
+ * Watches for new scope, store, and fetch elements. Also handles cleanup
  * for synthetic polling timers and DOM instances.
  *
  * @returns A configured, unstarted MutationObserver instance.
@@ -91,11 +91,11 @@ export function initObserver(app: RouseApp) {
             }
           });
 
-          // Check for controllers
+          // Check for scopes
           queryTargets<HTMLElement>(el, scopeSelector).forEach((el) => {
             // Confirm app ownership in case of nested apps
             if (getApp(el, app)) {
-              initControllerElement(el, app);
+              initScopeElement(el, app);
             }
           });
 
@@ -126,7 +126,7 @@ export function initObserver(app: RouseApp) {
             }
           });
 
-          // If the newly added element doesn't belong to a controller,
+          // If the newly added element doesn't belong to a scope,
           // walk its tree and auto-mount any bound directives globally.
           if (!ownerScope) {
             walkBoundElements(el, (boundEl) => {
@@ -147,10 +147,10 @@ export function initObserver(app: RouseApp) {
             rzStore.teardown(el);
           });
 
-          // Cleanup controllers
+          // Cleanup scopes
           queryTargets<HTMLElement>(el, scopeSelector).forEach(destroyInstance);
 
-          // Ownership resolved against the controllerBindings WeakMap, not DOM
+          // Ownership resolved against the scopeBindings WeakMap, not DOM
           // ancestry. Survives detached parents, cross-boundary moves, and
           // sync-detachment edge cases.
           const ownerScope = resolveRemovedOwner(el);

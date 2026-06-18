@@ -80,7 +80,7 @@ export function attachListener<D = any>(
  * the synthetic-event registry (via `dispatchTrigger` or `attachListener`),
  * and returns a single aggregate cleanup that tears them all down.
  *
- * Backs `ctx.on` for controllers and is also exported for non-controller
+ * Backs `ctx.on` for scopes and is also exported for non-scope
  * code that needs the same trigger semantics as the declarative directives.
  *
  * @example
@@ -186,7 +186,7 @@ export function dispatchTrigger(
  * All strategies must be satisfied before `onWake` fires. If no strategies
  * are provided it fires immediately.
  *
- * @param el - The controller element awaiting activation.
+ * @param el - The scope element awaiting activation.
  * @param triggers - Parsed TriggerDef array from `parseTriggers`.
  * @param onWake - Invoked once when all strategies have been satisfied.
  * @returns A master cleanup function to abort wake strategies if the element unmounts early.

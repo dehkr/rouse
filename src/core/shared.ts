@@ -1,4 +1,4 @@
-import type { Controller, DirectiveSlug } from '../types';
+import type { DirectiveSlug, Scope } from '../types';
 import {
   DEFAULT_INSERT_METHOD,
   type InsertOperation,
@@ -7,7 +7,7 @@ import {
 } from './constants';
 import { parseDirectiveValue } from './parser';
 
-export const EMPTY_SCOPE = {} as Controller;
+export const EMPTY_SCOPE = {} as Scope;
 
 export const warn = (msg: string, ...args: any[]) => {
   console.warn(`[Rouse] ${msg}`, ...args);

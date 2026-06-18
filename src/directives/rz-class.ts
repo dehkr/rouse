@@ -3,13 +3,13 @@ import { resolveBoundValue } from '../core/props';
 import { updateClass } from '../dom/updater';
 import { boundCleanup } from '../dom/utils';
 import { effect } from '../reactivity';
-import type { BoundCleanupFn, BoundDirective, Controller, DirectiveSlug } from '../types';
+import type { BoundCleanupFn, BoundDirective, DirectiveSlug, Scope } from '../types';
 
 const SLUG = 'class' as const satisfies DirectiveSlug;
 
 function bind(
   el: Element,
-  scope: Controller,
+  scope: Scope,
   app: RouseApp,
   key: string,
   val: string,

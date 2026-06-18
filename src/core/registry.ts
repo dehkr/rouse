@@ -1,21 +1,21 @@
-import { IS_CONTROLLER } from '../dom/controller';
-import type { ControllerFn } from '../types';
+import { IS_SCOPE } from '../dom/scope';
+import type { ScopeFn } from '../types';
 
 export class Registry {
-  private controllers = new Map<string, ControllerFn<any>>();
+  private scopes = new Map<string, ScopeFn<any>>();
 
-  register(name: string, setup: ControllerFn<any>) {
-    if (!(setup as any)[IS_CONTROLLER]) {
-      throw new Error(`[Rouse] '${name}' is not a valid controller.`);
+  register(name: string, setup: ScopeFn<any>) {
+    if (!(setup as any)[IS_SCOPE]) {
+      throw new Error(`[Rouse] '${name}' is not a valid scope.`);
     }
-    this.controllers.set(name, setup);
+    this.scopes.set(name, setup);
   }
 
-  get(name: string): ControllerFn<any> | undefined {
-    return this.controllers.get(name);
+  get(name: string): ScopeFn<any> | undefined {
+    return this.scopes.get(name);
   }
 
   has(name: string): boolean {
-    return this.controllers.has(name);
+    return this.scopes.has(name);
   }
 }

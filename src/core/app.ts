@@ -5,19 +5,19 @@ import {
   teardownGlobalBindings,
   walkBoundElements,
 } from '../dom/binder';
-import { defineController, destroyInstance, IS_CONTROLLER } from '../dom/controller';
-import { initControllerElement, initObserver } from '../dom/initializer';
+import { initObserver, initScopeElement } from '../dom/initializer';
 import { initDomMutator } from '../dom/mutator';
 import { initStoreRouter } from '../dom/router';
+import { defineScope, destroyInstance, IS_SCOPE } from '../dom/scope';
 import { handleFetch } from '../net/engine';
 import { fallbackResponse } from '../net/response';
 import type {
-  ControllerFn,
   ErrorInterceptor,
   InterceptorPhase,
   RequestInterceptor,
   ResponseInterceptor,
   RouseRequest,
+  ScopeFn,
   VoidFn,
 } from '../types';
 import { Registry } from './registry';
@@ -32,7 +32,7 @@ export interface RouseConfig {
   headers?: Record<string, string>;
   /** Standard fetch `credentials` value applied to every request. */
   credentials?: RequestCredentials;
-  /** Default controller activation strategy. Overridden by `rz-wake`. */
+  /** Default scope activation strategy. Overridden by `rz-wake`. */
   wake?: string;
 }
 
@@ -106,42 +106,37 @@ export class RouseApp {
   }
 
   /**
-   * Registers one or multiple controllers to the application.
+   * Registers one or multiple scopes to the application.
    *
    * @example
    * // Single registration
-   * app.controller('counter', counter);
-   * app.controller('cart', cart);
+   * app.scope('counter', counter);
+   * app.scope('cart', cart);
    *
    * @example
    * // Object shorthand for bulk registration
-   * app.controller({ counter, cart });
+   * app.scope({ counter, cart });
    *
-   * @param nameOrControllers - Either the unique string name of a controller, or an object mapping names to setup functions.
+   * @param nameOrScopes - Either the unique string name of a scope, or an object mapping names to setup functions.
    * @param setup - The setup function (only required when the first argument is a string).
    */
-  controller<P extends Record<string, any>>(name: string, setup: ControllerFn<P>): this;
-  controller(controllers: Record<string, ControllerFn<any>>): this;
-  controller(
-    nameOrControllers: string | Record<string, ControllerFn<any>>,
-    setup?: ControllerFn<any>,
-  ): this {
+  scope<P extends Record<string, any>>(name: string, setup: ScopeFn<P>): this;
+  scope(scopes: Record<string, ScopeFn<any>>): this;
+  scope(nameOrScopes: string | Record<string, ScopeFn<any>>, setup?: ScopeFn<any>): this {
     const map =
-      typeof nameOrControllers === 'string'
-        ? { [nameOrControllers]: setup }
-        : nameOrControllers;
+      typeof nameOrScopes === 'string' ? { [nameOrScopes]: setup } : nameOrScopes;
 
     if (!map || typeof map !== 'object' || Array.isArray(map)) {
-      throw new Error('[Rouse] Invalid controller registration.');
+      throw new Error('[Rouse] Invalid scope registration.');
     }
 
     for (const [name, fn] of Object.entries(map)) {
       if (typeof fn !== 'function') {
-        throw new Error(`[Rouse] Controller '${name}' must be a setup function.`);
+        throw new Error(`[Rouse] Scope '${name}' must be a setup function.`);
       }
 
-      // Auto-wrap functions with `controller()` if they weren't already
-      const finalSetup = (fn as any)[IS_CONTROLLER] ? fn : defineController(fn);
+      // Auto-wrap functions with `scope()` if they weren't already
+      const finalSetup = (fn as any)[IS_SCOPE] ? fn : defineScope(fn);
       this.registry.register(name, finalSetup);
     }
 
@@ -168,7 +163,7 @@ export class RouseApp {
    *   return config;
    * });
    *
-   * // Later, e.g. in a controller's disconnect():
+   * // Later, e.g. in a scope's disconnect():
    * remove();
    */
   interceptor(phase: 'request', fn: RequestInterceptor): VoidFn;
@@ -256,10 +251,10 @@ export class RouseApp {
 
     // Initial scans
 
-    const controllers = queryTargets<HTMLElement>(this.root, directiveSelector('scope'));
-    controllers.forEach((el) => {
+    const scopes = queryTargets<HTMLElement>(this.root, directiveSelector('scope'));
+    scopes.forEach((el) => {
       if (getApp(el, this)) {
-        initControllerElement(el, this);
+        initScopeElement(el, this);
       }
     });
 
@@ -303,7 +298,7 @@ export class RouseApp {
   }
 
   /**
-   * Completely tears down the app instance, unmounts controllers,
+   * Completely tears down the app instance, unmounts scopes,
    * stops timers, and frees memory.
    */
   destroy() {
@@ -315,9 +310,9 @@ export class RouseApp {
     // Remove global event listeners
     this._abortController?.abort();
 
-    // Unmount all controllers
-    const controllers = queryTargets<HTMLElement>(this.root, directiveSelector('scope'));
-    controllers.forEach(destroyInstance);
+    // Unmount all scopes
+    const scopes = queryTargets<HTMLElement>(this.root, directiveSelector('scope'));
+    scopes.forEach(destroyInstance);
 
     // Cleanup network directives
     for (const d of [rzFetch, rzSave, rzRefresh]) {

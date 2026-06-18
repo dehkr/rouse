@@ -1,13 +1,13 @@
 import type { RouseApp } from '../core/app';
 import { effectScope } from '../reactivity';
-import type { ControllerCtx, ControllerFn, RouseRequest } from '../types';
-import { bindController } from './binder';
+import type { RouseRequest, ScopeCtx, ScopeFn } from '../types';
+import { bindScope } from './binder';
 import { dispatch, on } from './scheduler';
 import { insert } from './utils';
 
 const instanceMap = new WeakMap<HTMLElement, any>();
 
-export const IS_CONTROLLER: unique symbol = Symbol('rz_controller');
+export const IS_SCOPE: unique symbol = Symbol('rz_is_scope');
 
 export function scanScopeNode(el: HTMLElement, newNode: Element) {
   const inst = instanceMap.get(el);
@@ -23,22 +23,22 @@ export function teardownScopeNode(el: HTMLElement, removedNode: Element) {
   }
 }
 
-// Initializes a controller instance on a specific element
-export function initControllerInstance(
+// Initializes a scope instance on a specific element
+export function initScopeInstance(
   el: HTMLElement,
   app: RouseApp,
-  setup: ControllerFn,
+  setup: ScopeFn,
   props: Record<string, any> = {},
   options: { isAlias?: boolean } = {},
 ) {
   if (instanceMap.has(el)) return;
-  instanceMap.set(el, createController(el, app, setup, props, options));
+  instanceMap.set(el, createScope(el, app, setup, props, options));
 }
 
 export function destroyInstance(el: HTMLElement) {
   const inst = instanceMap.get(el);
   if (inst) {
-    dispatch(el, 'rz:controller:destroy');
+    dispatch(el, 'rz:scope:destroy');
     // Trigger disconnect() and cleanup
     inst._destroy();
     instanceMap.delete(el);
@@ -48,27 +48,27 @@ export function destroyInstance(el: HTMLElement) {
 /**
  * Identity function for TypeScript inference.
  */
-export function defineController<P extends Record<string, any> = Record<string, any>>(
-  fn: ControllerFn<P>,
-): ControllerFn<P> {
-  (fn as any)[IS_CONTROLLER] = true;
+export function defineScope<P extends Record<string, any> = Record<string, any>>(
+  fn: ScopeFn<P>,
+): ScopeFn<P> {
+  (fn as any)[IS_SCOPE] = true;
   return fn;
 }
 
 /**
- * Factory to create and manage a controller instance.
+ * Factory to create and manage a scope instance.
  */
-export function createController(
+export function createScope(
   el: HTMLElement,
   app: RouseApp,
-  setup: ControllerFn,
+  setup: ScopeFn,
   props: Record<string, any> = {},
   options: { isAlias?: boolean } = {},
 ) {
   let isDestroyed = false;
   const cleanups: (() => void)[] = [];
 
-  // Create abort signal for use in controllers to provide auto-cleanup
+  // Create abort signal for use in scopes to provide auto-cleanup
   const abortCtrl = new AbortController();
 
   const handle = {
@@ -84,8 +84,8 @@ export function createController(
     },
   };
 
-  // Context object passed into the controller setup function
-  const context: ControllerCtx = {
+  // Context object passed into the scope setup function
+  const context: ScopeCtx = {
     scope: el,
     root: app.root,
     props,
@@ -121,7 +121,7 @@ export function createController(
       return on(target, events, callback, activeSignal);
     },
 
-    // Inject abort signal to avoid background request if controller is destroyed
+    // Inject abort signal to avoid background request if scope is destroyed
     // User can override by adding `signal: undefined` option
     // `keepalive: true` option allows a request to finish even if tab closes
     fetch: (resource: string, options: RouseRequest = {}) => {
@@ -134,27 +134,27 @@ export function createController(
       return app.fetch(resource, finalOptions);
     },
 
-    // Allows for triggering a scan from inside the controller
+    // Allows for triggering a scan from inside the scope
     scan: (newNode: Element) => {
       if (handle._scan) handle._scan(newNode);
     },
   };
 
   // Setup effect scope
-  // Wraps the effects that belong to the controller instance
+  // Wraps the effects that belong to the scope instance
   let instance: any;
   const stopSetupScope = effectScope(() => {
     instance = setup(context) || {};
   });
 
   // Block async setup functions since they can't be captured in effect scope
-  // which will cause memory leaks. Controllers should be initialized synchronously,
+  // which will cause memory leaks. Scopes should be initialized synchronously,
   // then populated asynchronously (data should be fetched as a side effect).
   if (instance instanceof Promise) {
     stopSetupScope();
     abortCtrl.abort();
     throw new Error(
-      `[Rouse] Controller setup must be synchronous. Fetch data as a side effect.`,
+      `[Rouse] Scope setup must be synchronous. Fetch data as a side effect.`,
     );
   }
 
@@ -162,14 +162,14 @@ export function createController(
   handle.instance = instance;
 
   // State exists but not bound to DOM yet
-  dispatch(el, 'rz:controller:init', { context, instance });
+  dispatch(el, 'rz:scope:init', { context, instance });
 
   // Binding effect scope
   // Wraps the logic that connects the reactive state to the DOM
   // Captures effects created by bindings (text, atts, etc.) so the UI auto updates
   if (instance !== undefined) {
     const stopBindingScope = effectScope(() => {
-      const { unbindDom, scan, teardown } = bindController(
+      const { unbindDom, scan, teardown } = bindScope(
         el,
         instance,
         app,

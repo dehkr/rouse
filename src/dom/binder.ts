@@ -11,16 +11,16 @@ import {
   rzStyle,
   rzText,
 } from '../directives';
-import type { BoundCleanupFn, Controller } from '../types';
+import type { BoundCleanupFn, Scope } from '../types';
 import { dispatch } from './scheduler';
 
 /** Registry to track cleanup functions of globally mounted directives. */
 const globalBindings = new WeakMap<Element, BoundCleanupFn[]>();
 
-/** Registry mapping controller-bound elements to their scope root element. */
-const controllerBindings = new WeakMap<Element, HTMLElement>();
+/** Registry mapping scope-bound elements to their scope root element. */
+const scopeBindings = new WeakMap<Element, HTMLElement>();
 
-/** Directives that can be bound to local controller scope. */
+/** Directives that can be bound to local scope. */
 const BOUND_DIRECTIVES = [
   rzAttr,
   rzClass,
@@ -32,7 +32,7 @@ const BOUND_DIRECTIVES = [
   rzText,
 ] as const;
 
-/** Selector string of all controller-bound directives. */
+/** Selector string of all scope-bound directives. */
 export const DIRECTIVES_SELECTOR = BOUND_DIRECTIVES.map((directive) =>
   directiveSelector(directive.slug),
 ).join(', ');
@@ -42,7 +42,7 @@ export const DIRECTIVES_SELECTOR = BOUND_DIRECTIVES.map((directive) =>
  */
 export function bindDirectives(
   el: Element,
-  scope: Controller,
+  scope: Scope,
   app: RouseApp,
 ): BoundCleanupFn[] {
   const cleanups: BoundCleanupFn[] = [];
@@ -74,7 +74,7 @@ export function walkBoundElements(
   options?: { acceptScopeRoot?: boolean },
 ): void {
   // If root is itself a scope and the caller hasn't opted in,
-  // the entire subtree is controller-owned.
+  // the entire subtree is scope-owned.
   if (!options?.acceptScopeRoot && root.matches(scopeSelector)) return;
 
   if (root.matches(DIRECTIVES_SELECTOR)) {
@@ -103,7 +103,7 @@ export function walkBoundElements(
 }
 
 /**
- * Attaches bound directives to an element outside of a Controller scope.
+ * Attaches bound directives to an element outside of a scope.
  * Resolves reactive state against global stores rather than local variables.
  */
 export function mountGlobalBinding(el: Element, app: RouseApp): void {
@@ -135,13 +135,13 @@ export function teardownGlobalBindings(root: Element): void {
  * globally-bound or unbound subtrees.
  */
 export function resolveRemovedOwner(el: Element): HTMLElement | null {
-  const direct = controllerBindings.get(el);
+  const direct = scopeBindings.get(el);
   if (direct) return direct;
 
   let found: HTMLElement | null = null;
   walkBoundElements(el, (boundEl) => {
     if (!found) {
-      const owner = controllerBindings.get(boundEl);
+      const owner = scopeBindings.get(boundEl);
       if (owner) found = owner;
     }
   });
@@ -160,12 +160,12 @@ function runCleanups(el: Element, fns: BoundCleanupFn[]): void {
 }
 
 /**
- * Binds the controller instance to the DOM.
+ * Binds the scope instance to the DOM.
  * Returns internal lifecycle methods so the app can delegate DOM mutations.
  */
-export function bindController(
+export function bindScope(
   root: HTMLElement,
-  instance: Controller,
+  instance: Scope,
   app: RouseApp,
   skipLifecycles = false,
 ) {
@@ -176,7 +176,7 @@ export function bindController(
     const cleanups = elementCleanups.get(el) ?? [];
     if (!elementCleanups.has(el)) {
       elementCleanups.set(el, cleanups);
-      controllerBindings.set(el, root);
+      scopeBindings.set(el, root);
     }
     cleanups.push(fn);
   }
@@ -188,7 +188,7 @@ export function bindController(
     if (!cleanups) return;
 
     elementCleanups.delete(el);
-    controllerBindings.delete(el);
+    scopeBindings.delete(el);
     runCleanups(el, cleanups);
   }
 
@@ -235,10 +235,10 @@ export function bindController(
     instance.connect();
   }
 
-  // The DOM is bound and the controller is fully active
-  dispatch(root, 'rz:controller:connect', { instance });
+  // The DOM is bound and the scope is fully active
+  dispatch(root, 'rz:scope:connect', { instance });
 
-  // Disconnects the entire controller
+  // Disconnects the entire scope
   function unbindDom() {
     for (const el of elementCleanups.keys()) {
       runCleanup(el);
@@ -246,7 +246,7 @@ export function bindController(
     if (typeof instance.disconnect === 'function' && !skipLifecycles) {
       instance.disconnect();
     }
-    dispatch(root, 'rz:controller:disconnect', { instance });
+    dispatch(root, 'rz:scope:disconnect', { instance });
   }
 
   return { unbindDom, scan, teardown };

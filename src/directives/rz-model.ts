@@ -10,8 +10,8 @@ import type {
   BindableValue,
   BoundCleanupFn,
   BoundDirective,
-  Controller,
   DirectiveSlug,
+  Scope,
   TriggerDef,
   VoidFn,
 } from '../types';
@@ -43,7 +43,7 @@ function modelDefaultTrigger(el: Element): TriggerDef | null {
  */
 function bind(
   el: Element,
-  scope: Controller,
+  scope: Scope,
   app: RouseApp,
   key: string,
   value: string,
