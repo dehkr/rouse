@@ -1,6 +1,6 @@
 import type { RouseApp } from '../core/app';
+import { resolveInjection } from '../core/injection';
 import { parseDirectiveValue } from '../core/parser';
-import { resolveProps } from '../core/props';
 import { getDirectiveValue, kebabToCamel } from '../core/shared';
 import { parseTime } from '../core/timing';
 import type { ConfigDirective, DirectiveSlug, RouseRequest } from '../types';
@@ -32,8 +32,8 @@ export function parseRequestConfig(
     if (!key) continue;
 
     // Dynamic payload delimiters
-    if (val.match(/^[?#@{]/)) {
-      config[key] = resolveProps(val, app?.stores, false);
+    if (val.match(/^[#@{]/)) {
+      config[key] = resolveInjection(val, app?.stores, false);
     }
 
     // Booleans

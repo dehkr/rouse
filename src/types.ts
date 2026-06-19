@@ -344,7 +344,7 @@ export type ScopeFn<
 /**
  * The context object passed into every scope setup function.
  *
- * @template P - The type of the props.
+ * @template P - The type of the data.
  * @template T - The Element type.
  */
 export type ScopeCtx<
@@ -353,7 +353,7 @@ export type ScopeCtx<
 > = {
   scope: T;
   root: HTMLElement;
-  props: P;
+  data: P;
   stores: StoreManager;
   term: AbortSignal;
   dispatch: {
@@ -394,11 +394,11 @@ export type ScopeCtx<
 /**
  * The context object passed as an argument to scope methods.
  *
- * @template P - The type of the props.
+ * @template P - The type of the data.
  * @template T - The Element type.
  */
 export type HandlerCtx<P = Record<string, any>, T extends Element = HTMLElement> = {
-  props: P;
+  data: P;
   el: T;
   e: Event;
 };

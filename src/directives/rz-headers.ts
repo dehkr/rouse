@@ -1,17 +1,16 @@
 import type { RouseApp } from '../core/app';
+import { resolveInjection } from '../core/injection';
 import { parseDirectiveValue } from '../core/parser';
-import { resolveProps } from '../core/props';
 import { getDirectiveValue, warn } from '../core/shared';
 import type { ConfigDirective, DirectiveSlug } from '../types';
 
 /**
  * Parses a `rz-headers*` directive value into a header record.
- * Supports object injection (`?`, `#`, `@`, `{`) or static key-value pairs.
+ * Supports object injection (`#`, `@`, `{`) or static key-value pairs.
  *
  * - `rz-headers="Tenant: 123"`
  * - `rz-headers="@session.authHeaders"`
  * - `rz-headers="#auth-headers"`
- * - `rz-headers="?Tenant=123"`
  * - `rz-headers='{ "Tenant": 123 }'`
  */
 export function parseHeadersConfig(
@@ -22,8 +21,8 @@ export function parseHeadersConfig(
   if (!value) return {};
 
   // Object injection
-  if (value.match(/^[?#@{]/)) {
-    const resolvedObject = resolveProps(value, app?.stores, false);
+  if (value.match(/^[#@{]/)) {
+    const resolvedObject = resolveInjection(value, app?.stores, false);
     const headers: Record<string, string> = {};
 
     if (resolvedObject && typeof resolvedObject === 'object') {

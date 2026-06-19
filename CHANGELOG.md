@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Enable `rz-text`, `rz-html`, and `rz-attr` to invoke scope or store functions with a resolved payload, using the same `?`, `{`, `@`, `#` delimiter protocol as `rz-on` and `rz-scope`. Functions receive a `HandlerCtx` where `e` is a synthetic `CustomEvent` typed as `rz:${slug}`.
+- Enable `rz-text`, `rz-html`, and `rz-attr` to invoke scope or store functions with a resolved payload, using the same `{`, `@`, `#` delimiter protocol as `rz-on` and `rz-scope`. Functions receive a `HandlerCtx` where `e` is a synthetic `CustomEvent` typed as `rz:${slug}`.
 - Add `rz-prop` directive for assigning values to element properties.
 - Add `rz-class` and `rz-style` directives using conditional class/style binding with a `[tokens]: [condition]` grammar plus a single-key fallback (parity with `rz-attr`).
 
@@ -17,8 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Breaking:** Rename `ActionCtx` to `HandlerCtx` to reflect that the same context shape is now used for both event handlers (`rz-on`) and one-way binding formatters (`rz-text`, `rz-html`, `rz-attr`).
 - **Breaking:** Rename `defineController` to `defineScope`, `ControllerCtx` to `ScopeCtx`, and `ControllerFn` to `ScopeFn`.
-- **Breaking:** Make `HandlerCtx.props` required (now defaulting to `{}` when no payload is provided) to allow user code to read `props.x` without optional-chaining guards.
-- **Breaking:** Rename `rz-bind` to `rz-attr`.
+- **Breaking:** Rename `rz-bind` directive to `rz-attr`.
+- **Breaking:** Rename `ctx.props` to `ctx.data`.
+- **Breaking:** Make `HandlerCtx.data` required (now defaulting to `{}` when a data payload isn't provided) to allow user code to read `data.x` without optional-chaining guards.
 - **Breaking:** Require explicit triggers for non-interactive elements when using `rz-on`, `rz-fetch`, `rz-save`, and  `rz-refresh`.
 - Wrap store and reactive proxy getters in `computed()`, binding `this` to the proxy.
 - Pass the state-literal type through `app.store()` and `StoreManager.create()` as a generic parameter to ensure `this` inside object-literal getters resolves to the store shape.

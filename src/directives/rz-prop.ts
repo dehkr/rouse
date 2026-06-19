@@ -1,5 +1,5 @@
 import type { RouseApp } from '../core/app';
-import { resolveBoundValue } from '../core/props';
+import { resolveBoundValue } from '../core/injection';
 import { updateProp } from '../dom/updater';
 import { boundCleanup } from '../dom/utils';
 import { effect } from '../reactivity';

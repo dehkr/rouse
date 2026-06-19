@@ -1,6 +1,6 @@
 import { getApp, type RouseApp } from '../core/app';
 import { STORE_PREFIX } from '../core/constants';
-import { resolveProps } from '../core/props';
+import { resolveInjection } from '../core/injection';
 import { directiveSelector, hasDirective, queryTargets, warn } from '../core/shared';
 import { rzFetch, rzRefresh, rzSave, rzScope, rzStore, rzWake } from '../directives';
 import type { ScopeFn } from '../types';
@@ -40,7 +40,7 @@ export function initScopeElement(el: HTMLElement, app: RouseApp) {
     isAlias = true;
     setup = () => {
       // Fetch the live proxy. Must be an object.
-      const storeData = resolveProps(scopeName, app.stores, true);
+      const storeData = resolveInjection(scopeName, app.stores, true);
       return storeData || {};
     };
   } else if (scopeName === '') {
@@ -57,9 +57,9 @@ export function initScopeElement(el: HTMLElement, app: RouseApp) {
   const strategies = rzWake.getConfig(el, app);
 
   attachWakeStrategies(el, strategies, () => {
-    // Props can't be passed to an alias so skip `resolveProps` in that case
-    const props = isAlias ? {} : resolveProps(rawPayload, app?.stores) || {};
-    initScopeInstance(el, app, setup, props, { isAlias });
+    // Data can't be passed to an alias so skip `resolveInjection` in that case
+    const data = isAlias ? {} : resolveInjection(rawPayload, app?.stores) || {};
+    initScopeInstance(el, app, setup, data, { isAlias });
   });
 }
 

@@ -27,11 +27,11 @@ function safeJSONParse(text: string): unknown {
 
 /**
  * Resolves a payload string into a JavaScript value. Uses heuristics to determine
- * if the payload is inline JSON, a DOM ID, a global store, or URL params.
+ * if the payload is inline JSON, a DOM ID, or a global store.
  *
  * @param requireObject - If true (default), enforces that the resolved value is an object.
  */
-export function resolveProps(
+export function resolveInjection(
   input: string | undefined | null,
   storeManager?: StoreManager,
   requireObject = true,
@@ -52,7 +52,7 @@ export function resolveProps(
     const storeData = storeManager.get(storeName);
 
     if (storeData === undefined) {
-      warn(`Store '${storeName}' not found. Cannot resolve props '${value}'.`);
+      warn(`Store '${storeName}' not found. Cannot resolve '${value}'.`);
       return undefined;
     }
 
@@ -152,10 +152,12 @@ export function resolveBoundValue(
       : scope;
 
     try {
-      const props =
-        rawPayload !== undefined ? (resolveProps(rawPayload, storeManager) ?? {}) : {};
+      const data =
+        rawPayload !== undefined
+          ? (resolveInjection(rawPayload, storeManager) ?? {})
+          : {};
       const e = new CustomEvent(`rz:${slug}`);
-      const args = { props, e, el } as HandlerCtx<Record<string, any>, Element>;
+      const args = { data, e, el } as HandlerCtx<Record<string, any>, Element>;
       return (state as AnyFunction).call(context, args) as BindableValue;
     } catch (error) {
       err(`Failed to execute '${key}()'.`, error);

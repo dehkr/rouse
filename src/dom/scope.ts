@@ -28,11 +28,11 @@ export function initScopeInstance(
   el: HTMLElement,
   app: RouseApp,
   setup: ScopeFn,
-  props: Record<string, any> = {},
+  data: Record<string, any> = {},
   options: { isAlias?: boolean } = {},
 ) {
   if (instanceMap.has(el)) return;
-  instanceMap.set(el, createScope(el, app, setup, props, options));
+  instanceMap.set(el, createScope(el, app, setup, data, options));
 }
 
 export function destroyInstance(el: HTMLElement) {
@@ -62,7 +62,7 @@ export function createScope(
   el: HTMLElement,
   app: RouseApp,
   setup: ScopeFn,
-  props: Record<string, any> = {},
+  data: Record<string, any> = {},
   options: { isAlias?: boolean } = {},
 ) {
   let isDestroyed = false;
@@ -88,7 +88,7 @@ export function createScope(
   const context: ScopeCtx = {
     scope: el,
     root: app.root,
-    props,
+    data,
     stores: app.stores,
     term: abortCtrl.signal,
     insert,

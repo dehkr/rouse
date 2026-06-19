@@ -1,8 +1,8 @@
 import type { RouseApp } from '../core/app';
 import { STORE_PREFIX } from '../core/constants';
+import { resolveInjection, splitInjection } from '../core/injection';
 import { parseStoreLocator, parseTriggers } from '../core/parser';
 import { getNestedVal } from '../core/path';
-import { resolveProps, splitInjection } from '../core/props';
 import { err, warn } from '../core/shared';
 import { dispatchTrigger } from '../dom/scheduler';
 import { boundCleanup, defaultTriggerFor } from '../dom/utils';
@@ -77,9 +77,11 @@ function bind(
       app,
       action: (e?: Event) => {
         try {
-          const props =
-            rawPayload !== undefined ? (resolveProps(rawPayload, app.stores) ?? {}) : {};
-          const args = { props, e, el } as HandlerCtx;
+          const data =
+            rawPayload !== undefined
+              ? (resolveInjection(rawPayload, app.stores) ?? {})
+              : {};
+          const args = { data, e, el } as HandlerCtx;
           method.call(context, args);
         } catch (error) {
           err(`Failed to execute '${methodName}()'.`, error);

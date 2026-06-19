@@ -1,4 +1,4 @@
-import { splitInjection } from '../core/props';
+import { splitInjection } from '../core/injection';
 import { getDirectiveValue } from '../core/shared';
 import type { ConfigDirective, DirectiveSlug } from '../types';
 
