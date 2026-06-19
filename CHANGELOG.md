@@ -20,7 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Breaking:** Rename `rz-bind` directive to `rz-attr`.
 - **Breaking:** Rename `insert()` to `swap()`.
 - **Breaking:** Rename lifecyle event `rz:dom:update` to `rz:dom:swap`.
-- **Breaking:** Rename `ctx.props` to `ctx.data`.
+- **Breaking:** Rename `ScopeCtx.scope` to `host` and `ScopeCtx.root` to `appRoot`.
+- **Breaking:** Rename `props` to `data` in `ScopeCtx` and `HandlerCtx`.
 - **Breaking:** Make `HandlerCtx.data` required (now defaulting to `{}` when a data payload isn't provided) to allow user code to read `data.x` without optional-chaining guards.
 - **Breaking:** Require explicit triggers for non-interactive elements when using `rz-on`, `rz-fetch`, `rz-save`, and  `rz-refresh`.
 - Wrap store and reactive proxy getters in `computed()`, binding `this` to the proxy.

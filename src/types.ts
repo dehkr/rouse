@@ -351,9 +351,9 @@ export type ScopeCtx<
   P extends Record<string, any> = Record<string, any>,
   T extends Element = HTMLElement,
 > = {
-  scope: T;
-  root: HTMLElement;
   data: P;
+  host: T;
+  appRoot: HTMLElement;
   stores: StoreManager;
   term: AbortSignal;
   dispatch: {

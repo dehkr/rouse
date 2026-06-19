@@ -87,10 +87,10 @@ export function createScope(
   // Context object passed into the scope setup function
   const context: ScopeCtx = {
     data,
-    swap,
-    scope: el,
-    root: app.root,
+    host: el,
+    appRoot: app.root,
     stores: app.stores,
+    swap,
     term: abortCtrl.signal,
 
     dispatch: (...args: any[]) => {
