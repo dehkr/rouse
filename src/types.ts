@@ -1,5 +1,5 @@
 import type { RouseApp } from './core/app';
-import type { InsertMethod, PatchAction } from './core/constants';
+import type { PatchAction, SwapMethod } from './core/constants';
 import type { StoreManager } from './core/store';
 
 export type DirectiveSlug =
@@ -111,9 +111,9 @@ export interface StoreSyncRollbackDetail extends BaseStoreSync {
   reason: 'save-error';
 }
 
-export interface DomUpdateDetail {
+export interface DomSwapDetail {
   target: Element;
-  strategy: InsertMethod;
+  method: SwapMethod;
   payload: string;
   source: 'fetch' | 'programmatic';
 }
@@ -148,8 +148,8 @@ export interface LifecycleEventMap {
   'rz:store:sync:error': StoreSyncErrorDetail;
   'rz:store:sync:rollback': StoreSyncRollbackDetail;
 
-  'rz:dom:update:before': DomUpdateDetail;
-  'rz:dom:update': DomUpdateDetail;
+  'rz:dom:swap:before': DomSwapDetail;
+  'rz:dom:swap': DomSwapDetail;
 }
 
 export type LifecycleEvent = keyof LifecycleEventMap;
@@ -291,7 +291,7 @@ export interface FetchConfig {
     string,
     string | number | boolean | null | undefined | string[] | number[]
   >;
-  mutate?: boolean;
+  swap?: boolean;
   dispatchEvents?: boolean;
   skipInterceptors?: boolean;
   retry?: number;
@@ -387,7 +387,7 @@ export type ScopeCtx<
     ): () => void;
   };
   fetch: (resource: string, options?: RouseRequest) => Promise<RouseResponse>;
-  insert: (content: string, target: Element, method: InsertMethod) => void;
+  swap: (content: string, target: Element, method: SwapMethod) => void;
   scan: (newNode: Element) => void;
 };
 

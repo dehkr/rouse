@@ -203,7 +203,7 @@ export function bindScope(
     }
   }
 
-  /** Scans a newly inserted node for directives. */
+  /** Scans a newly added node for directives. */
   function scan(startEl: Element) {
     const owner = startEl.closest(scopeSelector);
     if (!owner || owner !== root) return;

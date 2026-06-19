@@ -1,8 +1,8 @@
 export const STORE_PREFIX = '@';
 export const KEY_BLOCKLIST = ['__proto__', 'constructor', 'prototype'];
 
-/** List of valid HTML DOM insert methods. */
-export const INSERT_METHODS = [
+/** List of valid HTML DOM swap methods. */
+export const SWAP_METHODS = [
   'innerHTML',
   'outerHTML',
   'beforebegin',
@@ -12,21 +12,21 @@ export const INSERT_METHODS = [
   'delete',
 ] as const;
 
-/** Represents a valid DOM insert method string. */
-export type InsertMethod = (typeof INSERT_METHODS)[number];
+/** Represents a valid DOM swap method string. */
+export type SwapMethod = (typeof SWAP_METHODS)[number];
 
-/** Represents the parameters required to execute a DOM insertion. */
-export interface InsertOperation {
+/** Represents the parameters required to execute a DOM swap. */
+export interface SwapOperation {
   targets: Element[];
-  strategy: InsertMethod;
+  method: SwapMethod;
 }
 
-/** Default insert strategy for DOM insertions when explicit value isn't provided. */
-export const DEFAULT_INSERT_METHOD: InsertMethod = 'innerHTML';
+/** Default method for DOM swaps when explicit value isn't provided. */
+export const DEFAULT_SWAP_METHOD: SwapMethod = 'innerHTML';
 
-/** Type guard to check if a given string is a valid {@link InsertMethod}. */
-export function isInsertMethod(key: string): key is InsertMethod {
-  return INSERT_METHODS.includes(key as InsertMethod);
+/** Type guard to check if a given string is a valid {@link SwapMethod}. */
+export function isSwapMethod(key: string): key is SwapMethod {
+  return SWAP_METHODS.includes(key as SwapMethod);
 }
 
 /** List of valid standard HTTP methods. */

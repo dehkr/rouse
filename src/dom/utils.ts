@@ -1,7 +1,5 @@
-import type { InsertMethod } from '../core/constants';
 import { warn } from '../core/shared';
 import type { BoundCleanupFn, DirectiveSlug, TriggerDef, VoidFn } from '../types';
-import { dispatch } from './scheduler';
 
 const elementMap = {
   Anchor: HTMLAnchorElement,
@@ -63,52 +61,6 @@ export function resolveDefaultTrigger(
   }
 
   return { event, modifiers: [] };
-}
-
-/**
- * Handles inserting HTML partials into the DOM.
- */
-export function insert(
-  content: string,
-  target: Element,
-  method: InsertMethod = 'innerHTML',
-  source: 'fetch' | 'programmatic' = 'programmatic',
-) {
-  const dispatcherEl =
-    method === 'outerHTML' || method === 'delete'
-      ? target.parentElement || target
-      : target;
-
-  const beforeEvent = dispatch(
-    dispatcherEl,
-    'rz:dom:update:before',
-    { target, strategy: method, payload: content, source },
-    { cancelable: true },
-  );
-
-  if (beforeEvent.defaultPrevented) return;
-  const finalContent = beforeEvent.detail.payload;
-
-  switch (method) {
-    case 'delete':
-      target.remove();
-      break;
-    case 'innerHTML':
-      target.innerHTML = finalContent;
-      break;
-    case 'outerHTML':
-      target.outerHTML = finalContent;
-      break;
-    default:
-      target.insertAdjacentHTML(method, finalContent);
-  }
-
-  dispatch(dispatcherEl, 'rz:dom:update', {
-    target,
-    strategy: method,
-    payload: finalContent,
-    source,
-  });
 }
 
 /**

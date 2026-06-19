@@ -18,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Breaking:** Rename `ActionCtx` to `HandlerCtx` to reflect that the same context shape is now used for both event handlers (`rz-on`) and one-way binding formatters (`rz-text`, `rz-html`, `rz-attr`).
 - **Breaking:** Rename `defineController` to `defineScope`, `ControllerCtx` to `ScopeCtx`, and `ControllerFn` to `ScopeFn`.
 - **Breaking:** Rename `rz-bind` directive to `rz-attr`.
+- **Breaking:** Rename `insert()` to `swap()`.
+- **Breaking:** Rename lifecyle event `rz:dom:update` to `rz:dom:swap`.
 - **Breaking:** Rename `ctx.props` to `ctx.data`.
 - **Breaking:** Make `HandlerCtx.data` required (now defaulting to `{}` when a data payload isn't provided) to allow user code to read `data.x` without optional-chaining guards.
 - **Breaking:** Require explicit triggers for non-interactive elements when using `rz-on`, `rz-fetch`, `rz-save`, and  `rz-refresh`.

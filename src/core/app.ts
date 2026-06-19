@@ -6,9 +6,9 @@ import {
   walkBoundElements,
 } from '../dom/binder';
 import { initObserver, initScopeElement } from '../dom/initializer';
-import { initDomMutator } from '../dom/mutator';
 import { initStoreRouter } from '../dom/router';
 import { defineScope, destroyInstance, IS_SCOPE } from '../dom/scope';
+import { initDomSwapper } from '../dom/swapper';
 import { handleFetch } from '../net/engine';
 import { fallbackResponse } from '../net/response';
 import type {
@@ -229,7 +229,7 @@ export class RouseApp {
     );
 
     // Watch for HTML fetch responses
-    initDomMutator(this.root, this._abortController.signal);
+    initDomSwapper(this.root, this._abortController.signal);
 
     // Watch for JSON fetch responses
     initStoreRouter(this, this._abortController.signal);

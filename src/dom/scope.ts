@@ -3,7 +3,7 @@ import { effectScope } from '../reactivity';
 import type { RouseRequest, ScopeCtx, ScopeFn } from '../types';
 import { bindScope } from './binder';
 import { dispatch, on } from './scheduler';
-import { insert } from './utils';
+import { swap } from './swapper';
 
 const instanceMap = new WeakMap<HTMLElement, any>();
 
@@ -86,12 +86,12 @@ export function createScope(
 
   // Context object passed into the scope setup function
   const context: ScopeCtx = {
+    data,
+    swap,
     scope: el,
     root: app.root,
-    data,
     stores: app.stores,
     term: abortCtrl.signal,
-    insert,
 
     dispatch: (...args: any[]) => {
       // If the first argument is a string, assume target was omitted
@@ -128,7 +128,7 @@ export function createScope(
       const finalOptions: RouseRequest = {
         target: el,
         signal: abortCtrl.signal,
-        mutate: false,
+        swap: false,
         ...options,
       };
       return app.fetch(resource, finalOptions);

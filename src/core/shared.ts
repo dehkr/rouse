@@ -1,9 +1,9 @@
 import type { DirectiveSlug, Scope } from '../types';
 import {
-  DEFAULT_INSERT_METHOD,
-  type InsertOperation,
-  isInsertMethod,
+  DEFAULT_SWAP_METHOD,
+  isSwapMethod,
   STORE_PREFIX,
+  type SwapOperation,
 } from './constants';
 import { parseDirectiveValue } from './parser';
 
@@ -56,17 +56,6 @@ export function isPlainObject(val: unknown): val is Record<string, any> {
   return proto === null || proto === Object.prototype;
 }
 
-/**
- * Returns true for any MIME type that should be inserted into the DOM.
- */
-export function isInsertableType(val: string) {
-  return (
-    val.includes('text/html') ||
-    val.includes('text/plain') ||
-    val.includes('image/svg+xml')
-  );
-}
-
 export function isJsonType(val: string) {
   return val.includes('application/json') || val.includes('+json');
 }
@@ -101,33 +90,33 @@ let count = 46656;
 export const uniqueKey = (prefix = 'rz-') => prefix + session + (count++).toString(36);
 
 /**
- * Shared utility to parse target strings into DOM insertion operations.
+ * Shared utility to parse target strings into DOM swap operations.
  *
  * Returns an array of operations to support multi-target updates.
- * Accepts "strategy: selector", "strategy", and/or "selector" values.
+ * Accepts "method: selector", "method", and/or "selector" values.
  *
- * Defaults to "innerHTML" if strategy is missing and the host element
+ * Defaults to "innerHTML" if method is missing and the host element
  * if the selector is missing.
  *
  * - `rz-target="beforebegin: #header"`
  * - `rz-target="beforebegin"`
  * - `rz-error="#output"`
  */
-export function resolveInsertOperations(
+export function resolveSwapOperations(
   value: string | null | undefined,
   hostEl: Element,
   appRoot: Element,
-): InsertOperation[] {
+): SwapOperation[] {
   if (!value?.trim()) {
-    return [{ targets: [hostEl], strategy: DEFAULT_INSERT_METHOD }];
+    return [{ targets: [hostEl], method: DEFAULT_SWAP_METHOD }];
   }
 
   const parsed = parseDirectiveValue(value);
   if (parsed.length === 0) {
-    return [{ targets: [hostEl], strategy: DEFAULT_INSERT_METHOD }];
+    return [{ targets: [hostEl], method: DEFAULT_SWAP_METHOD }];
   }
 
-  const operations: InsertOperation[] = [];
+  const operations: SwapOperation[] = [];
 
   for (const [key, val] of parsed) {
     // Skip store targets
@@ -137,15 +126,15 @@ export function resolveInsertOperations(
 
     // "Strategy: Selector"
     if (val) {
-      const strategy = isInsertMethod(key) ? key : DEFAULT_INSERT_METHOD;
+      const method = isSwapMethod(key) ? key : DEFAULT_SWAP_METHOD;
       const nodeList = queryTargets(appRoot, val);
 
       if (nodeList.length === 0) {
         warn(`No targets found for '${val}'.`);
-        operations.push({ strategy, targets: [] });
+        operations.push({ method, targets: [] });
       } else {
         operations.push({
-          strategy,
+          method,
           targets: Array.from(nodeList),
         });
       }
@@ -153,8 +142,8 @@ export function resolveInsertOperations(
     }
 
     // "Strategy"
-    if (isInsertMethod(key)) {
-      operations.push({ targets: [hostEl], strategy: key });
+    if (isSwapMethod(key)) {
+      operations.push({ targets: [hostEl], method: key });
       continue;
     }
 
@@ -162,11 +151,11 @@ export function resolveInsertOperations(
     const nodeList = queryTargets(appRoot, key);
     if (nodeList.length === 0) {
       warn(`No targets found for '${key}'.`);
-      operations.push({ targets: [], strategy: DEFAULT_INSERT_METHOD });
+      operations.push({ targets: [], method: DEFAULT_SWAP_METHOD });
     } else {
       operations.push({
         targets: Array.from(nodeList),
-        strategy: DEFAULT_INSERT_METHOD,
+        method: DEFAULT_SWAP_METHOD,
       });
     }
   }
