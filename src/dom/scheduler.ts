@@ -245,11 +245,17 @@ export type SyntheticEventHandler = (ctx: TriggerContext) => VoidFn | null;
  * Store-specific events (`edit`) stay inline in rz-save.
  */
 export const syntheticEvents: Record<string, SyntheticEventHandler> = {
-  /** Fires as soon as the DOM node can be interacted with. */
-  dom: ({ action }) => attachDocStateEvent('dom', action),
-
   /** Fires when all assets (images, etc.) are fully loaded. */
-  load: ({ action }) => attachDocStateEvent('load', action),
+  load: ({ action }) => {
+    if (document.readyState === 'complete') {
+      action();
+      return null;
+    }
+
+    window.addEventListener('load', action, { once: true });
+
+    return () => window.removeEventListener('load', action);
+  },
 
   /** Fires when the RouseApp instance is fully initialized. */
   ready: ({ el, app, action }) => {
@@ -262,6 +268,7 @@ export const syntheticEvents: Record<string, SyntheticEventHandler> = {
     }
 
     inst.root.addEventListener('rz:app:ready', action, { once: true });
+
     return () => inst.root.removeEventListener('rz:app:ready', action);
   },
 
@@ -381,29 +388,6 @@ export const syntheticEvents: Record<string, SyntheticEventHandler> = {
     }
   },
 };
-
-/**
- * Helper that fires either window 'load' or document 'DOMContentLoaded' event.
- * Returns a cleanup function if a listener had to be attached.
- */
-function attachDocStateEvent(type: 'dom' | 'load', callback: VoidFn): VoidFn | null {
-  const isDom = type === 'dom';
-  const isReady = isDom
-    ? document.readyState !== 'loading'
-    : document.readyState === 'complete';
-
-  if (isReady) {
-    callback();
-    return null;
-  }
-
-  const target = isDom ? document : window;
-  const event = isDom ? 'DOMContentLoaded' : 'load';
-
-  target.addEventListener(event, callback, { once: true });
-
-  return () => target.removeEventListener(event, callback);
-}
 
 /**
  * Helper for the `timeout` and `interval` synthetic event functions.
