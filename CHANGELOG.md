@@ -7,11 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+No unreleased changes.
+
+## [0.9.0] - 2026-06-20
+
 ### Added
 
-- Enable `rz-text`, `rz-html`, and `rz-attr` to invoke scope or store functions with a resolved payload, using the same `{`, `@`, `#` delimiter protocol as `rz-on` and `rz-scope`. Functions receive a `HandlerCtx` where `e` is a synthetic `CustomEvent` typed as `rz:${slug}`.
+- Enable `rz-text`, `rz-html`, and `rz-attr` to invoke functions with a resolved payload, using the same data injection protocol as `rz-on` and `rz-scope`. Functions receive a `HandlerCtx` where `e` is a synthetic `CustomEvent` typed as `rz:${slug}`.
 - Add `rz-prop` directive for assigning values to element properties.
-- Add `rz-class` and `rz-style` directives using conditional class/style binding with a `[tokens]: [condition]` grammar plus a single-key fallback (parity with `rz-attr`).
+- Add `rz-class` and `rz-style` directives using conditional class/style binding with a `[tokens]: [condition]` grammar plus a single-key fallback for parity with `rz-attr`.
 
 ### Changed
 
@@ -19,8 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Breaking:** Rename `defineController` to `defineScope`, `ControllerCtx` to `ScopeCtx`, and `ControllerFn` to `ScopeFn`.
 - **Breaking:** Rename `rz-bind` directive to `rz-attr`.
 - **Breaking:** Rename `insert()` to `swap()`.
-- **Breaking:** Rename lifecyle event `rz:dom:update` to `rz:dom:swap`.
-- **Breaking:** Rename `ScopeCtx.scope` to `host` and `ScopeCtx.root` to `appRoot`.
+- **Breaking:** Rename `rz:dom:update` lifecyle events to `rz:dom:swap`.
+- **Breaking:** Rename `scope` to `host` and `root` to `appRoot` in `ScopeCtx`.
 - **Breaking:** Rename `props` to `data` in `ScopeCtx` and `HandlerCtx`.
 - **Breaking:** Make `HandlerCtx.data` required (now defaulting to `{}` when a data payload isn't provided) to allow user code to read `data.x` without optional-chaining guards.
 - **Breaking:** Require explicit triggers for non-interactive elements when using `rz-on`, `rz-fetch`, `rz-save`, and  `rz-refresh`.
@@ -33,7 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Prevent store getters from firing during snapshot creation which froze derived values.
-- Prevent store methods from being deleted on `reset()` and `update()`.
+- Prevent methods in stores from being deleted on `reset()` and `update()`.
 
 ### Removed
 
