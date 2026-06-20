@@ -1,24 +1,24 @@
-# RouseJS
+# Rouse
 
 [![npm](https://img.shields.io/npm/v/rousejs)](https://www.npmjs.com/package/rousejs)
 
 **The JavaScript UI and state orchestrator for server-rendered HTML**
 
 > [!WARNING]  
-> This is a pre-release version. It is unstable and not intended for production use. Breaking changes may occur without notice.
+> **Pre-release software:** Rouse is currently in active development, unstable, and not intended for production use. Breaking changes will occur without notice.
 
 ## Motivation
 
-Rouse is being built to bridge the gap between server-rendered HTML and reactive UIs. The goal is to deliver the performance and SEO benefits of SSR with the dynamic, responsive experience of an SPA – without the overhead or complexity.
+Rouse is being built to bridge the gap between server-rendered HTML and reactive UIs. The goal is to deliver the performance and SEO benefits of server-side rendering (SSR) with the dynamic experience of a single page application (SPA) – without the build-step overhead or architectural complexity.
 
-## What it does
+Instead of locking you into a single paradigm, Rouse gives you the flexibility to build pragmatically. You shouldn't have to fight your framework. Whether an interaction demands server-rendered HTML fragments or client-managed reactive state, Rouse handles both within a single, cohesive system.
 
-Rouse orchestrates behavior on top of your existing server-rendered HTML:
+## Key features
 
-- **Wake up controllers** with fine-grained activation strategies
-- **Fetch data** in response to user events or configurable polling
-- **Surgically update the DOM** using reactive signals
-- **Manage global state** declaratively with reactive stores
-- **Sync client and server** with optimistic updates and rollbacks
-
-Designed as a lightweight, no-regrets solution for the vast majority of web projects that don't need a full SPA. You get reactive UIs without abandoning your backend framework or adopting client-side state management complexity.
+- **Zero build or compile step:** Import Rouse as an ES module from a CDN, or integrate it into your build pipeline with first-class TypeScript support.
+- **Backend agnostic:** Pairs seamlessly with your stack of choice – Rails, Django, Laravel, Go, Express, Hono, and more.
+- **Server-managed (hypermedia):** Fetch HTML fragments on any event; let the server drive targeting, redirects, and history through response headers.
+- **Client-managed (reactive):** Local scopes and global stores powered by fine-grained signals, two-way binding, and optimistic updates.
+- **On-demand reconciliation:** Sync client state back to the server with built-in rollback capabilities, conflict detection, and per-field dirty tracking.
+- **Declarative and programmatic:** Combine the speed of expressive HTML attributes with the power of an elegant JavaScript API.
+- **Advanced orchestration:** Define custom scope logic, handle fine-grained activation strategies, and cleanly hydrate third-party libraries inside isolated regions.
