@@ -9,7 +9,7 @@
 
 ## Motivation
 
-Rouse is being built to bridge the gap between server-rendered HTML and reactive UIs. The goal is to deliver the performance and SEO benefits of server-side rendering (SSR) with the dynamic experience of a single page application (SPA) – without the build-step overhead or architectural complexity.
+Rouse is being built to bridge the gap between server-rendered HTML and reactive UIs. The goal is to deliver the performance and SEO benefits of server-side rendering (SSR) with the dynamic experience of a single-page application (SPA) – without the build-step overhead or architectural complexity.
 
 Instead of locking you into a single paradigm, Rouse gives you the flexibility to build pragmatically. You shouldn't have to fight your framework. Whether an interaction demands server-rendered HTML fragments or client-managed reactive state, Rouse handles both within a single, cohesive system.
 
