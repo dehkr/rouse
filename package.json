@@ -1,21 +1,28 @@
 {
   "name": "rousejs",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "The JavaScript UI and state orchestrator for server-rendered HTML",
   "author": "dehkr <dehkr25@gmail.com>",
   "license": "MIT",
   "keywords": [
+    "hypermedia",
     "ssr",
     "server-rendered",
     "progressive-enhancement",
-    "orchestrator",
+    "html-first",
+    "no-build",
+    "buildless",
+    "declarative",
+    "directives",
     "reactive",
     "reactivity",
     "signals",
+    "state-management",
+    "two-way-binding",
     "optimistic-ui",
-    "html-first",
-    "no-build"
+    "typescript"
   ],
+  "homepage": "https://github.com/dehkr/rouse#readme",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/dehkr/rouse.git"
@@ -29,6 +36,7 @@
       "import": "./dist/index.js"
     },
     "./min": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.min.js"
     }
   },
