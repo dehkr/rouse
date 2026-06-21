@@ -4,6 +4,7 @@ export { rzError } from './rz-error';
 export { rzFetch } from './rz-fetch';
 export { rzFetchHeaders, rzHeaders, rzRefreshHeaders, rzSaveHeaders } from './rz-headers';
 export { rzHtml } from './rz-html';
+export { rzKey } from './rz-key';
 export { rzModel } from './rz-model';
 export { rzOn } from './rz-on';
 export { rzProp } from './rz-prop';
