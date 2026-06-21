@@ -12,6 +12,7 @@ import {
   rzText,
 } from '../directives';
 import type { BoundCleanupFn, Scope } from '../types';
+import { isRenderOwned } from './render';
 import { dispatch } from './scheduler';
 
 /** Registry to track cleanup functions of globally mounted directives. */
@@ -77,6 +78,9 @@ export function walkBoundElements(
   // the entire subtree is scope-owned.
   if (!options?.acceptScopeRoot && root.matches(scopeSelector)) return;
 
+  // Render-owned subtrees are bound by rz-render itself, with item context.
+  if (isRenderOwned(root)) return;
+
   if (root.matches(DIRECTIVES_SELECTOR)) {
     callback(root);
   }
@@ -84,7 +88,7 @@ export function walkBoundElements(
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT, {
     acceptNode(node) {
       const el = node as Element;
-      if (el.matches(scopeSelector)) {
+      if (el.matches(scopeSelector) || isRenderOwned(el)) {
         return NodeFilter.FILTER_REJECT;
       }
 
