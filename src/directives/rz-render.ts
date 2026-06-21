@@ -1,0 +1,375 @@
+import type { RouseApp } from '../core/app';
+import { ITEM_KEY, ITEM_META_KEY, ITEM_PREFIX, RENDER_PARENT } from '../core/constants';
+import { resolveBoundValue } from '../core/injection';
+import { getNestedVal } from '../core/path';
+import { isPlainObject, warn } from '../core/shared';
+import {
+  bindDirectives,
+  markRenderOwned,
+  unmarkRenderOwned,
+  walkBoundElements,
+} from '../dom/binder';
+import { boundCleanup } from '../dom/utils';
+import { effect, getRaw, reactive, signal, untracked } from '../reactivity';
+import type {
+  BoundCleanupFn,
+  BoundDirective,
+  DirectiveSlug,
+  RenderContext,
+  RenderMeta,
+  Scope,
+} from '../types';
+import { rzKey } from './rz-key';
+
+const SLUG = 'render' as const satisfies DirectiveSlug;
+
+type RenderMode = 'array' | 'object' | 'number' | 'boolean';
+
+type IndexSignal = {
+  (): number;
+  (value: number): void;
+};
+
+type ItemSignal = {
+  (): unknown;
+  (value: unknown): void;
+};
+
+interface ItemPlan {
+  item: unknown;
+  index: number;
+}
+
+interface NormalizedValue {
+  mode: RenderMode;
+  items: ItemPlan[];
+}
+
+interface InstanceRecord {
+  key: string | number;
+  item: unknown;
+  itemSig: ItemSignal;
+  indexSig: IndexSignal;
+  roots: ChildNode[];
+  target: Element | null;
+  dispose: () => void;
+}
+
+/** Placeholder item for modes with no per-item data (boolean / number). */
+const NO_ITEM: Record<string, unknown> = {};
+
+/** Auto-generated stable keys, by raw item identity. */
+const keyIds = new WeakMap<object, number>();
+let keySeq = 0;
+
+/**
+ * Returns a stable, lazily-assigned id for an item object, cached by identity.
+ * Lets reordered items keep the same key (and reuse their DOM) across renders.
+ */
+function defaultKey(rawObj: object): number {
+  let id = keyIds.get(rawObj);
+  if (id === undefined) {
+    id = keySeq++;
+    keyIds.set(rawObj, id);
+  }
+  return id;
+}
+
+/**
+ * Wraps an item in a reactive proxy when it's an object, so bound directives
+ * track its fields. Passes primitives through untouched.
+ */
+function toItemProxy(item: unknown): unknown {
+  return item && typeof item === 'object' ? reactive(item as object) : item;
+}
+
+/**
+ * Classifies the resolved render value and lays out the instances to render.
+ *
+ * - Boolean: render the contents once or not at all
+ * - Number: renders them that many times
+ * - Object: renders once with the object as the item
+ * - Array: renders one instance per element
+ *
+ * Iterates arrays through the reactive interceptor so structural changes
+ * (including in-place reorders) re-run the render.
+ */
+function normalize(value: unknown): NormalizedValue {
+  if (Array.isArray(value)) {
+    const items: ItemPlan[] = [];
+    value.forEach((item, index) => items.push({ item, index }));
+    return { mode: 'array', items };
+  }
+
+  if (typeof value === 'number') {
+    const n = Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
+    const items: ItemPlan[] = [];
+    for (let i = 0; i < n; i++) {
+      items.push({ item: NO_ITEM, index: i });
+    }
+    return { mode: 'number', items };
+  }
+
+  if (isPlainObject(value)) {
+    return { mode: 'object', items: [{ item: value, index: 0 }] };
+  }
+
+  // `boolean` and anything else: truthy renders once, falsy renders nothing
+  return {
+    mode: 'boolean',
+    items: value ? [{ item: NO_ITEM, index: 0 }] : [],
+  };
+}
+
+/**
+ * Resolve the reconciliation key for an item plan.
+ */
+function keyFor(
+  plan: ItemPlan,
+  mode: RenderMode,
+  keyPath: string | null,
+): string | number {
+  // No per-item identity, so key by position
+  if (mode === 'boolean' || mode === 'number') {
+    return plan.index;
+  }
+
+  const item = plan.item;
+
+  if (keyPath) {
+    const sub = keyPath.startsWith(ITEM_PREFIX) ? keyPath.slice(1) : keyPath;
+    const explicit = getNestedVal(item, sub);
+    if (explicit != null) {
+      return explicit as string | number;
+    }
+  }
+
+  if (item && typeof item === 'object') {
+    return defaultKey(getRaw(item));
+  }
+
+  return plan.index;
+}
+
+/**
+ * Drives an `rz-render` template: resolves its value reactively and reconciles
+ * the rendered instances whenever that value changes. Tears every instance down
+ * when the template is removed.
+ */
+function bind(
+  el: Element,
+  scope: Scope,
+  app: RouseApp,
+  key: string,
+  value: string,
+): BoundCleanupFn | undefined {
+  if (!(el instanceof HTMLTemplateElement)) {
+    warn(`rz-render must be used on a <template> element.`);
+    return;
+  }
+
+  const template = el;
+  const parentState = scope;
+  const raw = value || key;
+  const keyPath = rzKey.getConfig(el);
+
+  const records = new Map<string | number, InstanceRecord>();
+  let currentMode: RenderMode | null = null;
+
+  /**
+   * Creates one rendered instance. Clones the template contents, layers the item,
+   * index and key onto a render context, binds the cloned directives against it,
+   * and teleports the nodes to a target when the item requests one.
+   */
+  function buildInstance(plan: ItemPlan, instanceKey: string | number): InstanceRecord {
+    const frag = template.content.cloneNode(true) as DocumentFragment;
+    const roots = Array.from(frag.childNodes);
+    const elementRoots = roots.filter(
+      (n): n is Element => n.nodeType === Node.ELEMENT_NODE,
+    );
+
+    // Collect directive elements before marking render-owned, so the binder
+    // guard doesn't reject our own walk.
+    const collected: Element[] = [];
+    for (const root of elementRoots) {
+      walkBoundElements(root, (e) => collected.push(e));
+    }
+
+    const itemSig: ItemSignal = signal(toItemProxy(plan.item));
+    const indexSig: IndexSignal = signal(plan.index);
+    const meta: RenderMeta = {
+      get index() {
+        return indexSig();
+      },
+      key: instanceKey,
+    };
+
+    const ctx = new Proxy(parentState, {
+      get(t, k) {
+        if (k === ITEM_KEY) return itemSig();
+        if (k === ITEM_META_KEY) return meta;
+        if (k === RENDER_PARENT) return parentState;
+        return Reflect.get(t, k, t);
+      },
+      has(t, k) {
+        return (
+          k === ITEM_KEY ||
+          k === ITEM_META_KEY ||
+          k === RENDER_PARENT ||
+          Reflect.has(t, k)
+        );
+      },
+    }) as RenderContext;
+
+    for (const root of elementRoots) {
+      markRenderOwned(root);
+    }
+
+    // Detach from the render effect's tracking so these per-instance effects
+    // survive its re-runs (and don't leak into it).
+    const cleanups: BoundCleanupFn[] = [];
+    untracked(() => {
+      for (const e of collected) {
+        for (const fn of bindDirectives(e, ctx, app)) {
+          cleanups.push(fn);
+        }
+      }
+    });
+
+    // Per-item teleport
+    let target: Element | null = null;
+    const item = plan.item;
+    const targetSel =
+      item && typeof item === 'object'
+        ? (getRaw(item) as Record<string, unknown>).renderTarget
+        : undefined;
+
+    if (typeof targetSel === 'string' && targetSel) {
+      const dest = app.root.querySelector(targetSel);
+      if (dest) {
+        dest.append(...roots);
+        target = dest;
+      } else {
+        warn(`rz-render target '${targetSel}' not found.`);
+      }
+    }
+
+    const dispose = () => {
+      for (const fn of cleanups) {
+        try {
+          fn();
+        } catch (e) {
+          warn('rz-render instance cleanup failed.', e);
+        }
+      }
+      for (const node of roots) node.remove();
+      for (const root of elementRoots) unmarkRenderOwned(root);
+    };
+
+    return {
+      key: instanceKey,
+      item: plan.item,
+      itemSig,
+      indexSig,
+      roots,
+      target,
+      dispose,
+    };
+  }
+
+  /**
+   * Position an instance's root nodes immediately after `prev`, moving only
+   * what's out of place. Returns the new trailing node.
+   */
+  function placeAfter(
+    parent: ParentNode,
+    roots: ChildNode[],
+    prev: ChildNode,
+  ): ChildNode {
+    let ref = prev;
+    for (const node of roots) {
+      if (ref.nextSibling !== node) {
+        parent.insertBefore(node, ref.nextSibling);
+      }
+      ref = node;
+    }
+    return ref;
+  }
+
+  function teardownAll() {
+    for (const rec of records.values()) rec.dispose();
+    records.clear();
+  }
+
+  /**
+   * Diffs the incoming item plans against the live instances by key, then creates,
+   * reuses, repositions, or removes instances so the DOM matches the new list.
+   */
+  function reconcile(normalized: NormalizedValue) {
+    if (normalized.mode !== currentMode) {
+      teardownAll();
+      currentMode = normalized.mode;
+    }
+
+    const parent = template.parentNode;
+    if (!parent) return;
+
+    const seen = new Set<string | number>();
+    let prev: ChildNode = template;
+
+    for (const plan of normalized.items) {
+      const instanceKey = keyFor(plan, normalized.mode, keyPath);
+      if (seen.has(instanceKey)) {
+        warn(`Duplicate rz-render key: '${instanceKey}'. Skipping.`);
+        continue;
+      }
+      seen.add(instanceKey);
+
+      let rec = records.get(instanceKey);
+      if (rec) {
+        // Same key, new identity (e.g. refetched data, explicit rz-key): swap
+        // the item so bound directives re-read without a rebuild.
+        if (rec.item !== plan.item) {
+          rec.item = plan.item;
+          rec.itemSig(toItemProxy(plan.item));
+        }
+        if (rec.indexSig() !== plan.index) {
+          rec.indexSig(plan.index);
+        }
+      } else {
+        rec = buildInstance(plan, instanceKey);
+        records.set(instanceKey, rec);
+      }
+
+      // Teleported instances live in a remote target, so don't position inline.
+      if (!rec.target) {
+        prev = placeAfter(parent, rec.roots, prev);
+      }
+    }
+
+    for (const [k, rec] of records) {
+      if (!seen.has(k)) {
+        rec.dispose();
+        records.delete(k);
+      }
+    }
+  }
+
+  const stop = effect(() => {
+    const resolved = resolveBoundValue(raw, parentState, app.stores, el, SLUG);
+    // normalize() runs tracked so it subscribes to the source array/value;
+    // reconcile() runs untracked so instance binding doesn't link to this effect.
+    const normalized = normalize(resolved);
+    untracked(() => reconcile(normalized));
+  });
+
+  return boundCleanup(() => {
+    stop();
+    teardownAll();
+  });
+}
+
+export const rzRender = {
+  slug: SLUG,
+  bind,
+} as const satisfies BoundDirective;

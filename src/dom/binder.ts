@@ -1,42 +1,73 @@
 import type { RouseApp } from '../core/app';
 import { parseDirectiveValue } from '../core/parser';
 import { directiveSelector, EMPTY_SCOPE, err, getDirectiveValue } from '../core/shared';
-import {
-  rzAttr,
-  rzClass,
-  rzHtml,
-  rzModel,
-  rzOn,
-  rzProp,
-  rzStyle,
-  rzText,
-} from '../directives';
-import type { BoundCleanupFn, Scope } from '../types';
-import { isRenderOwned } from './render';
+import type { BoundCleanupFn, BoundDirective, Scope } from '../types';
 import { dispatch } from './scheduler';
 
 /** Registry to track cleanup functions of globally mounted directives. */
 const globalBindings = new WeakMap<Element, BoundCleanupFn[]>();
-
 /** Registry mapping scope-bound elements to their scope root element. */
 const scopeBindings = new WeakMap<Element, HTMLElement>();
+/** Registry of elements that are roots of an `rz-render` instance subtree. */
+const renderOwned = new WeakSet<Element>();
+/** Bound directives the binder scans for. */
+const boundDirectiveList: BoundDirective[] = [];
+/** Cache for the generated selector string. */
+let boundSelectorCache: string | null = null;
+/** rz-scope selector string. */
+const scopeSelector = directiveSelector('scope');
 
-/** Directives that can be bound to local scope. */
-const BOUND_DIRECTIVES = [
-  rzAttr,
-  rzClass,
-  rzHtml,
-  rzModel,
-  rzOn,
-  rzProp,
-  rzStyle,
-  rzText,
-] as const;
+/**
+ * Registers the directives the binder scans for and binds.
+ */
+export function registerBoundDirectives(...directives: BoundDirective[]): void {
+  for (const directive of directives) {
+    if (!boundDirectiveList.includes(directive)) {
+      boundDirectiveList.push(directive);
+    }
+  }
+  boundSelectorCache = null;
+}
 
-/** Selector string of all scope-bound directives. */
-export const DIRECTIVES_SELECTOR = BOUND_DIRECTIVES.map((directive) =>
-  directiveSelector(directive.slug),
-).join(', ');
+/**
+ * Returns the registered bound directives, in registration order.
+ */
+function boundDirectives(): readonly BoundDirective[] {
+  return boundDirectiveList;
+}
+
+/**
+ * Builds a CSS selector matching every registered bound directive,
+ * caching the result until the next registration invalidates it.
+ */
+function boundDirectivesSelector(): string {
+  boundSelectorCache ??= boundDirectiveList
+    .map((directive) => directiveSelector(directive.slug))
+    .join(', ');
+
+  return boundSelectorCache;
+}
+
+/**
+ * Marks an element as the root of an `rz-render` instance subtree.
+ */
+export function markRenderOwned(el: Element): void {
+  renderOwned.add(el);
+}
+
+/**
+ * Releases an element when its `rz-render` instance is torn down.
+ */
+export function unmarkRenderOwned(el: Element): void {
+  renderOwned.delete(el);
+}
+
+/**
+ * Checks whether an element is a render-owned instance root.
+ */
+function isRenderOwned(el: Element): boolean {
+  return renderOwned.has(el);
+}
 
 /**
  * Executes the attachment lifecycle for all bound directives on a specific element.
@@ -48,7 +79,7 @@ export function bindDirectives(
 ): BoundCleanupFn[] {
   const cleanups: BoundCleanupFn[] = [];
 
-  for (const directive of BOUND_DIRECTIVES) {
+  for (const directive of boundDirectives()) {
     const value = getDirectiveValue(el, directive.slug);
 
     // Strict check to allow empty/boolean directives
@@ -64,8 +95,6 @@ export function bindDirectives(
   return cleanups;
 }
 
-const scopeSelector = directiveSelector('scope');
-
 /**
  * Scans the DOM and locates elements with bound directives.
  */
@@ -78,10 +107,11 @@ export function walkBoundElements(
   // the entire subtree is scope-owned.
   if (!options?.acceptScopeRoot && root.matches(scopeSelector)) return;
 
-  // Render-owned subtrees are bound by rz-render itself, with item context.
+  // Render-owned subtrees are bound by `rz-render` itself, with item context
   if (isRenderOwned(root)) return;
 
-  if (root.matches(DIRECTIVES_SELECTOR)) {
+  const boundSelector = boundDirectivesSelector();
+  if (root.matches(boundSelector)) {
     callback(root);
   }
 
@@ -92,7 +122,7 @@ export function walkBoundElements(
         return NodeFilter.FILTER_REJECT;
       }
 
-      return el.matches(DIRECTIVES_SELECTOR)
+      return el.matches(boundSelector)
         ? NodeFilter.FILTER_ACCEPT
         : NodeFilter.FILTER_SKIP;
     },

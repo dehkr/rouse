@@ -1,7 +1,22 @@
 import { directiveSelector, err, queryTargets, warn } from '../core/shared';
-import { rzFetch, rzRefresh, rzSave, rzStore } from '../directives';
+import {
+  rzAttr,
+  rzClass,
+  rzFetch,
+  rzHtml,
+  rzModel,
+  rzOn,
+  rzProp,
+  rzRefresh,
+  rzRender,
+  rzSave,
+  rzStore,
+  rzStyle,
+  rzText,
+} from '../directives';
 import {
   mountGlobalBinding,
+  registerBoundDirectives,
   teardownGlobalBindings,
   walkBoundElements,
 } from '../dom/binder';
@@ -46,6 +61,19 @@ interface ResolvedConfig {
 }
 
 const appInstances = new WeakMap<HTMLElement, RouseApp>();
+
+// Wire the bound directives the binder will scan for
+registerBoundDirectives(
+  rzAttr,
+  rzClass,
+  rzHtml,
+  rzModel,
+  rzOn,
+  rzProp,
+  rzRender,
+  rzStyle,
+  rzText,
+);
 
 /**
  * Core class for instantiating Rouse app instances.

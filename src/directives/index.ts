@@ -9,6 +9,7 @@ export { rzModel } from './rz-model';
 export { rzOn } from './rz-on';
 export { rzProp } from './rz-prop';
 export { rzRefresh } from './rz-refresh';
+export { rzRender } from './rz-render';
 export { rzFetchRequest, rzRefreshRequest, rzRequest, rzSaveRequest } from './rz-request';
 export { rzSave } from './rz-save';
 export { rzScope } from './rz-scope';
