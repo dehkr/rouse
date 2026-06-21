@@ -1,3 +1,4 @@
+import { getRaw } from '../reactivity';
 import type { RenderContext, Scope } from '../types';
 import {
   ITEM_KEY,
@@ -31,7 +32,7 @@ function renderMeta(scope: Scope) {
  * Resolve the state an instance context layers over, else the scope itself.
  */
 function renderParent(scope: Scope): Scope {
-  return (scope as RenderContext)[RENDER_PARENT] ?? scope;
+  return (getRaw(scope) as RenderContext)[RENDER_PARENT] ?? scope;
 }
 
 /**
@@ -114,6 +115,7 @@ export function resolveState<T = unknown>(
   scope: Scope,
   storeManager?: StoreManager,
 ): T | undefined {
+  // Render item
   if (path.startsWith(ITEM_PREFIX)) {
     const itemPath = path.slice(1);
     const item = renderItem(scope);
@@ -131,6 +133,7 @@ export function resolveState<T = unknown>(
     return getNestedVal<T>(item, itemPath);
   }
 
+  // Global store
   if (path.startsWith(STORE_PREFIX)) {
     if (!storeManager) {
       warn(`StoreManager required to resolve '${path}'.`);
@@ -154,7 +157,7 @@ export function resolveState<T = unknown>(
 }
 
 /**
- * Writes a value to either a global store or a local scope.
+ * Writes a value to a global store, a local scope, or a render item.
  */
 export function writeState(
   path: string,
@@ -162,6 +165,7 @@ export function writeState(
   scope: Scope,
   storeManager?: StoreManager,
 ): void {
+  // Render item
   if (path.startsWith(ITEM_PREFIX)) {
     const itemPath = path.slice(1);
     if (!itemPath || itemPath === 'renderIndex' || itemPath === 'renderKey') {
@@ -173,6 +177,7 @@ export function writeState(
     return;
   }
 
+  // Global store
   if (path.startsWith(STORE_PREFIX)) {
     if (!storeManager) {
       warn(`StoreManager required to write to '${path}'.`);
