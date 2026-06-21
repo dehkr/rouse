@@ -1,5 +1,13 @@
 export const STORE_PREFIX = '@';
+export const ITEM_PREFIX = '%';
 export const KEY_BLOCKLIST = ['__proto__', 'constructor', 'prototype'];
+
+/** Carries the current render item on an `rz-render` instance context. */
+export const ITEM_KEY: unique symbol = Symbol('rz_item');
+/** Carries per-instance render metadata (`index`, `key`). */
+export const ITEM_META_KEY: unique symbol = Symbol('rz_item_meta');
+/** Points an instance context back at the scope/store state it layers over. */
+export const RENDER_PARENT: unique symbol = Symbol('rz_render_parent');
 
 /** List of valid HTML DOM swap methods. */
 export const SWAP_METHODS = [

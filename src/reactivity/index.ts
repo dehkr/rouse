@@ -16,4 +16,5 @@ export {
   reactive,
   readOnly,
   trackDirty,
+  untracked,
 } from './reactive';

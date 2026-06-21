@@ -1,3 +1,4 @@
+import { setActiveSub } from 'alien-signals';
 import { handlers, readOnlyHandlers } from './handlers';
 
 const proxyCache = new WeakMap();
@@ -45,7 +46,9 @@ export function reactive<T extends object>(target: T): ReactiveProxy<T> {
   return proxy as ReactiveProxy<T>;
 }
 
-/** Makes sure the target is eligible to be a proxy. */
+/**
+ * Makes sure the target is eligible to be a proxy.
+ */
 export function proxiable(target: unknown): target is object {
   if (target === null || typeof target !== 'object') return false;
   if (Array.isArray(target)) return true;
@@ -53,7 +56,9 @@ export function proxiable(target: unknown): target is object {
   return Object.prototype.toString.call(target) === '[object Object]';
 }
 
-/** Creates a reactive proxy for an eligible object. */
+/**
+ * Creates a reactive proxy for an eligible object.
+ */
 export function createProxy<T>(target: T): T {
   return proxiable(target) ? reactive(target) : target;
 }
@@ -63,18 +68,24 @@ export function isProxy(target: unknown): target is ReactiveProxy<typeof target>
   return Boolean(proxiable(target) && rawCache.has(target));
 }
 
-/** Returns the proxy of an object if found, else original. */
+/**
+ * Returns the proxy of an object if found, else original.
+ */
 export function getProxy<T>(target: T): T {
   return (proxyCache.get(target as object) as T) || target;
 }
 
-/** Returns the original raw object of a proxy. */
+/**
+ * Returns the original raw object of a proxy.
+ */
 export function getRaw<T>(target: T): T {
   const raw = rawCache.get(target as object);
   return raw ? (getRaw(raw) as T) : target;
 }
 
-/** Flags value with `RAW` to prevent it from becoming reactive. */
+/**
+ * Flags value with `RAW` to prevent it from becoming reactive.
+ */
 export function nonReactive<T extends object>(target: T): T {
   if ((target as any)[READONLY]) return target;
   if (Object.hasOwn(target, RAW)) return target;
@@ -90,7 +101,9 @@ export function nonReactive<T extends object>(target: T): T {
   return target;
 }
 
-/** Wraps an object in a deep, immutable proxy. */
+/**
+ * Wraps an object in a deep, immutable proxy.
+ */
 export function readOnly<T extends object>(target: T): T {
   if (!proxiable(target)) return target;
   if ((target as any)[READONLY]) return target;
@@ -102,7 +115,9 @@ export function readOnly<T extends object>(target: T): T {
   return proxy as T;
 }
 
-/** Registers a callback to track mutations back to their root property. */
+/**
+ * Registers a callback to track mutations back to their root property.
+ */
 export function trackDirty<T extends object>(
   target: T,
   callback: (rootKey: string) => void,
@@ -113,12 +128,28 @@ export function trackDirty<T extends object>(
   }
 }
 
-/** Read every enumerable key through the proxy to fire the get trap. */
+/**
+ * Read every enumerable key through the proxy to fire the get trap.
+ */
 export function seedPropagation(obj: any, seen = new WeakSet()): void {
   if (!obj || typeof obj !== 'object' || seen.has(obj)) return;
   seen.add(obj);
   for (const key of Object.keys(obj)) {
     const value = obj[key];
     seedPropagation(value, seen);
+  }
+}
+
+/**
+ * Runs `fn` without linking the reads or any effects created inside it to the
+ * current tracking context. Used by `rz-render` so per-instance directive
+ * effects survive the parent render effect re-running (and don't leak into it).
+ */
+export function untracked<T>(fn: () => T): T {
+  const prev = setActiveSub(undefined);
+  try {
+    return fn();
+  } finally {
+    setActiveSub(prev);
   }
 }
