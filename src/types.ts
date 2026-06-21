@@ -1,5 +1,11 @@
 import type { RouseApp } from './core/app';
-import type { PatchAction, SwapMethod } from './core/constants';
+import type {
+  ITEM_KEY,
+  ITEM_META_KEY,
+  PatchAction,
+  RENDER_PARENT,
+  SwapMethod,
+} from './core/constants';
 import type { StoreManager } from './core/store';
 
 export type DirectiveSlug =
@@ -180,6 +186,27 @@ export type BoundCleanupFn = VoidFn & { [CLEANUP]: true };
 export type Scope = Record<string, any> & {
   connect?: () => void;
   disconnect?: () => void;
+};
+
+/**
+ * Per-instance render metadata exposed via `%renderIndex` / `%renderKey`.
+ */
+export interface RenderMeta {
+  index: number;
+  key: string | number;
+}
+
+/**
+ * The per-instance binding context an `rz-render` template instance is bound
+ * with. Structurally it's a `Scope` (so it threads through `bindDirectives` and the
+ * resolution chain unchanged) plus three reserved symbol slots: the current
+ * item, its render metadata, and the parent state it layers over. Not a real
+ * `rz-scope`: no lifecycle, no `ScopeCtx`.
+ */
+export type RenderContext = Scope & {
+  [ITEM_KEY]?: unknown;
+  [ITEM_META_KEY]?: RenderMeta;
+  [RENDER_PARENT]?: Scope;
 };
 
 /** Parsed trigger event with modifiers */

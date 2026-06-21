@@ -1,10 +1,38 @@
-import type { Scope } from '../types';
-import { KEY_BLOCKLIST, STORE_PREFIX } from './constants';
+import type { RenderContext, Scope } from '../types';
+import {
+  ITEM_KEY,
+  ITEM_META_KEY,
+  ITEM_PREFIX,
+  KEY_BLOCKLIST,
+  RENDER_PARENT,
+  STORE_PREFIX,
+} from './constants';
 import { EMPTY_SCOPE, warn } from './shared';
 import type { StoreManager } from './store';
 
 const MAX_CACHE_SIZE = 500;
 const pathCache = new Map<string, string[]>();
+
+/**
+ * Read the current render item off an instance context (if any).
+ */
+function renderItem(scope: Scope): unknown {
+  return (scope as RenderContext)[ITEM_KEY];
+}
+
+/**
+ * Read per-instance render metadata off an instance context (if any).
+ */
+function renderMeta(scope: Scope) {
+  return (scope as RenderContext)[ITEM_META_KEY];
+}
+
+/**
+ * Resolve the state an instance context layers over, else the scope itself.
+ */
+function renderParent(scope: Scope): Scope {
+  return (scope as RenderContext)[RENDER_PARENT] ?? scope;
+}
 
 /**
  * Resolve a dot-notation path to a value.
@@ -79,13 +107,30 @@ export function getRootSegment(path: string | undefined): string | undefined {
 }
 
 /**
- * Resolves a path against either a global store or a local scope.
+ * Resolves a path against a global store, a local scope, or a render item.
  */
 export function resolveState<T = unknown>(
   path: string,
   scope: Scope,
   storeManager?: StoreManager,
 ): T | undefined {
+  if (path.startsWith(ITEM_PREFIX)) {
+    const itemPath = path.slice(1);
+    const item = renderItem(scope);
+
+    if (!itemPath) {
+      return item as T | undefined;
+    }
+    if (itemPath === 'renderIndex') {
+      return renderMeta(scope)?.index as T | undefined;
+    }
+    if (itemPath === 'renderKey') {
+      return renderMeta(scope)?.key as T | undefined;
+    }
+
+    return getNestedVal<T>(item, itemPath);
+  }
+
   if (path.startsWith(STORE_PREFIX)) {
     if (!storeManager) {
       warn(`StoreManager required to resolve '${path}'.`);
@@ -99,9 +144,9 @@ export function resolveState<T = unknown>(
     }
 
     const storeName = fullPath.slice(0, dotIndex);
-    const nestedPath = fullPath.slice(dotIndex + 1);
+    const storePath = fullPath.slice(dotIndex + 1);
 
-    return getNestedVal<T>(storeManager.get(storeName), nestedPath);
+    return getNestedVal<T>(storeManager.get(storeName), storePath);
   }
 
   // Fallback to local scope state
@@ -117,6 +162,17 @@ export function writeState(
   scope: Scope,
   storeManager?: StoreManager,
 ): void {
+  if (path.startsWith(ITEM_PREFIX)) {
+    const itemPath = path.slice(1);
+    if (!itemPath || itemPath === 'renderIndex' || itemPath === 'renderKey') {
+      warn(`Cannot write to reserved property '${path}'.`);
+      return;
+    }
+
+    setNestedVal(renderItem(scope), itemPath, value);
+    return;
+  }
+
   if (path.startsWith(STORE_PREFIX)) {
     if (!storeManager) {
       warn(`StoreManager required to write to '${path}'.`);
@@ -131,14 +187,14 @@ export function writeState(
     }
 
     const storeName = fullPath.slice(0, dotIndex);
-    const nestedPath = fullPath.slice(dotIndex + 1);
+    const storePath = fullPath.slice(dotIndex + 1);
 
-    setNestedVal(storeManager.get(storeName), nestedPath, value);
+    setNestedVal(storeManager.get(storeName), storePath, value);
     return;
   }
 
   // Fallback to local scope state
-  if (scope === EMPTY_SCOPE) {
+  if (renderParent(scope) === EMPTY_SCOPE) {
     warn(`'${path}' used outside scope. Use '@' to target a store.`);
     return;
   }
