@@ -7,7 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-No unreleased changes.
+### Added
+
+### Added
+
+- Add `rz-render` directive for `<template>` elements, rendering their contents from a resolved value. Reconciliation is keyed, so instances are reused and reordered rather than rebuilt. Behavior is determined by the resolved value:
+  - **Boolean:** renders the contents once, or not at all
+  - **Number:** renders them that many times
+  - **Object:** renders once, with the object as the item
+  - **Array:** renders one instance per element
+- Add `rz-key` companion directive for explicit reconciliation keys (e.g. `rz-key="id"`); defaults to per-item identity.
+- Add per-item teleport via a `renderTarget` property (selector or element reference) to place a rendered instance elsewhere in the app.
 
 ## [0.9.0] - 2026-06-20
 
