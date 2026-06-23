@@ -9,6 +9,7 @@ import type {
 import { KEY_BLOCKLIST, STORE_PREFIX } from './constants';
 import { parseStoreLocator, splitLocator } from './parser';
 import { getNestedVal, resolveState } from './path';
+import { renderCtxOf } from './render';
 import { err, isPlainObject, warn } from './shared';
 import type { StoreManager } from './store';
 
@@ -157,7 +158,12 @@ export function resolveBoundValue(
           ? (resolveInjection(rawPayload, storeManager) ?? {})
           : {};
       const e = new CustomEvent(`rz:${slug}`);
-      const args = { data, e, el } as HandlerCtx<Record<string, any>, Element>;
+      const args: HandlerCtx = {
+        data,
+        e,
+        el,
+        render: renderCtxOf(scope),
+      };
       return (state as AnyFunction).call(context, args) as BindableValue;
     } catch (error) {
       err(`Failed to execute '${key}()'.`, error);

@@ -3,6 +3,7 @@ import { STORE_PREFIX } from '../core/constants';
 import { resolveInjection, splitInjection } from '../core/injection';
 import { parseStoreLocator, parseTriggers } from '../core/parser';
 import { getNestedVal } from '../core/path';
+import { renderCtxOf } from '../core/render';
 import { err, warn } from '../core/shared';
 import { dispatchTrigger } from '../dom/scheduler';
 import { boundCleanup, defaultTriggerFor } from '../dom/utils';
@@ -81,7 +82,12 @@ function bind(
             rawPayload !== undefined
               ? (resolveInjection(rawPayload, app.stores) ?? {})
               : {};
-          const args = { data, e, el } as HandlerCtx;
+          const args: HandlerCtx = {
+            data,
+            e: e ?? new CustomEvent(trigger.event),
+            el,
+            render: renderCtxOf(scope),
+          };
           method.call(context, args);
         } catch (error) {
           err(`Failed to execute '${methodName}()'.`, error);
