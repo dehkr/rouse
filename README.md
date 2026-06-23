@@ -19,6 +19,7 @@ Instead of locking you into a single paradigm, Rouse gives you the flexibility t
 - **Backend agnostic:** Pairs seamlessly with your stack of choice – Rails, Django, Laravel, Go, Express, Hono, and more.
 - **Server-managed (hypermedia):** Fetch HTML fragments on any event; let the server drive targeting, redirects, and history through response headers.
 - **Client-managed (reactive):** Local scopes and global stores powered by fine-grained signals, two-way binding, and optimistic updates.
+- **Native rendering:** Render `<template>` elements from reactive state, with keyed diffing that reuses and reorders DOM instead of rebuilding it.
 - **On-demand reconciliation:** Sync client state back to the server with built-in rollback capabilities, conflict detection, and per-field dirty tracking.
 - **Declarative and programmatic:** Combine the speed of expressive HTML attributes with the power of an elegant JavaScript API.
 - **Advanced orchestration:** Define custom scope logic, handle fine-grained activation strategies, and cleanly hydrate third-party libraries inside isolated regions.
