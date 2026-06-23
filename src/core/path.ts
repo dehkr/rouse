@@ -130,7 +130,7 @@ export function writeState(
   if (path.startsWith(ITEM_PREFIX)) {
     const itemPath = path.slice(1);
     if (!itemPath) {
-      warn(`Invalid render item path: '${path}'.`);
+      warn(`Cannot overwrite entire render item via model binding: '${path}'.`);
       return;
     }
     setNestedVal(renderItem(scope), itemPath, value);
