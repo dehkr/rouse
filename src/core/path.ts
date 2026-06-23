@@ -1,39 +1,11 @@
-import { getRaw } from '../reactivity';
-import type { RenderContext, Scope } from '../types';
-import {
-  ITEM_KEY,
-  ITEM_META_KEY,
-  ITEM_PREFIX,
-  KEY_BLOCKLIST,
-  RENDER_PARENT,
-  STORE_PREFIX,
-} from './constants';
+import type { Scope } from '../types';
+import { ITEM_PREFIX, KEY_BLOCKLIST, STORE_PREFIX } from './constants';
+import { renderItem, renderParent } from './render';
 import { EMPTY_SCOPE, warn } from './shared';
 import type { StoreManager } from './store';
 
 const MAX_CACHE_SIZE = 500;
 const pathCache = new Map<string, string[]>();
-
-/**
- * Read the current render item off an instance context (if any).
- */
-function renderItem(scope: Scope): unknown {
-  return (scope as RenderContext)[ITEM_KEY];
-}
-
-/**
- * Read per-instance render metadata off an instance context (if any).
- */
-function renderMeta(scope: Scope) {
-  return (scope as RenderContext)[ITEM_META_KEY];
-}
-
-/**
- * Resolve the state an instance context layers over, else the scope itself.
- */
-function renderParent(scope: Scope): Scope {
-  return (getRaw(scope) as RenderContext)[RENDER_PARENT] ?? scope;
-}
 
 /**
  * Resolve a dot-notation path to a value.
@@ -119,18 +91,7 @@ export function resolveState<T = unknown>(
   if (path.startsWith(ITEM_PREFIX)) {
     const itemPath = path.slice(1);
     const item = renderItem(scope);
-
-    if (!itemPath) {
-      return item as T | undefined;
-    }
-    if (itemPath === 'renderIndex') {
-      return renderMeta(scope)?.index as T | undefined;
-    }
-    if (itemPath === 'renderKey') {
-      return renderMeta(scope)?.key as T | undefined;
-    }
-
-    return getNestedVal<T>(item, itemPath);
+    return itemPath ? getNestedVal<T>(item, itemPath) : (item as T | undefined);
   }
 
   // Global store
@@ -168,11 +129,10 @@ export function writeState(
   // Render item
   if (path.startsWith(ITEM_PREFIX)) {
     const itemPath = path.slice(1);
-    if (!itemPath || itemPath === 'renderIndex' || itemPath === 'renderKey') {
-      warn(`Cannot write to reserved property '${path}'.`);
+    if (!itemPath) {
+      warn(`Invalid render item path: '${path}'.`);
       return;
     }
-
     setNestedVal(renderItem(scope), itemPath, value);
     return;
   }

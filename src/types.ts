@@ -189,9 +189,11 @@ export type Scope = Record<string, any> & {
 };
 
 /**
- * Per-instance render metadata exposed via `%renderIndex` / `%renderKey`.
+ * Per-instance render metadata. Internal to the engine and surfaced to handlers
+ * via `HandlerCtx.render`. Not resolvable from templates.
  */
 export interface RenderMeta {
+  item: unknown;
   index: number;
   key: string | number;
 }
@@ -421,13 +423,18 @@ export type ScopeCtx<
 };
 
 /**
- * The context object passed as an argument to scope methods.
+ * The context object passed as an argument to scope and store methods.
  *
  * @template P - The type of the data.
  * @template T - The Element type.
  */
-export type HandlerCtx<P = Record<string, any>, T extends Element = HTMLElement> = {
+export type HandlerCtx<P = Record<string, any>, T extends Element = Element> = {
   data: P;
   el: T;
   e: Event;
+  /**
+   * Current `rz-render` loop context. Both fields are `null` outside a render
+   * instance, and `item` is `null` for item-less (boolean/number) modes.
+   */
+  render: { item: unknown; index: number | null };
 };

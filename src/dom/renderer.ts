@@ -1,5 +1,5 @@
 import type { RouseApp } from '../core/app';
-import { ITEM_KEY, ITEM_META_KEY, ITEM_PREFIX, RENDER_PARENT } from '../core/constants';
+import { ITEM_KEY, ITEM_META_KEY, RENDER_PARENT } from '../core/constants';
 import { getNestedVal } from '../core/path';
 import { isPlainObject, warn } from '../core/shared';
 import { effect, getRaw, reactive, signal, untracked } from '../reactivity';
@@ -43,32 +43,15 @@ interface InstanceRecord {
   dispose: () => void;
 }
 
-/** Options the directive (or a future programmatic caller) feeds the engine. */
+/** Options the directive feeds the engine. */
 interface RenderOptions {
   app: RouseApp;
   parentState: Scope;
   keyPath?: string | null;
 }
 
-/** Placeholder item for modes with no per-item data (boolean / number). */
+/** Placeholder item for render modes with no per-item data (boolean/number). */
 const NO_ITEM: Record<string, unknown> = {};
-
-/** Auto-generated stable keys, by raw item identity. */
-const keyIds = new WeakMap<object, number>();
-let keySeq = 0;
-
-/**
- * Returns a stable, lazily-assigned id for an item object, cached by identity.
- * Lets reordered items keep the same key (and reuse their DOM) across renders.
- */
-function defaultKey(rawObj: object): number {
-  let id = keyIds.get(rawObj);
-  if (id === undefined) {
-    id = keySeq++;
-    keyIds.set(rawObj, id);
-  }
-  return id;
-}
 
 /**
  * Wraps an item in a reactive proxy when it's an object, so bound directives
@@ -117,43 +100,34 @@ function normalize(value: unknown): NormalizedValue {
 }
 
 /**
- * Resolves the reconciliation key for an item plan.
+ * Resolves the reconciliation key. Positional by default. An explicit `rz-key`
+ * path keys by a stable field. A missing/null explicit key warns and falls back
+ * to position.
  */
 function keyFor(
   plan: ItemPlan,
   mode: RenderMode,
   keyPath: string | null,
+  onMissing: (index: number) => void,
 ): string | number {
-  // No per-item identity, so key by position
-  if (mode === 'boolean' || mode === 'number') {
+  if (mode === 'boolean' || mode === 'number' || !keyPath) {
     return plan.index;
   }
 
-  const item = plan.item;
-
-  if (keyPath) {
-    const sub = keyPath.startsWith(ITEM_PREFIX) ? keyPath.slice(1) : keyPath;
-    const explicit = getNestedVal(item, sub);
-    if (explicit != null) {
-      return explicit as string | number;
-    }
+  const explicit = getNestedVal(plan.item, keyPath);
+  if (explicit == null) {
+    onMissing(plan.index);
+    return plan.index;
   }
 
-  if (item && typeof item === 'object') {
-    return defaultKey(getRaw(item));
-  }
-
-  return plan.index;
+  return explicit as string | number;
 }
 
 /**
  * Renders a `<template>`'s contents from a reactive value and keeps them
- * reconciled. Resolves the value via `source` inside a tracked effect; on every
+ * reconciled. Resolves the value via `source` inside a tracked effect. On every
  * change it diffs by key and creates, reuses, moves, or removes instances.
  * Returns a dispose that stops tracking and tears every instance down.
- *
- * Attribute-agnostic: callers supply the value getter and key path, so the
- * engine stays ignorant of how the directive expresses them.
  */
 export function renderTemplate(
   template: HTMLTemplateElement,
@@ -164,6 +138,8 @@ export function renderTemplate(
 
   const records = new Map<string | number, InstanceRecord>();
   let currentMode: RenderMode | null = null;
+  let keyWarned = false;
+  let dupWarned = false;
 
   /**
    * Creates one rendered instance. Clones the template contents, layers the item,
@@ -186,9 +162,13 @@ export function renderTemplate(
 
     const itemSig: ItemSignal = signal(toItemProxy(plan.item));
     const indexSig: IndexSignal = signal(plan.index);
+    const hasItem = plan.item !== NO_ITEM;
     const meta: RenderMeta = {
       get index() {
         return indexSig();
+      },
+      get item() {
+        return hasItem ? itemSig() : undefined;
       },
       key: instanceKey,
     };
@@ -225,9 +205,8 @@ export function renderTemplate(
       }
     });
 
-    // Per-item teleport. `renderTarget` accepts a selector string (queried
-    // within the app root) or a direct Element reference (used as-is, so portals
-    // outside the app root are allowed).
+    // Per-item teleport. `renderTarget` accepts a selector string or
+    // a direct Element reference.
     let target: Element | null = null;
     const item = plan.item;
     const rt =
@@ -238,12 +217,14 @@ export function renderTemplate(
     let dest: Element | null = null;
     if (typeof rt === 'string' && rt) {
       dest = app.root.querySelector(rt);
-      if (!dest) warn(`rz-render target '${rt}' not found.`);
+      if (!dest) {
+        warn(`Render target '${rt}' not found.`);
+      }
     } else if (rt instanceof Element) {
       if (app.root.contains(rt)) {
         dest = rt;
       } else {
-        warn(`rz-render target is outside the app root; ignoring.`, rt);
+        warn(`Render target is outside the app root; ignoring.`, rt);
       }
     }
 
@@ -314,11 +295,18 @@ export function renderTemplate(
 
     const seen = new Set<string | number>();
     let prev: ChildNode = template;
+    let missing = 0;
+    let dups = 0;
+    let firstDup: string | number | null = null;
 
     for (const plan of normalized.items) {
-      const instanceKey = keyFor(plan, normalized.mode, keyPath);
+      const instanceKey = keyFor(plan, normalized.mode, keyPath, () => missing++);
+
       if (seen.has(instanceKey)) {
-        warn(`Duplicate rz-render key: '${instanceKey}'. Skipping.`);
+        dups++;
+        if (firstDup === null) {
+          firstDup = instanceKey;
+        }
         continue;
       }
       seen.add(instanceKey);
@@ -339,10 +327,24 @@ export function renderTemplate(
         records.set(instanceKey, rec);
       }
 
-      // Teleported instances live in a remote target, so don't position inline.
+      // Teleported instances live in a remote target, so don't position inline
       if (!rec.target) {
         prev = placeAfter(parent, rec.roots, prev);
       }
+    }
+
+    if (missing > 0 && !keyWarned) {
+      keyWarned = true;
+      warn(
+        `Key '${keyPath}' could not be resolved on ${missing} render item(s). Positional key used.`,
+      );
+    }
+
+    if (dups > 0 && !dupWarned) {
+      dupWarned = true;
+      warn(
+        `${dups} render item(s) skipped due to duplicate '${keyPath}' key value. First collision: '${firstDup}'.`,
+      );
     }
 
     for (const [k, rec] of records) {
@@ -354,8 +356,8 @@ export function renderTemplate(
   }
 
   const stop = effect(() => {
-    // source() runs tracked so it subscribes to the source array/value;
-    // reconcile() runs untracked so instance binding doesn't link to this effect.
+    // `source()` runs tracked so it subscribes to the source array/value.
+    // `reconcile()` runs untracked so instance binding doesn't link to this effect.
     const normalized = normalize(source());
     untracked(() => reconcile(normalized));
   });

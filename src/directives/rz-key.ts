@@ -4,12 +4,13 @@ import type { ConfigDirective, DirectiveSlug } from '../types';
 const SLUG = 'key' as const satisfies DirectiveSlug;
 
 /**
- * Explicit reconciliation key for `rz-render`. Holds a `%`-path resolved per
- * item against the render item (e.g. `rz-key="%id"`). When absent, `rz-render`
- * falls back to an auto-generated identity key.
+ * Explicit reconciliation key for `rz-render`. Holds an item path resolved per
+ * instance (e.g. `rz-key="id"` or `rz-key="user.id"`). Encouraged for any list
+ * that reorders or is refetched, so instances reuse DOM by stable identity.
+ * Without it, `rz-render` keys by position.
  *
  * @example
- * <template rz-render="@todos.items" rz-key="%id">
+ * <template rz-render="@todos.items" rz-key="id">
  */
 function getConfig(el: Element): string | null {
   return getDirectiveValue(el, SLUG)?.trim() || null;
