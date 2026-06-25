@@ -1,4 +1,5 @@
 import type { RouseApp } from '../core/app';
+import { HTTP_METHODS, type HttpMethod } from '../core/constants';
 import { warn } from '../core/shared';
 import {
   rzFetchHeaders,
@@ -12,7 +13,13 @@ import {
   rzRequest,
   rzSaveRequest,
 } from '../directives/rz-request';
-import type { NetworkAction, RequestError, RouseRequest, RouseResponse } from '../types';
+import type {
+  NetworkAction,
+  RequestError,
+  RouseFetch,
+  RouseRequest,
+  RouseResponse,
+} from '../types';
 import { preparePayload } from './payload';
 import { fallbackResponse, mapCatchError, normalizeResponse } from './response';
 
@@ -20,6 +27,8 @@ interface AbortEntry {
   controller: AbortController;
   ownerId: symbol;
 }
+
+type BaseFetch = (resource: string, options?: RouseRequest) => Promise<RouseResponse>;
 
 const REQUEST_VARIANTS = {
   fetch: rzFetchRequest,
@@ -256,6 +265,20 @@ export function resolveRequestConfig(
   merged.headers = Object.assign({}, ...headerLayers);
 
   return merged;
+}
+
+/**
+ * Attach lowercased HTTP-method aliases (`fetch.get`, `fetch.post`, etc.) to a base
+ * fetch. Each forwards to the base with `method` pinned. The alias wins over any
+ * `method` in the passed options.
+ */
+export function withMethodAliases(base: BaseFetch): RouseFetch {
+  const fetch = base as RouseFetch;
+  for (const method of HTTP_METHODS) {
+    fetch[method.toLowerCase() as Lowercase<HttpMethod>] = (resource, options) =>
+      base(resource, { ...options, method });
+  }
+  return fetch;
 }
 
 /**

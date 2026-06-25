@@ -1,6 +1,7 @@
 import type { RouseApp } from '../core/app';
+import { withMethodAliases } from '../net/request';
 import { effectScope } from '../reactivity';
-import type { RouseRequest, ScopeCtx, ScopeFn } from '../types';
+import type { ScopeCtx, ScopeFn } from '../types';
 import { bindScope } from './binder';
 import { dispatch, on } from './scheduler';
 import { swap } from './swapper';
@@ -23,7 +24,9 @@ export function teardownScopeNode(el: HTMLElement, removedNode: Element) {
   }
 }
 
-// Initializes a scope instance on a specific element
+/**
+ * Initializes a scope instance on a specific element.
+ */
 export function initScopeInstance(
   el: HTMLElement,
   app: RouseApp,
@@ -84,6 +87,18 @@ export function createScope(
     },
   };
 
+  // Inject abort signal to avoid background request if scope is destroyed.
+  // User can override by adding `signal: undefined`. `keepalive: true` lets a
+  // request finish even if the tab closes.
+  const scopedFetch = withMethodAliases((resource, options = {}) =>
+    app.fetch(resource, {
+      target: el,
+      signal: abortCtrl.signal,
+      swap: false,
+      ...options,
+    }),
+  );
+
   // Context object passed into the scope setup function
   const context: ScopeCtx = {
     data,
@@ -92,7 +107,7 @@ export function createScope(
     stores: app.stores,
     swap,
     term: abortCtrl.signal,
-
+    fetch: scopedFetch,
     dispatch: (...args: any[]) => {
       // If the first argument is a string, assume target was omitted
       const isImplied = typeof args[0] === 'string';
@@ -104,7 +119,6 @@ export function createScope(
 
       return dispatch(target, name, detail, options);
     },
-
     on: (...args: any[]) => {
       // If the first argument is a string, assume target was omitted
       const isImplied = typeof args[0] === 'string';
@@ -120,20 +134,6 @@ export function createScope(
 
       return on(target, events, callback, activeSignal);
     },
-
-    // Inject abort signal to avoid background request if scope is destroyed
-    // User can override by adding `signal: undefined` option
-    // `keepalive: true` option allows a request to finish even if tab closes
-    fetch: (resource: string, options: RouseRequest = {}) => {
-      const finalOptions: RouseRequest = {
-        target: el,
-        signal: abortCtrl.signal,
-        swap: false,
-        ...options,
-      };
-      return app.fetch(resource, finalOptions);
-    },
-
     // Allows for triggering a scan from inside the scope
     scan: (newNode: Element) => {
       if (handle._scan) handle._scan(newNode);

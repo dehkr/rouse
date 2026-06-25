@@ -25,12 +25,14 @@ import { initStoreRouter } from '../dom/router';
 import { defineScope, destroyInstance, IS_SCOPE } from '../dom/scope';
 import { initDomSwapper } from '../dom/swapper';
 import { handleFetch } from '../net/engine';
+import { withMethodAliases } from '../net/request';
 import { fallbackResponse } from '../net/response';
 import type {
   ErrorInterceptor,
   InterceptorPhase,
   RequestInterceptor,
   ResponseInterceptor,
+  RouseFetch,
   RouseRequest,
   ScopeFn,
   VoidFn,
@@ -84,6 +86,7 @@ export class RouseApp {
   public stores: StoreManager;
   public registry: Registry;
   public isReady: boolean;
+  public fetch: RouseFetch;
   public _interceptors: {
     request: Set<RequestInterceptor>;
     response: Set<ResponseInterceptor>;
@@ -131,6 +134,9 @@ export class RouseApp {
     // Mark root so children can find parent app
     this.root.setAttribute('data-rouse-app', '');
     appInstances.set(this.root, this);
+
+    // Bound + alias-decorated so `app.fetch.post(url)` resolves to this instance
+    this.fetch = withMethodAliases(this._fetch.bind(this));
   }
 
   /**
@@ -214,7 +220,7 @@ export class RouseApp {
    * @param resource - The URL to fetch.
    * @param options - Network configuration, including the DOM `target`.
    */
-  async fetch(resource: string, options: RouseRequest = {}) {
+  private async _fetch(resource: string, options: RouseRequest = {}) {
     const targetRef = options.target || this.root;
     let el: Element | null = null;
 

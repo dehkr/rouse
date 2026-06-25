@@ -1,5 +1,6 @@
 import type { RouseApp } from './core/app';
 import type {
+  HttpMethod,
   ITEM_KEY,
   ITEM_META_KEY,
   PatchAction,
@@ -333,6 +334,20 @@ export interface FetchConfig {
   abortKey?: string | symbol;
 }
 
+/**
+ * The callable fetch surface. Invoke directly with an explicit `method` in
+ * options, or via a lowercased per-method alias (`fetch.post(url)`).
+ */
+export type RouseFetch = ((
+  resource: string,
+  options?: RouseRequest,
+) => Promise<RouseResponse>) & {
+  [M in Lowercase<HttpMethod>]: (
+    resource: string,
+    options?: RouseRequest,
+  ) => Promise<RouseResponse>;
+};
+
 /** The final unified options object passed into ctx.fetch */
 export type RouseRequest = Omit<RequestInit, 'body'> & FetchConfig;
 
@@ -417,7 +432,7 @@ export type ScopeCtx<
       customSignal?: AbortSignal,
     ): () => void;
   };
-  fetch: (resource: string, options?: RouseRequest) => Promise<RouseResponse>;
+  fetch: RouseFetch;
   swap: (content: string, target: Element, method: SwapMethod) => void;
   scan: (newNode: Element) => void;
 };
