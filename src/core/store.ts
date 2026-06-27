@@ -55,8 +55,9 @@ export interface StoreRequestOptions {
 }
 
 /**
- * Resolves a save subject into a store name and optional nested path.
- * `null` subject means self-target (use `rz-store` on the same element).
+ * Resolves a save/refresh subject into a store name and optional nested path.
+ * A `null` subject means self-target, which is valid only on a <script> element
+ * with the `rz-store` directive present.
  */
 export function resolveTarget(
   el: Element,
@@ -77,9 +78,10 @@ export function resolveTarget(
     return { storeName, nestedPath: supportsNestedPath ? nestedPath : '' };
   }
 
+  // Reference the `rz-store` value if `null`. Specific to <script> elements.
   const selfName = getDirectiveValue(el, 'store')?.trim();
   if (!selfName) {
-    warn(`rz-${slug} requires rz-store on the same element.`);
+    warn(`rz-${slug} ignored. Requires rz-store on the same <script> element.`, el);
     return null;
   }
   return { storeName: selfName, nestedPath: '' };
