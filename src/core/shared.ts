@@ -87,7 +87,7 @@ export function queryTargets<T extends Element = Element>(
 const session = Date.now().toString(36);
 let count = 46656;
 
-export const uniqueKey = (prefix = 'rz-') => prefix + session + (count++).toString(36);
+export const uniqueKey = (prefix = 'rz_') => prefix + session + (count++).toString(36);
 
 /**
  * Shared utility to parse target strings into DOM swap operations.
