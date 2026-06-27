@@ -8,7 +8,6 @@ import {
   warn,
 } from '../core/shared';
 import { resolveStoreUrl } from '../core/store';
-import { rzUrl } from '../directives';
 import { extractFieldValues } from '../dom/forms';
 import { dispatch } from '../dom/scheduler';
 import { is } from '../dom/utils';
@@ -70,15 +69,15 @@ async function executeFetch(el: Element, app: RouseApp, options: RouseRequest) {
     return fallbackResponse(options, 'Element is disabled');
   }
 
-  const { method: inlineMethod, url: inlineUrl } = rzUrl.getConfig(el);
-
-  let url = options.url || inlineUrl || null;
-  if (url) url = resolveStoreUrl(url, app.stores);
+  let url = options.url || null;
+  if (url) {
+    url = resolveStoreUrl(url, app.stores);
+  }
 
   if (!url) {
-    warn('A URL was not provided for rz-fetch.', el);
+    warn('Invalid or missing URL for the fetch request.', el);
 
-    const error = new Error('No URL specified for rz-fetch.');
+    const error = new Error('Invalid or missing URL for the fetch request.');
     dispatch(el, 'rz:fetch:error', { error, config: options });
 
     return fallbackResponse(options, error.message, 'INTERNAL_ERROR');
@@ -90,7 +89,6 @@ async function executeFetch(el: Element, app: RouseApp, options: RouseRequest) {
   const method = (
     options.method || // rz-fetch
     finalRequestInit.method || // rz-request / rz-fetch-request
-    inlineMethod || // rz-url
     formMethod || // form native attribute
     'GET'
   ).toUpperCase();

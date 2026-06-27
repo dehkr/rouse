@@ -1,33 +1,21 @@
-import type { HttpMethod } from '../core/constants';
-import { parseUrlSubject } from '../core/parser';
 import { getDirectiveValue } from '../core/shared';
-import { is } from '../dom/utils';
 import type { ConfigDirective, DirectiveSlug } from '../types';
 
 const SLUG = 'url' as const satisfies DirectiveSlug;
 
 /**
- * URL source of truth for an element. Falls back to `href` (anchors)
- * or `action` (forms) when the attribute is empty.
+ * The request URL for an element. Read by `rz-fetch` (and by `rz-store` for a
+ * store's sync URL). The attribute value is passed through without validation,
+ * leaving the browser to resolve it as a relative or absolute URL.
+ *
+ * @example
+ * <button rz-url="/api/users" rz-fetch="click: POST">Save</button>
  */
-function getConfig(el: Element): { method?: HttpMethod; url: string } {
-  const value = getDirectiveValue(el, SLUG)?.trim();
-
-  if (value) {
-    const { method, url } = parseUrlSubject(value);
-    if (url) return { method, url };
-  }
-  if (is(el, 'Anchor')) {
-    return { url: el.getAttribute('href') ?? el.href };
-  }
-  if (is(el, 'Form')) {
-    return { url: el.getAttribute('action') ?? el.action };
-  }
-
-  return { url: '' };
+function getConfig(el: Element): { url: string } {
+  return { url: getDirectiveValue(el, SLUG)?.trim() ?? '' };
 }
 
 export const rzUrl = {
   slug: SLUG,
   getConfig,
-} as const satisfies ConfigDirective<{ method?: HttpMethod; url: string }>;
+} as const satisfies ConfigDirective<{ url: string }>;

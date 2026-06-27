@@ -220,7 +220,7 @@ export type TriggerDef = {
 
 /** A trigger paired with its resolved subject (URL, store ref, etc.) */
 export type TriggerSubjectPair = {
-  trigger: TriggerDef | null;
+  trigger: TriggerDef;
   subject: string | null;
 };
 

@@ -1,16 +1,11 @@
 import type { RouseApp } from '../core/app';
 import type { PatchAction } from '../core/constants';
-import {
-  looksLikeStoreSubject,
-  parseStoreSubject,
-  parseTriggerSubjectPairs,
-} from '../core/parser';
+import { parseStoreSubject, parseTriggerSubjectPairs } from '../core/parser';
 import { getRootSegment } from '../core/path';
 import { getDirectiveValue, warn } from '../core/shared';
 import { resolveTarget } from '../core/store';
 import { applyTiming } from '../core/timing';
 import { dispatchTrigger } from '../dom/scheduler';
-import { resolveDefaultTrigger } from '../dom/utils';
 import { resolveRequestConfig } from '../net/request';
 import type { DirectiveSlug, StandaloneDirective, TriggerDef, VoidFn } from '../types';
 
@@ -51,32 +46,36 @@ function initialize(el: Element, app: RouseApp) {
   const value = getDirectiveValue(el, SLUG);
   if (value === null) return;
 
-  const pairs = parseTriggerSubjectPairs(value, looksLikeStoreSubject);
-  if (pairs.length === 0) return;
+  const pairs = parseTriggerSubjectPairs(value);
+  if (pairs.length === 0) {
+    warn('A valid trigger is missing for rz-save:', el);
+    return;
+  }
 
   const teardowns: VoidFn[] = [];
 
   for (const { trigger, subject } of pairs) {
-    const { action, target } = parseStoreSubject(subject);
+    const parsed = subject ? parseStoreSubject(subject, el) : {};
+    if (!parsed) continue;
+
+    const { action, target } = parsed;
     const resolved = resolveTarget(el, 'save', target ?? null);
     if (!resolved) continue;
 
     const { storeName, nestedPath } = resolved;
     const fire = () => triggerSave(el, app, storeName, nestedPath, action);
 
-    // `edit` is a reactive synthetic event that needs to be handled separately
-    if (trigger?.event === 'edit') {
+    if (trigger.event === 'edit') {
       teardowns.push(
         attachMutateEffect(app, storeName, trigger.modifiers, fire, nestedPath),
       );
       continue;
     }
 
-    const resolvedTrigger = resolveDefaultTrigger(trigger, el, SLUG);
-    if (!resolvedTrigger) continue;
-
-    const cleanup = dispatchTrigger(resolvedTrigger, { el, app, action: fire });
-    if (cleanup) teardowns.push(cleanup);
+    const cleanup = dispatchTrigger(trigger, { el, app, action: fire });
+    if (cleanup) {
+      teardowns.push(cleanup);
+    }
   }
 
   if (teardowns.length > 0) {

@@ -15,7 +15,6 @@ const SEGMENT_DELIMITER = ':';
 const MODIFIER_DELIMITER = '.';
 
 const WHITESPACE_RE = /\s/;
-const SUBJECT_RE = /^(\S+)\s+(.+)$/;
 const FETCH_URL_PREFIX_RE = /^(\/|\.\.?\/|https?:\/\/|\?)/;
 
 const openers: Record<string, boolean> = { '(': true, '{': true, '[': true };
@@ -133,10 +132,6 @@ function stripQuotes(val: string) {
 function hasTrailingWhitespace(text: string, index: number) {
   return index + 1 < text.length && WHITESPACE_RE.test(text.charAt(index + 1));
 }
-
-// ---------------------------------------------------------------------------------------
-// PUBLIC API
-// ---------------------------------------------------------------------------------------
 
 /**
  * Handles string splitting for directive values.
@@ -256,144 +251,104 @@ export function parseTriggers(value: string | null | undefined): TriggerDef[] {
   const triggers: TriggerDef[] = [];
   for (const trigger of parts) {
     const { key: event, modifiers } = parseModifiers(trigger);
-    if (event) {
-      triggers.push({ event, modifiers });
+    if (!event) continue;
+    // A URL in trigger position means the ':' before the subject was forgotten
+    if (isUrlShaped(event)) {
+      warn(`'${event}' is not a valid trigger.`);
+      continue;
     }
+    triggers.push({ event, modifiers });
   }
 
   return triggers;
 }
 
 /**
- * Parses directive values shaped as `[trigger]: [subject]` pairs.
+ * Splits a directive value into trigger/subject pairs:
+ * `click: /users` -> `[{ trigger: click, subject: '/users' }]`.
  *
- * Combines `parseDirectiveValue` (comma-separated groups) with `parseTriggers`
- * (space-separated triggers within a group). Triggers in the same group share
- * the group's subject.
- *
- * Within a no-colon segment, `looksLikeSubject(segment)` decides whether to
- * treat the segment as a subject (`{ trigger: null, subject }`) or as a
- * trigger (one or more `{ trigger, subject: null }` pairs). `null` on either
- * side means "use the directive's default" — consumers resolve it.
- *
- * Pass `() => false` to preserve legacy "no colon means trigger only" behavior.
+ * Space-separated triggers before the colon share the subject after it.
+ * Commas separate groups. A group with no colon is a trigger with no subject,
+ * so the directive handles resolving the URL/target some other way.
  */
 export function parseTriggerSubjectPairs(
   value: string | null | undefined,
-  subjectDetector: (s: string) => boolean,
 ): TriggerSubjectPair[] {
-  const trimmed = value?.trim();
-  if (trimmed == null) return [];
-  if (trimmed === '') {
-    return [{ trigger: null, subject: null }];
-  }
-
   const pairs: TriggerSubjectPair[] = [];
-
   for (const [keyStr, subjectStr] of parseDirectiveValue(value)) {
-    // Trigger + subject
-    if (subjectStr) {
-      for (const trigger of parseTriggers(keyStr)) {
-        pairs.push({ trigger, subject: subjectStr });
-      }
-    }
-
-    // Subject only
-    else if (subjectDetector(keyStr)) {
-      pairs.push({ trigger: null, subject: keyStr });
-    }
-
-    // Trigger only
-    else {
-      for (const trigger of parseTriggers(keyStr)) {
-        pairs.push({ trigger, subject: null });
-      }
+    const subject = subjectStr || null;
+    for (const trigger of parseTriggers(keyStr)) {
+      pairs.push({ trigger, subject });
     }
   }
-
   return pairs;
 }
 
 /**
- * Parse HTTP method and URL from string value like 'GET /users/api'.
+ * Checks whether a token looks like a URL or `@store` reference (starts with `/`,
+ * `./`, `http(s)://`, `?`, or `@`). A heuristic for flagging a subject that
+ * landed in trigger position (not a validity check on URLs themselves).
  */
-export function parseUrlSubject(value: string | undefined | null): {
+export function isUrlShaped(s: string): boolean {
+  return FETCH_URL_PREFIX_RE.test(s) || s.startsWith(STORE_PREFIX);
+}
+
+/**
+ * Parses a fetch subject string into an optional HTTP method and/or a URL.
+ * The method is matched by vocabulary. Either may be omitted (a missing URL
+ * is resolved from the element).
+ */
+export function parseFetchSubject(subject: string): {
   method?: HttpMethod;
   url?: string;
 } {
-  const trimmed = value?.trim();
-  if (!trimmed) return {};
-  if (isHttpMethod(trimmed)) {
-    return { method: trimmed.toUpperCase() as HttpMethod };
+  const ws = subject.search(/\s/);
+  const head = ws === -1 ? subject : subject.slice(0, ws);
+
+  // A leading HTTP method is split off. The rest is the URL. If a leading
+  // HTTP method isn't detected, treat the entire string as the URL.
+  if (isHttpMethod(head)) {
+    return {
+      method: head.toUpperCase() as HttpMethod,
+      url: ws === -1 ? undefined : subject.slice(ws + 1).trim(),
+    };
   }
 
-  const match = trimmed.match(SUBJECT_RE);
-
-  if (match) {
-    const [, initial, rest] = match;
-    if (isHttpMethod(initial)) {
-      return { method: initial.toUpperCase() as HttpMethod, url: rest };
-    }
-  }
-
-  return { url: trimmed };
+  return { url: subject };
 }
 
 /**
- * Check if the value starts with a URL-shaped prefix or its leading
- * whitespace-split token is a known HTTP method.
+ * Parses a store subject string into an optional patch action and store target.
+ * The action is matched by vocabulary and the target by its `@` prefix. The target
+ * may be omitted when used on a <script> element with the `rz-store` directive.
  *
- * Otherwise treated as a trigger by `parseTriggerSubjectPairs`.
+ * Returns null when a token is neither an action nor a store reference.
  */
-export function looksLikeUrlSubject(s: string): boolean {
-  const trimmed = s.trim();
-  if (!trimmed) return false;
-  if (FETCH_URL_PREFIX_RE.test(trimmed) || trimmed.startsWith(STORE_PREFIX)) {
-    return true;
-  }
+export function parseStoreSubject(
+  subject: string,
+  el?: Element,
+): { action?: PatchAction; target?: string } | null {
+  const ws = subject.search(/\s/);
+  const head = ws === -1 ? subject : subject.slice(0, ws);
 
-  const firstToken = trimmed.split(/\s+/, 1)[0];
-  return isHttpMethod(firstToken);
-}
-
-/**
- * Parse optional action prefix and target from a store subject.
- */
-export function parseStoreSubject(value: string | undefined | null): {
-  action?: PatchAction;
-  target?: string;
-} {
-  const trimmed = value?.trim();
-  if (!trimmed) return {};
-  if (isPatchAction(trimmed)) {
-    return { action: trimmed.toLowerCase() as PatchAction };
-  }
-
-  const match = trimmed.match(SUBJECT_RE);
-
-  if (match) {
-    const [, initial, rest] = match;
-    if (isPatchAction(initial)) {
-      return { action: initial.toLowerCase() as PatchAction, target: rest };
+  // Leading action: everything after it is the store target
+  if (isPatchAction(head)) {
+    const action = head.toLowerCase() as PatchAction;
+    const target = ws === -1 ? '' : subject.slice(ws + 1).trim();
+    if (!target) return { action };
+    if (!target.startsWith(STORE_PREFIX)) {
+      warn(`'${target}' is not a '@store' reference.`, el);
+      return null;
     }
+    return { action, target };
   }
 
-  return { target: trimmed };
-}
-
-/**
- * Subject if the value starts with the store prefix or its leading
- * whitespace-split token is a known store action.
- *
- * Otherwise treated as a trigger by `parseTriggerSubjectPairs`.
- */
-export function looksLikeStoreSubject(s: string): boolean {
-  const trimmed = s.trim();
-  if (!trimmed) return false;
-  if (trimmed.startsWith(STORE_PREFIX)) return true;
-
-  const firstToken = trimmed.split(/\s+/, 1)[0];
-  return isPatchAction(firstToken);
+  // No leading action: the whole subject is the store target
+  if (!subject.startsWith(STORE_PREFIX)) {
+    warn(`'${subject}' is not a patch action or '@store' reference.`, el);
+    return null;
+  }
+  return { target: subject };
 }
 
 /**

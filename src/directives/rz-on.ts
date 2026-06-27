@@ -6,7 +6,7 @@ import { getNestedVal } from '../core/path';
 import { renderCtxOf } from '../core/render';
 import { err, warn } from '../core/shared';
 import { dispatchTrigger } from '../dom/scheduler';
-import { boundCleanup, defaultTriggerFor } from '../dom/utils';
+import { boundCleanup } from '../dom/utils';
 import type {
   BoundCleanupFn,
   BoundDirective,
@@ -25,8 +25,13 @@ function bind(
   key: string,
   value: string,
 ): BoundCleanupFn | undefined {
-  const handlerRef = value || key;
-  const triggerSource = value ? key : defaultTriggerFor(el);
+  if (!value) {
+    warn(`rz-on requires one or more triggers (e.g., rz-on="click: handler").`, el);
+    return undefined;
+  }
+
+  const handlerRef = value;
+  const triggerSource = key;
 
   if (!triggerSource) {
     warn(`rz-on on <${el.tagName.toLowerCase()}> requires an explicit trigger.`);

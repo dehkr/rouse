@@ -1,14 +1,9 @@
 import type { RouseApp } from '../core/app';
 import type { PatchAction } from '../core/constants';
-import {
-  looksLikeStoreSubject,
-  parseStoreSubject,
-  parseTriggerSubjectPairs,
-} from '../core/parser';
+import { parseStoreSubject, parseTriggerSubjectPairs } from '../core/parser';
 import { getDirectiveValue, warn } from '../core/shared';
 import { resolveTarget } from '../core/store';
 import { dispatchTrigger } from '../dom/scheduler';
-import { resolveDefaultTrigger } from '../dom/utils';
 import { resolveRequestConfig } from '../net/request';
 import type { DirectiveSlug, StandaloneDirective, VoidFn } from '../types';
 
@@ -51,27 +46,33 @@ function initialize(el: Element, app: RouseApp) {
   const value = getDirectiveValue(el, SLUG);
   if (value === null) return;
 
-  const pairs = parseTriggerSubjectPairs(value, looksLikeStoreSubject);
-  if (pairs.length === 0) return;
+  const pairs = parseTriggerSubjectPairs(value);
+  if (pairs.length === 0) {
+    warn('A valid trigger is missing for rz-refresh:', el);
+    return;
+  }
 
   const teardowns: VoidFn[] = [];
 
   for (const { trigger, subject } of pairs) {
-    const { action, target } = parseStoreSubject(subject);
+    const parsed = subject ? parseStoreSubject(subject, el) : {};
+    if (!parsed) continue;
+
+    const { action, target } = parsed;
     const resolved = resolveTarget(el, 'refresh', target ?? null, true);
     if (!resolved) continue;
 
     const { storeName, nestedPath } = resolved;
-    const resolvedTrigger = resolveDefaultTrigger(trigger, el, SLUG);
-    if (!resolvedTrigger) continue;
-
     const fire = () => triggerRefresh(el, app, storeName, nestedPath, action);
-    const cleanup = dispatchTrigger(resolvedTrigger, { el, app, action: fire });
-
-    if (cleanup) teardowns.push(cleanup);
+    const cleanup = dispatchTrigger(trigger, { el, app, action: fire });
+    if (cleanup) {
+      teardowns.push(cleanup);
+    }
   }
 
-  if (teardowns.length > 0) cleanups.set(el, teardowns);
+  if (teardowns.length > 0) {
+    cleanups.set(el, teardowns);
+  }
 }
 
 function teardown(el: Element) {
