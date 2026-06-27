@@ -136,5 +136,5 @@ function isAbsoluteUrl(url: string): boolean {
   if (/^(blob|data):/.test(url)) {
     throw new TypeError(`Unsupported URL scheme: '${url}'`);
   }
-  return /^https?:\/\/|^\/\//i.test(url);
+  return /^https?:\/\//i.test(url);
 }
