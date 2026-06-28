@@ -40,13 +40,9 @@ export async function normalizeResponse(
     if (!isEmpty) {
       if (isJsonType(contentType)) {
         const text = await response.text();
+        // A malformed body throws a native SyntaxError, caught below as PARSE_ERROR
         if (text) {
-          try {
-            data = JSON.parse(text);
-          } catch {
-            // Throw so the outer catch block flags it as a PARSE_ERROR
-            throw new Error('Invalid JSON response');
-          }
+          data = JSON.parse(text);
         }
       } else if (contentType.includes('text/') || contentType.includes('xml')) {
         data = await response.text();
