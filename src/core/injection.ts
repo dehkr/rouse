@@ -152,7 +152,7 @@ export function resolveBoundValue(
           ? (resolveInjection(rawPayload, storeManager) ?? {})
           : {};
       const e = new CustomEvent(`rz:${slug}`);
-      const args: HandlerCtx = {
+      const args: HandlerCtx<Record<string, any>, Element> = {
         data,
         e,
         el,

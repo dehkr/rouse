@@ -87,7 +87,7 @@ function bind(
             rawPayload !== undefined
               ? (resolveInjection(rawPayload, app.stores) ?? {})
               : {};
-          const args: HandlerCtx = {
+          const args: HandlerCtx<Record<string, any>, Element> = {
             data,
             e: e ?? new CustomEvent(trigger.event),
             el,

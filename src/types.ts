@@ -443,9 +443,9 @@ export type ScopeCtx<
  * @template P - The type of the data.
  * @template T - The Element type.
  */
-export type HandlerCtx<P = Record<string, any>, T extends Element = Element> = {
-  data: P;
-  el: T;
+export type HandlerCtx<D = Record<string, any>, E extends Element = HTMLElement> = {
+  data: D;
+  el: E;
   e: Event;
   /**
    * Current `rz-render` loop context. Both fields are `null` outside a render
