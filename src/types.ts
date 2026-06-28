@@ -173,7 +173,7 @@ export type BindableValue =
   | Record<string, boolean> // For class bindings
   | Record<string, string>; // For style bindings
 
-export type AnyFunction = (...args: any[]) => any;
+export type AnyFn = (...args: any[]) => any;
 export type VoidFn = () => void;
 export type ActionFn = (e?: Event) => void;
 

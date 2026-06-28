@@ -1,11 +1,5 @@
 import { is } from '../dom/utils';
-import type {
-  AnyFunction,
-  BindableValue,
-  DirectiveSlug,
-  HandlerCtx,
-  Scope,
-} from '../types';
+import type { AnyFn, BindableValue, DirectiveSlug, HandlerCtx, Scope } from '../types';
 import { KEY_BLOCKLIST, STORE_PREFIX } from './constants';
 import { parseStoreLocator, splitLocator } from './parser';
 import { getNestedVal, resolveState } from './path';
@@ -164,7 +158,7 @@ export function resolveBoundValue(
         el,
         render: renderCtxOf(scope),
       };
-      return (state as AnyFunction).call(context, args) as BindableValue;
+      return (state as AnyFn).call(context, args) as BindableValue;
     } catch (error) {
       err(`Failed to execute '${key}()'.`, error);
       return undefined;

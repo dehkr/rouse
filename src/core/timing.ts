@@ -1,22 +1,29 @@
-import { LiteDebouncer, LiteThrottler } from '@tanstack/pacer-lite';
-import type { AnyFunction, VoidFn } from '../types';
+import type { AnyFn, VoidFn } from '../types';
 import { warn } from './shared';
 
 export const DEFAULT_DEBOUNCE_MS = 300;
 export const DEFAULT_THROTTLE_MS = 150;
 
+/**
+ * Options that configure how a timed function is executed.
+ *
+ * - **debounce**: clumps a burst of events into a single execution.
+ * - **throttle**: guarantees execution at a regulated, steady rate.
+ * - **leading:** executes at the start of the event sequence.
+ * - **trailing:** executes at the end of the event sequence.
+ */
 export interface TimingConfig {
-  strategy?: 'debounce' | 'throttle';
   wait: number;
   leading?: boolean;
   trailing?: boolean;
+  strategy?: 'debounce' | 'throttle';
 }
 
 /**
- * A callable function augmented with methods to manually flush or
- * cancel pending executions.
+ * A callable function augmented with methods to manually flush
+ * or cancel pending executions.
  */
-export interface PacedFunction<T extends AnyFunction> {
+export interface TimedFn<T extends AnyFn> {
   (...args: Parameters<T>): void;
   cancel: VoidFn;
   flush: VoidFn;
@@ -46,9 +53,7 @@ export function getTimingConfig(
       leading = true;
       trailing = false;
     } else if (mod === 'trailing') {
-      // TODO: investigate `throttle.trailing` not working
-      // Setting `leading` to true for now to ensure the event fires
-      leading = true;
+      leading = false;
       trailing = true;
     } else if (mod === 'edges') {
       leading = true;
@@ -79,89 +84,136 @@ export function getTimingConfig(
   return { strategy, wait, leading, trailing };
 }
 
-type PacedOptions = { leading?: boolean; trailing?: boolean; signal?: AbortSignal };
-
 /**
- * Creates a paced function. Used by `debounce` and `throttle`.
+ * Creates a debounced function that delays execution until `wait` ms have
+ * elapsed since the last call. Fires on the leading and/or trailing edge.
  */
-function executePaced<T extends AnyFunction>(
-  type: 'debounce' | 'throttle',
+export function debounce<T extends AnyFn>(
   fn: T,
-  wait: number,
-  options: PacedOptions = {},
-): PacedFunction<T> {
-  const pacerClass = type === 'debounce' ? LiteDebouncer : LiteThrottler;
-  const instance = new pacerClass(fn, { wait, ...options });
-  const paced = (...args: Parameters<T>) => instance.maybeExecute(...args);
+  { wait, leading = false, trailing = true }: TimingConfig,
+): TimedFn<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let lastArgs: Parameters<T> | undefined;
 
-  paced.cancel = () => instance.cancel();
-  paced.flush = () => instance.flush();
+  const debounced = (...args: Parameters<T>) => {
+    lastArgs = args;
+    if (timer === undefined) {
+      // Leading edge: first call of a new burst
+      if (leading) {
+        fn(...args);
+        lastArgs = undefined;
+      }
+    } else {
+      clearTimeout(timer);
+    }
+    timer = setTimeout(() => {
+      timer = undefined;
+      // Trailing edge: only fires if a call landed since the last execution
+      if (trailing && lastArgs) {
+        fn(...lastArgs);
+        lastArgs = undefined;
+      }
+    }, wait);
+  };
 
-  if (options.signal) {
-    options.signal.addEventListener('abort', () => paced.cancel(), { once: true });
-  }
+  debounced.cancel = () => {
+    clearTimeout(timer);
+    timer = lastArgs = undefined;
+  };
+  debounced.flush = () => {
+    clearTimeout(timer);
+    timer = undefined;
+    if (lastArgs) {
+      fn(...lastArgs);
+      lastArgs = undefined;
+    }
+  };
 
-  return paced as PacedFunction<T>;
+  return debounced as TimedFn<T>;
 }
 
 /**
- * Creates a debounced function that delays execution until after a specified
- * wait time has elapsed since the last invocation.
+ * Creates a throttled function that runs at most once per `wait` ms.
+ * Fires on the leading and/or trailing edge.
  */
-export function debounce<T extends AnyFunction>(
+export function throttle<T extends AnyFn>(
   fn: T,
-  wait: number,
-  options: PacedOptions = {},
-): PacedFunction<T> {
-  return executePaced<T>('debounce', fn, wait, options);
-}
+  { wait, leading = true, trailing = true }: TimingConfig,
+): TimedFn<T> {
+  let lastRun = 0;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let lastArgs: Parameters<T> | undefined;
 
-/**
- * Creates a throttled function that limits execution to at most once
- * within the specified wait time.
- */
-export function throttle<T extends AnyFunction>(
-  fn: T,
-  wait: number,
-  options: PacedOptions = {},
-): PacedFunction<T> {
-  return executePaced<T>('throttle', fn, wait, options);
+  const run = (args: Parameters<T>) => {
+    fn(...args);
+    lastRun = Date.now();
+    // Clear any pending trailing call (e.g. when invoked via flush)
+    clearTimeout(timer);
+    timer = lastArgs = undefined;
+  };
+
+  const throttled = (...args: Parameters<T>) => {
+    const elapsed = Date.now() - lastRun;
+    lastArgs = args;
+
+    if (elapsed >= wait) {
+      if (leading) {
+        run(args);
+      } else if (trailing && !timer) {
+        timer = setTimeout(() => run(lastArgs as Parameters<T>), wait);
+      }
+    } else if (trailing && !timer) {
+      timer = setTimeout(() => run(lastArgs as Parameters<T>), wait - elapsed);
+    }
+  };
+
+  throttled.cancel = () => {
+    clearTimeout(timer);
+    timer = lastArgs = undefined;
+  };
+  throttled.flush = () => {
+    if (lastArgs) run(lastArgs);
+  };
+
+  return throttled as TimedFn<T>;
 }
 
 /**
  * Wraps a function with a timing strategy (debounce or throttle) based on the
  * provided modifiers. Returns an augmented raw function if no strategy is matched.
  */
-export function applyTiming<T extends AnyFunction>(
+export function applyTiming<T extends AnyFn>(
   fn: T,
   modifiers: string[],
   defaults = {
     debounceWait: DEFAULT_DEBOUNCE_MS,
     throttleWait: DEFAULT_THROTTLE_MS,
   },
-): PacedFunction<T> {
+): TimedFn<T> {
   const config = getTimingConfig(modifiers, defaults);
 
   if (config.strategy === 'debounce') {
-    return debounce(fn, config.wait, {
+    return debounce(fn, {
+      wait: config.wait,
       leading: config.leading,
       trailing: config.trailing,
     });
   }
 
   if (config.strategy === 'throttle') {
-    return throttle(fn, config.wait, {
+    return throttle(fn, {
+      wait: config.wait,
       leading: config.leading,
       trailing: config.trailing,
     });
   }
 
   // Fallback for immediate execution
-  const paced = (...args: Parameters<T>) => fn(...args);
-  paced.cancel = () => {};
-  paced.flush = () => {};
+  const timed = (...args: Parameters<T>) => fn(...args);
+  timed.cancel = () => {};
+  timed.flush = () => {};
 
-  return paced as PacedFunction<T>;
+  return timed as TimedFn<T>;
 }
 
 // Suffix optional to allow plain numbers (e.g., `timeout: 5000`)

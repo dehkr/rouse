@@ -130,9 +130,9 @@ export function on(
  * `visible`, `online`, etc.) go through the `syntheticEvents` registry.
  * Standard DOM events fall through to `attachListener`.
  *
- * Pacing (debounce/throttle) is applied here once, before dispatch, so
- * synthetic and DOM events both receive paced actions. The returned
- * cleanup also cancels any pending paced calls.
+ * Timed execution (debounce/throttle) is applied here once, before
+ * dispatch, so synthetic and DOM events both receive timed actions.
+ * The returned cleanup also cancels any pending timed calls.
  *
  * Native navigation is suppressed for form submits and anchor clicks
  * via `isNativeNavigation`.
@@ -143,13 +143,13 @@ export function dispatchTrigger(
   trigger: TriggerDef,
   base: Omit<TriggerContext, 'modifiers'>,
 ): VoidFn | null {
-  const paced = applyTiming(base.action, trigger.modifiers);
-  const pacedAction: ActionFn = (e) => paced(e);
+  const timed = applyTiming(base.action, trigger.modifiers);
+  const timedAction: ActionFn = (e) => timed(e);
 
-  // Ensure paced timers cancel on teardown
+  // Ensure timed callbacks cancel on teardown
   const wrapCleanup = (cleanup: VoidFn | null): VoidFn => {
     return () => {
-      paced.cancel();
+      timed.cancel();
       cleanup?.();
     };
   };
@@ -160,7 +160,7 @@ export function dispatchTrigger(
     const cleanup = handler({
       ...base,
       modifiers: trigger.modifiers,
-      action: pacedAction,
+      action: timedAction,
     });
     return wrapCleanup(cleanup);
   }
@@ -173,7 +173,7 @@ export function dispatchTrigger(
       if (isNativeNavigation(base.el, e)) {
         e.preventDefault();
       }
-      pacedAction(e);
+      timedAction(e);
     },
     trigger.modifiers,
   );
