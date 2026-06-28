@@ -38,7 +38,7 @@ import type {
   VoidFn,
 } from '../types';
 import { Registry } from './registry';
-import { StoreManager } from './store';
+import { StoreManager, type SyncConfig } from './store';
 
 export interface RouseConfig {
   /** Element or selector where the app mounts. Defaults to `document.body`. */
@@ -180,7 +180,7 @@ export class RouseApp {
   /**
    * Creates a new reactive store.
    */
-  store<T extends object>(name: string, state: T, config?: any) {
+  store<T extends object>(name: string, state: T, config?: Partial<SyncConfig>) {
     return this.stores.create<T>(name, state, config);
   }
 
@@ -292,26 +292,13 @@ export class RouseApp {
       }
     });
 
-    const fetchNodes = queryTargets(this.root, directiveSelector('fetch'));
-    fetchNodes.forEach((el) => {
-      if (getApp(el, this)) {
-        rzFetch.initialize(el, this);
-      }
-    });
-
-    const pushNodes = queryTargets(this.root, directiveSelector('push'));
-    pushNodes.forEach((el) => {
-      if (getApp(el, this)) {
-        rzPush.initialize(el, this);
-      }
-    });
-
-    const pullNodes = queryTargets(this.root, directiveSelector('pull'));
-    pullNodes.forEach((el) => {
-      if (getApp(el, this)) {
-        rzPull.initialize(el, this);
-      }
-    });
+    for (const d of [rzFetch, rzPush, rzPull]) {
+      queryTargets(this.root, directiveSelector(d.slug)).forEach((el) => {
+        if (getApp(el, this)) {
+          d.initialize(el, this);
+        }
+      });
+    }
 
     if (!this.root.closest(directiveSelector('scope'))) {
       walkBoundElements(this.root, (el) => {
