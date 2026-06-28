@@ -46,7 +46,7 @@ export function setModelableValue(el: Element, value: BindableValue) {
 
   // Checkbox
   if (input.type === 'checkbox') {
-    input.checked = Boolean(value);
+    input.checked = !!value;
   }
 
   // Radio buttons

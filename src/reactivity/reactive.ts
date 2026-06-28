@@ -65,7 +65,7 @@ export function createProxy<T>(target: T): T {
 
 /** Check if a value is a proxy. */
 export function isProxy(target: unknown): target is ReactiveProxy<typeof target> {
-  return Boolean(proxiable(target) && rawCache.has(target));
+  return !!(proxiable(target) && rawCache.has(target));
 }
 
 /**
