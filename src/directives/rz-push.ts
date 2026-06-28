@@ -9,14 +9,14 @@ import { dispatchTrigger } from '../dom/scheduler';
 import { resolveRequestConfig } from '../net/request';
 import type { DirectiveSlug, StandaloneDirective, TriggerDef, VoidFn } from '../types';
 
-const SLUG = 'save' as const satisfies DirectiveSlug;
+const SLUG = 'push' as const satisfies DirectiveSlug;
 const cleanups = new WeakMap<Element, Array<VoidFn>>();
 
 /**
  * Resolves the merged request config from the trigger and target elements
- * and dispatches the save through the store manager.
+ * and dispatches the push through the store manager.
  */
-function triggerSave(
+function triggerPush(
   triggerEl: Element,
   app: RouseApp,
   storeName: string,
@@ -25,20 +25,20 @@ function triggerSave(
 ) {
   const status = app.stores.status(storeName);
   if (!status) {
-    warn(`Cannot save: store '${storeName}' not found.`);
+    warn(`Cannot push: store '${storeName}' not found.`);
     return;
   }
   if (status.loading) return;
 
   const targetEl = app.stores.elementFor(storeName);
-  const overrides = resolveRequestConfig(triggerEl, 'save', app, targetEl);
+  const overrides = resolveRequestConfig(triggerEl, 'push', app, targetEl);
 
-  app.stores.save(storeName, { overrides, nestedPath, action });
+  app.stores.push(storeName, { overrides, nestedPath, action });
 }
 
 /**
  * Parses each `[trigger]: [[action] @store[.path]]` pair from the attribute
- * value and wires the trigger to fire a save against the resolved target.
+ * value and wires the trigger to fire a push against the resolved target.
  */
 function initialize(el: Element, app: RouseApp) {
   if (cleanups.has(el)) return;
@@ -48,7 +48,7 @@ function initialize(el: Element, app: RouseApp) {
 
   const pairs = parseTriggerSubjectPairs(value);
   if (pairs.length === 0) {
-    warn('A valid trigger is missing for rz-save:', el);
+    warn('A valid trigger is missing for rz-push:', el);
     return;
   }
 
@@ -59,11 +59,11 @@ function initialize(el: Element, app: RouseApp) {
     if (!parsed) continue;
 
     const { action, target } = parsed;
-    const resolved = resolveTarget(el, 'save', target ?? null);
+    const resolved = resolveTarget(el, 'push', target ?? null);
     if (!resolved) continue;
 
     const { storeName, nestedPath } = resolved;
-    const fire = () => triggerSave(el, app, storeName, nestedPath, action);
+    const fire = () => triggerPush(el, app, storeName, nestedPath, action);
 
     if (trigger.event === 'edit') {
       teardowns.push(
@@ -89,7 +89,7 @@ function teardown(el: Element) {
 }
 
 /**
- * Fires `triggerSave` whenever the store data changes.
+ * Fires `triggerPush` whenever the store data changes.
  */
 function attachMutateEffect(
   app: RouseApp,
@@ -106,7 +106,7 @@ function attachMutateEffect(
     const hasDirty = rootKey
       ? !!status.dirty[rootKey]
       : Object.keys(status.dirty).length > 0;
-    if (!hasDirty) return; // nothing to save
+    if (!hasDirty) return; // nothing to push
     fire();
   };
 
@@ -122,7 +122,7 @@ function attachMutateEffect(
 /**
  * Wires events to push local store state to the server.
  */
-export const rzSave = {
+export const rzPush = {
   slug: SLUG,
   initialize,
   teardown,

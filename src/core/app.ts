@@ -7,9 +7,9 @@ import {
   rzModel,
   rzOn,
   rzProp,
-  rzRefresh,
+  rzPull,
+  rzPush,
   rzRender,
-  rzSave,
   rzStore,
   rzStyle,
   rzText,
@@ -43,7 +43,7 @@ import { StoreManager } from './store';
 export interface RouseConfig {
   /** Element or selector where the app mounts. Defaults to `document.body`. */
   root?: string | HTMLElement;
-  /** Prepended to relative URLs in `rz-fetch`, `rz-save`, `rz-refresh`, and `app.fetch()`. */
+  /** Prepended to relative URLs in `rz-fetch`, `rz-push`, `rz-pull`, and `app.fetch()`. */
   baseUrl?: string;
   /** Default headers applied to every request. Merged with per-request and directive-level headers. */
   headers?: Record<string, string>;
@@ -299,17 +299,17 @@ export class RouseApp {
       }
     });
 
-    const saveNodes = queryTargets(this.root, directiveSelector('save'));
-    saveNodes.forEach((el) => {
+    const pushNodes = queryTargets(this.root, directiveSelector('push'));
+    pushNodes.forEach((el) => {
       if (getApp(el, this)) {
-        rzSave.initialize(el, this);
+        rzPush.initialize(el, this);
       }
     });
 
-    const refreshNodes = queryTargets(this.root, directiveSelector('refresh'));
-    refreshNodes.forEach((el) => {
+    const pullNodes = queryTargets(this.root, directiveSelector('pull'));
+    pullNodes.forEach((el) => {
       if (getApp(el, this)) {
-        rzRefresh.initialize(el, this);
+        rzPull.initialize(el, this);
       }
     });
 
@@ -349,7 +349,7 @@ export class RouseApp {
     scopes.forEach(destroyInstance);
 
     // Cleanup network directives
-    for (const d of [rzFetch, rzSave, rzRefresh]) {
+    for (const d of [rzFetch, rzPush, rzPull]) {
       queryTargets(this.root, directiveSelector(d.slug)).forEach(d.teardown);
     }
 

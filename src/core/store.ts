@@ -22,7 +22,7 @@ import { getDirectiveValue, isPlainObject, warn } from './shared';
 import { clone, deepEqual, patchState } from './state';
 
 export interface StoreStatus {
-  loading: false | 'save' | 'refresh';
+  loading: false | 'push' | 'pull';
   error: string | null;
   lastSync: number;
   dirty: Record<string, boolean>;
@@ -39,8 +39,8 @@ export type RouseStore<T extends object = any> = T & {
 
 export interface SyncConfig {
   url: string;
-  saveMethod?: HttpMethod;
-  refreshMethod?: HttpMethod;
+  pushMethod?: HttpMethod;
+  pullMethod?: HttpMethod;
   action?: PatchAction;
   rollbackOnError?: boolean;
 }
@@ -55,13 +55,13 @@ export interface StoreRequestOptions {
 }
 
 /**
- * Resolves a save/refresh subject into a store name and optional nested path.
+ * Resolves a push/pull subject into a store name and optional nested path.
  * A `null` subject means self-target, which is valid only on a <script> element
  * with the `rz-store` directive present.
  */
 export function resolveTarget(
   el: Element,
-  slug: Extract<DirectiveSlug, 'save' | 'refresh'>,
+  slug: Extract<DirectiveSlug, 'push' | 'pull'>,
   subject: string | null,
   supportsNestedPath = true,
 ): StoreTarget | null {
@@ -152,9 +152,8 @@ export class StoreManager {
     this._status.set(id, status);
 
     const actions = {
-      save: (config?: { url?: string; method?: HttpMethod }) => this.save(id, config),
-      refresh: (config?: { url?: string; method?: HttpMethod }) =>
-        this.refresh(id, config),
+      push: (config?: { url?: string; method?: HttpMethod }) => this.push(id, config),
+      pull: (config?: { url?: string; method?: HttpMethod }) => this.pull(id, config),
       reset: () => this.reset(id),
     };
 
@@ -208,7 +207,7 @@ export class StoreManager {
     return { data, status, config };
   }
 
-  private _refreshLastGood(storeName: string, data: any) {
+  private _updateLastGood(storeName: string, data: any) {
     this._lastGood.set(storeName, clone(data));
   }
 
@@ -227,11 +226,11 @@ export class StoreManager {
   }
 
   /**
-   * Internal unified request handler for save and refresh operations.
+   * Internal unified request handler for push and pull operations.
    */
   private async _request(
     id: string,
-    operation: 'save' | 'refresh',
+    operation: 'push' | 'pull',
     manualConfig?: StoreRequestOptions,
   ) {
     const store = this._getStore(id);
@@ -243,8 +242,8 @@ export class StoreManager {
     const rawUrl = manualConfig?.url || overrides.url || config?.url;
     const url = rawUrl ? resolveStoreUrl(rawUrl, this) : null;
 
-    const defaultMethod = operation === 'save' ? 'POST' : 'GET';
-    const storeMethod = operation === 'save' ? config?.saveMethod : config?.refreshMethod;
+    const defaultMethod = operation === 'push' ? 'POST' : 'GET';
+    const storeMethod = operation === 'push' ? config?.pushMethod : config?.pullMethod;
     const method =
       manualConfig?.method || overrides.method || storeMethod || defaultMethod;
 
@@ -259,8 +258,8 @@ export class StoreManager {
       abortKey: overrides.abortKey ?? `${operation}_${id}`,
     };
 
-    // Body for save: full data, or a nested slice if nestedPath is provided
-    if (operation === 'save') {
+    // Body for push: full data, or a nested slice if nestedPath is provided
+    if (operation === 'push') {
       requestOptions.body = manualConfig?.nestedPath
         ? getNestedVal(data, manualConfig.nestedPath)
         : data;
@@ -303,7 +302,7 @@ export class StoreManager {
         config?.rollbackOnError ??
         false;
 
-      if (operation === 'save' && rollbackOnError) {
+      if (operation === 'push' && rollbackOnError) {
         this._maybeRollback(id, data, status, snapshot, manualConfig?.nestedPath, e);
       }
     } finally {
@@ -317,7 +316,7 @@ export class StoreManager {
 
   private _applyServerResponse(
     storeName: string,
-    operation: 'save' | 'refresh',
+    operation: 'push' | 'pull',
     result: RouseResponse,
     data: any,
     status: StoreStatus,
@@ -339,11 +338,11 @@ export class StoreManager {
       storeName,
     );
 
-    if (operation === 'save') {
-      // Save accepted = synced
+    if (operation === 'push') {
+      // Push accepted = synced
       status.lastSync = Date.now();
 
-      // Clear dirty flags only for what was actually saved
+      // Clear dirty flags only for what was actually pushed
       const rootKey = getRootSegment(nestedPath);
       const keys = rootKey ? [rootKey] : Object.keys(snapshot);
       for (const key of keys) {
@@ -402,11 +401,11 @@ export class StoreManager {
       }
     }
 
-    if (operation === 'refresh') {
+    if (operation === 'pull') {
       status.lastSync = Date.now();
     }
 
-    this._refreshLastGood(storeName, data);
+    this._updateLastGood(storeName, data);
 
     this._dispatchSyncEvent(
       'rz:store:sync',
@@ -524,12 +523,12 @@ export class StoreManager {
       'rz:store:sync:rollback',
       {
         storeName,
-        operation: 'save',
+        operation: 'push',
         data,
         rolledBackTo,
         nestedPath,
         error,
-        reason: 'save-error',
+        reason: 'push-error',
       },
       storeName,
     );
@@ -554,10 +553,6 @@ export class StoreManager {
       });
     }
   }
-
-  // =====================================================================================
-  // PUBLIC API
-  // =====================================================================================
 
   /**
    * Listens for user-driven mutations to the store. Returns a cleanup function.
@@ -608,14 +603,14 @@ export class StoreManager {
 
     this._processMeta(state);
     this._register(name, state, config, el);
-    this._refreshLastGood(name, state);
+    this._updateLastGood(name, state);
 
     return this._data.get(name);
   }
 
   /**
    * Overwrites store state, clears dirty flags, resets the store's initial data
-   * snapshot, and refreshes the snapshop of the most recently server-confirmed state.
+   * snapshot, and pulls the snapshop of the most recently server-confirmed state.
    */
   update<T extends object = any>(
     name: string,
@@ -632,7 +627,7 @@ export class StoreManager {
 
     this._withPatchGuard(() => patchState(this._data.get(name), state, action));
     this._initial.set(name, clone(state));
-    this._refreshLastGood(name, state);
+    this._updateLastGood(name, state);
     this._clearAllDirty(name);
 
     if (config) {
@@ -684,22 +679,22 @@ export class StoreManager {
   }
 
   /**
-   * Triggers a manual store save with optional request overrides.
+   * Triggers a manual store push with optional request overrides.
    */
-  async save(name: string, config?: StoreRequestOptions): Promise<void> {
-    return this._request(name, 'save', config);
+  async push(name: string, config?: StoreRequestOptions): Promise<void> {
+    return this._request(name, 'push', config);
   }
 
   /**
-   * Pulls fresh store data from the server, unless a save is currently in flight.
+   * Pulls fresh store data from the server, unless a push is currently in flight.
    */
-  async refresh(name: string, config?: StoreRequestOptions): Promise<void> {
-    if (this.status(name)?.loading === 'save') return;
-    return this._request(name, 'refresh', config);
+  async pull(name: string, config?: StoreRequestOptions): Promise<void> {
+    if (this.status(name)?.loading === 'push') return;
+    return this._request(name, 'pull', config);
   }
 
   /**
-   * Reverts a store to its initial state, clears dirty flags, and refreshes
+   * Reverts a store to its initial state, clears dirty flags, and pulls
    * the snapshop of the most recently server-confirmed state.
    */
   reset(name: string) {
@@ -717,7 +712,7 @@ export class StoreManager {
     }
 
     this._withPatchGuard(() => patchState(data, clone(initial), 'replace'));
-    this._refreshLastGood(name, data);
+    this._updateLastGood(name, data);
     this._clearAllDirty(name);
   }
 

@@ -60,6 +60,6 @@ export function defineHeadersDirective(
 }
 
 export const rzHeaders = defineHeadersDirective('headers');
-export const rzSaveHeaders = defineHeadersDirective('save-headers');
+export const rzPushHeaders = defineHeadersDirective('push-headers');
 export const rzFetchHeaders = defineHeadersDirective('fetch-headers');
-export const rzRefreshHeaders = defineHeadersDirective('refresh-headers');
+export const rzPullHeaders = defineHeadersDirective('pull-headers');

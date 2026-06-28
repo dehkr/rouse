@@ -2,7 +2,7 @@ import { getApp, type RouseApp } from '../core/app';
 import { STORE_PREFIX } from '../core/constants';
 import { resolveInjection } from '../core/injection';
 import { directiveSelector, hasDirective, queryTargets, warn } from '../core/shared';
-import { rzFetch, rzRefresh, rzSave, rzScope, rzStore, rzWake } from '../directives';
+import { rzFetch, rzPull, rzPush, rzScope, rzStore, rzWake } from '../directives';
 import type { ScopeFn } from '../types';
 import {
   mountGlobalBinding,
@@ -74,8 +74,8 @@ export function initObserver(app: RouseApp) {
   const scopeSelector = directiveSelector('scope');
   const storeSelector = `script${directiveSelector('store')}`;
   const fetchSelector = directiveSelector('fetch');
-  const saveSelector = directiveSelector('save');
-  const refreshSelector = directiveSelector('refresh');
+  const pushSelector = directiveSelector('push');
+  const pullSelector = directiveSelector('pull');
 
   return new MutationObserver((mutations) => {
     mutations.forEach((m) => {
@@ -115,14 +115,14 @@ export function initObserver(app: RouseApp) {
               rzFetch.initialize(el, app);
             }
           });
-          queryTargets(el, saveSelector).forEach((el) => {
+          queryTargets(el, pushSelector).forEach((el) => {
             if (getApp(el, app)) {
-              rzSave.initialize(el, app);
+              rzPush.initialize(el, app);
             }
           });
-          queryTargets(el, refreshSelector).forEach((el) => {
+          queryTargets(el, pullSelector).forEach((el) => {
             if (getApp(el, app)) {
-              rzRefresh.initialize(el, app);
+              rzPull.initialize(el, app);
             }
           });
 
@@ -160,8 +160,8 @@ export function initObserver(app: RouseApp) {
 
           // Cleanup fetch elements
           queryTargets<HTMLElement>(el, fetchSelector).forEach(rzFetch.teardown);
-          queryTargets<HTMLElement>(el, saveSelector).forEach(rzSave.teardown);
-          queryTargets<HTMLElement>(el, refreshSelector).forEach(rzRefresh.teardown);
+          queryTargets<HTMLElement>(el, pushSelector).forEach(rzPush.teardown);
+          queryTargets<HTMLElement>(el, pullSelector).forEach(rzPull.teardown);
 
           // Global teardown
           if (!ownerScope) {

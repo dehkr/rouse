@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Expose the render loop context to store and scope methods via `HandlerCtx.render`.
 - Add per-item teleport via a `renderTarget` property to place a rendered instance anywhere within the app root boundary.
 
+### Changed
+
+- **Breaking:** Rename the store sync operations `save`/`refresh` to `push`/`pull`; directive names, methods, and properties updated accordingly (e.g., `rz-save` renamed `rz-push`).
+- **Breaking:** Require explicit triggers for `rz-fetch`, `rz-push`, `rz-pull`, and `rz-on`.
+- **Breaking:** Stop parsing an HTTP method from `rz-url` values; method can be configured using `rz-push-request` and `rz-pull-request` (e.g., `rz-push-request="method: PUT"`).
+
 ## [0.9.0] - 2026-06-20
 
 ### Added

@@ -22,14 +22,14 @@ export type DirectiveSlug =
   | 'model'
   | 'on'
   | 'prop'
-  | 'refresh'
-  | 'refresh-headers'
-  | 'refresh-request'
+  | 'pull'
+  | 'pull-headers'
+  | 'pull-request'
   | 'render'
   | 'request'
-  | 'save'
-  | 'save-headers'
-  | 'save-request'
+  | 'push'
+  | 'push-headers'
+  | 'push-request'
   | 'scope'
   | 'store'
   | 'style'
@@ -84,7 +84,7 @@ export type FetchErrorFileDetail = RouseResponse<Blob | ArrayBuffer>;
 
 export interface BaseStoreSync {
   storeName: string;
-  operation: 'save' | 'refresh';
+  operation: 'push' | 'pull';
   nestedPath?: string;
   action?: PatchAction;
 }
@@ -117,7 +117,7 @@ export interface StoreSyncRollbackDetail extends BaseStoreSync {
   data: any;
   rolledBackTo: any;
   error: unknown;
-  reason: 'save-error';
+  reason: 'push-error';
 }
 
 export interface DomSwapDetail {
@@ -288,7 +288,7 @@ export interface StoreDirective extends StandaloneDirective<HTMLScriptElement> {
 }
 
 /** The kind of network action a directive describes. */
-export type NetworkAction = 'fetch' | 'save' | 'refresh';
+export type NetworkAction = 'fetch' | 'push' | 'pull';
 
 /** Custom error statuses for non-HTTP failures */
 export type CustomErrorStatus =
@@ -328,7 +328,7 @@ export interface FetchConfig {
   skipInterceptors?: boolean;
   retry?: number;
   retryDelay?: number | ((attempt: number) => number);
-  /** When true, auto-revert local state on save failure. Ignored by fetch and refresh. */
+  /** When true, auto-revert local state on push failure. Ignored by fetch and pull. */
   rollbackOnError?: boolean;
   timeout?: number;
   abortKey?: string | symbol;

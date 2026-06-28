@@ -4,7 +4,7 @@ import { err, getDirectiveValue, hasDirective, warn } from '../core/shared';
 import type { SyncConfig } from '../core/store';
 import { is } from '../dom/utils';
 import type { DirectiveSlug, StoreDirective } from '../types';
-import { rzRefreshRequest, rzRequest, rzSaveRequest } from './rz-request';
+import { rzPullRequest, rzPushRequest, rzRequest } from './rz-request';
 import { rzUrl } from './rz-url';
 
 const SLUG = 'store' as const satisfies DirectiveSlug;
@@ -37,7 +37,7 @@ function validate(el: Element, app: RouseApp): el is HTMLScriptElement {
  * Bootstraps a global reactive store from a `<script>` tag. Initializes the
  * reactive data registry and seeds the store's URL from `rz-url` if present.
  *
- * Save/refresh triggers (`rz-save`, `rz-refresh`) are wired separately by
+ * Push/pull triggers (`rz-push`, `rz-pull`) are wired separately by
  * their own manager scans, so the store doesn't need to know about them.
  */
 function initialize(el: HTMLScriptElement, app: RouseApp) {
@@ -79,15 +79,15 @@ function initialize(el: HTMLScriptElement, app: RouseApp) {
 
   // Capture declarative rollback config for store-level default
   const reqBase = rzRequest.getConfig(el, app);
-  const reqSave = rzSaveRequest.getConfig(el, app);
-  const reqRefresh = rzRefreshRequest.getConfig(el, app);
+  const reqPush = rzPushRequest.getConfig(el, app);
+  const reqPull = rzPullRequest.getConfig(el, app);
 
-  const saveMethod = resolveMethod(reqSave.method ?? reqBase.method, el);
-  const refreshMethod = resolveMethod(reqRefresh.method ?? reqBase.method, el);
-  if (saveMethod) cfg.saveMethod = saveMethod;
-  if (refreshMethod) cfg.refreshMethod = refreshMethod;
+  const pushMethod = resolveMethod(reqPush.method ?? reqBase.method, el);
+  const pullMethod = resolveMethod(reqPull.method ?? reqBase.method, el);
+  if (pushMethod) cfg.pushMethod = pushMethod;
+  if (pullMethod) cfg.pullMethod = pullMethod;
 
-  const rollbackOnError = reqSave.rollbackOnError ?? reqBase.rollbackOnError;
+  const rollbackOnError = reqPush.rollbackOnError ?? reqBase.rollbackOnError;
   if (rollbackOnError !== undefined) {
     cfg.rollbackOnError = rollbackOnError;
   }

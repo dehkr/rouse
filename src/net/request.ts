@@ -4,14 +4,14 @@ import { warn } from '../core/shared';
 import {
   rzFetchHeaders,
   rzHeaders,
-  rzRefreshHeaders,
-  rzSaveHeaders,
+  rzPullHeaders,
+  rzPushHeaders,
 } from '../directives/rz-headers';
 import {
   rzFetchRequest,
-  rzRefreshRequest,
+  rzPullRequest,
+  rzPushRequest,
   rzRequest,
-  rzSaveRequest,
 } from '../directives/rz-request';
 import type {
   NetworkAction,
@@ -32,14 +32,14 @@ type BaseFetch = (resource: string, options?: RouseRequest) => Promise<RouseResp
 
 const REQUEST_VARIANTS = {
   fetch: rzFetchRequest,
-  save: rzSaveRequest,
-  refresh: rzRefreshRequest,
+  push: rzPushRequest,
+  pull: rzPullRequest,
 } as const;
 
 const HEADERS_VARIANTS = {
   fetch: rzFetchHeaders,
-  save: rzSaveHeaders,
-  refresh: rzRefreshHeaders,
+  push: rzPushHeaders,
+  pull: rzPullHeaders,
 } as const;
 
 const abortRegistry = new Map<string | symbol, AbortEntry>();
@@ -207,15 +207,15 @@ export async function request<T = any>(
  * directive-driven config layers in priority order (later wins):
  *
  *   1. global defaults (`app.config.*`)
- *   2. `rz-request` on target element (save/refresh only)
- *   3. `rz-<save|refresh>-request` on target element (save/refresh only)
+ *   2. `rz-request` on target element (push/pull only)
+ *   3. `rz-<push|pull>-request` on target element (push/pull only)
  *   4. `rz-request` on triggering element
  *   5. `rz-<action>-request` on triggering element
  *
  * Headers follow the same chain, merged separately so per-key overrides win
  * without losing unrelated header keys from earlier layers.
  *
- * `targetEl` applies to save/refresh, where the action is initiated by one
+ * `targetEl` applies to push/pull, where the action is initiated by one
  * element but configured on another (the store's owning element).
  */
 export function resolveRequestConfig(

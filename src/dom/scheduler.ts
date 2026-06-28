@@ -242,7 +242,7 @@ export type SyntheticEventHandler = (ctx: TriggerContext) => VoidFn | null;
 
 /**
  * Universal synthetic events available to directives and `on`.
- * Store-specific events (`edit`) stay inline in rz-save.
+ * Store-specific events (`edit`) stay inline in rz-push.
  */
 export const syntheticEvents: Record<string, SyntheticEventHandler> = {
   /** Fires when all assets (images, etc.) are fully loaded. */

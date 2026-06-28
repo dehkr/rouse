@@ -7,15 +7,15 @@ import { dispatchTrigger } from '../dom/scheduler';
 import { resolveRequestConfig } from '../net/request';
 import type { DirectiveSlug, StandaloneDirective, VoidFn } from '../types';
 
-const SLUG = 'refresh' as const satisfies DirectiveSlug;
+const SLUG = 'pull' as const satisfies DirectiveSlug;
 const cleanups = new WeakMap<Element, Array<VoidFn>>();
 
 /**
  * Resolves the merged request config from the trigger and target elements
- * and dispatches the refresh through the store manager. Bails when the
+ * and dispatches the pull through the store manager. Bails when the
  * target store isn't registered or already has a request in flight.
  */
-function triggerRefresh(
+function triggerPull(
   triggerEl: Element,
   app: RouseApp,
   storeName: string,
@@ -24,20 +24,20 @@ function triggerRefresh(
 ) {
   const status = app.stores.status(storeName);
   if (!status) {
-    warn(`Cannot refresh: store '${storeName}' not found.`);
+    warn(`Cannot pull: store '${storeName}' not found.`);
     return;
   }
   if (status.loading) return;
 
   const targetEl = app.stores.elementFor(storeName);
-  const overrides = resolveRequestConfig(triggerEl, 'refresh', app, targetEl);
+  const overrides = resolveRequestConfig(triggerEl, 'pull', app, targetEl);
 
-  app.stores.refresh(storeName, { overrides, nestedPath, action });
+  app.stores.pull(storeName, { overrides, nestedPath, action });
 }
 
 /**
- * Manager entry for `rz-refresh`. Parses each `[trigger]: [[action] @store[.path]]`
- * pair from the attribute value and wires the trigger to fire a refresh
+ * Manager entry for `rz-pull`. Parses each `[trigger]: [[action] @store[.path]]`
+ * pair from the attribute value and wires the trigger to fire a pull
  * against the resolved target.
  */
 function initialize(el: Element, app: RouseApp) {
@@ -48,7 +48,7 @@ function initialize(el: Element, app: RouseApp) {
 
   const pairs = parseTriggerSubjectPairs(value);
   if (pairs.length === 0) {
-    warn('A valid trigger is missing for rz-refresh:', el);
+    warn('A valid trigger is missing for rz-pull:', el);
     return;
   }
 
@@ -59,11 +59,11 @@ function initialize(el: Element, app: RouseApp) {
     if (!parsed) continue;
 
     const { action, target } = parsed;
-    const resolved = resolveTarget(el, 'refresh', target ?? null, true);
+    const resolved = resolveTarget(el, 'pull', target ?? null, true);
     if (!resolved) continue;
 
     const { storeName, nestedPath } = resolved;
-    const fire = () => triggerRefresh(el, app, storeName, nestedPath, action);
+    const fire = () => triggerPull(el, app, storeName, nestedPath, action);
     const cleanup = dispatchTrigger(trigger, { el, app, action: fire });
     if (cleanup) {
       teardowns.push(cleanup);
@@ -81,10 +81,10 @@ function teardown(el: Element) {
 }
 
 /**
- * Definition for the `rz-refresh` directive object. Wires events to pull
+ * Definition for the `rz-pull` directive object. Wires events to pull
  * server state into a local store.
  */
-export const rzRefresh = {
+export const rzPull = {
   slug: SLUG,
   initialize,
   teardown,

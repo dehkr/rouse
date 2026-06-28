@@ -58,7 +58,7 @@ function routeToStore(app: RouseApp, targetStr: string | null, payload: any) {
       const beforeEvent = dispatch(
         targetEl,
         'rz:store:sync:before',
-        { storeName, operation: 'refresh', data: app.stores.get(storeName), payload },
+        { storeName, operation: 'pull', data: app.stores.get(storeName), payload },
         { cancelable: true },
       );
 
@@ -69,7 +69,7 @@ function routeToStore(app: RouseApp, targetStr: string | null, payload: any) {
 
       dispatch(targetEl, 'rz:store:sync', {
         storeName,
-        operation: 'refresh',
+        operation: 'pull',
         data: app.stores.get(storeName),
       });
     } else {
