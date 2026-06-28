@@ -35,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Breaking:** Remove `rz-error` directive. Handle error responses with an `error` interceptor or by listening to the `rz:fetch:error` event.
 - **Breaking:** Stop dispatching the `rz:fetch:error:json` / `:html` / `:file` lifecycle events; error payloads are no longer auto-routed.
 - **Breaking:** Remove `__actions` facade from `StoreManager`.
+- **Breaking:** Remove server-driven store `JSON.__meta` processing.
 
 ## [0.9.0] - 2026-06-20
 

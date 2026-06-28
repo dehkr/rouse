@@ -1,6 +1,6 @@
 import { dispatch } from '../dom/scheduler';
 import { request } from '../net/request';
-import { nonReactive, reactive, readOnly, trackDirty } from '../reactivity';
+import { reactive, trackDirty } from '../reactivity';
 import { seedPropagation } from '../reactivity/reactive';
 import type {
   DirectiveSlug,
@@ -18,7 +18,7 @@ import type { RouseApp } from './app';
 import { type HttpMethod, type PatchAction, STORE_PREFIX } from './constants';
 import { parseStoreLocator } from './parser';
 import { getNestedVal, getRootSegment, setNestedVal } from './path';
-import { getDirectiveValue, isPlainObject, warn } from './shared';
+import { getDirectiveValue, warn } from './shared';
 import { clone, deepEqual, patchState } from './state';
 
 export interface StoreStatus {
@@ -420,54 +420,6 @@ export class StoreManager {
     );
   }
 
-  /**
-   * Intercepts the raw payload to apply framework instructions (like `nonReactive`)
-   * before the data is wrapped in proxies or merged into state.
-   */
-  private _processMeta(payload: unknown) {
-    if (!isPlainObject(payload) || !payload.__meta) return;
-
-    const meta = payload.__meta;
-    const isObject = (target: unknown) =>
-      target !== undefined && typeof target === 'object' && target !== null;
-
-    if (Array.isArray(meta.nonReactive)) {
-      for (const path of meta.nonReactive) {
-        const target = getNestedVal(payload, path);
-        if (isObject(target)) {
-          nonReactive(target);
-        }
-      }
-    }
-
-    // Handle `readOnly` paths
-    if (Array.isArray(meta.readOnly)) {
-      for (const path of meta.readOnly) {
-        const keys = path.split('.');
-        const lastKey = keys.pop();
-        if (!lastKey) continue;
-
-        let parent = payload;
-        let failed = false;
-
-        // Traverse remaining keys to find the final parent
-        for (const key of keys) {
-          if (!isObject(parent[key])) {
-            failed = true;
-            break;
-          }
-          parent = parent[key];
-        }
-
-        if (!failed && isObject(parent[lastKey])) {
-          parent[lastKey] = readOnly(parent[lastKey]);
-        }
-      }
-    }
-
-    delete payload.__meta;
-  }
-
   private _withPatchGuard(fn: VoidFn) {
     this._isPatching = true;
     try {
@@ -599,7 +551,6 @@ export class StoreManager {
       throw new Error(`[Rouse] A store named '${name}' already exists.`);
     }
 
-    this._processMeta(state);
     this._register(name, state, config, el);
     this._updateLastGood(name, state);
 
@@ -618,8 +569,6 @@ export class StoreManager {
     if (!this._data.has(name)) {
       throw new Error(`[Rouse] Store '${name}' does not exist.`);
     }
-
-    this._processMeta(state);
 
     const action = config?.action || this._configs.get(name)?.action || 'replace';
 
