@@ -77,11 +77,6 @@ export type FetchSuccessJsonDetail = RouseResponse<Record<string, any> | any[]>;
 export type FetchSuccessHtmlDetail = RouseResponse<string>;
 export type FetchSuccessFileDetail = RouseResponse<Blob | ArrayBuffer>;
 
-/** `rz:fetch:error:json` / `:html` / `:file` — error responses with a routable body. */
-export type FetchErrorJsonDetail = RouseResponse<Record<string, any> | any[]>;
-export type FetchErrorHtmlDetail = RouseResponse<string>;
-export type FetchErrorFileDetail = RouseResponse<Blob | ArrayBuffer>;
-
 export interface BaseStoreSync {
   storeName: string;
   operation: 'push' | 'pull';
@@ -147,9 +142,6 @@ export interface LifecycleEventMap {
   'rz:fetch:success:html': FetchSuccessHtmlDetail;
   'rz:fetch:success:file': FetchSuccessFileDetail;
   'rz:fetch:error': FetchErrorDetail;
-  'rz:fetch:error:json': FetchErrorJsonDetail;
-  'rz:fetch:error:html': FetchErrorHtmlDetail;
-  'rz:fetch:error:file': FetchErrorFileDetail;
 
   'rz:store:sync:before': StoreSyncBeforeDetail;
   'rz:store:sync': StoreSyncDetail;

@@ -1,5 +1,5 @@
 import type { SwapMethod } from '../core/constants';
-import { rzError, rzTarget } from '../directives';
+import { rzTarget } from '../directives';
 import type { RouseResponse } from '../types';
 import { dispatch } from './scheduler';
 
@@ -13,32 +13,26 @@ interface SwapOptions {
 }
 
 /**
- * Listens globally for HTML fetch responses and mutates the DOM
- * based on the element's `rz-target` configuration.
+ * Listens globally for successful HTML fetch responses and mutates
+ * the DOM based on the element's `rz-target` configuration.
  */
 export function initDomSwapper(appRoot: Element, abortSignal: AbortSignal) {
-  const events = ['rz:fetch:success:html', 'rz:fetch:error:html'];
-
   const handleMutate = (e: Event) => {
     const { detail, target } = e as CustomEvent<RouseResponse>;
-    const { data, error, response, config, targetOverride } = detail;
+    const { data, response, config, targetOverride } = detail;
     const triggerEl = target as Element;
 
     // Programmatic fetch (app.fetch, ctx.fetch) defaults to `swap: false` so
     // it doesn't automatically update the DOM, unlike `rz-fetch`.
     if (config?.swap === false) return;
+    if (typeof data !== 'string') return;
 
-    // Favoring error.detail for generic errors
-    const rawPayload = error ? error.detail || data : data;
-    if (typeof rawPayload !== 'string') return;
-
-    const handler = e.type.includes('error') ? rzError : rzTarget;
-    const operations = handler.getConfig(triggerEl, appRoot, targetOverride);
+    const operations = rzTarget.getConfig(triggerEl, appRoot, targetOverride);
 
     for (const { targets, method } of operations) {
       for (const targetEl of targets) {
         performSwap({
-          data: rawPayload,
+          data,
           triggerEl,
           targetEl,
           method,
@@ -49,9 +43,9 @@ export function initDomSwapper(appRoot: Element, abortSignal: AbortSignal) {
     }
   };
 
-  for (const eventName of events) {
-    appRoot.addEventListener(eventName, handleMutate, { signal: abortSignal });
-  }
+  appRoot.addEventListener('rz:fetch:success:html', handleMutate, {
+    signal: abortSignal,
+  });
 }
 
 /**

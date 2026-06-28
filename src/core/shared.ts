@@ -100,7 +100,6 @@ export const uniqueKey = (prefix = 'rz_') => prefix + session + (count++).toStri
  *
  * - `rz-target="beforebegin: #header"`
  * - `rz-target="beforebegin"`
- * - `rz-error="#output"`
  */
 export function resolveSwapOperations(
   value: string | null | undefined,

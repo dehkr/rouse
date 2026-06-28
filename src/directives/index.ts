@@ -1,6 +1,5 @@
 export { rzAttr } from './rz-attr';
 export { rzClass } from './rz-class';
-export { rzError } from './rz-error';
 export { rzFetch } from './rz-fetch';
 export { rzFetchHeaders, rzHeaders, rzPullHeaders, rzPushHeaders } from './rz-headers';
 export { rzHtml } from './rz-html';

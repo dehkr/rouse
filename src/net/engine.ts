@@ -190,13 +190,9 @@ async function executeFetch(el: Element, app: RouseApp, options: RouseRequest) {
         return result;
       }
 
-      // HTTP error (4xx/5xx) or parse error: dispatch error event and route payload.
+      // HTTP error (4xx/5xx) or parse error: dispatch the error event
       if (shouldDispatch) {
         dispatch(el, 'rz:fetch:error', { error: result.error, config: finalOptions });
-
-        if (result.response) {
-          routePayload('error', el, result);
-        }
       }
       return result;
     }
@@ -210,7 +206,7 @@ async function executeFetch(el: Element, app: RouseApp, options: RouseRequest) {
           dispatch(el, rouseHeaders.trigger, result);
         }
 
-        routePayload('success', el, result);
+        routePayload(el, result);
       }
     }
     return result;
@@ -235,22 +231,22 @@ async function executeFetch(el: Element, app: RouseApp, options: RouseRequest) {
 }
 
 /**
- * Handles dispatching lifecycle events which enables JSON and HTML payload routing.
+ * Dispatches the typed success sub-events (`:file` / `:json` / `:html`)
+ * that drive JSON and HTML payload routing.
  */
-function routePayload(type: 'error' | 'success', el: Element, result: RouseResponse) {
-  const eventPrefix = `rz:fetch:${type}`;
+function routePayload(el: Element, result: RouseResponse) {
   const data = result.data;
 
   // Check for files (Blob/ArrayBuffer)
   if (isFileType(data)) {
-    dispatch(el, `${eventPrefix}:file`, result);
+    dispatch(el, 'rz:fetch:success:file', result);
     return;
   }
 
   // Check for parsed JSON (POJO or Array)
   // Store manager requires parsed objects to merge state
   if (Array.isArray(data) || isPlainObject(data)) {
-    dispatch(el, `${eventPrefix}:json`, result);
+    dispatch(el, 'rz:fetch:success:json', result);
     return;
   }
 
@@ -262,7 +258,7 @@ function routePayload(type: 'error' | 'success', el: Element, result: RouseRespo
       warn(`Content-Type is JSON but data is String. Defaulting to HTML.`);
     }
 
-    dispatch(el, `${eventPrefix}:html`, result);
+    dispatch(el, 'rz:fetch:success:html', result);
     return;
   }
 

@@ -2,44 +2,28 @@ import type { RouseApp } from '../core/app';
 import { STORE_PREFIX } from '../core/constants';
 import { parseDirectiveValue } from '../core/parser';
 import { getDirectiveValue, warn } from '../core/shared';
-import { rzError, rzTarget } from '../directives';
+import { rzTarget } from '../directives';
 import type { RouseResponse } from '../types';
 import { dispatch } from './scheduler';
 
 /**
- * Listens to successful and failed JSON network requests and routes
- * the data payloads directly into the global reactive stores.
+ * Listens to successful JSON network requests and routes the data
+ * payloads directly into the global reactive stores.
  */
 export function initStoreRouter(app: RouseApp, signal: AbortSignal) {
-  const routers = [
-    {
-      event: 'rz:fetch:success:json',
-      directive: rzTarget,
-      getPayload: (result: RouseResponse) => result.data,
+  app.root.addEventListener(
+    'rz:fetch:success:json',
+    (e) => {
+      const { target: el, detail: result } = e as CustomEvent<RouseResponse>;
+      routeToStore(
+        app,
+        // `targetOverride` (e.g., a server header) beats the attribute value
+        result.targetOverride || getDirectiveValue(el as Element, rzTarget.slug),
+        result.data,
+      );
     },
-    {
-      event: 'rz:fetch:error:json',
-      directive: rzError,
-      getPayload: (result: RouseResponse) => result.error?.validation || result.error,
-    },
-  ] as const;
-
-  routers.forEach(({ event, directive, getPayload }) => {
-    app.root.addEventListener(
-      event,
-      (e) => {
-        const { target: el, detail: result } = e as CustomEvent<RouseResponse>;
-
-        routeToStore(
-          app,
-          // `targetOverride` (e.g., a server header) beats the attribute value
-          result.targetOverride || getDirectiveValue(el as Element, directive.slug),
-          getPayload(result),
-        );
-      },
-      { signal },
-    );
-  });
+    { signal },
+  );
 }
 
 function routeToStore(app: RouseApp, targetStr: string | null, payload: any) {
