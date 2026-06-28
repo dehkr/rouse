@@ -57,7 +57,7 @@ function routeToStore(app: RouseApp, targetStr: string | null, payload: any) {
         data: app.stores.get(storeName),
       });
     } else {
-      warn(`Cannot route JSON payload to DOM target '${target}'.`);
+      __DEV__ && warn(`Cannot route JSON payload to DOM target '${target}'.`);
     }
   }
 }

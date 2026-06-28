@@ -56,7 +56,7 @@ function initialize(el: Element, app: RouseApp) {
 
   const pairs = parseTriggerSubjectPairs(value);
   if (pairs.length === 0) {
-    warn('A valid trigger is missing for rz-fetch.', el);
+    __DEV__ && warn('A valid trigger is missing for rz-fetch.', el);
     return;
   }
 
@@ -77,7 +77,7 @@ function initialize(el: Element, app: RouseApp) {
     // that it's in the wrong position (missing trigger).
     if (!url) {
       if (!warnedMissingUrl) {
-        warn('rz-fetch requires at least one trigger and a URL.', el);
+        __DEV__ && warn('rz-fetch requires at least one trigger and a URL.', el);
         warnedMissingUrl = true;
       }
       continue;

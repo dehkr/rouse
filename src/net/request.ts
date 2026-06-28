@@ -85,7 +85,7 @@ export async function request<T = any>(
   let safeBody: BodyInit | null | undefined = finalBody;
 
   if ((method === 'GET' || method === 'HEAD') && safeBody != null) {
-    warn('Body is not allowed on GET or HEAD.');
+    __DEV__ && warn('Body is not allowed on GET or HEAD.');
     safeBody = undefined;
   }
 

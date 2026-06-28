@@ -37,7 +37,7 @@ export async function handleFetch(
   try {
     return await executeFetch(el, app, programmaticOpts);
   } catch (error: any) {
-    err(`Error executing fetch on element:`, el, error);
+    __DEV__ && err(`Error executing fetch on element:`, el, error);
 
     return fallbackResponse(
       programmaticOpts,
@@ -75,7 +75,7 @@ async function executeFetch(el: Element, app: RouseApp, options: RouseRequest) {
   }
 
   if (!url) {
-    warn('Invalid or missing URL for the fetch request.', el);
+    __DEV__ && warn('Invalid or missing URL for the fetch request.', el);
 
     const error = new Error('Invalid or missing URL for the fetch request.');
     dispatch(el, 'rz:fetch:error', { error, config: options });
@@ -160,7 +160,7 @@ async function executeFetch(el: Element, app: RouseApp, options: RouseRequest) {
         window.location.assign(result.response.url);
         return result;
       }
-      warn(`Cross-origin redirect blocked: '${result.response.url}'.`);
+      __DEV__ && warn(`Cross-origin redirect blocked: '${result.response.url}'.`);
       result.error = {
         message: 'Cross-origin redirect blocked',
         status: 'REDIRECTED',
@@ -255,7 +255,7 @@ function routePayload(el: Element, result: RouseResponse) {
     const contentType = result.response?.headers.get('Content-Type') || '';
 
     if (isJsonType(contentType)) {
-      warn(`Content-Type is JSON but data is String. Defaulting to HTML.`);
+      __DEV__ && warn(`Content-Type is JSON but data is String. Defaulting to HTML.`);
     }
 
     dispatch(el, 'rz:fetch:success:html', result);
@@ -265,7 +265,7 @@ function routePayload(el: Element, result: RouseResponse) {
   // Ignore null/undefined (e.g., 204 No Content), but warn on unhandled complex types
   if (data !== null && data !== undefined) {
     const typeName = data?.constructor?.name || typeof data;
-    warn(`Unsupported payload: ${typeName}.`);
+    __DEV__ && warn(`Unsupported payload: ${typeName}.`);
   }
 }
 
@@ -278,12 +278,12 @@ function applyUrlChange(pushUrl: string | null, replaceUrl: string | null): void
   if (url === null) return;
 
   if (pushUrl && replaceUrl) {
-    warn('Both Rouse-Push-Url and Rouse-Replace-Url present. Using Push.');
+    __DEV__ && warn('Both Rouse-Push-Url and Rouse-Replace-Url present. Using Push.');
   }
 
   if (!isSameOrigin(url)) {
     const headerName = pushUrl ? 'Rouse-Push-Url' : 'Rouse-Replace-Url';
-    warn(`${headerName} rejected: cross-origin URL '${url}'.`);
+    __DEV__ && warn(`${headerName} rejected: cross-origin URL '${url}'.`);
     return;
   }
 
@@ -292,7 +292,7 @@ function applyUrlChange(pushUrl: string | null, replaceUrl: string | null): void
   try {
     history[method]({}, '', url);
   } catch (e) {
-    warn(`${method} failed for URL '${url}':`, e);
+    __DEV__ && warn(`${method} failed for URL '${url}':`, e);
   }
 }
 

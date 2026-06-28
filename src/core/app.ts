@@ -235,7 +235,7 @@ export class RouseApp {
     }
 
     if (!el) {
-      err(`Fetch failed. Target element not found:`, targetRef);
+      __DEV__ && err(`Fetch failed. Target element not found:`, targetRef);
       return fallbackResponse(options, 'Target element not found', 'INTERNAL_ERROR');
     }
 
@@ -248,7 +248,7 @@ export class RouseApp {
    */
   start() {
     if (this._hasStarted) {
-      warn(`'start()' called multiple times. Ignoring.`);
+      __DEV__ && warn(`'start()' called multiple times. Ignoring.`);
       return;
     }
 
@@ -381,13 +381,13 @@ export class RouseApp {
 export function getApp(el: Element, expected?: RouseApp): RouseApp | undefined {
   const root = el.closest<HTMLElement>('[data-rouse-app]');
   if (!root) {
-    warn('Element is not inside an app instance:', el);
+    __DEV__ && warn('Element is not inside an app instance:', el);
     return undefined;
   }
 
   const found = appInstances.get(root);
   if (expected && found !== expected) {
-    warn('Element does not belong to the expected app instance:', el);
+    __DEV__ && warn('Element does not belong to the expected app instance:', el);
     return undefined;
   }
 

@@ -46,9 +46,10 @@ export function clone<T>(obj: T, seen = new WeakMap(), path = 'root'): T {
 
   // Catch complex objects before network sync
   if (!isPlainObject(obj)) {
-    warn(
-      `Non-serializable value at '${path}'. Use plain objects, arrays, or primitives.`,
-    );
+    __DEV__ &&
+      warn(
+        `Non-serializable value at '${path}'. Use plain objects, arrays, or primitives.`,
+      );
     return {} as T;
   }
 

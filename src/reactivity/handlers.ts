@@ -156,13 +156,13 @@ export const readOnlyHandlers: ProxyHandler<object> = {
   },
 
   set(_target: object, key: string | symbol): boolean {
-    warn(`Cannot mutate read-only property: '${String(key)}'.`);
+    __DEV__ && warn(`Cannot mutate read-only property: '${String(key)}'.`);
     // Return true to prevent strict-mode TypeErrors from crashing the app
     return true;
   },
 
   deleteProperty(_target: object, key: string | symbol): boolean {
-    warn(`Cannot delete read-only property: '${String(key)}'.`);
+    __DEV__ && warn(`Cannot delete read-only property: '${String(key)}'.`);
     return true;
   },
 };

@@ -26,7 +26,8 @@ function bind(
   value: string,
 ): BoundCleanupFn | undefined {
   if (!value) {
-    warn(`rz-on requires one or more triggers (e.g., rz-on="click: handler").`, el);
+    __DEV__ &&
+      warn(`rz-on requires one or more triggers (e.g., rz-on="click: handler").`, el);
     return undefined;
   }
 
@@ -34,7 +35,8 @@ function bind(
   const triggerSource = key;
 
   if (!triggerSource) {
-    warn(`rz-on on <${el.tagName.toLowerCase()}> requires an explicit trigger.`);
+    __DEV__ &&
+      warn(`rz-on on <${el.tagName.toLowerCase()}> requires an explicit trigger.`);
     return undefined;
   }
 
@@ -49,12 +51,12 @@ function bind(
     const storeData = app.stores.get(storeName);
 
     if (storeData === undefined) {
-      warn(`Store '${storeName}' not found.`);
+      __DEV__ && warn(`Store '${storeName}' not found.`);
       return;
     }
 
     if (!nestedPath) {
-      warn(`No action specified for store '${storeName}'.`);
+      __DEV__ && warn(`No action specified for store '${storeName}'.`);
       return;
     }
 
@@ -70,7 +72,7 @@ function bind(
 
   // Validate that the resolved target is actually a function
   if (typeof method !== 'function') {
-    warn(`Method '${methodName}' not found.`);
+    __DEV__ && warn(`Method '${methodName}' not found.`);
     return;
   }
 
@@ -95,7 +97,7 @@ function bind(
           };
           method.call(context, args);
         } catch (error) {
-          err(`Failed to execute '${methodName}()'.`, error);
+          __DEV__ && err(`Failed to execute '${methodName}()'.`, error);
         }
       },
     });

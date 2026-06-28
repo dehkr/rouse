@@ -49,7 +49,7 @@ export function setNestedVal(obj: any, path: string | undefined, value: any): vo
       // Convert to empty object to enable traversal
       current[part] = {};
     } else if (typeof current[part] !== 'object') {
-      warn(`Cannot write to '${path}': '${part}' is a primitive.`);
+      __DEV__ && warn(`Cannot write to '${path}': '${part}' is a primitive.`);
       return;
     }
     current = current[part];
@@ -97,7 +97,7 @@ export function resolveState<T = unknown>(
   // Global store
   if (path.startsWith(STORE_PREFIX)) {
     if (!storeManager) {
-      warn(`StoreManager required to resolve '${path}'.`);
+      __DEV__ && warn(`StoreManager required to resolve '${path}'.`);
       return undefined;
     }
 
@@ -130,7 +130,8 @@ export function writeState(
   if (path.startsWith(ITEM_PREFIX)) {
     const itemPath = path.slice(1);
     if (!itemPath) {
-      warn(`Cannot overwrite entire render item via model binding: '${path}'.`);
+      __DEV__ &&
+        warn(`Cannot overwrite entire render item via model binding: '${path}'.`);
       return;
     }
     setNestedVal(renderItem(scope), itemPath, value);
@@ -140,14 +141,14 @@ export function writeState(
   // Global store
   if (path.startsWith(STORE_PREFIX)) {
     if (!storeManager) {
-      warn(`StoreManager required to write to '${path}'.`);
+      __DEV__ && warn(`StoreManager required to write to '${path}'.`);
       return;
     }
 
     const { fullPath, dotIndex } = getStorePath(path);
 
     if (dotIndex === -1) {
-      warn(`Cannot overwrite entire store via model binding: '${path}'.`);
+      __DEV__ && warn(`Cannot overwrite entire store via model binding: '${path}'.`);
       return;
     }
 
@@ -160,7 +161,7 @@ export function writeState(
 
   // Fallback to local scope state
   if (renderParent(scope) === EMPTY_SCOPE) {
-    warn(`'${path}' used outside scope. Use '@' to target a store.`);
+    __DEV__ && warn(`'${path}' used outside scope. Use '@' to target a store.`);
     return;
   }
 

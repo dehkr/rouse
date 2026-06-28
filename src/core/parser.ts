@@ -66,7 +66,7 @@ function forEachSafeChar(
         depths[opener]--;
         totalDepth--;
       } else {
-        warn(`Mismatched bracket '${char}' in value: '${text}'`);
+        __DEV__ && warn(`Mismatched bracket '${char}' in value: '${text}'`);
       }
     }
 
@@ -160,7 +160,7 @@ export function parseDirectiveValue(
   });
 
   if (scanResult.depth > 0 || scanResult.quote) {
-    warn(`Malformed directive value: '${value}'`);
+    __DEV__ && warn(`Malformed directive value: '${value}'`);
   }
 
   // Final segment
@@ -220,7 +220,8 @@ export function parseTriggers(value: string | null | undefined): TriggerDef[] {
   rawTriggers = stripQuotes(rawTriggers);
 
   if (rawTriggers.includes(',')) {
-    warn(`Separate multi-trigger values by spaces, not commas: '${rawTriggers}'.`);
+    __DEV__ &&
+      warn(`Separate multi-trigger values by spaces, not commas: '${rawTriggers}'.`);
     return [];
   }
 
@@ -320,7 +321,7 @@ export function parseStoreSubject(
     const target = ws === -1 ? '' : subject.slice(ws + 1).trim();
     if (!target) return { action };
     if (!target.startsWith(STORE_PREFIX)) {
-      warn(`'${target}' is not a '@store' reference.`, el);
+      __DEV__ && warn(`'${target}' is not a '@store' reference.`, el);
       return null;
     }
     return { action, target };
@@ -328,7 +329,7 @@ export function parseStoreSubject(
 
   // No leading action: the whole subject is the store target
   if (!subject.startsWith(STORE_PREFIX)) {
-    warn(`'${subject}' is not a patch action or '@store' reference.`, el);
+    __DEV__ && warn(`'${subject}' is not a patch action or '@store' reference.`, el);
     return null;
   }
   return { target: subject };

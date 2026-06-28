@@ -297,7 +297,7 @@ export const syntheticEvents: Record<string, SyntheticEventHandler> = {
     const isOnce = modifiers.includes('once');
 
     if (!query) {
-      warn(`The 'media' event requires a query modifier in parentheses.`, el);
+      __DEV__ && warn(`The 'media' event requires a query modifier in parentheses.`, el);
       return null;
     }
 
@@ -396,7 +396,7 @@ function attachTimingEvent(type: 'timeout' | 'interval', ctx: TriggerContext) {
   const timeModifier = ctx.modifiers.find(isTimeModifier);
 
   if (!timeModifier) {
-    warn(`Missing timing modifier for '${type}' on`, ctx.el);
+    __DEV__ && warn(`Missing timing modifier for '${type}' on`, ctx.el);
     return null;
   }
 

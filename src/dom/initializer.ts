@@ -48,7 +48,7 @@ export function initScopeElement(el: HTMLElement, app: RouseApp) {
   } else {
     const scope = app.registry.get(scopeName);
     if (!scope) {
-      warn(`Scope '${scopeName}' is not registered.`);
+      __DEV__ && warn(`Scope '${scopeName}' is not registered.`);
       return;
     }
     setup = scope;

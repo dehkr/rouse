@@ -16,7 +16,7 @@ const initialized = new WeakSet<HTMLScriptElement>();
 function resolveMethod(method: string | undefined, el: Element): HttpMethod | undefined {
   if (method == null) return undefined;
   if (!isHttpMethod(method)) {
-    warn(`Unknown HTTP method '${method}'. Ignoring.`, el);
+    __DEV__ && warn(`Unknown HTTP method '${method}'. Ignoring.`, el);
     return undefined;
   }
   return method.toUpperCase() as HttpMethod;
@@ -27,7 +27,7 @@ function validate(el: Element, app: RouseApp): el is HTMLScriptElement {
     return false;
   }
   if (!getDirectiveValue(el, SLUG)?.trim()) {
-    warn(`Invalid or missing rz-store value on ${el}.`);
+    __DEV__ && warn(`Invalid or missing rz-store value on ${el}.`);
     return false;
   }
   return true;
@@ -58,7 +58,7 @@ function initialize(el: HTMLScriptElement, app: RouseApp) {
     try {
       state = JSON.parse(textContent || '{}');
     } catch (_e) {
-      err(`Invalid JSON in '${storeName}'.`);
+      __DEV__ && err(`Invalid JSON in '${storeName}'.`);
       return;
     }
 

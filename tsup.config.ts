@@ -1,6 +1,6 @@
-import { defineConfig } from 'tsup';
+import { defineConfig, type Options } from 'tsup';
 
-const baseConfig = {
+const baseConfig: Options = {
   entry: ['src/index.ts'],
   format: ['esm'],
   outDir: 'dist',
@@ -12,6 +12,7 @@ const baseConfig = {
 export default defineConfig([
   {
     ...baseConfig,
+    define: { __DEV__: 'true' },
     outExtension() {
       return { js: '.js' };
     },
@@ -21,6 +22,7 @@ export default defineConfig([
   },
   {
     ...baseConfig,
+    define: { __DEV__: 'false' },
     outExtension() {
       return { js: '.min.js' };
     },

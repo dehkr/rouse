@@ -8,7 +8,7 @@ export function preparePayload(url: string, options: RouseRequest, baseUrl: stri
   const method = (options.method || 'GET').toUpperCase();
 
   if (body != null && form != null) {
-    throw new TypeError(`Cannot specify both 'body' and 'form'.`);
+    throw new TypeError(`[Rouse] Cannot specify both 'body' and 'form'.`);
   }
 
   let urlObj: URL;
@@ -26,7 +26,7 @@ export function preparePayload(url: string, options: RouseRequest, baseUrl: stri
       urlObj = new URL(url, base);
     }
   } catch (err) {
-    throw new TypeError(`Failed to construct URL: '${url}'`, { cause: err });
+    throw new TypeError(`[Rouse] Failed to construct URL: '${url}'.`, { cause: err });
   }
 
   // Append programmatic params
@@ -134,7 +134,7 @@ function isNativeBinaryBody(body: unknown): body is BodyInit {
 
 function isAbsoluteUrl(url: string): boolean {
   if (/^(blob|data):/.test(url)) {
-    throw new TypeError(`Unsupported URL scheme: '${url}'`);
+    throw new TypeError(`[Rouse] Unsupported URL scheme: '${url}'.`);
   }
   return /^https?:\/\//i.test(url);
 }

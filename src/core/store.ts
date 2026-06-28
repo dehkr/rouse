@@ -67,12 +67,15 @@ export function resolveTarget(
 ): StoreTarget | null {
   if (subject) {
     if (!subject.startsWith(STORE_PREFIX)) {
-      warn(`rz-${slug} target must be a store reference (e.g. '@store'): '${subject}'.`);
+      __DEV__ &&
+        warn(
+          `rz-${slug} target must be a store reference (e.g. '@store'): '${subject}'.`,
+        );
       return null;
     }
     const { storeName, nestedPath } = parseStoreLocator(subject);
     if (!storeName) {
-      warn(`rz-${slug}: invalid store reference '${subject}'.`);
+      __DEV__ && warn(`rz-${slug}: invalid store reference '${subject}'.`);
       return null;
     }
     return { storeName, nestedPath: supportsNestedPath ? nestedPath : '' };
@@ -81,7 +84,8 @@ export function resolveTarget(
   // Reference the `rz-store` value if `null`. Specific to <script> elements.
   const selfName = getDirectiveValue(el, 'store')?.trim();
   if (!selfName) {
-    warn(`rz-${slug} ignored. Requires rz-store on the same <script> element.`, el);
+    __DEV__ &&
+      warn(`rz-${slug} ignored. Requires rz-store on the same <script> element.`, el);
     return null;
   }
   return { storeName: selfName, nestedPath: '' };
@@ -99,7 +103,7 @@ export function resolveStoreUrl(ref: string, stores: StoreManager): string | nul
   const value = getNestedVal(storeData, nestedPath);
 
   if (!value || typeof value !== 'string' || !value.trim()) {
-    warn(`Invalid URL. '${ref}' does not resolve to a string.`);
+    __DEV__ && warn(`Invalid URL. '${ref}' does not resolve to a string.`);
     return null;
   }
 
@@ -200,7 +204,7 @@ export class StoreManager {
     const config = this._configs.get(id);
 
     if (!data || !status) {
-      warn(`Store '${id}' not found.`);
+      __DEV__ && warn(`Store '${id}' not found.`);
       return undefined;
     }
 
@@ -248,7 +252,7 @@ export class StoreManager {
       manualConfig?.method || overrides.method || storeMethod || defaultMethod;
 
     if (!url) {
-      warn(`Cannot ${operation} store '${id}': URL not configured.`);
+      __DEV__ && warn(`Cannot ${operation} store '${id}': URL not configured.`);
       return;
     }
 
@@ -672,7 +676,7 @@ export class StoreManager {
    */
   config(name: string, config: Partial<SyncConfig>) {
     if (!this.has(name)) {
-      warn(`Cannot configure '${name}'. Store not found.`);
+      __DEV__ && warn(`Cannot configure '${name}'. Store not found.`);
       return;
     }
     this._setConfig(name, config);
@@ -702,12 +706,12 @@ export class StoreManager {
     const initial = this._initial.get(name);
 
     if (!data) {
-      warn(`Cannot reset store '${name}': Store not found.`);
+      __DEV__ && warn(`Cannot reset store '${name}': Store not found.`);
       return;
     }
 
     if (!initial) {
-      warn(`Cannot reset store '${name}': No initial state cached.`);
+      __DEV__ && warn(`Cannot reset store '${name}': No initial state cached.`);
       return;
     }
 

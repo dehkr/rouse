@@ -129,7 +129,7 @@ export function resolveSwapOperations(
       const nodeList = queryTargets(appRoot, val);
 
       if (nodeList.length === 0) {
-        warn(`No targets found for '${val}'.`);
+        __DEV__ && warn(`No targets found for '${val}'.`);
         operations.push({ method, targets: [] });
       } else {
         operations.push({
@@ -149,7 +149,7 @@ export function resolveSwapOperations(
     // "Selector"
     const nodeList = queryTargets(appRoot, key);
     if (nodeList.length === 0) {
-      warn(`No targets found for '${key}'.`);
+      __DEV__ && warn(`No targets found for '${key}'.`);
       operations.push({ targets: [], method: DEFAULT_SWAP_METHOD });
     } else {
       operations.push({

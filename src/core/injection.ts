@@ -13,7 +13,7 @@ import type { StoreManager } from './store';
 function safeJSONParse(text: string): unknown {
   return JSON.parse(text, (key, value) => {
     if (KEY_BLOCKLIST.includes(key)) {
-      warn(`Blocked forbidden key in JSON: '${key}'.`);
+      __DEV__ && warn(`Blocked forbidden key in JSON: '${key}'.`);
       return undefined;
     }
     return value;
@@ -39,7 +39,7 @@ export function resolveInjection(
   // Store data
   if (value.startsWith(STORE_PREFIX)) {
     if (!storeManager) {
-      warn(`Cannot resolve '${value}' because StoreManager is missing.`);
+      __DEV__ && warn(`Cannot resolve '${value}' because StoreManager is missing.`);
       return undefined;
     }
 
@@ -47,7 +47,7 @@ export function resolveInjection(
     const storeData = storeManager.get(storeName);
 
     if (storeData === undefined) {
-      warn(`Store '${storeName}' not found. Cannot resolve '${value}'.`);
+      __DEV__ && warn(`Store '${storeName}' not found. Cannot resolve '${value}'.`);
       return undefined;
     }
 
@@ -65,15 +65,16 @@ export function resolveInjection(
           const parsed = safeJSONParse(content);
           resolvedValue = nestedPath ? getNestedVal(parsed, nestedPath) : parsed;
         } catch (e) {
-          warn(`Invalid JSON in #${id}.`, e);
+          __DEV__ && warn(`Invalid JSON in #${id}.`, e);
         }
       }
     } else {
-      warn(
-        el
-          ? `#${id} is not a script tag of type "application/json".`
-          : `#${id} not found.`,
-      );
+      __DEV__ &&
+        warn(
+          el
+            ? `#${id} is not a script tag of type "application/json".`
+            : `#${id} not found.`,
+        );
     }
   }
 
@@ -82,7 +83,7 @@ export function resolveInjection(
     try {
       resolvedValue = safeJSONParse(value);
     } catch (e) {
-      warn(`Invalid inline JSON.`, e);
+      __DEV__ && warn(`Invalid inline JSON.`, e);
     }
   }
 
@@ -91,7 +92,7 @@ export function resolveInjection(
     if (!requireObject || isPlainObject(resolvedValue)) {
       return resolvedValue;
     }
-    warn(`Invalid payload: '${value}'. Data must resolve to an object.`);
+    __DEV__ && warn(`Invalid payload: '${value}'. Data must resolve to an object.`);
   }
 
   return undefined;
@@ -160,13 +161,13 @@ export function resolveBoundValue(
       };
       return (state as AnyFn).call(context, args) as BindableValue;
     } catch (error) {
-      err(`Failed to execute '${key}()'.`, error);
+      __DEV__ && err(`Failed to execute '${key}()'.`, error);
       return undefined;
     }
   }
 
   if (rawPayload !== undefined) {
-    warn(`'${key}' is not callable; ignoring payload '${rawPayload}'.`);
+    __DEV__ && warn(`'${key}' is not callable; ignoring payload '${rawPayload}'.`);
   }
 
   return state as BindableValue;
