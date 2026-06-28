@@ -77,7 +77,7 @@ function initialize(el: Element, app: RouseApp) {
     // that it's in the wrong position (missing trigger).
     if (!url) {
       if (!warnedMissingUrl) {
-        warn('rz-fetch requires at least one valid trigger and a URL.', el);
+        warn('rz-fetch requires at least one trigger and a URL.', el);
         warnedMissingUrl = true;
       }
       continue;
