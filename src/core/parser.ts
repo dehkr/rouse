@@ -88,12 +88,18 @@ function forEachSafeChar(
  * Centralises the start-pointer / slice / remainder pattern that would
  * otherwise be repeated across every parsing function.
  */
-function splitOnSafeDelimiter(text: string, delimiter: string): string[] {
+function splitOnSafeDelimiter(
+  text: string,
+  delimiter: string | ((char: string) => boolean),
+): string[] {
+  const isDelimiter =
+    typeof delimiter === 'string' ? (c: string) => c === delimiter : delimiter;
+
   const parts: string[] = [];
   let start = 0;
 
   forEachSafeChar(text, (i, char) => {
-    if (char === delimiter) {
+    if (isDelimiter(char)) {
       parts.push(text.slice(start, i));
       start = i + 1;
     }
@@ -225,26 +231,7 @@ export function parseTriggers(value: string | null | undefined): TriggerDef[] {
     return [];
   }
 
-  const parts: string[] = [];
-  let start = 0;
-
-  // Split on whitespace only when depth is 0
-  forEachSafeChar(rawTriggers, (i, char, text) => {
-    if (char === ' ' || char === '\t' || char === '\n' || char === '\r') {
-      if (start !== i) {
-        parts.push(text.slice(start, i));
-      }
-      start = i + 1;
-    }
-    return false; // keep scanning
-  });
-
-  if (start < rawTriggers.length) {
-    const remaining = rawTriggers.slice(start);
-    if (remaining) {
-      parts.push(remaining);
-    }
-  }
+  const parts = splitOnSafeDelimiter(rawTriggers, (c) => /\s/.test(c));
 
   const triggers: TriggerDef[] = [];
   for (const trigger of parts) {
