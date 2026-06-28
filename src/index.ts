@@ -8,6 +8,7 @@ export {
   effect,
   nonReactive,
   reactive,
+  readOnly,
   signal,
   trigger,
 } from './reactivity';
