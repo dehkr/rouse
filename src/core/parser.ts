@@ -14,9 +14,6 @@ const VALUE_DELIMITER = ',';
 const SEGMENT_DELIMITER = ':';
 const MODIFIER_DELIMITER = '.';
 
-const WHITESPACE_RE = /\s/;
-const FETCH_URL_PREFIX_RE = /^(\/|\.\.?\/|https?:\/\/|\?)/;
-
 const openers: Record<string, boolean> = { '(': true, '{': true, '[': true };
 const closers: Record<string, string> = { ')': '(', '}': '{', ']': '[' };
 
@@ -130,7 +127,7 @@ function stripQuotes(val: string) {
 }
 
 function hasTrailingWhitespace(text: string, index: number) {
-  return index + 1 < text.length && WHITESPACE_RE.test(text.charAt(index + 1));
+  return index + 1 < text.length && /\s/.test(text.charAt(index + 1));
 }
 
 /**
@@ -252,11 +249,6 @@ export function parseTriggers(value: string | null | undefined): TriggerDef[] {
   for (const trigger of parts) {
     const { key: event, modifiers } = parseModifiers(trigger);
     if (!event) continue;
-    // A URL in trigger position means the ':' before the subject was forgotten
-    if (isUrlShaped(event)) {
-      warn(`'${event}' is not a valid trigger.`);
-      continue;
-    }
     triggers.push({ event, modifiers });
   }
 
@@ -282,15 +274,6 @@ export function parseTriggerSubjectPairs(
     }
   }
   return pairs;
-}
-
-/**
- * Checks whether a token looks like a URL or `@store` reference (starts with `/`,
- * `./`, `http(s)://`, `?`, or `@`). A heuristic for flagging a subject that
- * landed in trigger position (not a validity check on URLs themselves).
- */
-export function isUrlShaped(s: string): boolean {
-  return FETCH_URL_PREFIX_RE.test(s) || s.startsWith(STORE_PREFIX);
 }
 
 /**

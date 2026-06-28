@@ -61,9 +61,9 @@ function initialize(el: Element, app: RouseApp) {
   }
 
   const teardowns: VoidFn[] = [];
+  const elementUrl = rzUrl.getConfig(el).url || nativeUrl(el);
 
   // The URL is shared by every trigger, so resolve and validate it once
-  const elementUrl = rzUrl.getConfig(el).url || nativeUrl(el);
   let warnedMissingUrl = false;
 
   for (const { trigger, subject } of pairs) {
@@ -73,10 +73,11 @@ function initialize(el: Element, app: RouseApp) {
     // value or native `href` or `action` attribute values.
     const url = parsed.url || elementUrl;
 
-    // Warn and skip if missing a URL
+    // If the url is missing, it could mean there isn't a URL configured, or
+    // that it's in the wrong position (missing trigger).
     if (!url) {
       if (!warnedMissingUrl) {
-        warn('No URL configured for rz-fetch.', el);
+        warn('rz-fetch requires at least one valid trigger and a URL.', el);
         warnedMissingUrl = true;
       }
       continue;
