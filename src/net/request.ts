@@ -114,14 +114,11 @@ export async function request<T = any>(
     mainSignal = externalSignal;
   }
 
-  let combinedSignal: AbortSignal;
-
   const signals = [mainSignal, timeout > 0 ? AbortSignal.timeout(timeout) : null].filter(
     (s): s is AbortSignal => s !== null,
   );
 
-  combinedSignal =
-    signals.length > 1 ? AbortSignal.any(signals) : (signals[0] ?? AbortSignal.any([]));
+  const combinedSignal = AbortSignal.any(signals);
 
   const execute = async (attempt: number): Promise<RouseResponse<T>> => {
     if (combinedSignal.aborted) {
@@ -328,8 +325,9 @@ function getRetryDelay(
 ): number | null {
   if (attempt >= maxRetries) return null;
 
-  // Server-driven delay from 429/503 Retry-After header takes precedence
-  if (response && (response.status === 429 || response.status === 503)) {
+  // Server-driven delay from a 429/503 Retry-After header takes precedence.
+  // The caller only passes `response` on the overload path, so presence is enough.
+  if (response) {
     const serverDelay = response.headers.get('Retry-After');
     if (serverDelay) {
       return parseRetryAfter(serverDelay);
