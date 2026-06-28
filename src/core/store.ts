@@ -55,6 +55,13 @@ export interface StoreRequestOptions {
 }
 
 /**
+ * Returns the nested slice at `path`, or the whole object when no path is given.
+ */
+function sliceAt(obj: any, path?: string) {
+  return path ? getNestedVal(obj, path) : obj;
+}
+
+/**
  * Resolves a push/pull subject into a store name and optional nested path.
  * A `null` subject means self-target, which is valid only on a <script> element
  * with the `rz-store` directive present.
@@ -155,20 +162,6 @@ export class StoreManager {
     const status = this._createStatus();
     this._status.set(id, status);
 
-    const actions = {
-      push: (config?: { url?: string; method?: HttpMethod }) => this.push(id, config),
-      pull: (config?: { url?: string; method?: HttpMethod }) => this.pull(id, config),
-      reset: () => this.reset(id),
-    };
-
-    // expose __actions invisibly
-    Object.defineProperty(state, '__actions', {
-      value: actions,
-      enumerable: false,
-      configurable: true,
-      writable: false,
-    });
-
     // Expose __status invisibly
     Object.defineProperty(state, '__status', {
       value: status,
@@ -264,9 +257,7 @@ export class StoreManager {
 
     // Body for push: full data, or a nested slice if nestedPath is provided
     if (operation === 'push') {
-      requestOptions.body = manualConfig?.nestedPath
-        ? getNestedVal(data, manualConfig.nestedPath)
-        : data;
+      requestOptions.body = sliceAt(data, manualConfig?.nestedPath);
     }
 
     // Unique token for this specific network request
@@ -318,6 +309,25 @@ export class StoreManager {
     }
   }
 
+  /**
+   * Clears dirty flags for keys whose current value matches `reference`: the
+   * pushed snapshot on a successful sync, or last-good state on rollback.
+   */
+  private _clearDirtyMatching(
+    status: StoreStatus,
+    data: any,
+    reference: any,
+    nestedPath?: string,
+  ) {
+    const rootKey = getRootSegment(nestedPath);
+    const keys = rootKey ? [rootKey] : Object.keys(reference);
+    for (const key of keys) {
+      if (Object.hasOwn(reference, key) && deepEqual(data[key], reference[key])) {
+        delete status.dirty[key];
+      }
+    }
+  }
+
   private _applyServerResponse(
     storeName: string,
     operation: 'push' | 'pull',
@@ -345,20 +355,12 @@ export class StoreManager {
     if (operation === 'push') {
       // Push accepted = synced
       status.lastSync = Date.now();
-
-      // Clear dirty flags only for what was actually pushed
-      const rootKey = getRootSegment(nestedPath);
-      const keys = rootKey ? [rootKey] : Object.keys(snapshot);
-      for (const key of keys) {
-        if (Object.hasOwn(snapshot, key) && deepEqual(data[key], snapshot[key])) {
-          delete status.dirty[key];
-        }
-      }
+      this._clearDirtyMatching(status, data, snapshot, nestedPath);
     }
 
     if (result.data && typeof result.data === 'object') {
-      const localSlice = nestedPath ? getNestedVal(data, nestedPath) : data;
-      const snapSlice = nestedPath ? getNestedVal(snapshot, nestedPath) : snapshot;
+      const localSlice = sliceAt(data, nestedPath);
+      const snapSlice = sliceAt(snapshot, nestedPath);
       const isMutating = !deepEqual(localSlice, snapSlice);
 
       // Apply server update if local state is not being mutated during request
@@ -392,7 +394,7 @@ export class StoreManager {
             storeName,
             operation,
             localData: localSlice,
-            serverData: nestedPath ? getNestedVal(result.data, nestedPath) : result.data,
+            serverData: sliceAt(result.data, nestedPath),
             response: result,
             nestedPath,
             action,
@@ -495,17 +497,15 @@ export class StoreManager {
     if (lastGood === undefined) return false;
 
     // Skip when the user has kept editing during flight
-    const localSlice = nestedPath ? getNestedVal(data, nestedPath) : data;
-    const snapSlice = nestedPath ? getNestedVal(snapshot, nestedPath) : snapshot;
+    const localSlice = sliceAt(data, nestedPath);
+    const snapSlice = sliceAt(snapshot, nestedPath);
     if (!deepEqual(localSlice, snapSlice)) return false;
 
     // Skip if data already equals lastGood (avoids firing errant signals)
-    const lastGoodSlice = nestedPath ? getNestedVal(lastGood, nestedPath) : lastGood;
+    const lastGoodSlice = sliceAt(lastGood, nestedPath);
     if (deepEqual(localSlice, lastGoodSlice)) return false;
 
-    const rolledBackTo = nestedPath
-      ? clone(getNestedVal(lastGood, nestedPath))
-      : clone(lastGood);
+    const rolledBackTo = clone(sliceAt(lastGood, nestedPath));
 
     this._withPatchGuard(() => {
       if (nestedPath) {
@@ -515,13 +515,7 @@ export class StoreManager {
       }
     });
 
-    const rootKey = getRootSegment(nestedPath);
-    const keys = rootKey ? [rootKey] : Object.keys(lastGood);
-    for (const key of keys) {
-      if (Object.hasOwn(lastGood, key) && deepEqual(data[key], lastGood[key])) {
-        delete status.dirty[key];
-      }
-    }
+    this._clearDirtyMatching(status, data, lastGood, nestedPath);
 
     this._dispatchSyncEvent(
       'rz:store:sync:rollback',

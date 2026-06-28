@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Breaking:** Rename the store sync operations `save`/`refresh` to `push`/`pull`; directive names, methods, and properties updated accordingly (e.g., `rz-save` renamed `rz-push`).
 - **Breaking:** Require explicit triggers for `rz-fetch`, `rz-push`, `rz-pull`, and `rz-on`.
 - **Breaking:** Stop parsing an HTTP method from `rz-url` values; method can be configured using `rz-push-request` and `rz-pull-request` (e.g., `rz-push-request="method: PUT"`).
+- Strip `[Rouse]` console warnings and errors from the minified build; standard build provides full diagnostics for development.
 
 ### Fixed
 
@@ -33,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Breaking:** Remove `rz-error` directive. Handle error responses with an `error` interceptor or by listening to the `rz:fetch:error` event.
 - **Breaking:** Stop dispatching the `rz:fetch:error:json` / `:html` / `:file` lifecycle events; error payloads are no longer auto-routed.
+- **Breaking:** Remove `__actions` facade from `StoreManager`.
 
 ## [0.9.0] - 2026-06-20
 
