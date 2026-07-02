@@ -20,7 +20,7 @@ export async function normalizeResponse(
   const parsedHeaders = Object.fromEntries(response.headers.entries());
 
   try {
-    // Safety check to make sure the body hasn't been consumed
+    // Safety check to make sure the body hasn't been consumed.
     if (response.bodyUsed) {
       return {
         data: null,
@@ -40,7 +40,8 @@ export async function normalizeResponse(
     if (!isEmpty) {
       if (isJsonType(contentType)) {
         const text = await response.text();
-        // A malformed body throws a native SyntaxError, caught below as PARSE_ERROR
+        // A malformed body throws a native SyntaxError,
+        // caught below as PARSE_ERROR.
         if (text) {
           data = JSON.parse(text);
         }
@@ -57,11 +58,12 @@ export async function normalizeResponse(
   }
 
   // HTTP errors (4xx/5xx) overwrite PARSE_ERRORs here,
-  // because bad JSON is usually a symptom of a server crash
+  // because bad JSON is usually a symptom of a server crash.
   if (!response.ok) {
     error = {
       message: response.statusText || 'Request failed',
       status: response.status,
+      body: data ?? undefined,
       parseError: error?.status === 'PARSE_ERROR' ? error.message : undefined,
     };
   }
@@ -77,9 +79,10 @@ export async function normalizeResponse(
 }
 
 /**
- * Maps native DOM exceptions into standardized RequestError objects.
- * Note: If a global timeout and a manual abort happen simultaneously,
- * the manual abort (isMainAborted) wins out and the status is set to 'CANCELED'.
+ * Maps native DOM exceptions into standardized `RequestError` objects.
+ *
+ * **Note:** If a global timeout and a manual abort happen simultaneously, the
+ * manual abort (`isMainAborted`) wins out and the status is set to 'CANCELED'.
  */
 export function mapCatchError(error: any, isMainAborted: boolean): RequestError {
   const isAbort = error.name === 'AbortError';

@@ -1,4 +1,5 @@
-import type { SwapMethod } from '../core/constants';
+import type { SwapMethod, SwapOperation } from '../core/constants';
+import { resolveSwapOperations } from '../core/shared';
 import { rzTarget } from '../directives';
 import type { RouseResponse } from '../types';
 import { dispatch } from './scheduler';
@@ -13,8 +14,8 @@ interface SwapOptions {
 }
 
 /**
- * Listens globally for successful HTML fetch responses and mutates
- * the DOM based on the element's `rz-target` configuration.
+ * Listens globally for HTML fetch responses (successes, and errors the
+ * server targets via `Rouse-Target`) and mutates the DOM accordingly.
  */
 export function initDomSwapper(appRoot: Element, abortSignal: AbortSignal) {
   const handleMutate = (e: Event) => {
@@ -27,7 +28,16 @@ export function initDomSwapper(appRoot: Element, abortSignal: AbortSignal) {
     if (config?.swap === false) return;
     if (typeof data !== 'string') return;
 
-    const operations = rzTarget.getConfig(triggerEl, appRoot, targetOverride);
+    let operations: SwapOperation[];
+    if (e.type.includes('error')) {
+      // Errors route only when the server names a target via `Rouse-Target`.
+      // `rz-target` is intended for success output, not error content.
+      operations = targetOverride
+        ? resolveSwapOperations(targetOverride, triggerEl, appRoot)
+        : [];
+    } else {
+      operations = rzTarget.getConfig(triggerEl, appRoot, targetOverride);
+    }
 
     for (const { targets, method } of operations) {
       for (const targetEl of targets) {
@@ -43,9 +53,9 @@ export function initDomSwapper(appRoot: Element, abortSignal: AbortSignal) {
     }
   };
 
-  appRoot.addEventListener('rz:fetch:success:html', handleMutate, {
-    signal: abortSignal,
-  });
+  for (const eventName of ['rz:fetch:success:html', 'rz:fetch:error:html']) {
+    appRoot.addEventListener(eventName, handleMutate, { signal: abortSignal });
+  }
 }
 
 /**

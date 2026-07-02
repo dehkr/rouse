@@ -9,10 +9,12 @@ import type {
 } from './core/constants';
 import type { StoreManager } from './core/store';
 
+declare const CLEANUP: unique symbol;
+
+/** Every `rz-*` attribute name supported by the framework, without the prefix. */
 export type DirectiveSlug =
   | 'attr'
   | 'class'
-  | 'error'
   | 'fetch'
   | 'fetch-headers'
   | 'fetch-request'
@@ -38,123 +40,192 @@ export type DirectiveSlug =
   | 'url'
   | 'wake';
 
+/** Detail for `rz:app:*` lifecycle events. */
 export interface AppEventDetail {
   app: RouseApp;
 }
 
-/** `rz:scope:init` — fires after the setup function runs, before bindings attach. */
+/** Detail for `rz:scope:init`. */
 export interface ScopeInitDetail {
   context: ScopeCtx;
   instance: Scope;
 }
 
-/** `rz:scope:connect` / `rz:scope:disconnect` — bindings attach / detach. */
+/** Detail for `rz:scope:connect` and `rz:scope:disconnect`. */
 export interface ScopeLifecycleDetail {
   instance: Scope;
 }
 
-/** `rz:fetch:config` — pre-flight; cancelable. Listeners can mutate `config`. */
+/** Detail for `rz:fetch:config`. */
 export interface FetchConfigDetail {
   config: RouseRequest;
   url: string;
   method: string;
 }
 
-/** `rz:fetch:start`, `rz:fetch:abort`, `rz:fetch:end` — config-only fetch lifecycle. */
+/** Detail for `rz:fetch:start`, `rz:fetch:abort`, and `rz:fetch:end`. */
 export interface FetchLifecycleDetail {
   config: RouseRequest;
 }
 
-/** `rz:fetch:error` — normalized error plus the request config. */
-export interface FetchErrorDetail {
-  error: RequestError | Error;
-  config: RouseRequest;
-}
-
-/** `rz:fetch:success` and the typed `:json` / `:html` / `:file` sub-events. */
+/** Detail for `rz:fetch:success`: the full response object. */
 export type FetchSuccessDetail = RouseResponse;
+
+/** Detail for `rz:fetch:success:json`: response with a parsed-JSON body (object/array). */
 export type FetchSuccessJsonDetail = RouseResponse<Record<string, any> | any[]>;
+
+/** Detail for `rz:fetch:success:html`: response with an HTML/text body. */
 export type FetchSuccessHtmlDetail = RouseResponse<string>;
+
+/** Detail for `rz:fetch:success:file`: response with a binary body (Blob/ArrayBuffer). */
 export type FetchSuccessFileDetail = RouseResponse<Blob | ArrayBuffer>;
 
+/** Detail for `rz:fetch:error`: the full response object. */
+export type FetchErrorDetail = RouseResponse;
+
+/** Detail for `rz:fetch:error:json`: error response with a parsed-JSON body (object/array). */
+export type FetchErrorJsonDetail = RouseResponse<Record<string, any> | any[]>;
+
+/** Detail for `rz:fetch:error:html`: error response with an HTML/text body. */
+export type FetchErrorHtmlDetail = RouseResponse<string>;
+
+/** Detail for `rz:fetch:error:file`: error response with a binary body (Blob/ArrayBuffer). */
+export type FetchErrorFileDetail = RouseResponse<Blob | ArrayBuffer>;
+
+/** Shared fields present on every `rz:store:sync:*` event detail. */
 export interface BaseStoreSync {
+  /** Name of the store being synced. */
   storeName: string;
+  /** Direction of the sync: `push` (local → server) or `pull` (server → local). */
   operation: 'push' | 'pull';
+  /** Dot-path of the targeted slice, when only part of the store was synced. */
   nestedPath?: string;
+  /** Patch action applied to the store data (`replace` or `merge`). */
   action?: PatchAction;
 }
 
+/** Detail for `rz:store:sync`. */
 export interface StoreSyncDetail extends BaseStoreSync {
+  /** The store's local data after the successful patch. */
   data: any;
+  /** The response that drove the sync. */
   response?: RouseResponse;
+  /** The server payload applied to the store, when provided. */
   payload?: any;
 }
 
-/** Fires before the local store is patched from server data. */
+/** Detail for `rz:store:sync:before`. */
 export interface StoreSyncBeforeDetail extends BaseStoreSync {
+  /** The store's current local data, about to be patched. */
   data: any;
+  /** The server payload about to be applied, when provided. */
   payload?: any;
 }
 
+/** Detail for `rz:store:sync:conflict`. */
 export interface StoreSyncConflictDetail extends BaseStoreSync {
+  /** The local slice with unsaved edits that blocked the patch. */
   localData: any;
+  /** The incoming server slice that would have overwritten the local edits. */
   serverData: any;
+  /** The response carrying the server data. */
   response: RouseResponse;
+  /** Why the conflict occurred; always `'mutating'` (local edits in flight). */
   reason: 'mutating';
 }
 
+/** Detail for `rz:store:sync:error`. */
 export interface StoreSyncErrorDetail extends BaseStoreSync {
+  /** The store's local data, left unchanged by the failed sync. */
   data: any;
+  /** The error that caused the sync to fail. */
   error: any;
 }
 
+/** Detail for `rz:store:sync:rollback`. */
 export interface StoreSyncRollbackDetail extends BaseStoreSync {
+  /** The store's local data after the rollback (now equal to the last-good snapshot). */
   data: any;
+  /** The last-good snapshot the state was reverted to. */
   rolledBackTo: any;
+  /** The push error that triggered the rollback. */
   error: unknown;
+  /** Why the rollback occurred; always `'push-error'`. */
   reason: 'push-error';
 }
 
+/** Detail for `rz:dom:swap:before` and `rz:dom:swap`. */
 export interface DomSwapDetail {
+  /** The element being mutated. */
   target: Element;
+  /** The swap method used to apply the payload. */
   method: SwapMethod;
+  /** The HTML string to insert. Mutable by `rz:dom:swap:before` listeners. */
   payload: string;
+  /** Whether the swap originated from a fetch response or a programmatic `swap()` call. */
   source: 'fetch' | 'programmatic';
 }
 
 /** Maps every lifecycle event name to the shape of `event.detail`. */
 export interface LifecycleEventMap {
+  /** Fires when the app starts, before the initial directive scan. */
   'rz:app:start': AppEventDetail;
+  /** Fires after the initial scan completes and the app is ready. */
   'rz:app:ready': AppEventDetail;
+  /** Fires when the app instance is destroyed. */
   'rz:app:destroy': AppEventDetail;
-
+  /** Fires after the setup function runs, before bindings attach. */
   'rz:scope:init': ScopeInitDetail;
+  /** Fires when scope bindings are attached. */
   'rz:scope:connect': ScopeLifecycleDetail;
+  /** Fires when scope bindings are detached. */
   'rz:scope:disconnect': ScopeLifecycleDetail;
+  /** Fires when the scope is torn down. */
   'rz:scope:destroy': undefined;
-
+  /** Fires before the request is sent; cancelable. Listeners can mutate `config`. */
   'rz:fetch:config': FetchConfigDetail;
+  /** Fires when the fetch starts, after config. */
   'rz:fetch:start': FetchLifecycleDetail;
+  /** Fires if the fetch is aborted. */
   'rz:fetch:abort': FetchLifecycleDetail;
+  /** Fires when the request settles, after success or error. */
   'rz:fetch:end': FetchLifecycleDetail;
+  /** Fires when the request completes with an OK status. */
   'rz:fetch:success': FetchSuccessDetail;
+  /** Fires after `rz:fetch:success` when the body is parsed JSON (object/array). */
   'rz:fetch:success:json': FetchSuccessJsonDetail;
+  /** Fires after `rz:fetch:success` when the body is HTML/text. */
   'rz:fetch:success:html': FetchSuccessHtmlDetail;
+  /** Fires after `rz:fetch:success` when the body is a Blob/ArrayBuffer. */
   'rz:fetch:success:file': FetchSuccessFileDetail;
+  /** Fires when the request fails (non-OK status, network error, or cancellation). */
   'rz:fetch:error': FetchErrorDetail;
-
+  /** Fires after `rz:fetch:error` when the body is parsed JSON (object/array). */
+  'rz:fetch:error:json': FetchErrorJsonDetail;
+  /** Fires after `rz:fetch:error` when the body is HTML/text. */
+  'rz:fetch:error:html': FetchErrorHtmlDetail;
+  /** Fires after `rz:fetch:error` when the body is a Blob/ArrayBuffer. */
+  'rz:fetch:error:file': FetchErrorFileDetail;
+  /** Fires before the local store is patched from server data. */
   'rz:store:sync:before': StoreSyncBeforeDetail;
+  /** Fires after the local store is successfully patched from server data. */
   'rz:store:sync': StoreSyncDetail;
+  /** Fires when the server returns updated data while the store has unsaved local edits. */
   'rz:store:sync:conflict': StoreSyncConflictDetail;
+  /** Fires when a push or pull request fails. */
   'rz:store:sync:error': StoreSyncErrorDetail;
+  /** Fires after `rz:store:sync:error` when `rollbackOnError` reverted local state to the last-good snapshot. */
   'rz:store:sync:rollback': StoreSyncRollbackDetail;
-
+  /** Fires before the swap executes; cancelable. Listeners can mutate `payload`. */
   'rz:dom:swap:before': DomSwapDetail;
+  /** Fires after the swap has been applied to the DOM. */
   'rz:dom:swap': DomSwapDetail;
 }
 
+/** Union of every lifecycle event name the framework can dispatch. */
 export type LifecycleEvent = keyof LifecycleEventMap;
 
+/** Any value that a reactive directive can bind to. Objects are used for conditional class/style maps; primitives for direct output. */
 export type BindableValue =
   | string
   | string[]
@@ -162,29 +233,28 @@ export type BindableValue =
   | boolean
   | null
   | undefined
-  | Record<string, boolean> // For class bindings
-  | Record<string, string>; // For style bindings
+  | Record<string, boolean>
+  | Record<string, string>;
 
+/** Any callable. Used where a function's signature is intentionally unconstrained. */
 export type AnyFn = (...args: any[]) => any;
+
+/** A no-argument, no-return function. */
 export type VoidFn = () => void;
+
+/** An event handler that optionally receives the triggering `Event`. */
 export type ActionFn = (e?: Event) => void;
 
-declare const CLEANUP: unique symbol;
+/** A teardown function returned by a bound directive. Branded to prevent accidental misuse. */
 export type BoundCleanupFn = VoidFn & { [CLEANUP]: true };
 
-/**
- * The object returned by a setup function.
- * Includes standard lifecycle hooks and any custom state/methods.
- */
+/** The object returned by a setup function. Includes standard lifecycle hooks and custom state/methods. */
 export type Scope = Record<string, any> & {
   connect?: () => void;
   disconnect?: () => void;
 };
 
-/**
- * Per-instance render metadata. Internal to the engine and surfaced to handlers
- * via `HandlerCtx.render`. Not resolvable from templates.
- */
+/** Per-instance render metadata. Internal to the engine and surfaced to handlers via `HandlerCtx.render`. Not resolvable from templates. */
 export interface RenderMeta {
   item: unknown;
   index: number;
@@ -192,10 +262,10 @@ export interface RenderMeta {
 }
 
 /**
- * The per-instance binding context an `rz-render` template instance is bound
- * with. Structurally it's a `Scope` (so it threads through `bindDirectives` and the
- * resolution chain unchanged) plus three reserved symbol slots: the current
- * item, its render metadata, and the parent state it layers over. Not a real
+ * The per-instance binding context an `rz-render` template instance is bound with.
+ *
+ * Structurally it's a `Scope` (so it threads through `bindDirectives` and the resolution chain unchanged) plus three
+ * reserved symbol slots: the current item, its render metadata, and the parent state it layers over. Not a real
  * `rz-scope`: no lifecycle, no `ScopeCtx`.
  */
 export type RenderContext = Scope & {
@@ -204,46 +274,29 @@ export type RenderContext = Scope & {
   [RENDER_PARENT]?: Scope;
 };
 
-/** Parsed trigger event with modifiers */
+/** Parsed trigger event with modifiers. */
 export type TriggerDef = {
   event: string;
   modifiers: string[];
 };
 
-/** A trigger paired with its resolved subject (URL, store ref, etc.) */
+/** A trigger paired with its subject. `subject` is `null` when the directive resolves the URL/target from the element itself. */
 export type TriggerSubjectPair = {
   trigger: TriggerDef;
   subject: string | null;
 };
 
-/**
- * Shared base interface for all directives in the framework.
- */
+/** Shared base interface for all directives. */
 export interface BaseDirective {
   slug: DirectiveSlug;
 }
 
-/**
- * A stateless directive used to parse DOM attributes into a typed
- * configuration object.
- *
- * - **Lifecycle:** None. It does not maintain state or cleanups.
- * - **Consumption:** `getConfig` is read on-demand by other directives or the
- *   network layer.
- */
+/** A stateless directive used to parse DOM attributes into a typed configuration object. */
 export interface ConfigDirective<T> extends BaseDirective {
   getConfig: (el: Element, ...args: any[]) => T;
 }
 
-/**
- * Represents a persistent data or event binding between the DOM and application state.
- *
- * - **Discovery:** Scanned and processed by `dom/binder.ts`.
- * - **Execution:** `bind` runs once per comma-separated `[key: value]` segment
- *   (pre-split via `parseDirectiveValue`).
- * - **Scope:** `scope` represents the owning `Scope`. If mounted globally
- *   against `app.stores`, it defaults to `EMPTY_SCOPE`.
- */
+/** Represents a persistent data or event binding between the DOM and application state. */
 export interface BoundDirective extends BaseDirective {
   bind: (
     el: Element,
@@ -254,27 +307,13 @@ export interface BoundDirective extends BaseDirective {
   ) => BoundCleanupFn | undefined;
 }
 
-/**
- * A directive that manages its own explicit initialization and teardown lifecycle.
- *
- * - **Lifecycle:** Unlike `BoundDirective`, this tracks its own cleanups
- *   internally instead of returning them.
- * - **Scope:** Scope-independent. Scanned by both `app.start()` and the
- *   `initObserver` in `initializer.ts`.
- * - **Placement:** Can attach anywhere in the DOM, including `<script rz-store>`
- *   tags outside of any active scope.
- */
+/** A directive that manages its own explicit initialization and teardown lifecycle. */
 export interface StandaloneDirective<T extends Element = Element> extends BaseDirective {
   initialize: (el: T, app: RouseApp) => void;
   teardown: (el: T) => void;
 }
 
-/**
- * A specialized `StandaloneDirective` explicitly tailored for `<script rz-store>` tags.
- *
- * - **Validation:** Adds a `validate` type-guard that scanners (`app.start()`,
- *   `initObserver`) execute *before* calling `initialize`.
- */
+/** A specialized `StandaloneDirective` explicitly tailored for `<script rz-store>` tags. */
 export interface StoreDirective extends StandaloneDirective<HTMLScriptElement> {
   validate: (el: Element, app: RouseApp) => el is HTMLScriptElement;
 }
@@ -282,47 +321,74 @@ export interface StoreDirective extends StandaloneDirective<HTMLScriptElement> {
 /** The kind of network action a directive describes. */
 export type NetworkAction = 'fetch' | 'push' | 'pull';
 
-/** Custom error statuses for non-HTTP failures */
+/**
+ * Custom error statuses for non-HTTP failures.
+ *
+ * - `CANCELED`: User or AbortController canceled the request.
+ * - `TIMEOUT`: Request exceeded timeout threshold.
+ * - `NETWORK_ERROR`: Fetch failed (offline, DNS, CORS, etc.).
+ * - `PARSE_ERROR`: Response body couldn't be parsed.
+ * - `INTERNAL_ERROR`: Unexpected error in request engine.
+ * - `REDIRECTED`: Cross-origin redirect refused by the fetch engine.
+ */
 export type CustomErrorStatus =
-  | 'CANCELED' // User or AbortController canceled the request
-  | 'TIMEOUT' // Request exceeded timeout threshold
-  | 'NETWORK_ERROR' // Fetch failed (offline, DNS, CORS, etc.)
-  | 'PARSE_ERROR' // Response body couldn't be parsed
-  | 'INTERNAL_ERROR' // Unexpected error in request engine
-  | 'REDIRECTED'; // Cross-origin redirect refused by the fetch engine
+  | 'CANCELED'
+  | 'TIMEOUT'
+  | 'NETWORK_ERROR'
+  | 'PARSE_ERROR'
+  | 'INTERNAL_ERROR'
+  | 'REDIRECTED';
 
-/** HTTP status codes (2xx-5xx) or custom error status */
+/** HTTP status codes (2xx-5xx) or custom error status. */
 export type ErrorStatus = CustomErrorStatus | number;
 
-/** Normalized error object */
+/** Normalized error object. Can include a parsed response body for non-OK HTTP responses (JSON object/array or text/HTML string). */
 export interface RequestError {
+  /** Human-readable description of the failure. */
   message: string;
+  /** HTTP status code, or a custom status for non-HTTP failures. */
   status: ErrorStatus;
+  /** The underlying thrown value (native `Error`, `DOMException`, etc.) for non-HTTP failures. */
   original?: any;
-  detail?: string;
-  validation?: Record<string, string>;
+  /** Parsed error-response body, for inspection. Aliases `result.data`. Mutating it affects what gets routed/rendered. */
+  body?: unknown;
+  /** Present with a PARSE_ERROR status; describes why the response body couldn't be parsed. */
   parseError?: string;
 }
 
-/** Framework-specific execution and UI options */
+/**
+ * Framework-specific execution and UI options.
+ */
 export interface FetchConfig {
+  /** The request URL. When triggered declaratively, resolved from the directive subject or `rz-url`. */
   url?: string;
+  /** DOM element or CSS selector to receive swapped response HTML. */
   target?: Element | string;
+  /** The element that triggered the request. Used to resolve `rz-request` config layers. */
   triggerEl?: Element;
   body?: BodyInit | Record<string, any> | any[] | null | undefined;
+  /** Serialize and send this form's data as the request body. */
   form?: HTMLFormElement;
+  /** Appended to the URL as query-string parameters. */
   params?: Record<
     string,
     string | number | boolean | null | undefined | string[] | number[]
   >;
+  /** When false, suppress DOM swapping even if the response contains HTML. */
   swap?: boolean;
+  /** When false, suppress `rz:fetch:*` lifecycle events for this request. */
   dispatchEvents?: boolean;
+  /** Skip all registered interceptors for this request. */
   skipInterceptors?: boolean;
+  /** Number of times to retry on network failure or 5xx response. */
   retry?: number;
+  /** Milliseconds between retries, or a function that receives the attempt number and returns a delay. */
   retryDelay?: number | ((attempt: number) => number);
   /** When true, auto-revert local state on push failure. Ignored by fetch and pull. */
   rollbackOnError?: boolean;
+  /** Abort the request after this many milliseconds. */
   timeout?: number;
+  /** Requests sharing the same key cancel each other; the last one wins. */
   abortKey?: string | symbol;
 }
 
@@ -340,60 +406,82 @@ export type RouseFetch = ((
   ) => Promise<RouseResponse>;
 };
 
-/** The final unified options object passed into ctx.fetch */
+/** The final unified options object passed into `ctx.fetch`. */
 export type RouseRequest = Omit<RequestInit, 'body'> & FetchConfig;
 
-/** The enhanced response object returned by ctx.fetch and request() */
+/** The enhanced response object returned by `ctx.fetch` and `request()`. */
 export interface RouseResponse<T = any> {
+  /** Parsed response body, or `null` on error or empty response. */
   data: T | null;
+  /** Populated on non-OK responses or network failures; `null` on success. */
   error: RequestError | null;
+  /** The raw `Response` object from `fetch`, or `null` for non-HTTP failures. */
   response: Response | null;
+  /** Flattened response headers as a plain object, or `null` for non-HTTP failures. */
   headers: Record<string, string> | null;
+  /** HTTP status code, or `null` for non-HTTP failures. */
   status: number | null;
+  /** The resolved request config that produced this response. */
   config: RouseRequest;
+  /** Server-supplied swap target override (`Rouse-Target` header), if present. */
   targetOverride?: string | null;
 }
 
-// Network interceptors
-
+/** Runs before a request is sent. Return a modified config to override request options. */
 export type RequestInterceptor = (
   config: RouseRequest,
 ) => RouseRequest | Promise<RouseRequest>;
 
+/** Runs after a successful response is received. Return a modified value to override response data. */
 export type ResponseInterceptor = (
   data: any,
   response: Response,
   config: RouseRequest,
 ) => any | Promise<any>;
 
+/**
+ * Runs when a request fails. Return a modified error to override what propagates.
+ */
 export type ErrorInterceptor = (
   error: RequestError,
   config: RouseRequest,
 ) => RequestError | Promise<RequestError>;
 
+/**
+ * The three points in the request lifecycle where interceptors can be registered.
+ */
 export type InterceptorPhase = 'request' | 'response' | 'error';
 
-/** The definition of a setup function. */
+/**
+ * A scope setup function. Receives a `ScopeCtx` and returns a `Scope` object
+ * whose properties become the scope's reactive state and methods.
+ */
 export type ScopeFn<
-  P extends Record<string, any> = Record<string, any>,
-  T extends Element = HTMLElement,
-> = (ctx: ScopeCtx<P, T>) => Scope;
+  D extends Record<string, any> = Record<string, any>,
+  E extends Element = HTMLElement,
+> = (ctx: ScopeCtx<D, E>) => Scope;
 
 /**
  * The context object passed into every scope setup function.
  *
- * @template P - The type of the data.
- * @template T - The Element type.
+ * @template D - The type of the data.
+ * @template E - The Element type.
  */
 export type ScopeCtx<
-  P extends Record<string, any> = Record<string, any>,
-  T extends Element = HTMLElement,
+  D extends Record<string, any> = Record<string, any>,
+  E extends Element = HTMLElement,
 > = {
-  data: P;
-  host: T;
+  /** The data payload injected via inline JSON, JSON <script> id reference, or store reference. */
+  data: D;
+  /** The `rz-scope` element this scope is mounted on. */
+  host: E;
+  /** The root element passed to `RouseApp`. */
   appRoot: HTMLElement;
+  /** Access to all registered stores. */
   stores: StoreManager;
+  /** Aborted when the scope is destroyed. Use to clean up scope-defined subscriptions. */
   term: AbortSignal;
+  /** Dispatch a bubbling `CustomEvent` that fires from the scope host element; pass an `EventTarget` first to fire from another element. */
   dispatch: {
     <N extends string>(
       name: N,
@@ -407,6 +495,11 @@ export type ScopeCtx<
       options?: CustomEventInit,
     ): CustomEvent<N extends keyof LifecycleEventMap ? LifecycleEventMap[N] : any>;
   };
+  /**
+   * Add an event listener that is auto-removed when the scope is destroyed. Listens
+   * on the scope host unless an `EventTarget` is passed first; an optional `AbortSignal`
+   * is combined with the scope's own. Returns a teardown function.
+   */
   on: {
     <N extends string>(
       events: N,
@@ -424,24 +517,27 @@ export type ScopeCtx<
       customSignal?: AbortSignal,
     ): () => void;
   };
+  /** Scoped `fetch` surface. Targets the host, aborts on scope destroy, and defaults to `swap: false` unless overridden. */
   fetch: RouseFetch;
+  /** Swap HTML content into a target element using the given swap method. */
   swap: (content: string, target: Element, method: SwapMethod) => void;
+  /** Scan a newly added DOM subtree for directives and initialize them. */
   scan: (newNode: Element) => void;
 };
 
 /**
  * The context object passed as an argument to scope and store methods.
  *
- * @template P - The type of the data.
- * @template T - The Element type.
+ * @template D - The type of the data.
+ * @template E - The Element type.
  */
 export type HandlerCtx<D = Record<string, any>, E extends Element = HTMLElement> = {
+  /** The data payload injected via inline JSON, JSON <script> id reference, or store reference. */
   data: D;
+  /** The element the directive is bound to. */
   el: E;
+  /** The event that triggered this handler, if any. */
   e: Event;
-  /**
-   * Current `rz-render` loop context. Both fields are `null` outside a render
-   * instance, and `item` is `null` for item-less (boolean/number) modes.
-   */
+  /** Current `rz-render` loop context. Both fields are `null` outside a render instance, and `item` is `null` for item-less (boolean/number) modes. */
   render: { item: unknown; index: number | null };
 };

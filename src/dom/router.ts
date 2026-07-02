@@ -2,7 +2,6 @@ import type { RouseApp } from '../core/app';
 import { STORE_PREFIX } from '../core/constants';
 import { parseDirectiveValue } from '../core/parser';
 import { getDirectiveValue, warn } from '../core/shared';
-import { rzTarget } from '../directives';
 import type { RouseResponse } from '../types';
 import { dispatch } from './scheduler';
 
@@ -18,9 +17,19 @@ export function initStoreRouter(app: RouseApp, signal: AbortSignal) {
       routeToStore(
         app,
         // `targetOverride` (e.g., a server header) beats the attribute value
-        result.targetOverride || getDirectiveValue(el as Element, rzTarget.slug),
+        result.targetOverride || getDirectiveValue(el as Element, 'target'),
         result.data,
       );
+    },
+    { signal },
+  );
+
+  // Errors route only when the server names a store via `Rouse-Target`
+  app.root.addEventListener(
+    'rz:fetch:error:json',
+    (e) => {
+      const { detail: result } = e as CustomEvent<RouseResponse>;
+      routeToStore(app, result.targetOverride ?? null, result.data);
     },
     { signal },
   );

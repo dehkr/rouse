@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Add `rz-render` directive for `<template>` elements. Reconciliation is keyed (positional by default), so instances are reused and reordered rather than rebuilt. Rendering is determined by the resolved value:
+- Add `rz-render` directive for rendering `<template>` elements. Reconciliation is keyed (positional by default), so instances are reused and reordered rather than rebuilt. Behavior is determined by the resolved value:
   - **Boolean:** renders the contents once, or not at all.
   - **Number:** renders them that many times.
   - **Object:** renders once, with the object as the item.
@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add `rz-key` directive for explicit, stable reconciliation keys for render items (e.g. `rz-key="id"` or `rz-key="user.id"`).
 - Expose the render loop context to store and scope methods via `HandlerCtx.render`.
 - Add per-item teleport via a `renderTarget` property to place a rendered instance anywhere within the app root boundary.
+- Add server-driven error-response routing. When an error response (4xx/5xx) carries a `Rouse-Target` header, its body is routed to the named element (HTML swapped) or store (JSON).
 
 ### Changed
 
@@ -25,6 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Breaking:** Require explicit triggers for `rz-fetch`, `rz-push`, `rz-pull`, and `rz-on`.
 - **Breaking:** Stop parsing an HTTP method from `rz-url` values; method can be configured using `rz-push-request` and `rz-pull-request` (e.g., `rz-push-request="method: PUT"`).
 - Strip `[Rouse]` console warnings and errors from the minified build; standard build provides full diagnostics for development.
+- `rz:fetch:error` now carries the full `RouseResponse` (with `error` populated), matching `rz:fetch:success`.
+- Expose the parsed error body to the `error` interceptor via `RequestError.body`.
 
 ### Fixed
 
@@ -32,8 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
-- **Breaking:** Remove `rz-error` directive. Handle error responses with an `error` interceptor or by listening to the `rz:fetch:error` event.
-- **Breaking:** Stop dispatching the `rz:fetch:error:json` / `:html` / `:file` lifecycle events; error payloads are no longer auto-routed.
+- **Breaking:** Remove `rz-error` directive. Handle error responses with the new server-driven error response routing, an `error` interceptor, or by listening to the `rz:fetch:error` event.
 - **Breaking:** Remove `__actions` facade from `StoreManager`.
 - **Breaking:** Remove server-driven store `JSON.__meta` processing.
 

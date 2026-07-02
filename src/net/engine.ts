@@ -77,10 +77,14 @@ async function executeFetch(el: Element, app: RouseApp, options: RouseRequest) {
   if (!url) {
     __DEV__ && warn('Invalid or missing URL for the fetch request.', el);
 
-    const error = new Error('Invalid or missing URL for the fetch request.');
-    dispatch(el, 'rz:fetch:error', { error, config: options });
+    const fallback = fallbackResponse(
+      options,
+      'Invalid or missing URL for the fetch request.',
+      'INTERNAL_ERROR',
+    );
+    dispatch(el, 'rz:fetch:error', fallback);
 
-    return fallbackResponse(options, error.message, 'INTERNAL_ERROR');
+    return fallback;
   }
 
   const finalRequestInit = resolveRequestConfig(el, 'fetch', app);
@@ -185,14 +189,19 @@ async function executeFetch(el: Element, app: RouseApp, options: RouseRequest) {
         // For cross-origin redirects, fire the error event for observability,
         // but do not route the payload.
         if (shouldDispatch) {
-          dispatch(el, 'rz:fetch:error', { error: result.error, config: finalOptions });
+          dispatch(el, 'rz:fetch:error', result);
         }
         return result;
       }
 
-      // HTTP error (4xx/5xx) or parse error: dispatch the error event
+      // HTTP error (4xx/5xx) or parse error: dispatch the error event, then
+      // route the body so a server `Rouse-Target` header can place it.
       if (shouldDispatch) {
-        dispatch(el, 'rz:fetch:error', { error: result.error, config: finalOptions });
+        dispatch(el, 'rz:fetch:error', result);
+
+        if (result.response) {
+          routePayload(el, result, 'error');
+        }
       }
       return result;
     }
@@ -206,20 +215,21 @@ async function executeFetch(el: Element, app: RouseApp, options: RouseRequest) {
           dispatch(el, rouseHeaders.trigger, result);
         }
 
-        routePayload(el, result);
+        routePayload(el, result, 'success');
       }
     }
     return result;
   } catch (error: any) {
-    if (shouldDispatch) {
-      dispatch(el, 'rz:fetch:error', { error, config: finalOptions });
-    }
-
-    return fallbackResponse(
+    const fallback = fallbackResponse(
       finalOptions,
       error.message || 'Internal Error',
       'INTERNAL_ERROR',
     );
+
+    if (shouldDispatch) {
+      dispatch(el, 'rz:fetch:error', fallback);
+    }
+    return fallback;
   } finally {
     el.classList.remove('rz-loading');
     el.removeAttribute('aria-busy');
@@ -234,19 +244,20 @@ async function executeFetch(el: Element, app: RouseApp, options: RouseRequest) {
  * Dispatches the typed success sub-events (`:file` / `:json` / `:html`)
  * that drive JSON and HTML payload routing.
  */
-function routePayload(el: Element, result: RouseResponse) {
+function routePayload(el: Element, result: RouseResponse, type: 'success' | 'error') {
   const data = result.data;
+  const prefix = `rz:fetch:${type}`;
 
   // Check for files (Blob/ArrayBuffer)
   if (isFileType(data)) {
-    dispatch(el, 'rz:fetch:success:file', result);
+    dispatch(el, `${prefix}:file`, result);
     return;
   }
 
-  // Check for parsed JSON (POJO or Array)
-  // Store manager requires parsed objects to merge state
+  // Check for parsed JSON (POJO or Array). Store manager requires
+  // parsed objects to merge state.
   if (Array.isArray(data) || isPlainObject(data)) {
-    dispatch(el, 'rz:fetch:success:json', result);
+    dispatch(el, `${prefix}:json`, result);
     return;
   }
 
@@ -258,7 +269,7 @@ function routePayload(el: Element, result: RouseResponse) {
       __DEV__ && warn(`Content-Type is JSON but data is String. Defaulting to HTML.`);
     }
 
-    dispatch(el, 'rz:fetch:success:html', result);
+    dispatch(el, `${prefix}:html`, result);
     return;
   }
 
@@ -278,12 +289,12 @@ function applyUrlChange(pushUrl: string | null, replaceUrl: string | null): void
   if (url === null) return;
 
   if (pushUrl && replaceUrl) {
-    __DEV__ && warn('Both Rouse-Push-Url and Rouse-Replace-Url present. Using Push.');
+    __DEV__ && warn(`Both 'Rouse-Push-Url' and 'Rouse-Replace-Url' present. Using Push.`);
   }
 
   if (!isSameOrigin(url)) {
     const headerName = pushUrl ? 'Rouse-Push-Url' : 'Rouse-Replace-Url';
-    __DEV__ && warn(`${headerName} rejected: cross-origin URL '${url}'.`);
+    __DEV__ && warn(`'${headerName}' rejected: cross-origin URL '${url}'.`);
     return;
   }
 
