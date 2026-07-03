@@ -187,8 +187,8 @@ function runCleanups(el: Element, fns: BoundCleanupFn[]): void {
   for (const fn of fns) {
     try {
       fn();
-    } catch (e) {
-      __DEV__ && err('Cleanup failed for element:', el, e);
+    } catch (error) {
+      __DEV__ && err('Cleanup failed for element:', el, error);
     }
   }
 }

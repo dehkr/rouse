@@ -396,7 +396,7 @@ function attachTimingEvent(type: 'timeout' | 'interval', ctx: TriggerContext) {
   const timeModifier = ctx.modifiers.find(isTimeModifier);
 
   if (!timeModifier) {
-    __DEV__ && warn(`Missing timing modifier for '${type}' on`, ctx.el);
+    __DEV__ && warn(`Missing timing modifier for '${type}'.`, ctx.el);
     return null;
   }
 

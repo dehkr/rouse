@@ -266,7 +266,7 @@ function routePayload(el: Element, result: RouseResponse, type: 'success' | 'err
     const contentType = result.response?.headers.get('Content-Type') || '';
 
     if (isJsonType(contentType)) {
-      __DEV__ && warn(`Content-Type is JSON but data is String. Defaulting to HTML.`);
+      __DEV__ && warn(`Content-Type is JSON but data is a string. Defaulting to HTML.`);
     }
 
     dispatch(el, `${prefix}:html`, result);
@@ -276,7 +276,7 @@ function routePayload(el: Element, result: RouseResponse, type: 'success' | 'err
   // Ignore null/undefined (e.g., 204 No Content), but warn on unhandled complex types
   if (data !== null && data !== undefined) {
     const typeName = data?.constructor?.name || typeof data;
-    __DEV__ && warn(`Unsupported payload: ${typeName}.`);
+    __DEV__ && warn(`Unsupported payload: '${typeName}'.`);
   }
 }
 
@@ -302,8 +302,8 @@ function applyUrlChange(pushUrl: string | null, replaceUrl: string | null): void
 
   try {
     history[method]({}, '', url);
-  } catch (e) {
-    __DEV__ && warn(`${method} failed for URL '${url}':`, e);
+  } catch (error) {
+    __DEV__ && warn(`${method} failed for URL '${url}'.`, error);
   }
 }
 

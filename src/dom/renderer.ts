@@ -237,8 +237,8 @@ export function renderTemplate(
       for (const fn of cleanups) {
         try {
           fn();
-        } catch (e) {
-          __DEV__ && warn('rz-render instance cleanup failed.', e);
+        } catch (error) {
+          __DEV__ && warn('Cleanup failed for an rz-render instance.', error);
         }
       }
       for (const node of roots) node.remove();
