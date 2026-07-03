@@ -76,7 +76,7 @@ export function resolveTarget(
     if (!subject.startsWith(STORE_PREFIX)) {
       __DEV__ &&
         warn(
-          `rz-${slug} target must be a store reference (e.g. '@store'): '${subject}'.`,
+          `rz-${slug}: target '${subject}' must be a store reference (e.g., '@store').`,
         );
       return null;
     }
@@ -92,7 +92,10 @@ export function resolveTarget(
   const selfName = getDirectiveValue(el, 'store')?.trim();
   if (!selfName) {
     __DEV__ &&
-      warn(`rz-${slug} ignored. Requires rz-store on the same <script> element.`, el);
+      warn(
+        `rz-${slug}: missing store reference. To self-reference a store on a <script> element, add rz-store as well.`,
+        el,
+      );
     return null;
   }
   return { storeName: selfName, nestedPath: '' };
@@ -619,7 +622,7 @@ export class StoreManager {
    */
   config(name: string, config: Partial<SyncConfig>) {
     if (!this.has(name)) {
-      __DEV__ && warn(`Cannot configure '${name}'. Store not found.`);
+      __DEV__ && warn(`Cannot configure store '${name}': store not found.`);
       return;
     }
     this._setConfig(name, config);
@@ -649,12 +652,12 @@ export class StoreManager {
     const initial = this._initial.get(name);
 
     if (!data) {
-      __DEV__ && warn(`Cannot reset store '${name}': Store not found.`);
+      __DEV__ && warn(`Cannot reset store '${name}': store not found.`);
       return;
     }
 
     if (!initial) {
-      __DEV__ && warn(`Cannot reset store '${name}': No initial state cached.`);
+      __DEV__ && warn(`Cannot reset store '${name}': no initial state cached.`);
       return;
     }
 
