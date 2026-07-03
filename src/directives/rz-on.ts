@@ -27,36 +27,31 @@ function bind(
 ): BoundCleanupFn | undefined {
   if (!value) {
     __DEV__ &&
-      warn(`rz-on requires one or more triggers (e.g., rz-on="click: handler").`, el);
+      warn(
+        `rz-on: value '${key}' is incomplete; a trigger and a handler are both required (e.g., rz-on="click: submit").`,
+        el,
+      );
     return undefined;
   }
 
-  const handlerRef = value;
-  const triggerSource = key;
-
-  if (!triggerSource) {
-    __DEV__ &&
-      warn(`rz-on on <${el.tagName.toLowerCase()}> requires an explicit trigger.`);
-    return undefined;
-  }
-
-  const { key: methodName, rawPayload } = splitInjection(handlerRef);
+  const { key: methodName, rawPayload } = splitInjection(value);
 
   let method: unknown;
   let context: unknown;
 
-  // Global store (e.g., @theme.toggleMode')
+  // Global store (e.g., `@theme.toggleMode`)
   if (methodName.startsWith(STORE_PREFIX)) {
     const { storeName, nestedPath } = parseStoreLocator(methodName);
     const storeData = app.stores.get(storeName);
 
     if (storeData === undefined) {
-      __DEV__ && warn(`Store '${storeName}' not found.`);
+      __DEV__ && warn(`rz-on: store '@${storeName}' not found.`, el);
       return;
     }
 
     if (!nestedPath) {
-      __DEV__ && warn(`No action specified for store '${storeName}'.`);
+      __DEV__ &&
+        warn(`rz-on: '@${storeName}' needs a handler (e.g., @${storeName}.save).`, el);
       return;
     }
 
@@ -72,11 +67,11 @@ function bind(
 
   // Validate that the resolved target is actually a function
   if (typeof method !== 'function') {
-    __DEV__ && warn(`Method '${methodName}' not found.`);
+    __DEV__ && warn(`rz-on: handler '${methodName}' is undefined or not a function.`, el);
     return;
   }
 
-  const triggers = parseTriggers(triggerSource);
+  const triggers = parseTriggers(key);
   const cleanups: VoidFn[] = [];
 
   for (const trigger of triggers) {
@@ -97,7 +92,7 @@ function bind(
           };
           method.call(context, args);
         } catch (error) {
-          __DEV__ && err(`Failed to execute '${methodName}()'.`, error);
+          __DEV__ && err(`Failed to execute '${methodName}()'.`, el, error);
         }
       },
     });

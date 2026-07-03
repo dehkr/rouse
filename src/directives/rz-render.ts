@@ -21,7 +21,7 @@ function bind(
   value: string,
 ): BoundCleanupFn | undefined {
   if (!(el instanceof HTMLTemplateElement)) {
-    __DEV__ && warn(`rz-render must be used on a <template> element.`);
+    __DEV__ && warn(`rz-render: must be placed on a <template> element.`, el);
     return;
   }
 

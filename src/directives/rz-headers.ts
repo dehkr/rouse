@@ -30,7 +30,8 @@ export function parseHeadersConfig(
         headers[k] = v == null ? '' : String(v);
       }
     } else {
-      __DEV__ && warn(`rz-headers payload '${value}' does not resolve to an object.`, el);
+      __DEV__ &&
+        warn(`rz-headers: payload '${value}' does not resolve to an object.`, el);
     }
     return headers;
   }

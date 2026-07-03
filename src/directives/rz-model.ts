@@ -57,7 +57,10 @@ function bind(
     const def = modelDefaultTrigger(el);
     if (!def) {
       __DEV__ &&
-        warn(`rz-model on <${el.tagName.toLowerCase()}> requires an explicit trigger.`);
+        warn(
+          `rz-model: an explicit trigger is required when used on <${el.tagName.toLowerCase()}> (e.g., rz-model="input: value").`,
+          el,
+        );
       return;
     }
     triggers = [def];

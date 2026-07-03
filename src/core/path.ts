@@ -169,7 +169,7 @@ export function writeState(
       __DEV__ &&
         warnWriteOnce(
           path,
-          `rz-model: Cannot use '${path}' because it overwrites the entire render item. Bind to a field instead.`,
+          `rz-model: cannot use '${path}' because it overwrites the entire render item. Bind to a field instead.`,
         );
       return;
     }
@@ -196,7 +196,7 @@ export function writeState(
       __DEV__ &&
         warnWriteOnce(
           path,
-          `rz-model: Cannot use '${path}' because it overwrites the entire store. Bind to a field instead.`,
+          `rz-model: cannot use '${path}' because it overwrites the entire store. Bind to a field instead.`,
         );
       return;
     }
@@ -210,7 +210,7 @@ export function writeState(
       __DEV__ &&
         warnWriteOnce(
           path,
-          `rz-model: Cannot resolve '${path}' on '${storeName}'. One or both may be undefined.`,
+          `rz-model: cannot resolve '${path}' on '${storeName}'. One or both may be undefined.`,
         );
       return;
     }

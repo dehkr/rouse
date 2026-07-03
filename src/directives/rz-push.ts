@@ -25,7 +25,7 @@ function triggerPush(
 ) {
   const status = app.stores.status(storeName);
   if (!status) {
-    __DEV__ && warn(`Cannot push: store '${storeName}' not found.`);
+    __DEV__ && warn(`rz-push: store '${storeName}' not found.`, triggerEl);
     return;
   }
   if (status.loading) return;
@@ -48,7 +48,11 @@ function initialize(el: Element, app: RouseApp) {
 
   const pairs = parseTriggerSubjectPairs(value);
   if (pairs.length === 0) {
-    __DEV__ && warn('A valid trigger is missing for rz-push:', el);
+    __DEV__ &&
+      warn(
+        'rz-push: at least one trigger is required (e.g., rz-push="click: @user").',
+        el,
+      );
     return;
   }
 
