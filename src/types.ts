@@ -40,7 +40,7 @@ export type DirectiveSlug =
   | 'url'
   | 'wake';
 
-/** Detail for `rz:app:*` lifecycle events. */
+/** Detail for `rz:app:start`, `rz:app:ready`, and `rz:app:destroy`. */
 export interface AppEventDetail {
   app: RouseApp;
 }
@@ -96,7 +96,7 @@ export type FetchErrorFileDetail = RouseResponse<Blob | ArrayBuffer>;
 export interface BaseStoreSync {
   /** Name of the store being synced. */
   storeName: string;
-  /** Direction of the sync: `push` (local → server) or `pull` (server → local). */
+  /** Direction of the sync: `push` (to server) or `pull` (from server). */
   operation: 'push' | 'pull';
   /** Dot-path of the targeted slice, when only part of the store was synced. */
   nestedPath?: string;
@@ -214,7 +214,7 @@ export interface LifecycleEventMap {
   'rz:store:sync:conflict': StoreSyncConflictDetail;
   /** Fires when a push or pull request fails. */
   'rz:store:sync:error': StoreSyncErrorDetail;
-  /** Fires after `rz:store:sync:error` when `rollbackOnError` reverted local state to the last-good snapshot. */
+  /** Fires after `rz:store:sync:error` when `rollbackOnError` reverts local state to the last-good snapshot. */
   'rz:store:sync:rollback': StoreSyncRollbackDetail;
   /** Fires before the swap executes; cancelable. Listeners can mutate `payload`. */
   'rz:dom:swap:before': DomSwapDetail;
@@ -356,9 +356,7 @@ export interface RequestError {
   parseError?: string;
 }
 
-/**
- * Framework-specific execution and UI options.
- */
+/** Framework-specific execution and UI options. */
 export interface FetchConfig {
   /** The request URL. When triggered declaratively, resolved from the directive subject or `rz-url`. */
   url?: string;
@@ -439,17 +437,13 @@ export type ResponseInterceptor = (
   config: RouseRequest,
 ) => any | Promise<any>;
 
-/**
- * Runs when a request fails. Return a modified error to override what propagates.
- */
+/** Runs when a request fails. Return a modified error to override what propagates. */
 export type ErrorInterceptor = (
   error: RequestError,
   config: RouseRequest,
 ) => RequestError | Promise<RequestError>;
 
-/**
- * The three points in the request lifecycle where interceptors can be registered.
- */
+/** The three points in the request lifecycle where interceptors can be registered. */
 export type InterceptorPhase = 'request' | 'response' | 'error';
 
 /**
@@ -532,7 +526,6 @@ export type ScopeCtx<
  * @template E - The Element type.
  */
 export type HandlerCtx<D = Record<string, any>, E extends Element = HTMLElement> = {
-  /** The data payload injected via inline JSON, JSON <script> id reference, or store reference. */
   data: D;
   /** The element the directive is bound to. */
   el: E;

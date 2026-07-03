@@ -2,12 +2,16 @@ import { getRaw } from '../reactivity';
 import type { HandlerCtx, RenderContext, Scope } from '../types';
 import { ITEM_KEY, ITEM_META_KEY, RENDER_PARENT } from './constants';
 
-/** Read the current render item off an instance context (if any). */
+/**
+ * Reads the current render item off an instance context (if any).
+ */
 export function renderItem(scope: Scope): unknown {
   return (scope as RenderContext)[ITEM_KEY];
 }
 
-/** Resolve the state an instance context layers over, else the scope itself. */
+/**
+ * Resolves the state an instance context layers over, else the scope itself.
+ */
 export function renderParent(scope: Scope): Scope {
   return (getRaw(scope) as RenderContext)[RENDER_PARENT] ?? scope;
 }
@@ -17,7 +21,9 @@ export function renderParent(scope: Scope): Scope {
  * context. Returns null fields when the scope isn't a render instance.
  */
 export function renderCtxOf(scope: Scope): HandlerCtx['render'] {
-  if (!(ITEM_META_KEY in scope)) return { item: null, index: null };
+  if (!(ITEM_META_KEY in scope)) {
+    return { item: null, index: null };
+  }
   const meta = (scope as RenderContext)[ITEM_META_KEY];
   return meta
     ? { item: meta.item ?? null, index: meta.index }
