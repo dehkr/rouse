@@ -42,7 +42,7 @@ export function resolveInjection(
     const storeData = storeManager.get(storeName);
 
     if (storeData === undefined) {
-      __DEV__ && warn(`Store '${storeName}' not found. Cannot resolve '${value}'.`);
+      __DEV__ && warn(`Store '@${storeName}' not found. Cannot resolve '${value}'.`);
       return undefined;
     }
 
@@ -59,8 +59,8 @@ export function resolveInjection(
         try {
           const parsed = safeJSONParse(content);
           resolvedValue = nestedPath ? getNestedVal(parsed, nestedPath) : parsed;
-        } catch (e) {
-          __DEV__ && warn(`Invalid JSON in #${id}.`, e);
+        } catch (error) {
+          __DEV__ && warn(`Invalid JSON in #${id}.`, error);
         }
       }
     } else {
@@ -77,8 +77,8 @@ export function resolveInjection(
   else if (value.startsWith('{')) {
     try {
       resolvedValue = safeJSONParse(value);
-    } catch (e) {
-      __DEV__ && warn(`Invalid inline JSON.`, e);
+    } catch (error) {
+      __DEV__ && warn(`Invalid inline JSON.`, error);
     }
   }
 
@@ -156,7 +156,7 @@ export function resolveBoundValue(
       };
       return (state as AnyFn).call(context, args) as BindableValue;
     } catch (error) {
-      __DEV__ && err(`Failed to execute '${key}()'.`, error);
+      __DEV__ && err(`Failed to execute '${key}()'.`, el, error);
       return undefined;
     }
   }

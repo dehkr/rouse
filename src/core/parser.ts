@@ -66,7 +66,7 @@ function forEachSafeChar(
         depths[opener]--;
         totalDepth--;
       } else {
-        __DEV__ && warn(`Mismatched bracket '${char}' in value: '${text}'`);
+        __DEV__ && warn(`Mismatched bracket '${char}' in value: '${text}'.`);
       }
     }
 
@@ -166,7 +166,7 @@ export function parseDirectiveValue(
   });
 
   if (scanResult.depth > 0 || scanResult.quote) {
-    __DEV__ && warn(`Malformed directive value: '${value}'`);
+    __DEV__ && warn(`Malformed directive value: '${value}'.`);
   }
 
   // Final segment

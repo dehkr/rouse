@@ -24,7 +24,7 @@ function triggerPull(
 ) {
   const status = app.stores.status(storeName);
   if (!status) {
-    __DEV__ && warn(`rz-pull: store '${storeName}' not found.`, triggerEl);
+    __DEV__ && warn(`rz-pull: store '@${storeName}' not found.`, triggerEl);
     return;
   }
   if (status.loading) return;

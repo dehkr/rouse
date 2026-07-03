@@ -25,7 +25,7 @@ function triggerPush(
 ) {
   const status = app.stores.status(storeName);
   if (!status) {
-    __DEV__ && warn(`rz-push: store '${storeName}' not found.`, triggerEl);
+    __DEV__ && warn(`rz-push: store '@${storeName}' not found.`, triggerEl);
     return;
   }
   if (status.loading) return;
