@@ -6,6 +6,21 @@ import type { StoreManager } from './store';
 
 const MAX_CACHE_SIZE = 500;
 const pathCache = new Map<string, string[]>();
+const warnedWrites = new Set<string>();
+
+/**
+ * Dedupe per-keystroke `rz-model` repeat warnings.
+ */
+function warnWriteOnce(path: string, message: string): void {
+  if (warnedWrites.has(path)) return;
+  warnedWrites.add(path);
+  warn(message);
+}
+
+function getStorePath(path: string) {
+  const fullPath = path.slice(STORE_PREFIX.length);
+  return { fullPath, dotIndex: fullPath.indexOf('.') };
+}
 
 /**
  * Resolve a dot-notation path to a value.
@@ -74,6 +89,29 @@ function getPathParts(path: string): string[] {
   return parts;
 }
 
+/**
+ * Checks if `path` resolves to an existing key on `obj`. Guards `writeState` against
+ * `rz-model` writes to non-existent fields. `setNestedVal` would otherwise create
+ * them. Server-driven creates bypass `writeState`, so they're unaffected.
+ */
+function hasNestedKey(obj: unknown, path: string): boolean {
+  const parts = getPathParts(path);
+  let current = obj as any;
+
+  for (let i = 0; i < parts.length - 1; i++) {
+    if (current == null || typeof current !== 'object') {
+      return false;
+    }
+    current = current[parts[i] as string];
+  }
+
+  return (
+    current != null &&
+    typeof current === 'object' &&
+    (parts[parts.length - 1] as string) in current
+  );
+}
+
 export function getRootSegment(path: string | undefined): string | undefined {
   if (!path) return;
   return getPathParts(path)[0];
@@ -85,7 +123,7 @@ export function getRootSegment(path: string | undefined): string | undefined {
 export function resolveState<T = unknown>(
   path: string,
   scope: Scope,
-  storeManager?: StoreManager,
+  storeManager: StoreManager,
 ): T | undefined {
   // Render item
   if (path.startsWith(ITEM_PREFIX)) {
@@ -96,11 +134,6 @@ export function resolveState<T = unknown>(
 
   // Global store
   if (path.startsWith(STORE_PREFIX)) {
-    if (!storeManager) {
-      __DEV__ && warn(`StoreManager required to resolve '${path}'.`);
-      return undefined;
-    }
-
     const { fullPath, dotIndex } = getStorePath(path);
 
     if (dotIndex === -1) {
@@ -119,56 +152,87 @@ export function resolveState<T = unknown>(
 
 /**
  * Writes a value to a global store, a local scope, or a render item.
+ *
+ * **Note:** Currently this is used exclusively as the write path for `rz-model`.
+ * The warnings reflect that; they should be updated if another caller is added.
  */
 export function writeState(
   path: string,
   value: unknown,
   scope: Scope,
-  storeManager?: StoreManager,
+  storeManager: StoreManager,
 ): void {
   // Render item
   if (path.startsWith(ITEM_PREFIX)) {
     const itemPath = path.slice(1);
     if (!itemPath) {
       __DEV__ &&
-        warn(`Cannot overwrite entire render item via model binding: '${path}'.`);
+        warnWriteOnce(
+          path,
+          `rz-model: Cannot use '${path}' because it overwrites the entire render item. Bind to a field instead.`,
+        );
       return;
     }
-    setNestedVal(renderItem(scope), itemPath, value);
+
+    const item = renderItem(scope);
+    if (!hasNestedKey(item, itemPath)) {
+      __DEV__ &&
+        warnWriteOnce(
+          path,
+          `rz-model: '${path}' could not be resolved. Field does not exist on the render item.`,
+        );
+      return;
+    }
+
+    setNestedVal(item, itemPath, value);
     return;
   }
 
   // Global store
   if (path.startsWith(STORE_PREFIX)) {
-    if (!storeManager) {
-      __DEV__ && warn(`StoreManager required to write to '${path}'.`);
-      return;
-    }
-
     const { fullPath, dotIndex } = getStorePath(path);
 
     if (dotIndex === -1) {
-      __DEV__ && warn(`Cannot overwrite entire store via model binding: '${path}'.`);
+      __DEV__ &&
+        warnWriteOnce(
+          path,
+          `rz-model: Cannot use '${path}' because it overwrites the entire store. Bind to a field instead.`,
+        );
       return;
     }
 
     const storeName = fullPath.slice(0, dotIndex);
     const storePath = fullPath.slice(dotIndex + 1);
+    const storeData = storeManager.get(storeName);
 
-    setNestedVal(storeManager.get(storeName), storePath, value);
+    // Warns if store doesn't exist, or if key doesn't exist on store
+    if (!hasNestedKey(storeData, storePath)) {
+      __DEV__ &&
+        warnWriteOnce(
+          path,
+          `rz-model: Cannot resolve '${path}' on '${storeName}'. One or both may be undefined.`,
+        );
+      return;
+    }
+
+    setNestedVal(storeData, storePath, value);
     return;
   }
 
   // Fallback to local scope state
   if (renderParent(scope) === EMPTY_SCOPE) {
-    __DEV__ && warn(`'${path}' used outside scope. Use '@' to target a store.`);
+    __DEV__ &&
+      warnWriteOnce(
+        path,
+        `rz-model: '${path}' used outside of a scope. Use '@' to target a store.`,
+      );
+    return;
+  }
+
+  if (!hasNestedKey(scope, path)) {
+    __DEV__ && warnWriteOnce(path, `rz-model: '${path}' does not exist on the scope.`);
     return;
   }
 
   setNestedVal(scope, path, value);
-}
-
-function getStorePath(path: string) {
-  const fullPath = path.slice(STORE_PREFIX.length);
-  return { fullPath, dotIndex: fullPath.indexOf('.') };
 }
