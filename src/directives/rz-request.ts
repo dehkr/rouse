@@ -21,7 +21,7 @@ const TIME_KEYS = ['timeout', 'retry-delay'];
  */
 export function parseRequestConfig(
   value: string | null | undefined,
-  app?: RouseApp,
+  app: RouseApp,
 ): Partial<RouseRequest> {
   if (!value) return {};
 
@@ -33,7 +33,7 @@ export function parseRequestConfig(
 
     // Dynamic payload delimiters
     if (val.match(/^[#@{]/)) {
-      config[key] = resolveInjection(val, app?.stores, false);
+      config[key] = resolveInjection(val, app.stores, false);
     }
 
     // Booleans

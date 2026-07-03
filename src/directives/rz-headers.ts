@@ -16,13 +16,13 @@ import type { ConfigDirective, DirectiveSlug } from '../types';
 export function parseHeadersConfig(
   value: string | null | undefined,
   el: Element,
-  app?: RouseApp,
+  app: RouseApp,
 ): Record<string, string> {
   if (!value) return {};
 
   // Object injection
   if (value.match(/^[#@{]/)) {
-    const resolvedObject = resolveInjection(value, app?.stores, false);
+    const resolvedObject = resolveInjection(value, app.stores, false);
     const headers: Record<string, string> = {};
 
     if (resolvedObject && typeof resolvedObject === 'object') {

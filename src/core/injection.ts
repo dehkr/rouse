@@ -28,7 +28,7 @@ function safeJSONParse(text: string): unknown {
  */
 export function resolveInjection(
   input: string | undefined | null,
-  storeManager?: StoreManager,
+  storeManager: StoreManager,
   requireObject = true,
 ): Record<string, any> | undefined {
   const value = input?.trim();
@@ -38,11 +38,6 @@ export function resolveInjection(
 
   // Store data
   if (value.startsWith(STORE_PREFIX)) {
-    if (!storeManager) {
-      __DEV__ && warn(`Cannot resolve '${value}' because StoreManager is missing.`);
-      return undefined;
-    }
-
     const { storeName, nestedPath } = parseStoreLocator(value);
     const storeData = storeManager.get(storeName);
 
@@ -72,7 +67,7 @@ export function resolveInjection(
       __DEV__ &&
         warn(
           el
-            ? `#${id} is not a script tag of type "application/json".`
+            ? `#${id} is not a script tag of type 'application/json'.`
             : `#${id} not found.`,
         );
     }
