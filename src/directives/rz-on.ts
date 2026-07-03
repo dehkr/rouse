@@ -28,7 +28,7 @@ function bind(
   if (!value) {
     __DEV__ &&
       warn(
-        `rz-on: value '${key}' is incomplete; a trigger and a handler are both required (e.g., rz-on="click: submit").`,
+        `rz-on: value '${key}' is incomplete; at least one trigger and a handler are required (e.g., rz-on="click: submit").`,
         el,
       );
     return undefined;
