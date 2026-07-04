@@ -458,7 +458,7 @@ export type ScopeFn<
 /**
  * The context object passed into every scope setup function.
  *
- * @template P - The type of the params.
+ * @template P - The type of the params object.
  * @template E - The Element type.
  */
 export type ScopeCtx<
@@ -522,7 +522,7 @@ export type ScopeCtx<
 /**
  * The context object passed as an argument to scope and store methods.
  *
- * @template P - The type of the params.
+ * @template P - The type of the params object.
  * @template E - The Element type.
  */
 export type HandlerCtx<P = Record<string, any>, E extends Element = HTMLElement> = {
@@ -530,8 +530,25 @@ export type HandlerCtx<P = Record<string, any>, E extends Element = HTMLElement>
   params: P;
   /** The element the directive is bound to. */
   el: E;
-  /** The event that triggered this handler, if any. */
+  /** The triggering DOM event, or a synthetic `CustomEvent` when the handler runs without one (one-way binding formatters, synthetic triggers). */
   e: Event;
   /** Current `rz-render` loop context. Both fields are `null` outside a render instance, and `item` is `null` for item-less (boolean/number) modes. */
   render: { item: unknown; index: number | null };
+};
+
+/**
+ * `HandlerCtx` for handlers bound inside an `rz-render` instance: the loop item
+ * is typed, and `render` is guaranteed present (non-null).
+ * 
+ * @template Item - The type of the render item.
+ * @template P - The type of the params object.
+ * @template E - The Element type.
+ */
+export type RenderHandlerCtx<
+  Item,
+  P = Record<string, any>,
+  E extends Element = HTMLElement,
+> = Omit<HandlerCtx<P, E>, 'render'> & {
+  /** Current `rz-render` loop context. */
+  render: { item: Item; index: number };
 };
