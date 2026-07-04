@@ -143,13 +143,13 @@ export function resolveBoundValue(
       : scope;
 
     try {
-      const data =
+      const payload =
         rawPayload !== undefined
           ? (resolveInjection(rawPayload, storeManager) ?? {})
           : {};
       const e = new CustomEvent(`rz:${slug}`);
       const args: HandlerCtx<Record<string, any>, Element> = {
-        data,
+        params: payload,
         e,
         el,
         render: renderCtxOf(scope),

@@ -37,8 +37,8 @@ function validate(el: Element, app: RouseApp): el is HTMLScriptElement {
  * Bootstraps a global reactive store from a `<script>` tag. Initializes the
  * reactive data registry and seeds the store's URL from `rz-url` if present.
  *
- * Push/pull triggers (`rz-push`, `rz-pull`) are wired separately by
- * their own manager scans, so the store doesn't need to know about them.
+ * Push/pull triggers (`rz-push`, `rz-pull`) are wired separately, so the
+ * store doesn't need to know about them.
  */
 function initialize(el: HTMLScriptElement, app: RouseApp) {
   if (initialized.has(el) || !app) return;

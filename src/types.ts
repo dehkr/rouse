@@ -458,15 +458,15 @@ export type ScopeFn<
 /**
  * The context object passed into every scope setup function.
  *
- * @template D - The type of the data.
+ * @template P - The type of the params.
  * @template E - The Element type.
  */
 export type ScopeCtx<
-  D extends Record<string, any> = Record<string, any>,
+  P extends Record<string, any> = Record<string, any>,
   E extends Element = HTMLElement,
 > = {
-  /** The data payload injected via inline JSON, JSON <script> id reference, or store reference. */
-  data: D;
+  /** Scope parameters injected via inline JSON, <script> id reference, or store reference. */
+  params: P;
   /** The `rz-scope` element this scope is mounted on. */
   host: E;
   /** The root element passed to `RouseApp`. */
@@ -522,11 +522,12 @@ export type ScopeCtx<
 /**
  * The context object passed as an argument to scope and store methods.
  *
- * @template D - The type of the data.
+ * @template P - The type of the params.
  * @template E - The Element type.
  */
-export type HandlerCtx<D = Record<string, any>, E extends Element = HTMLElement> = {
-  data: D;
+export type HandlerCtx<P = Record<string, any>, E extends Element = HTMLElement> = {
+  /** Handler parameters injected via inline JSON, <script> id reference, or store reference. */
+  params: P;
   /** The element the directive is bound to. */
   el: E;
   /** The event that triggered this handler, if any. */

@@ -80,12 +80,12 @@ function bind(
       app,
       action: (e?: Event) => {
         try {
-          const data =
+          const payload =
             rawPayload !== undefined
               ? (resolveInjection(rawPayload, app.stores) ?? {})
               : {};
           const args: HandlerCtx<Record<string, any>, Element> = {
-            data,
+            params: payload,
             e: e ?? new CustomEvent(trigger.event),
             el,
             render: renderCtxOf(scope),
