@@ -9,6 +9,7 @@ import type {
 } from './core/constants';
 import type { StoreManager } from './core/store';
 
+/** Brand for {@link BoundCleanupFn}, keeping arbitrary `VoidFn`s out of directive-teardown positions. */
 declare const CLEANUP: unique symbol;
 
 /** Every `rz-*` attribute name supported by the framework, without the prefix. */
@@ -42,29 +43,37 @@ export type DirectiveSlug =
 
 /** Detail for `rz:app:start`, `rz:app:ready`, and `rz:app:destroy`. */
 export interface AppEventDetail {
+  /** The app instance the event fired from. */
   app: RouseApp;
 }
 
 /** Detail for `rz:scope:init`. */
 export interface ScopeInitDetail {
+  /** The context passed into the scope's setup function. */
   context: ScopeCtx;
+  /** The scope object the setup function returned. */
   instance: Scope;
 }
 
 /** Detail for `rz:scope:connect` and `rz:scope:disconnect`. */
 export interface ScopeLifecycleDetail {
+  /** The scope whose bindings were attached (connect) or detached (disconnect). */
   instance: Scope;
 }
 
 /** Detail for `rz:fetch:config`. */
 export interface FetchConfigDetail {
+  /** The final unified request config. Mutable by listeners; carries `method` but not the resolved `url`. */
   config: RouseRequest;
+  /** The resolved request URL actually fetched. Surfaced here because `config` does not carry it. */
   url: string;
+  /** The resolved HTTP method. Also present on `config`; duplicated here for convenience. */
   method: string;
 }
 
 /** Detail for `rz:fetch:start`, `rz:fetch:abort`, and `rz:fetch:end`. */
 export interface FetchLifecycleDetail {
+  /** The final unified request config driving this request. */
   config: RouseRequest;
 }
 
@@ -250,14 +259,19 @@ export type BoundCleanupFn = VoidFn & { [CLEANUP]: true };
 
 /** The object returned by a setup function. Includes standard lifecycle hooks and custom state/methods. */
 export type Scope = Record<string, any> & {
+  /** Lifecycle hook, run when the scope connects (bindings attached). */
   connect?: () => void;
+  /** Lifecycle hook, run when the scope disconnects (bindings detached). */
   disconnect?: () => void;
 };
 
 /** Per-instance render metadata. Internal to the engine and surfaced to handlers via `HandlerCtx.render`. Not resolvable from templates. */
 export interface RenderMeta {
+  /** The current loop item. Absent for item-less (boolean/number) render modes. */
   item: unknown;
+  /** Zero-based position of this instance within the render. */
   index: number;
+  /** Reconciliation key: the positional index, or the resolved `rz-key` field value when set. */
   key: string | number;
 }
 
@@ -269,35 +283,49 @@ export interface RenderMeta {
  * `rz-scope`: no lifecycle, no `ScopeCtx`.
  */
 export type RenderContext = Scope & {
+  /** The current render item. */
   [ITEM_KEY]?: unknown;
+  /** Per-instance render metadata. */
   [ITEM_META_KEY]?: RenderMeta;
+  /** The parent state this context layers over. */
   [RENDER_PARENT]?: Scope;
 };
 
 /** Parsed trigger event with modifiers. */
 export type TriggerDef = {
+  /** The DOM event name, stripped of modifiers (e.g. `click`, `input`). */
   event: string;
+  /** Modifiers parsed off the trigger (e.g. `once`, `prevent`, `debounce`, `300ms`). */
   modifiers: string[];
 };
 
 /** A trigger paired with its subject. `subject` is `null` when the directive resolves the URL/target from the element itself. */
 export type TriggerSubjectPair = {
+  /** The parsed trigger event and its modifiers. */
   trigger: TriggerDef;
+  /** The URL/target the trigger acts on, or `null` when resolved from the element. */
   subject: string | null;
 };
 
 /** Shared base interface for all directives. */
 export interface BaseDirective {
+  /** The `rz-*` attribute name (prefix omitted) this directive handles. */
   slug: DirectiveSlug;
 }
 
 /** A stateless directive used to parse DOM attributes into a typed configuration object. */
 export interface ConfigDirective<T> extends BaseDirective {
+  /** Parse the element's attributes into the typed config `T`. Pure. No lifecycle, read on demand. */
   getConfig: (el: Element, ...args: any[]) => T;
 }
 
 /** Represents a persistent data or event binding between the DOM and application state. */
 export interface BoundDirective extends BaseDirective {
+  /**
+   * Attach the binding for one pre-split `[key: value]` segment: `key` is the trigger/token,
+   * `value` the subject. `scope` is the owning `Scope`, or `EMPTY_SCOPE` when globally mounted.
+   * Returns a cleanup, or `undefined` if nothing was bound.
+   */
   bind: (
     el: Element,
     scope: Scope,
@@ -309,12 +337,15 @@ export interface BoundDirective extends BaseDirective {
 
 /** A directive that manages its own explicit initialization and teardown lifecycle. */
 export interface StandaloneDirective<T extends Element = Element> extends BaseDirective {
+  /** Set up the directive on `el`. Called by the initial scan and the mutation observer's add branch. */
   initialize: (el: T, app: RouseApp) => void;
+  /** Tear down the directive when `el` leaves the DOM. */
   teardown: (el: T) => void;
 }
 
 /** A specialized `StandaloneDirective` explicitly tailored for `<script rz-store>` tags. */
 export interface StoreDirective extends StandaloneDirective<HTMLScriptElement> {
+  /** Type-guard run before `initialize` to confirm `el` is a usable `<script rz-store>` tag. */
   validate: (el: Element, app: RouseApp) => el is HTMLScriptElement;
 }
 
@@ -364,6 +395,7 @@ export interface FetchConfig {
   target?: Element | string;
   /** The element that triggered the request. Used to resolve `rz-request` config layers. */
   triggerEl?: Element;
+  /** Request body. Plain objects/arrays are JSON-serialized; a `BodyInit` is sent as-is. */
   body?: BodyInit | Record<string, any> | any[] | null | undefined;
   /** Serialize and send this form's data as the request body. */
   form?: HTMLFormElement;
@@ -449,11 +481,14 @@ export type InterceptorPhase = 'request' | 'response' | 'error';
 /**
  * A scope setup function. Receives a `ScopeCtx` and returns a `Scope` object
  * whose properties become the scope's reactive state and methods.
+ *
+ * @template P - The type of the params object.
+ * @template E - The Element type.
  */
 export type ScopeFn<
-  D extends Record<string, any> = Record<string, any>,
+  P extends Record<string, any> = Record<string, any>,
   E extends Element = HTMLElement,
-> = (ctx: ScopeCtx<D, E>) => Scope;
+> = (ctx: ScopeCtx<P, E>) => Scope;
 
 /**
  * The context object passed into every scope setup function.
@@ -520,7 +555,8 @@ export type ScopeCtx<
 };
 
 /**
- * The context object passed as an argument to scope and store methods.
+ * The context passed to handler functions: event handlers, one-way binding
+ * formatters, and other scope/store methods.
  *
  * @template P - The type of the params object.
  * @template E - The Element type.
@@ -530,7 +566,7 @@ export type HandlerCtx<P = Record<string, any>, E extends Element = HTMLElement>
   params: P;
   /** The element the directive is bound to. */
   el: E;
-  /** The triggering DOM event, or a synthetic `CustomEvent` when the handler runs without one (one-way binding formatters, synthetic triggers). */
+  /** The triggering DOM event, or a synthetic `CustomEvent` when the handler runs without one (e.g. a function used to compute a one-way binding value). */
   e: Event;
   /** Current `rz-render` loop context. Both fields are `null` outside a render instance, and `item` is `null` for item-less (boolean/number) modes. */
   render: { item: unknown; index: number | null };
@@ -539,7 +575,7 @@ export type HandlerCtx<P = Record<string, any>, E extends Element = HTMLElement>
 /**
  * `HandlerCtx` for handlers bound inside an `rz-render` instance: the loop item
  * is typed, and `render` is guaranteed present (non-null).
- * 
+ *
  * @template Item - The type of the render item.
  * @template P - The type of the params object.
  * @template E - The Element type.
