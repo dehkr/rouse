@@ -163,6 +163,7 @@ export function dispatchTrigger(
       modifiers: trigger.modifiers,
       action: timedAction,
     });
+
     return wrapCleanup(cleanup);
   }
 
@@ -318,6 +319,7 @@ export const syntheticEvents: Record<string, SyntheticEventHandler> = {
     };
 
     mql.addEventListener('change', changeHandler);
+
     return () => mql.removeEventListener('change', changeHandler);
   },
 
@@ -335,6 +337,7 @@ export const syntheticEvents: Record<string, SyntheticEventHandler> = {
     });
 
     observer.observe(el);
+
     return () => observer.disconnect();
   },
 
@@ -369,7 +372,9 @@ export const syntheticEvents: Record<string, SyntheticEventHandler> = {
     }
 
     // Safari fallback
-    return () => window.clearTimeout(window.setTimeout(action, 1));
+    const id = window.setTimeout(action, 1);
+
+    return () => window.clearTimeout(id);
   },
 };
 
@@ -390,7 +395,9 @@ function attachTimingEvent(type: 'timeout' | 'interval', ctx: TriggerContext) {
   const setup = type === 'timeout' ? window.setTimeout : window.setInterval;
   const clear = type === 'timeout' ? window.clearTimeout : window.clearInterval;
 
-  return () => clear(setup(ctx.action, ms));
+  const id = setup(ctx.action, ms);
+
+  return () => clear(id);
 }
 
 /**
