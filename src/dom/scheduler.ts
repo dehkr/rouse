@@ -38,6 +38,7 @@ export function dispatch(
     detail,
   });
   el.dispatchEvent(event);
+
   return event;
 }
 
@@ -334,7 +335,6 @@ export const syntheticEvents: Record<string, SyntheticEventHandler> = {
     });
 
     observer.observe(el);
-
     return () => observer.disconnect();
   },
 
@@ -369,9 +369,7 @@ export const syntheticEvents: Record<string, SyntheticEventHandler> = {
     }
 
     // Safari fallback
-    const id = window.setTimeout(action, 1);
-
-    return () => window.clearTimeout(id);
+    return () => window.clearTimeout(window.setTimeout(action, 1));
   },
 };
 
@@ -391,9 +389,8 @@ function attachTimingEvent(type: 'timeout' | 'interval', ctx: TriggerContext) {
 
   const setup = type === 'timeout' ? window.setTimeout : window.setInterval;
   const clear = type === 'timeout' ? window.clearTimeout : window.clearInterval;
-  const id = setup(ctx.action, ms);
 
-  return () => clear(id);
+  return () => clear(setup(ctx.action, ms));
 }
 
 /**
