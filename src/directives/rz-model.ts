@@ -4,7 +4,7 @@ import { resolveState, writeState } from '../core/path';
 import { warn } from '../core/shared';
 import { dispatchTrigger } from '../dom/scheduler';
 import { getModelableValue, setModelableValue } from '../dom/updater';
-import { boundCleanup, is } from '../dom/utils';
+import { is } from '../dom/utils';
 import { effect } from '../reactivity';
 import type {
   BindableValue,
@@ -13,7 +13,6 @@ import type {
   DirectiveSlug,
   Scope,
   TriggerDef,
-  VoidFn,
 } from '../types';
 
 const SLUG = 'model' as const satisfies DirectiveSlug;
@@ -66,15 +65,16 @@ function bind(
     triggers = [def];
   }
 
-  // State -> DOM
-  const stopEffect = effect(() => {
-    setModelableValue(el, resolveState<BindableValue>(subject, scope, app.stores));
-  });
+  const cleanups = [
+    effect(() => {
+      // State -> DOM
+      setModelableValue(el, resolveState<BindableValue>(subject, scope, app.stores));
+    }),
+  ];
 
   // DOM -> State
   const action = () => writeState(subject, getModelableValue(el), scope, app.stores);
 
-  const cleanups: VoidFn[] = [];
   for (const trigger of triggers) {
     const cleanup = dispatchTrigger(trigger, { el, app, action });
     if (cleanup) {
@@ -82,10 +82,7 @@ function bind(
     }
   }
 
-  return boundCleanup(() => {
-    stopEffect();
-    cleanups.forEach((fn) => fn());
-  });
+  return (() => cleanups.forEach((fn) => fn())) as BoundCleanupFn;
 }
 
 export const rzModel = {

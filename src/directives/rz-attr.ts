@@ -1,7 +1,6 @@
 import type { RouseApp } from '../core/app';
 import { resolveBoundValue } from '../core/injection';
 import { updateAttr, updateClass, updateStyle } from '../dom/updater';
-import { boundCleanup } from '../dom/utils';
 import { effect } from '../reactivity';
 import type { BoundCleanupFn, BoundDirective, DirectiveSlug, Scope } from '../types';
 
@@ -14,7 +13,7 @@ function bind(
   type: string,
   raw: string,
 ): BoundCleanupFn {
-  const stopEffect = effect(() => {
+  return effect(() => {
     const val = resolveBoundValue(raw, scope, app.stores, el, SLUG);
 
     if (type === 'class') {
@@ -24,9 +23,7 @@ function bind(
     } else {
       updateAttr(el, type, val);
     }
-  });
-
-  return boundCleanup(stopEffect);
+  }) as BoundCleanupFn;
 }
 
 export const rzAttr = {

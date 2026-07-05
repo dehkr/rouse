@@ -1,7 +1,6 @@
 import type { RouseApp } from '../core/app';
 import { resolveBoundValue } from '../core/injection';
 import { applyStyles, setStyleProperty, updateStyle } from '../dom/updater';
-import { boundCleanup } from '../dom/utils';
 import { effect } from '../reactivity';
 import type { BoundCleanupFn, BoundDirective, DirectiveSlug, Scope } from '../types';
 
@@ -14,7 +13,7 @@ function bind(
   key: string,
   val: string,
 ): BoundCleanupFn {
-  const run = () => {
+  return effect(() => {
     const lookup = val === '' ? key : val;
     const resolved = resolveBoundValue(lookup, scope, app.stores, el, SLUG);
 
@@ -25,9 +24,7 @@ function bind(
     } else {
       setStyleProperty(el, key, resolved);
     }
-  };
-
-  return boundCleanup(effect(run));
+  }) as BoundCleanupFn;
 }
 
 export const rzStyle = {

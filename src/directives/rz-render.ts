@@ -2,7 +2,6 @@ import type { RouseApp } from '../core/app';
 import { resolveBoundValue } from '../core/injection';
 import { warn } from '../core/shared';
 import { renderTemplate } from '../dom/renderer';
-import { boundCleanup } from '../dom/utils';
 import type { BoundCleanupFn, BoundDirective, DirectiveSlug, Scope } from '../types';
 import { rzKey } from './rz-key';
 
@@ -28,13 +27,11 @@ function bind(
   const raw = value || key;
   const keyPath = rzKey.getConfig(el);
 
-  const dispose = renderTemplate(
-    el,
-    () => resolveBoundValue(raw, scope, app.stores, el, SLUG),
-    { app, parentState: scope, keyPath },
-  );
-
-  return boundCleanup(dispose);
+  return renderTemplate(el, () => resolveBoundValue(raw, scope, app.stores, el, SLUG), {
+    app,
+    parentState: scope,
+    keyPath,
+  }) as BoundCleanupFn;
 }
 
 export const rzRender = {

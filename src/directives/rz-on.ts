@@ -6,7 +6,6 @@ import { getNestedVal } from '../core/path';
 import { renderCtxOf } from '../core/render';
 import { err, warn } from '../core/shared';
 import { dispatchTrigger } from '../dom/scheduler';
-import { boundCleanup } from '../dom/utils';
 import type {
   BoundCleanupFn,
   BoundDirective,
@@ -96,12 +95,12 @@ function bind(
         }
       },
     });
-    if (cleanup) cleanups.push(cleanup);
+    if (cleanup) {
+      cleanups.push(cleanup);
+    }
   }
 
-  return boundCleanup(() => {
-    cleanups.forEach((fn) => fn());
-  });
+  return (() => cleanups.forEach((fn) => fn())) as BoundCleanupFn;
 }
 
 export const rzOn = {
