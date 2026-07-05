@@ -1,5 +1,3 @@
-import type { BoundCleanupFn, VoidFn } from '../types';
-
 const elementMap = {
   Anchor: HTMLAnchorElement,
   Button: HTMLButtonElement,
@@ -25,12 +23,4 @@ export function isNativeNavigation(el: Element, e: Event): boolean {
   return (
     (e.type === 'submit' && is(el, 'Form')) || (e.type === 'click' && is(el, 'Anchor'))
   );
-}
-
-/**
- * Factory function to wrap cleanup logic and apply 'CLEANUP' identifier.
- * Used for directives of `BoundDirective` type.
- */
-export function boundCleanup(fn: VoidFn): BoundCleanupFn {
-  return fn as BoundCleanupFn;
 }
