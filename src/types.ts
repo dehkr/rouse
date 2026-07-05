@@ -215,15 +215,15 @@ export interface LifecycleEventMap {
   'rz:fetch:error:html': FetchErrorHtmlDetail;
   /** Fires after `rz:fetch:error` when the body is a Blob/ArrayBuffer. */
   'rz:fetch:error:file': FetchErrorFileDetail;
-  /** Fires before the local store is patched from server data. */
+  /** Fires before a sync result is applied to the local store, on both push and pull. Check `detail.operation` for direction. */
   'rz:store:sync:before': StoreSyncBeforeDetail;
-  /** Fires after the local store is successfully patched from server data. */
+  /** Fires after a push or pull successfully syncs the store. Check `detail.operation` for direction. */
   'rz:store:sync': StoreSyncDetail;
-  /** Fires when the server returns updated data while the store has unsaved local edits. */
+  /** Fires when the response carries server data but the store was edited while the request was in flight, so the server data is not applied. Both push and pull. */
   'rz:store:sync:conflict': StoreSyncConflictDetail;
   /** Fires when a push or pull request fails. */
   'rz:store:sync:error': StoreSyncErrorDetail;
-  /** Fires after `rz:store:sync:error` when `rollbackOnError` reverts local state to the last-good snapshot. */
+  /** Fires after `rz:store:sync:error` when `rollbackOnError` reverts local state to the last-good snapshot. Push only. */
   'rz:store:sync:rollback': StoreSyncRollbackDetail;
   /** Fires before the swap executes; cancelable. Listeners can mutate `payload`. */
   'rz:dom:swap:before': DomSwapDetail;
