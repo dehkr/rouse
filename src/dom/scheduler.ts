@@ -48,19 +48,19 @@ export function dispatch(
  * - Event-arg modifiers (`prevent`, `stop`, `self`, key filters) via `applyModifiers`
  * - Listener target resolution (`outside`) via `resolveListenerTarget`
  *
- * Does not apply pacing (debounce/throttle). Most callers should use the public
- * `on()` facade or `dispatchTrigger` instead. This is the primitive both build on.
+ * Does not apply execution timing (debounce/throttle). Most callers should use the
+ * public `on()` facade or `dispatchTrigger` instead. This is the primitive both
+ * build on.
  *
  * @returns Cleanup function that removes the listener.
  */
-export function attachListener<D = any>(
+function attachListener<D = any>(
   el: EventTarget,
   name: string,
   callback: (ev: CustomEvent<D>) => void,
   modifiers: string[] = [],
-  abortSignal?: AbortSignal,
 ): VoidFn {
-  const options = { ...getListenerOptions(modifiers), abortSignal };
+  const options = getListenerOptions(modifiers);
   const listener = (e: Event) => {
     if (applyModifiers(e, el, modifiers)) {
       callback(e as CustomEvent<D>);
@@ -302,48 +302,35 @@ export const syntheticEvents: Record<string, SyntheticEventHandler> = {
     }
 
     const mql = window.matchMedia(query);
-    let hasFired = false;
-    let cleanup: VoidFn = () => {};
-
-    const handleMatch = () => {
-      if (isOnce && hasFired) return;
-      hasFired = true;
-      action();
-      if (isOnce) cleanup();
-    };
 
     if (mql.matches) {
-      handleMatch();
+      action();
       if (isOnce) return null;
     }
 
     const changeHandler = (e: MediaQueryListEvent) => {
-      if (e.matches) handleMatch();
+      if (!e.matches) return;
+      action();
+      if (isOnce) {
+        mql.removeEventListener('change', changeHandler);
+      }
     };
 
     mql.addEventListener('change', changeHandler);
-    cleanup = () => mql.removeEventListener('change', changeHandler);
-
-    return cleanup;
+    return () => mql.removeEventListener('change', changeHandler);
   },
 
   /** Element intersection with the viewport, supports `.once`. */
   intersect: ({ el, modifiers, action }) => {
     const isOnce = modifiers.includes('once');
-    let hasFired = false;
 
     const observer = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          if (isOnce && hasFired) return;
-          hasFired = true;
-          action();
-
-          if (isOnce) {
-            observer.disconnect();
-          }
-        }
-      });
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        action();
+        if (isOnce) observer.disconnect();
+        break;
+      }
     });
 
     observer.observe(el);
@@ -360,10 +347,8 @@ export const syntheticEvents: Record<string, SyntheticEventHandler> = {
     const handler = (e: Event) => {
       if (isOnce && hasFired) return;
       hasFired = true;
-
       // Pass the event along so modifiers or the underlying action can use it
       action(e as any);
-
       if (isOnce) cleanup();
     };
 
@@ -381,11 +366,12 @@ export const syntheticEvents: Record<string, SyntheticEventHandler> = {
     if (typeof window.requestIdleCallback === 'function') {
       const id = window.requestIdleCallback(() => action());
       return () => window.cancelIdleCallback(id);
-    } else {
-      // Fallback for Safari since it doesn't support requestIdleCallback (as of May 2026)
-      const id = window.setTimeout(() => action(), 1);
-      return () => window.clearTimeout(id);
     }
+
+    // Safari fallback
+    const id = window.setTimeout(action, 1);
+
+    return () => window.clearTimeout(id);
   },
 };
 
@@ -405,8 +391,8 @@ function attachTimingEvent(type: 'timeout' | 'interval', ctx: TriggerContext) {
 
   const setup = type === 'timeout' ? window.setTimeout : window.setInterval;
   const clear = type === 'timeout' ? window.clearTimeout : window.clearInterval;
-
   const id = setup(ctx.action, ms);
+
   return () => clear(id);
 }
 
@@ -416,6 +402,7 @@ function attachTimingEvent(type: 'timeout' | 'interval', ctx: TriggerContext) {
  */
 function attachWindowEvent(event: string, action: VoidFn): VoidFn {
   window.addEventListener(event, action);
+
   return () => {
     window.removeEventListener(event, action);
   };
@@ -431,7 +418,9 @@ function attachVisibilityChange(state: 'visible' | 'hidden', action: ActionFn): 
       action(e);
     }
   };
+
   document.addEventListener('visibilitychange', handler);
+
   return () => {
     document.removeEventListener('visibilitychange', handler);
   };
