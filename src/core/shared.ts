@@ -4,6 +4,7 @@ import {
   isSwapMethod,
   STORE_PREFIX,
   type SwapOperation,
+  type TargetConfig,
 } from './constants';
 import { parseDirectiveValue } from './parser';
 
@@ -50,8 +51,8 @@ export function isPlainObject(val: unknown): val is Record<string, any> {
   if (typeof val !== 'object' || val === null || Array.isArray(val)) {
     return false;
   }
-
   const proto = Object.getPrototypeOf(val);
+
   // Matches {} (Object.prototype) and Object.create(null)
   return proto === null || proto === Object.prototype;
 }
@@ -79,7 +80,7 @@ export function queryTargets<T extends Element = Element>(
     }
     return targets;
   } catch (_e) {
-    // Fails gracefully on invalid CSS selectors
+    // Fail gracefully on invalid CSS selectors
     return [];
   }
 }
@@ -90,74 +91,75 @@ let count = 46656;
 export const uniqueKey = (prefix = 'rz_') => prefix + session + (count++).toString(36);
 
 /**
- * Shared utility to parse target strings into DOM swap operations.
+ * Resolves an `rz-target` value into its routing targets: DOM `swaps`
+ * (selectors resolved to elements, each with its swap method) and `@store`
+ * target names.
  *
- * Returns an array of operations to support multi-target updates.
- * Accepts "method: selector", "method", and/or "selector" values.
+ * Returns an object with two arrays: one containing swap operations and a
+ * separate one for store targets. Multi-target updates are supported, including
+ * combining DOM and store targets. HTML responses ignore store targets, and JSON
+ * responses ignore DOM targets.
  *
- * Defaults to "innerHTML" if method is missing and the host element
- * if the selector is missing.
+ * An empty value defaults to one swap targeting `hostEl`.
  *
- * - `rz-target="beforebegin: #header"`
- * - `rz-target="beforebegin"`
+ * - `rz-target="afterbegin: #output"`
+ * - `rz-target="#output"`
+ * - `rz-target="outerHTML"`
+ * - `rz-target="@store"`
+ * - `rz-target="@status, beforeend: #status"`
  */
-export function resolveSwapOperations(
+export function resolveRouteTargets(
   value: string | null | undefined,
   hostEl: Element,
   appRoot: Element,
-): SwapOperation[] {
-  if (!value?.trim()) {
-    return [{ targets: [hostEl], method: DEFAULT_SWAP_METHOD }];
-  }
+): TargetConfig {
+  const swaps: SwapOperation[] = [];
+  const stores: string[] = [];
+  const parsed = value?.trim() ? parseDirectiveValue(value) : [];
 
-  const parsed = parseDirectiveValue(value);
   if (parsed.length === 0) {
-    return [{ targets: [hostEl], method: DEFAULT_SWAP_METHOD }];
+    swaps.push({ targets: [hostEl], method: DEFAULT_SWAP_METHOD });
+    return { swaps, stores };
   }
-
-  const operations: SwapOperation[] = [];
 
   for (const [key, val] of parsed) {
-    // Skip store targets
-    if (key.startsWith(STORE_PREFIX) || val?.startsWith(STORE_PREFIX)) {
-      continue;
+    // Store target: collect the name for the JSON store router, not a DOM swap.
+    const store = key.startsWith(STORE_PREFIX)
+      ? key
+      : val?.startsWith(STORE_PREFIX)
+        ? val
+        : '';
+
+    // @store target
+    if (store) {
+      stores.push(store.slice(1));
     }
 
-    // "Strategy: Selector"
-    if (val) {
-      const method = isSwapMethod(key) ? key : DEFAULT_SWAP_METHOD;
-      const nodeList = queryTargets(appRoot, val);
-
-      if (nodeList.length === 0) {
-        __DEV__ && warn(`No targets found for '${val}'.`);
-        operations.push({ method, targets: [] });
-      } else {
-        operations.push({
-          method,
-          targets: Array.from(nodeList),
-        });
-      }
-      continue;
-    }
-
-    // "Strategy"
-    if (isSwapMethod(key)) {
-      operations.push({ targets: [hostEl], method: key });
-      continue;
-    }
-
-    // "Selector"
-    const nodeList = queryTargets(appRoot, key);
-    if (nodeList.length === 0) {
-      __DEV__ && warn(`No targets found for '${key}'.`);
-      operations.push({ targets: [], method: DEFAULT_SWAP_METHOD });
-    } else {
-      operations.push({
-        targets: Array.from(nodeList),
-        method: DEFAULT_SWAP_METHOD,
+    // "Method: Selector"
+    else if (val) {
+      swaps.push({
+        method: isSwapMethod(key) ? key : DEFAULT_SWAP_METHOD,
+        targets: queryEls(appRoot, val),
       });
+    }
+
+    // "Method" alone (uses host element)
+    else if (isSwapMethod(key)) {
+      swaps.push({ targets: [hostEl], method: key });
+    }
+
+    // "Selector" alone (uses default method)
+    else {
+      swaps.push({ targets: queryEls(appRoot, key), method: DEFAULT_SWAP_METHOD });
     }
   }
 
-  return operations;
+  return { swaps, stores };
+}
+
+function queryEls(appRoot: Element, selector: string): Element[] {
+  const targets = Array.from(queryTargets(appRoot, selector));
+  __DEV__ && targets.length === 0 && warn(`No targets found for '${selector}'.`);
+
+  return targets;
 }

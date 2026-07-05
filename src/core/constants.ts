@@ -29,10 +29,16 @@ export interface SwapOperation {
   method: SwapMethod;
 }
 
+/** Resolved `rz-target` value: DOM swap operations plus `@store` target names. */
+export interface TargetConfig {
+  swaps: SwapOperation[];
+  stores: string[];
+}
+
 /** Default method for DOM swaps when explicit value isn't provided. */
 export const DEFAULT_SWAP_METHOD: SwapMethod = 'innerHTML';
 
-/** Type guard to check if a given string is a valid {@link SwapMethod}. */
+/** Type guard to check if a given string is a valid SwapMethod. */
 export function isSwapMethod(key: string): key is SwapMethod {
   return SWAP_METHODS.includes(key as SwapMethod);
 }
@@ -51,7 +57,7 @@ export const HTTP_METHODS = [
 /** Represents a valid HTTP method string. */
 export type HttpMethod = (typeof HTTP_METHODS)[number];
 
-/** Type guard to check if a given string is a valid {@link HttpMethod}. */
+/** Type guard to check if a given string is a valid HttpMethod. */
 export function isHttpMethod(key: string | undefined): key is HttpMethod {
   return HTTP_METHODS.includes(key?.toUpperCase() as HttpMethod);
 }
@@ -62,7 +68,7 @@ export const PATCH_ACTIONS = ['replace', 'merge'] as const;
 /** Represents a valid store patch method string. */
 export type PatchAction = (typeof PATCH_ACTIONS)[number];
 
-/** Type guard to check if a given string is a valid {@link PatchAction}. */
+/** Type guard to check if a given string is a valid PatchAction. */
 export function isPatchAction(key: string | undefined): key is PatchAction {
   return PATCH_ACTIONS.includes(key?.toLowerCase() as PatchAction);
 }

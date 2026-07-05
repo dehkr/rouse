@@ -1,5 +1,5 @@
 import type { SwapMethod, SwapOperation } from '../core/constants';
-import { resolveSwapOperations } from '../core/shared';
+import { resolveRouteTargets } from '../core/shared';
 import { rzTarget } from '../directives';
 import type { RouseResponse } from '../types';
 import { dispatch } from './scheduler';
@@ -33,10 +33,10 @@ export function initDomSwapper(appRoot: Element, abortSignal: AbortSignal) {
       // Errors route only when the server names a target via `Rouse-Target`.
       // `rz-target` is intended for success output, not error content.
       operations = targetOverride
-        ? resolveSwapOperations(targetOverride, triggerEl, appRoot)
+        ? resolveRouteTargets(targetOverride, triggerEl, appRoot).swaps
         : [];
     } else {
-      operations = rzTarget.getConfig(triggerEl, appRoot, targetOverride);
+      operations = rzTarget.getConfig(triggerEl, appRoot, targetOverride).swaps;
     }
 
     for (const { targets, method } of operations) {

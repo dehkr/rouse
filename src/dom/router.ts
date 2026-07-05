@@ -1,72 +1,64 @@
 import type { RouseApp } from '../core/app';
-import { STORE_PREFIX } from '../core/constants';
-import { parseDirectiveValue } from '../core/parser';
-import { getDirectiveValue, warn } from '../core/shared';
+import { warn } from '../core/shared';
+import { rzTarget } from '../directives';
 import type { RouseResponse } from '../types';
 import { dispatch } from './scheduler';
 
 /**
- * Listens to successful JSON network requests and routes the data
- * payloads directly into the global reactive stores.
+ * Routes successful JSON responses into global stores named by `rz-target`
+ * (`@store` targets) or a server `Rouse-Target` header. The JSON/store
+ * counterpart to `dom/swapper.ts`, which handles `rz-target`'s DOM-swap half.
  */
 export function initStoreRouter(app: RouseApp, signal: AbortSignal) {
   app.root.addEventListener(
     'rz:fetch:success:json',
     (e) => {
       const { target: el, detail: result } = e as CustomEvent<RouseResponse>;
-      routeToStore(
-        app,
-        // `targetOverride` (e.g., a server header) beats the attribute value
-        result.targetOverride || getDirectiveValue(el as Element, 'target'),
-        result.data,
+      // `getConfig` applies `targetOverride || rz-target` precedence itself
+      const { stores } = rzTarget.getConfig(
+        el as Element,
+        app.root,
+        result.targetOverride,
       );
+      routeToStore(app, stores, result.data);
     },
     { signal },
   );
 
-  // Errors route only when the server names a store via `Rouse-Target`
+  // Errors route only when the server names a store via `Rouse-Target`.
   app.root.addEventListener(
     'rz:fetch:error:json',
     (e) => {
       const { detail: result } = e as CustomEvent<RouseResponse>;
-      routeToStore(app, result.targetOverride ?? null, result.data);
+      const stores = result.targetOverride
+        ? rzTarget.getConfig(e.target as Element, app.root, result.targetOverride).stores
+        : [];
+      routeToStore(app, stores, result.data);
     },
     { signal },
   );
 }
 
-function routeToStore(app: RouseApp, targetStr: string | null, payload: any) {
-  if (!targetStr?.trim()) return;
-
-  const operations = parseDirectiveValue(targetStr);
-
-  for (const [method, selector] of operations) {
-    const target = selector || method;
-
-    if (target.startsWith(STORE_PREFIX)) {
-      const storeName = target.substring(1);
-      const targetEl = app.stores.elementFor(storeName) || app.root;
-
-      // Dispatch `before` event to enable payload mutation or cancellation
-      const beforeEvent = dispatch(
-        targetEl,
-        'rz:store:sync:before',
-        { storeName, operation: 'pull', data: app.stores.get(storeName), payload },
-        { cancelable: true },
-      );
-
-      if (beforeEvent.defaultPrevented) continue;
-
-      // Perform the update using the potentially mutated payload
-      app.stores.update(storeName, beforeEvent.detail.payload as object);
-
-      dispatch(targetEl, 'rz:store:sync', {
-        storeName,
-        operation: 'pull',
-        data: app.stores.get(storeName),
-      });
-    } else {
-      __DEV__ && warn(`Cannot route JSON payload to DOM target '${target}'.`);
+function routeToStore(app: RouseApp, stores: string[], payload: any) {
+  for (const storeName of stores) {
+    if (!app.stores.has(storeName)) {
+      __DEV__ && warn(`Cannot route JSON payload to '@${storeName}'. No such store.`);
+      continue;
     }
+
+    const data = app.stores.get(storeName);
+    const targetEl = app.stores.elementFor(storeName) || app.root;
+
+    const beforeEvent = dispatch(
+      targetEl,
+      'rz:store:sync:before',
+      { storeName, operation: 'pull', data, payload },
+      { cancelable: true },
+    );
+
+    if (beforeEvent.defaultPrevented) continue;
+
+    app.stores.update(storeName, beforeEvent.detail.payload as object);
+    dispatch(targetEl, 'rz:store:sync', { storeName, operation: 'pull', data });
   }
 }
