@@ -8,7 +8,7 @@ import type { DirectiveSlug, RouseRequest, StandaloneDirective, VoidFn } from '.
 import { rzUrl } from './rz-url';
 
 const SLUG = 'fetch' as const satisfies DirectiveSlug;
-const cleanups = new WeakMap<Element, Array<VoidFn>>();
+const elementCleanups = new WeakMap<Element, Array<VoidFn>>();
 
 /**
  * Returns the URL value if it exists from an anchor element's `href` or
@@ -49,7 +49,7 @@ function applySubmitterOverrides(
  * to an element and stores their cleanup functions.
  */
 function initialize(el: Element, app: RouseApp) {
-  if (cleanups.has(el)) return;
+  if (elementCleanups.has(el)) return;
 
   const value = getDirectiveValue(el, SLUG);
   if (value === null) return;
@@ -60,7 +60,7 @@ function initialize(el: Element, app: RouseApp) {
     return;
   }
 
-  const teardowns: VoidFn[] = [];
+  const cleanups: VoidFn[] = [];
   const elementUrl = rzUrl.getConfig(el).url || nativeUrl(el);
 
   // The URL is shared by every trigger, so resolve and validate it once
@@ -99,18 +99,18 @@ function initialize(el: Element, app: RouseApp) {
     });
 
     if (cleanup) {
-      teardowns.push(cleanup);
+      cleanups.push(cleanup);
     }
   }
 
-  if (teardowns.length > 0) {
-    cleanups.set(el, teardowns);
+  if (cleanups.length > 0) {
+    elementCleanups.set(el, cleanups);
   }
 }
 
 function teardown(el: Element) {
-  cleanups.get(el)?.forEach((fn) => fn());
-  cleanups.delete(el);
+  elementCleanups.get(el)?.forEach((fn) => fn());
+  elementCleanups.delete(el);
 }
 
 export const rzFetch = {

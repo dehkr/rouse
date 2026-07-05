@@ -74,15 +74,17 @@ function bind(
   // DOM -> State
   const action = () => writeState(subject, getModelableValue(el), scope, app.stores);
 
-  const teardowns: VoidFn[] = [];
+  const cleanups: VoidFn[] = [];
   for (const trigger of triggers) {
     const cleanup = dispatchTrigger(trigger, { el, app, action });
-    if (cleanup) teardowns.push(cleanup);
+    if (cleanup) {
+      cleanups.push(cleanup);
+    }
   }
 
   return boundCleanup(() => {
     stopEffect();
-    teardowns.forEach((fn) => fn());
+    cleanups.forEach((fn) => fn());
   });
 }
 

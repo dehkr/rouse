@@ -10,7 +10,7 @@ import { resolveRequestConfig } from '../net/request';
 import type { DirectiveSlug, StandaloneDirective, TriggerDef, VoidFn } from '../types';
 
 const SLUG = 'push' as const satisfies DirectiveSlug;
-const cleanups = new WeakMap<Element, Array<VoidFn>>();
+const elementCleanups = new WeakMap<Element, Array<VoidFn>>();
 
 /**
  * Resolves the merged request config from the trigger and target elements
@@ -41,7 +41,7 @@ function triggerPush(
  * value and wires the trigger to fire a push against the resolved target.
  */
 function initialize(el: Element, app: RouseApp) {
-  if (cleanups.has(el)) return;
+  if (elementCleanups.has(el)) return;
 
   const value = getDirectiveValue(el, SLUG);
   if (value === null) return;
@@ -56,7 +56,7 @@ function initialize(el: Element, app: RouseApp) {
     return;
   }
 
-  const teardowns: VoidFn[] = [];
+  const cleanups: VoidFn[] = [];
 
   for (const { trigger, subject } of pairs) {
     const parsed = subject ? parseStoreSubject(subject, el) : {};
@@ -70,7 +70,7 @@ function initialize(el: Element, app: RouseApp) {
     const fire = () => triggerPush(el, app, storeName, nestedPath, action);
 
     if (trigger.event === 'edit') {
-      teardowns.push(
+      cleanups.push(
         attachMutateEffect(app, storeName, trigger.modifiers, fire, nestedPath),
       );
       continue;
@@ -78,18 +78,18 @@ function initialize(el: Element, app: RouseApp) {
 
     const cleanup = dispatchTrigger(trigger, { el, app, action: fire });
     if (cleanup) {
-      teardowns.push(cleanup);
+      cleanups.push(cleanup);
     }
   }
 
-  if (teardowns.length > 0) {
-    cleanups.set(el, teardowns);
+  if (cleanups.length > 0) {
+    elementCleanups.set(el, cleanups);
   }
 }
 
 function teardown(el: Element) {
-  cleanups.get(el)?.forEach((fn) => fn());
-  cleanups.delete(el);
+  elementCleanups.get(el)?.forEach((fn) => fn());
+  elementCleanups.delete(el);
 }
 
 /**
