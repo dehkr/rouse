@@ -3,7 +3,7 @@ import { ITEM_KEY, ITEM_META_KEY, RENDER_PARENT } from '../core/constants';
 import { getNestedVal } from '../core/path';
 import { isPlainObject, warn } from '../core/shared';
 import { effect, getRaw, reactive, signal, untracked } from '../reactivity';
-import type { BoundCleanupFn, RenderContext, RenderMeta, Scope } from '../types';
+import type { BoundCleanupFn, RenderContext, RenderMeta, Scope, VoidFn } from '../types';
 import {
   bindDirectives,
   markRenderOwned,
@@ -40,7 +40,7 @@ interface InstanceRecord {
   indexSig: IndexSignal;
   roots: ChildNode[];
   target: Element | null;
-  dispose: () => void;
+  dispose: VoidFn;
 }
 
 /** Options the directive feeds the engine. */
@@ -133,7 +133,7 @@ export function renderTemplate(
   template: HTMLTemplateElement,
   source: () => unknown,
   opts: RenderOptions,
-): () => void {
+): VoidFn {
   const { app, parentState, keyPath = null } = opts;
 
   const records = new Map<string | number, InstanceRecord>();
@@ -276,7 +276,9 @@ export function renderTemplate(
   }
 
   function teardownAll() {
-    for (const rec of records.values()) rec.dispose();
+    for (const rec of records.values()) {
+      rec.dispose();
+    }
     records.clear();
   }
 

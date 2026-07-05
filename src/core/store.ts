@@ -361,6 +361,9 @@ export class StoreManager {
       this._clearDirtyMatching(status, data, snapshot, nestedPath);
     }
 
+    // Reconcile the response body into the store. On push, how server-owned fields
+    // (assigned id, computed/normalized values) return to the client. On pull, the
+    // fetched data itself.
     if (result.data && typeof result.data === 'object') {
       const localSlice = sliceAt(data, nestedPath);
       const snapSlice = sliceAt(snapshot, nestedPath);

@@ -73,7 +73,7 @@ export function resolveInjection(
     }
   }
 
-  // Inline JSON object ({)
+  // Inline JSON object (`{`)
   else if (value.startsWith('{')) {
     try {
       resolvedValue = safeJSONParse(value);
@@ -102,7 +102,7 @@ export function splitInjection(raw: string): {
   rawPayload: string | undefined;
 } {
   // Find the first index of a payload delimiter starting after the first character.
-  // This accomodates store keys like '@my-store.method{ "id": 234 }'
+  // This accomodates store keys like `@my-store.handler{ "id": 234 }`.
   const matchIndex = raw.substring(1).search(/[#@{]/);
 
   if (matchIndex === -1) {

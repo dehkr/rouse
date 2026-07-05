@@ -43,7 +43,7 @@ import { StoreManager, type SyncConfig } from './store';
 export interface RouseConfig {
   /** Element or selector where the app mounts. Defaults to `document.body`. */
   root?: string | HTMLElement;
-  /** Prepended to relative URLs in `rz-fetch`, `rz-push`, `rz-pull`, and `app.fetch()`. */
+  /** Prepended to relative URLs in `rz-fetch`, `rz-push`, `rz-pull`, and `{app,ctx}.fetch()`. */
   baseUrl?: string;
   /** Default headers applied to every request. Merged with per-request and directive-level headers. */
   headers?: Record<string, string>;
