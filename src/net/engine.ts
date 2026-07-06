@@ -1,10 +1,10 @@
 import type { RouseApp } from '../core/app';
 import {
+  createKey,
   err,
   isFileType,
   isJsonType,
   isPlainObject,
-  uniqueKey,
   warn,
 } from '../core/shared';
 import { resolveStoreUrl } from '../core/store';
@@ -109,7 +109,7 @@ async function executeFetch(el: Element, app: RouseApp, options: RouseRequest) {
   // an element can never have conflicting requests.
   let autoAbortKey = state?.abortKey;
   if (!autoAbortKey) {
-    autoAbortKey = uniqueKey('rz_abort_');
+    autoAbortKey = createKey('rz_abort_');
     activeRequests.set(el, { ...state, abortKey: autoAbortKey });
   }
 

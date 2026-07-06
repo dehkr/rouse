@@ -1,5 +1,5 @@
 export { type RouseConfig, rouse } from './core/app';
-export { uniqueKey } from './core/shared';
+export { createKey } from './core/shared';
 export { dispatch, on } from './dom/scheduler';
 export { defineScope } from './dom/scope';
 export { swap } from './dom/swapper';
@@ -16,6 +16,7 @@ export type {
   BindableValue,
   HandlerCtx,
   LifecycleEvent,
+  RenderHandlerCtx,
   ScopeCtx,
   ScopeFn,
 } from './types';
