@@ -10,16 +10,25 @@ import { parseDirectiveValue } from './parser';
 
 export const EMPTY_SCOPE = {} as Scope;
 
-export const warn = (msg: string, ...args: any[]) => {
+export function warn(msg: string, ...args: any[]) {
   console.warn(`[Rouse] ${msg}`, ...args);
-};
+}
 
-export const err = (msg: string, ...args: any[]) => {
+export function err(msg: string, ...args: any[]) {
   console.error(`[Rouse] ${msg}`, ...args);
-};
+}
 
-export const kebabToCamel = (str: string) =>
-  str.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+export function fail(
+  msg: string,
+  ErrorClass: typeof Error | typeof TypeError = Error,
+  options?: ErrorOptions,
+): never {
+  throw new ErrorClass(`[Rouse] ${msg}`, options);
+}
+
+export function kebabToCamel(str: string) {
+  return str.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+}
 
 /**
  * Generates a CSS selector that matches both prefix styles.

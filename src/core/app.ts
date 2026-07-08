@@ -1,4 +1,4 @@
-import { directiveSelector, err, queryTargets, warn } from '../core/shared';
+import { directiveSelector, err, fail, queryTargets, warn } from '../core/shared';
 import {
   rzAttr,
   rzClass,
@@ -104,11 +104,11 @@ export class RouseApp {
         : (config.root ?? document.body);
 
     if (!rootEl) {
-      throw new Error('[Rouse] Root element not found.');
+      fail('Root element not found.');
     }
 
     if (appInstances.has(rootEl)) {
-      throw new Error('[Rouse] An app instance is already attached to this element.');
+      fail('An app instance is already attached to this element.');
     }
 
     this.root = rootEl;
@@ -161,12 +161,12 @@ export class RouseApp {
       typeof nameOrScopes === 'string' ? { [nameOrScopes]: setup } : nameOrScopes;
 
     if (!map || typeof map !== 'object' || Array.isArray(map)) {
-      throw new Error('[Rouse] Invalid scope registration.');
+      fail('Invalid scope registration.');
     }
 
     for (const [name, fn] of Object.entries(map)) {
       if (typeof fn !== 'function') {
-        throw new Error(`[Rouse] Scope '${name}' must be a setup function.`);
+        fail(`Scope '${name}' must be a setup function.`);
       }
 
       // Auto-wrap functions with `scope()` if they weren't already
@@ -206,8 +206,8 @@ export class RouseApp {
   interceptor(phase: InterceptorPhase, fn: any): VoidFn {
     const set = this._interceptors[phase];
     if (!set) {
-      throw new Error(
-        `[Rouse] Invalid interceptor: '${phase}'. Expected 'request', 'response', or 'error'.`,
+      fail(
+        `Invalid interceptor: '${phase}'. Expected 'request', 'response', or 'error'.`,
       );
     }
     set.add(fn);

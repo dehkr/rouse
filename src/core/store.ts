@@ -18,7 +18,7 @@ import type { RouseApp } from './app';
 import { type HttpMethod, type PatchAction, STORE_PREFIX } from './constants';
 import { parseStoreLocator } from './parser';
 import { getNestedVal, getRootSegment, setNestedVal } from './path';
-import { getDirectiveValue, warn } from './shared';
+import { fail, getDirectiveValue, warn } from './shared';
 import { clone, deepEqual, patchState } from './state';
 
 export interface StoreStatus {
@@ -554,7 +554,7 @@ export class StoreManager {
     el?: Element,
   ): RouseStore<T> {
     if (this._data.has(name)) {
-      throw new Error(`[Rouse] A store named '${name}' already exists.`);
+      fail(`A store named '${name}' already exists.`);
     }
 
     this._register(name, state, config, el);
@@ -573,7 +573,7 @@ export class StoreManager {
     config?: Partial<SyncConfig>,
   ): RouseStore<T> {
     if (!this._data.has(name)) {
-      throw new Error(`[Rouse] Store '${name}' does not exist.`);
+      fail(`Store '${name}' does not exist.`);
     }
 
     const action = config?.action || this._configs.get(name)?.action || 'replace';

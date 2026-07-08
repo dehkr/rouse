@@ -1,4 +1,5 @@
 import type { RouseApp } from '../core/app';
+import { fail } from '../core/shared';
 import { withMethodAliases } from '../net/request';
 import { effectScope } from '../reactivity';
 import type { ScopeCtx, ScopeFn } from '../types';
@@ -153,9 +154,7 @@ export function createScope(
   if (instance instanceof Promise) {
     stopSetupScope();
     abortCtrl.abort();
-    throw new Error(
-      `[Rouse] Scope setup must be synchronous. Fetch data as a side effect.`,
-    );
+    fail('Scope setup must be synchronous. Fetch data as a side effect.');
   }
 
   cleanups.push(stopSetupScope);

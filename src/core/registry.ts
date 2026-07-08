@@ -1,12 +1,13 @@
 import { IS_SCOPE } from '../dom/scope';
 import type { ScopeFn } from '../types';
+import { fail } from './shared';
 
 export class Registry {
   private scopes = new Map<string, ScopeFn<any>>();
 
   register(name: string, setup: ScopeFn<any>) {
     if (!(setup as any)[IS_SCOPE]) {
-      throw new Error(`[Rouse] '${name}' is not a valid scope.`);
+      fail(`'${name}' is not a valid scope.`);
     }
     this.scopes.set(name, setup);
   }
