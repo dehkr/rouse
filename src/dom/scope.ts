@@ -50,16 +50,6 @@ export function destroyInstance(el: HTMLElement) {
 }
 
 /**
- * Identity function for TypeScript inference.
- */
-export function defineScope<P extends Record<string, any> = Record<string, any>>(
-  fn: ScopeFn<P>,
-): ScopeFn<P> {
-  (fn as any)[IS_SCOPE] = true;
-  return fn;
-}
-
-/**
  * Factory to create and manage a scope instance.
  */
 export function createScope(

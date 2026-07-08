@@ -22,7 +22,7 @@ import {
 } from '../dom/binder';
 import { initObserver, initScopeElement } from '../dom/initializer';
 import { initStoreRouter } from '../dom/router';
-import { defineScope, destroyInstance, IS_SCOPE } from '../dom/scope';
+import { destroyInstance, IS_SCOPE } from '../dom/scope';
 import { initDomSwapper } from '../dom/swapper';
 import { handleFetch } from '../net/engine';
 import { withMethodAliases } from '../net/request';
@@ -169,9 +169,9 @@ export class RouseApp {
         fail(`Scope '${name}' must be a setup function.`);
       }
 
-      // Auto-wrap functions with `scope()` if they weren't already
-      const finalSetup = (fn as any)[IS_SCOPE] ? fn : defineScope(fn);
-      this.registry.register(name, finalSetup);
+      // Brand as validated; registry.register rejects unbranded setups
+      (fn as any)[IS_SCOPE] = true;
+      this.registry.register(name, fn);
     }
 
     return this;
