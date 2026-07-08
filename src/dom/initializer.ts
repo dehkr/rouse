@@ -3,7 +3,7 @@ import { STORE_PREFIX } from '../core/constants';
 import { resolveInjection } from '../core/injection';
 import { directiveSelector, hasDirective, queryTargets, warn } from '../core/shared';
 import { rzFetch, rzPull, rzPush, rzScope, rzStore, rzWake } from '../directives';
-import type { ScopeFn } from '../types';
+import type { ScopeSetup } from '../types';
 import {
   mountGlobalBinding,
   resolveRemovedOwner,
@@ -32,7 +32,7 @@ export function initScopeElement(el: HTMLElement, app: RouseApp) {
 
   const { scopeName, rawPayload } = scopeValue;
 
-  let setup: ScopeFn;
+  let setup: ScopeSetup;
   let isAlias = false;
 
   // Context aliasing for stores

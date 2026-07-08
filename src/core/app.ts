@@ -34,7 +34,7 @@ import type {
   ResponseInterceptor,
   RouseFetch,
   RouseRequest,
-  ScopeFn,
+  ScopeSetup,
   VoidFn,
 } from '../types';
 import { Registry } from './registry';
@@ -154,9 +154,12 @@ export class RouseApp {
    * @param nameOrScopes - Either the unique string name of a scope, or an object mapping names to setup functions.
    * @param setup - The setup function (only required when the first argument is a string).
    */
-  scope<P extends Record<string, any>>(name: string, setup: ScopeFn<P>): this;
-  scope(scopes: Record<string, ScopeFn<any>>): this;
-  scope(nameOrScopes: string | Record<string, ScopeFn<any>>, setup?: ScopeFn<any>): this {
+  scope<P extends Record<string, any>>(name: string, setup: ScopeSetup<P>): this;
+  scope(scopes: Record<string, ScopeSetup<any>>): this;
+  scope(
+    nameOrScopes: string | Record<string, ScopeSetup<any>>,
+    setup?: ScopeSetup<any>,
+  ): this {
     const map =
       typeof nameOrScopes === 'string' ? { [nameOrScopes]: setup } : nameOrScopes;
 

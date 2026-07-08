@@ -17,5 +17,5 @@ export type {
   LifecycleEvent,
   RenderHandlerCtx,
   ScopeCtx,
-  ScopeFn,
+  ScopeSetup,
 } from './types';

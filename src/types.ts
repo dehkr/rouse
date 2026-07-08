@@ -485,7 +485,7 @@ export type InterceptorPhase = 'request' | 'response' | 'error';
  * @template P - The type of the params object.
  * @template E - The Element type.
  */
-export type ScopeFn<
+export type ScopeSetup<
   P extends Record<string, any> = Record<string, any>,
   E extends Element = HTMLElement,
 > = (ctx: ScopeCtx<P, E>) => Scope;

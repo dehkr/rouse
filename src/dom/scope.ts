@@ -2,7 +2,7 @@ import type { RouseApp } from '../core/app';
 import { fail } from '../core/shared';
 import { withMethodAliases } from '../net/request';
 import { effectScope } from '../reactivity';
-import type { ScopeCtx, ScopeFn } from '../types';
+import type { ScopeCtx, ScopeSetup } from '../types';
 import { bindScope } from './binder';
 import { dispatch, on } from './scheduler';
 import { swap } from './swapper';
@@ -31,7 +31,7 @@ export function teardownScopeNode(el: HTMLElement, removedNode: Element) {
 export function initScopeInstance(
   el: HTMLElement,
   app: RouseApp,
-  setup: ScopeFn,
+  setup: ScopeSetup,
   params: Record<string, any> = {},
   options: { isAlias?: boolean } = {},
 ) {
@@ -55,7 +55,7 @@ export function destroyInstance(el: HTMLElement) {
 export function createScope(
   el: HTMLElement,
   app: RouseApp,
-  setup: ScopeFn,
+  setup: ScopeSetup,
   params: Record<string, any> = {},
   options: { isAlias?: boolean } = {},
 ) {
