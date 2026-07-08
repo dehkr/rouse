@@ -218,13 +218,14 @@ export function renderTemplate(
     if (typeof rt === 'string' && rt) {
       dest = app.root.querySelector(rt);
       if (!dest) {
-        __DEV__ && warn(`Render target '${rt}' not found.`);
+        __DEV__ && warn(`rz-render: render target '${rt}' not found.`);
       }
     } else if (rt instanceof Element) {
       if (app.root.contains(rt)) {
         dest = rt;
       } else {
-        __DEV__ && warn(`Render target is outside the app root; ignoring.`, rt);
+        __DEV__ &&
+          warn(`rz-render: render target is outside the app root; ignoring.`, rt);
       }
     }
 
@@ -238,7 +239,7 @@ export function renderTemplate(
         try {
           fn();
         } catch (error) {
-          __DEV__ && warn('Cleanup failed for an rz-render instance.', error);
+          __DEV__ && warn('rz-render: instance cleanup failed.', error);
         }
       }
       for (const node of roots) node.remove();
@@ -339,7 +340,7 @@ export function renderTemplate(
       keyWarned = true;
       __DEV__ &&
         warn(
-          `Key '${keyPath}' could not be resolved on ${missing} render item(s). Positional key used.`,
+          `rz-key: '${keyPath}' could not be resolved on ${missing} item(s). Positional keys used.`,
         );
     }
 
@@ -347,7 +348,7 @@ export function renderTemplate(
       dupWarned = true;
       __DEV__ &&
         warn(
-          `${dups} render item(s) skipped due to duplicate '${keyPath}' key value. First collision: '${firstDup}'.`,
+          `rz-key: skipped ${dups} item(s) with duplicate '${keyPath}' values. First collision: '${firstDup}'.`,
         );
     }
 
