@@ -2,24 +2,47 @@
 
 [![npm](https://img.shields.io/npm/v/rousejs)](https://www.npmjs.com/package/rousejs)
 
-**The JavaScript UI and state orchestrator for server-rendered HTML**
+**A JavaScript reactivity and state-synchronization layer for server-rendered HTML.**
 
-> [!WARNING]  
+> [!WARNING]
 > **Pre-release software:** Rouse is currently in active development, unstable, and not intended for production use. Breaking changes will occur without notice.
 
-## Motivation
+## Introduction
 
-Rouse is being designed to seamlessly coordinate server-rendered HTML and client-side reactive state within a single system. The goal: harness the performance and SEO benefits of server-side rendering (SSR) while delivering the dynamic experience of a single-page application (SPA).
+Rouse coordinates server-rendered HTML and client-side reactivity within a single, cohesive system. While SPAs put the frontend in charge and hypermedia anchors to the backend, Rouse combines the strengths of each. It's designed for applications that already render HTML on the server but need rich client-side state without adopting a full SPA architecture. Whether the server or the client drives an interaction is a per-feature decision rather than an architectural commitment.
 
-Instead of locking you into a fixed paradigm, Rouse provides the flexibility to develop the way you want. You shouldn't have to work around your framework. Bring your own backend. Use a build step or go buildless. Let the server drive or keep state on the client – it's a local, reversible decision rather than an upfront architectural commitment. Made for the pragmatic web.
+- **No virtual DOM** – native DOM, web standards, zero compilation
+- **Backend agnostic** – pairs with anything that returns HTML or JSON
+- **Strict CSP compliance** – no `unsafe-eval` or expression evaluation in markup
+- **Buildless or bundled** – load from a CDN or install from npm, fully typed
+- **Lightweight** – 20kB gzipped with no external dependencies
 
-## Key features
+## Features
 
-- **Server-managed (hypermedia):** Fetch HTML fragments on any event; let the server drive targeting, redirects, and history through response headers.
-- **Client-managed (reactive):** Model UI state with local scopes and global stores powered by reactive signals and a proxy layer for ergonomic object/array mutations.
-- **On-demand reconciliation:** Sync client state back to the server with built-in rollback capabilities, conflict detection, and per-field dirty tracking.
-- **Native rendering:** Render `<template>` elements from reactive state, with keyed diffing that reuses and reorders DOM instead of rebuilding it.
-- **Declarative and programmatic:** Combine the simplicity of expressive HTML attributes with the power of an elegant JavaScript API.
-- **Advanced orchestration:** Define custom scope logic, handle fine-grained activation strategies, and cleanly hydrate third-party libraries inside isolated regions.
-- **Zero build or compile step:** Import Rouse as an ES module from a CDN, or integrate it into your build pipeline with first-class TypeScript support.
-- **Backend agnostic:** Pair naturally with your stack of choice – Rails, Django, Laravel, Go, Express, Hono, and more.
+### Reactive state
+
+Model UI state in local scopes and global stores backed by signals, with a proxy layer for ergonomic object and array mutations.
+
+### Native client rendering
+
+Render dynamic lists and conditional views from reactive state with `<template>` elements. Keyed reconciliation reuses and reorders DOM instead of rebuilding it.
+
+### Hypermedia interactions
+
+Fetch HTML fragments – or JSON – on any event, straight from attributes. The server can steer targeting, issue redirects, and trigger client-side events through response headers.
+
+### State synchronization
+
+Push client state to the server and pull it back, with dirty tracking, conflict detection, and optional rollback on failure.
+
+### Progressive activation
+
+Gate any scope's activation on visibility, idle time, media queries, or custom events. Third-party scripts get an isolated mount point with lifecycle hooks and automatic cleanup.
+
+### Declarative and programmatic
+
+Attributes and the JavaScript API share the same engine. They mix freely. Start in markup and drop into code where you need it.
+
+### Wiring in HTML, logic in JavaScript
+
+Directive values are declarative: they describe paths, triggers, and targets. Logic stays in plain JavaScript, where it can be organized, typed, tested, and reused.

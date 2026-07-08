@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+No unreleased changes.
+
+## [0.10.0] - 2026-07-08
+
 ### Added
 
 - Add `rz-render` directive for rendering `<template>` elements. Reconciliation is keyed (positional by default), so instances are reused and reordered rather than rebuilt. Behavior is determined by the resolved value:
@@ -16,15 +20,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Array:** renders one instance per element.
 - Expose the current render item to a template via the `%` prefix (e.g. `rz-text="%name"`).
 - Add `rz-key` directive for explicit, stable reconciliation keys for render items (e.g. `rz-key="id"` or `rz-key="user.id"`).
+- Add `createKey()` utility for assigning stable identity to client-created items (pairs with `rz-key`).
 - Expose the render loop context to store and scope methods via `HandlerCtx.render`.
 - Add per-item teleport via a `renderTarget` property to place a rendered instance anywhere within the app root boundary.
+- Add `RenderHandlerCtx` type for handlers bound inside an `rz-render` instance.
 - Add server-driven error-response routing. When an error response (4xx/5xx) carries a `Rouse-Target` header, its body is routed to the named element (HTML swapped) or store (JSON).
+- Add HTTP-method aliases on programmatic fetch; e.g., `app.fetch.post(url)`.
+- Add `readOnly` to the public exports for creating immutable views of reactive data.
 
 ### Changed
 
 - **Breaking:** Rename the store sync operations `save`/`refresh` to `push`/`pull`; directive names, methods, and properties updated accordingly (e.g., `rz-save` renamed `rz-push`).
 - **Breaking:** Require explicit triggers for `rz-fetch`, `rz-push`, `rz-pull`, and `rz-on`.
 - **Breaking:** Stop parsing an HTTP method from `rz-url` values; method can be configured using `rz-push-request` and `rz-pull-request` (e.g., `rz-push-request="method: PUT"`).
+- **Breaking:** Rename the `ScopeFn` type to `ScopeSetup`.
+- **Breaking:** Rename `data` to `params` in `ScopeCtx` and `HandlerCtx`.
 - Strip `[Rouse]` console warnings and errors from the minified build; standard build provides full diagnostics for development.
 - `rz:fetch:error` now carries the full `RouseResponse` (with `error` populated), matching `rz:fetch:success`.
 - Expose the parsed error body to the `error` interceptor via `RequestError.body`.
@@ -32,12 +42,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Fix broken trailing edge option for the `throttle` event modifier.
+- Prevent `rz-model` from silently creating missing fields.
+- Fix URL construction so protocol-relative URLs (`//`) are not treated as absolute.
 
 ### Removed
 
 - **Breaking:** Remove `rz-error` directive. Handle error responses with the new server-driven error response routing, an `error` interceptor, or by listening to the `rz:fetch:error` event.
 - **Breaking:** Remove `__actions` facade from `StoreManager`.
 - **Breaking:** Remove server-driven store `JSON.__meta` processing.
+- **Breaking:** Remove `defineScope()` type inference function.
 
 ## [0.9.0] - 2026-06-20
 
