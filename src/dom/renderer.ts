@@ -40,7 +40,7 @@ interface InstanceRecord {
   indexSig: IndexSignal;
   roots: ChildNode[];
   target: Element | null;
-  dispose: VoidFn;
+  teardown: VoidFn;
 }
 
 /** Options the directive feeds the engine. */
@@ -127,7 +127,7 @@ function keyFor(
  * Renders a `<template>`'s contents from a reactive value and keeps them
  * reconciled. Resolves the value via `source` inside a tracked effect. On every
  * change it diffs by key and creates, reuses, moves, or removes instances.
- * Returns a dispose that stops tracking and tears every instance down.
+ * Returns a teardown that stops tracking and tears every instance down.
  */
 export function renderTemplate(
   template: HTMLTemplateElement,
@@ -233,7 +233,7 @@ export function renderTemplate(
       target = dest;
     }
 
-    const dispose = () => {
+    const teardown = () => {
       for (const fn of cleanups) {
         try {
           fn();
@@ -252,7 +252,7 @@ export function renderTemplate(
       indexSig,
       roots,
       target,
-      dispose,
+      teardown,
     };
   }
 
@@ -277,7 +277,7 @@ export function renderTemplate(
 
   function teardownAll() {
     for (const rec of records.values()) {
-      rec.dispose();
+      rec.teardown();
     }
     records.clear();
   }
@@ -353,7 +353,7 @@ export function renderTemplate(
 
     for (const [k, rec] of records) {
       if (!seen.has(k)) {
-        rec.dispose();
+        rec.teardown();
         records.delete(k);
       }
     }
