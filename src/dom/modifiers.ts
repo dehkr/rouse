@@ -3,6 +3,7 @@ import { getApp } from '../core/app';
 const keyMap: Record<string, string> = {
   enter: 'Enter',
   esc: 'Escape',
+  escape: 'Escape',
   space: ' ',
   up: 'ArrowUp',
   down: 'ArrowDown',
@@ -11,6 +12,23 @@ const keyMap: Record<string, string> = {
   tab: 'Tab',
   delete: 'Delete',
   backspace: 'Backspace',
+  home: 'Home',
+  end: 'End',
+  pageup: 'PageUp',
+  pagedown: 'PageDown',
+  insert: 'Insert',
+  f1: 'F1',
+  f2: 'F2',
+  f3: 'F3',
+  f4: 'F4',
+  f5: 'F5',
+  f6: 'F6',
+  f7: 'F7',
+  f8: 'F8',
+  f9: 'F9',
+  f10: 'F10',
+  f11: 'F11',
+  f12: 'F12',
 };
 
 const sysModifierMap = {
@@ -19,9 +37,9 @@ const sysModifierMap = {
   shift: 'shiftKey',
   meta: 'metaKey',
 } as const;
+const SYS_MODIFIER_FLAGS = Object.values(sysModifierMap);
 
 type SystemModifierKey = keyof typeof sysModifierMap;
-type ModifierPropertyKey = (typeof sysModifierMap)[SystemModifierKey];
 
 /**
  * Maps modifiers to native AddEventListenerOptions.
@@ -87,49 +105,51 @@ export function applyModifiers(
 
     // Check required modifiers are pressed
     for (const mod of expectedSysModifiers) {
-      const key = sysModifierMap[mod] as ModifierPropertyKey;
-      if (!e[key]) {
+      if (!e[sysModifierMap[mod]]) {
         return false;
       }
     }
 
-    // Matches the exact modifiers by default unless `.loose` is specified
-    const allowExtras = modifiers.includes('loose');
+    const hasKeyModifier =
+      e instanceof KeyboardEvent && modifiers.some((m) => keyMap[m] || m.length === 1);
 
-    if (!allowExtras) {
-      const allModifierKeys = Object.values(sysModifierMap) as ModifierPropertyKey[];
-      const pressedModifiers = allModifierKeys.filter((key) => e[key]);
+    // Exact matching only applies when the trigger asks for specific keys or
+    // modifiers. A bare trigger shouldn't be blocked by a held `shift` or `ctrl`.
+    const exact =
+      !modifiers.includes('loose') && (expectedSysModifiers.length > 0 || hasKeyModifier);
 
+    if (exact) {
+      const pressedModifiers = SYS_MODIFIER_FLAGS.filter((key) => e[key]);
       if (pressedModifiers.length !== expectedSysModifiers.length) {
         return false;
       }
     }
-  }
 
-  // Key filtering
-  if (e instanceof KeyboardEvent) {
-    const pressedKey = e.key.toLowerCase();
-    const pressedCode = e.code.toLowerCase();
+    // Key filtering
+    if (e instanceof KeyboardEvent && hasKeyModifier) {
+      const pressedKey = e.key.toLowerCase();
+      const pressedCode = e.code.toLowerCase();
 
-    // Find if any modifier matches the key pressed
-    const isMatch = modifiers.some((m) => {
-      const expected = keyMap[m]?.toLowerCase() || m.toLowerCase();
+      // Find if any modifier matches the key pressed
+      const isMatch = modifiers.some((m) => {
+        if (m in sysModifierMap) return false;
 
-      if (pressedKey === expected) return true;
+        const expected = keyMap[m]?.toLowerCase() || m.toLowerCase();
+        if (pressedKey === expected) return true;
 
-      // Fallback to fix macOS 'alt' dead key
-      if (expected.length === 1) {
-        if (expected === ' ' && pressedCode === 'space') return true;
+        // Fallback to fix macOS 'alt' dead key
+        if (expected.length === 1) {
+          if (expected === ' ' && pressedCode === 'space') return true;
 
-        return pressedCode === `key${expected}` || pressedCode === `digit${expected}`;
+          return pressedCode === `key${expected}` || pressedCode === `digit${expected}`;
+        }
+
+        return false;
+      });
+
+      if (!isMatch) {
+        return false;
       }
-
-      return false;
-    });
-
-    const hasKeyModifier = modifiers.some((m) => keyMap[m] || m.length === 1);
-    if (hasKeyModifier && !isMatch) {
-      return false;
     }
   }
 
