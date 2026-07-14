@@ -43,15 +43,15 @@ export function dispatch(
 }
 
 /**
- * Low-level DOM event listener primitive with modifier handling:
+ * Attaches a DOM event listener with modifier handling:
  *
- * - Listener options (`capture`, `once`, `passive`) via `getListenerOptions`
+ * - Listener options (`capture`, `passive`) via `getListenerOptions`
  * - Event-arg modifiers (`prevent`, `stop`, `self`, key filters) via `applyModifiers`
- * - Listener target resolution (`outside`) via `resolveListenerTarget`
+ * - Listener target resolution (`window`, `document`, `root`, `outside`) via `resolveListenerTarget`
+ * - `once` enforced manually after the filters pass, so a filtered-out event doesn't consume the listener
  *
  * Does not apply execution timing (debounce/throttle). Most callers should use the
- * public `on()` facade or `dispatchTrigger` instead. This is the primitive both
- * build on.
+ * public `on()` facade or `dispatchTrigger` instead. This is the primitive both build on.
  *
  * @returns Cleanup function that removes the listener.
  */
@@ -63,17 +63,25 @@ function attachListener<D = any>(
 ): VoidFn {
   const options = getListenerOptions(modifiers);
   const listener = (e: Event) => {
-    if (applyModifiers(e, el, modifiers)) {
-      callback(e as CustomEvent<D>);
-    }
+    if (!applyModifiers(e, el, modifiers)) return;
+
+    // Native `once` would consume the listener on filtered-out events,
+    // so removal happens here, after the modifiers pass.
+    if (options.once) cleanup();
+    callback(e as CustomEvent<D>);
   };
 
   const target = resolveListenerTarget(el as Element, modifiers);
-  target.addEventListener(name, listener, options);
-
-  return () => {
-    target.removeEventListener(name, listener, options);
+  const cleanup = () => {
+    target.removeEventListener(name, listener, options.capture);
   };
+
+  target.addEventListener(name, listener, {
+    capture: options.capture,
+    passive: options.passive,
+  });
+
+  return cleanup;
 }
 
 /**
