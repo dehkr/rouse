@@ -246,17 +246,17 @@ export function resolveRequestConfig(
 
   addLayer(globalConfig);
 
-  if (targetEl && targetEl !== triggeringEl) {
-    addLayer(rzRequest.getConfig(targetEl, app));
-    addHeaders(rzHeaders.getConfig(targetEl, app));
-    addLayer(requestVariant.getConfig(targetEl, app));
-    addHeaders(headersVariant.getConfig(targetEl, app));
-  }
+  const applyConfig = (el: Element) => {
+    addLayer(rzRequest.getConfig(el, app));
+    addHeaders(rzHeaders.getConfig(el, app));
+    addLayer(requestVariant.getConfig(el, app));
+    addHeaders(headersVariant.getConfig(el, app));
+  };
 
-  addLayer(rzRequest.getConfig(triggeringEl, app));
-  addHeaders(rzHeaders.getConfig(triggeringEl, app));
-  addLayer(requestVariant.getConfig(triggeringEl, app));
-  addHeaders(headersVariant.getConfig(triggeringEl, app));
+  if (targetEl && targetEl !== triggeringEl) {
+    applyConfig(targetEl);
+  }
+  applyConfig(triggeringEl);
 
   const merged = Object.assign({}, ...layers) as Partial<RouseRequest>;
   merged.headers = Object.assign({}, ...headerLayers);
