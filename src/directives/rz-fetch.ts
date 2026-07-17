@@ -66,6 +66,12 @@ function initialize(el: Element, app: RouseApp) {
   // A form without a URL at init can still get one at submit time from the
   // submitter's `formaction`, so bind anyway and validate on dispatch.
   const deferUrl = is(el, 'Form');
+  const warnNoUrlFound = () => {
+    warn(
+      `rz-fetch: no URL found. Configure it using rz-fetch (with at least one leading trigger), rz-url, or a native attribute (e.g. 'href', 'action', or 'formaction').`,
+      el,
+    );
+  };
 
   // The URL is shared by every trigger, so resolve and validate it once.
   let warnedMissingUrl = false;
@@ -81,11 +87,7 @@ function initialize(el: Element, app: RouseApp) {
     // that it's in the wrong position (missing trigger).
     if (!url && !deferUrl) {
       if (!warnedMissingUrl) {
-        __DEV__ &&
-          warn(
-            `rz-fetch: no URL found. Set it via 'rz-fetch' with at least one leading trigger (e.g., rz-fetch="click: /users"), 'rz-url', or a native 'href' attribute.`,
-            el,
-          );
+        __DEV__ && warnNoUrlFound();
         warnedMissingUrl = true;
       }
       continue;
@@ -100,11 +102,7 @@ function initialize(el: Element, app: RouseApp) {
         }
         const opts = applySubmitterOverrides({ ...parsed, url }, e);
         if (!opts.url) {
-          __DEV__ &&
-            warn(
-              `rz-fetch: no URL found for form submission. Set it via 'rz-fetch' with a submit trigger (e.g., rz-fetch="submit: /users"), 'rz-url', a native 'action' attribute, or 'formaction' on the submit button.`,
-              el,
-            );
+          __DEV__ && warnNoUrlFound();
           return;
         }
         handleFetch(el, app, opts);
