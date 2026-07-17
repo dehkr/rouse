@@ -45,8 +45,8 @@ export interface RouseConfig {
   root?: string | HTMLElement;
   /** Prepended to relative URLs in `rz-fetch`, `rz-push`, `rz-pull`, and `{app,ctx}.fetch()`. */
   baseUrl?: string;
-  /** Default headers applied to every request. Merged with per-request and directive-level headers. */
-  headers?: Record<string, string>;
+  /** Default headers applied to every request. Merged with per-request and directive-level headers; a `null` value removes the header. */
+  headers?: Record<string, string | null>;
   /** Standard fetch `credentials` value applied to every request. */
   credentials?: RequestCredentials;
   /** Default scope activation strategy. Overridden by `rz-wake`. */
@@ -56,7 +56,7 @@ export interface RouseConfig {
 interface ResolvedConfig {
   root: HTMLElement;
   baseUrl: string;
-  headers: Record<string, string>;
+  headers: Record<string, string | null>;
   // Left undefined when not configured; fetch()'s native default is 'same-origin'.
   credentials?: RequestCredentials;
   wake: string;

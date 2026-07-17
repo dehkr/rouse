@@ -8,7 +8,7 @@ import {
 } from './constants';
 import { warn } from './shared';
 
-export type ParsedDirectiveValue = [string, string][];
+export type ParsedDirectiveValue = Array<[string, string | null]>;
 
 const VALUE_DELIMITER = ',';
 const SEGMENT_DELIMITER = ':';
@@ -140,7 +140,7 @@ function hasTrailingWhitespace(text: string, index: number) {
  * Handles string splitting for directive values.
  *
  * rz-wake="visible, media: (min-width: 600px)" is parsed to:
- * [['visible', ''], ['media', '(min-width: 600px)']]
+ * [['visible', null], ['media', '(min-width: 600px)']]
  */
 export function parseDirectiveValue(
   value: string | null | undefined,
@@ -196,9 +196,12 @@ function parseSegment(segment: string, acc: ParsedDirectiveValue): void {
     const key = stripQuotes(trimmed.slice(0, splitIndex).trim());
     const val = stripQuotes(trimmed.slice(splitIndex + 1).trim());
     if (key) acc.push([key, val]);
+  } else if (trimmed.endsWith(SEGMENT_DELIMITER)) {
+    // A trailing ':' means the value was forgotten; likely a typo
+    __DEV__ && warn(`Ignoring '${trimmed}': trailing colon has no value.`);
   } else {
     const key = stripQuotes(trimmed);
-    if (key) acc.push([key, '']);
+    if (key) acc.push([key, null]);
   }
 }
 

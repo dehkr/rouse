@@ -6,11 +6,11 @@ import { parseTime } from '../core/timing';
 import type { ConfigDirective, DirectiveSlug, RouseRequest } from '../types';
 
 const BOOLEAN_KEYS = [
-  'keepalive',
-  'mutate',
   'dispatch-events',
+  'keepalive',
   'rollback-on-error',
   'skip-interceptors',
+  'swap',
 ];
 
 const TIME_KEYS = ['timeout', 'retry-delay'];
@@ -28,8 +28,9 @@ export function parseRequestConfig(
   const parsed = parseDirectiveValue(value);
   const config: Record<string, any> = {};
 
-  for (const [key, val] of parsed) {
+  for (const [key, rawVal] of parsed) {
     if (!key) continue;
+    const val = rawVal ?? '';
 
     // Dynamic payload delimiters
     if (val.match(/^[#@{]/)) {

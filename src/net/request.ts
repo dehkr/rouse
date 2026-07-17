@@ -229,16 +229,16 @@ export function resolveRequestConfig(
   const headersVariant = HEADERS_VARIANTS[action];
 
   const layers: Partial<RouseRequest>[] = [];
-  const headerLayers: (Record<string, string> | undefined)[] = [];
+  const headerLayers: (Record<string, string | null> | undefined)[] = [];
 
   const addLayer = (cfg: Partial<RouseRequest>) => {
     layers.push(cfg);
     if (cfg.headers) {
-      headerLayers.push(cfg.headers as Record<string, string>);
+      headerLayers.push(cfg.headers);
     }
   };
 
-  const addHeaders = (hdrs: Record<string, string>) => {
+  const addHeaders = (hdrs: Record<string, string | null>) => {
     if (Object.keys(hdrs).length > 0) {
       headerLayers.push(hdrs);
     }

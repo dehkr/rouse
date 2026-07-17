@@ -395,6 +395,8 @@ export interface FetchConfig {
   target?: Element | string;
   /** The element that triggered the request. Used to resolve `rz-request` config layers. */
   triggerEl?: Element;
+  /** Request headers. A `null` value removes the header. Empty strings are sent as-is. */
+  headers?: Record<string, string | null>;
   /** Request body. Plain objects/arrays are JSON-serialized; a `BodyInit` is sent as-is. */
   body?: BodyInit | Record<string, any> | any[] | null | undefined;
   /** Serialize and send this form's data as the request body. */
@@ -437,7 +439,7 @@ export type RouseFetch = ((
 };
 
 /** The final unified options object passed into `ctx.fetch`. */
-export type RouseRequest = Omit<RequestInit, 'body'> & FetchConfig;
+export type RouseRequest = Omit<RequestInit, 'body' | 'headers'> & FetchConfig;
 
 /** The enhanced response object returned by `ctx.fetch` and `request()`. */
 export interface RouseResponse<T = any> {

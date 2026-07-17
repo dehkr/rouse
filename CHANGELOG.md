@@ -11,12 +11,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add new key modifiers: `home`, `end`, `pageup`, `pagedown`, `insert`, `f1`–`f12`, and `escape` as an alias of `esc`.
 
+### Changed
+
+- **Breaking:** Allow headers with empty values instead of removing them when `''` is provided. Use `null` to remove a header.
+- **Breaking:** Require an explicit value per header in the `rz-headers` family; a bare header name (e.g., `rz-headers="Custom-Header"`) now warns and is skipped.
+
 ### Fixed
 
 - Fix system modifier keys (e.g., `.alt`) incorrectly matching as regular keys in combos.
 - Fix bare triggers (e.g., `keydown` with no key modifiers) not firing while a modifier key was held.
 - Fix `.once` modifier bug that prevented events with multiple modifiers from firing.
 - Fix `rz-fetch` on forms ignoring a submit button's `formaction` when no other URL source was set.
+- Warn and skip on trailing colons in a directive values (e.g., `rz-headers="Key: "`) instead of parsing it as a corrupted key.
 
 ## [0.10.0] - 2026-07-08
 

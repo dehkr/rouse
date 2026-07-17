@@ -5,10 +5,14 @@ import { getDirectiveValue, warn } from '../core/shared';
 import type { ConfigDirective, DirectiveSlug } from '../types';
 
 /**
- * Parses a `rz-headers*` directive value into a header record.
+ * Parses a `rz-headers` directive value into a header record.
  * Supports object injection (`#`, `@`, `{`) or static key-value pairs.
+ * A `null` value removes the header from the request; an empty string
+ * is sent as is.
  *
  * - `rz-headers="Tenant: 123"`
+ * - `rz-headers="Rouse-Request: null"` (remove framework default)
+ * - `rz-headers="X-Blank: ''"` (send with an empty value)
  * - `rz-headers="@session.authHeaders"`
  * - `rz-headers="#auth-headers"`
  * - `rz-headers='{ "Tenant": 123 }'`
@@ -17,32 +21,40 @@ export function parseHeadersConfig(
   value: string | null | undefined,
   el: Element,
   app: RouseApp,
-): Record<string, string> {
+  slug: DirectiveSlug = 'headers',
+): Record<string, string | null> {
   if (!value) return {};
 
   // Object injection
   if (value.match(/^[#@{]/)) {
     const resolvedObject = resolveInjection(value, app.stores, false);
-    const headers: Record<string, string> = {};
+    const headers: Record<string, string | null> = {};
 
     if (resolvedObject && typeof resolvedObject === 'object') {
       for (const [k, v] of Object.entries(resolvedObject)) {
-        headers[k] = v == null ? '' : String(v);
+        headers[k] = v == null ? null : String(v);
       }
     } else {
       __DEV__ &&
-        warn(`rz-headers: payload '${value}' does not resolve to an object.`, el);
+        warn(`rz-${slug}: payload '${value}' does not resolve to an object.`, el);
     }
     return headers;
   }
 
   // Static key-value pairs
-  const headers: Record<string, string> = {};
+  const headers: Record<string, string | null> = {};
   for (const [key, val] of parseDirectiveValue(value)) {
     if (!key) continue;
-    // Treat unquoted `null` as the deletion sentinel, mirroring programmatic
-    // null. Quoted 'null' survives `stripQuotes` and would still be a string here.
-    headers[key] = val === 'null' ? '' : val;
+    if (val === null) {
+      __DEV__ &&
+        warn(
+          `rz-${slug}: header '${key}' has no value. Write '${key}: <value>', or '${key}: null' to remove it.`,
+          el,
+        );
+      continue;
+    }
+    // Treat 'null' as the deletion sentinel, mirroring programmatic null.
+    headers[key] = val === 'null' ? null : val;
   }
 
   return headers;
@@ -53,10 +65,11 @@ export function parseHeadersConfig(
  */
 export function defineHeadersDirective(
   slug: DirectiveSlug,
-): ConfigDirective<Record<string, string>> {
+): ConfigDirective<Record<string, string | null>> {
   return {
     slug,
-    getConfig: (el, app) => parseHeadersConfig(getDirectiveValue(el, slug), el, app),
+    getConfig: (el, app) =>
+      parseHeadersConfig(getDirectiveValue(el, slug), el, app, slug),
   };
 }
 
