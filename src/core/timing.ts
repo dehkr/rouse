@@ -1,45 +1,49 @@
 import type { AnyFn, VoidFn } from '../types';
 import { warn } from './shared';
 
-export const DEFAULT_DEBOUNCE_MS = 300;
-export const DEFAULT_THROTTLE_MS = 150;
-
 /**
- * Options that configure how a timed function is executed.
- *
- * - **debounce**: clumps a burst of events into a single execution.
- * - **throttle**: guarantees execution at a regulated, steady rate.
- * - **leading:** executes at the start of the event sequence.
- * - **trailing:** executes at the end of the event sequence.
+ * Configuration options for timed functions.
  */
 export interface TimingConfig {
+  /** Delay in milliseconds. */
   wait: number;
+  /** Executes at the start of the event sequence. */
   leading?: boolean;
+  /** Executes at the end of the event sequence. */
   trailing?: boolean;
+  /**
+   * `debounce` clumps a burst of events into a single execution.
+   * `throttle` guarantees execution at a regulated, steady rate.
+   */
   strategy?: 'debounce' | 'throttle';
 }
 
 /**
- * A callable function augmented with methods to manually flush
- * or cancel pending executions.
+ * Callable function augmented with methods to flush or cancel pending executions.
  */
 export interface TimedFn<T extends AnyFn> {
+  /** Invokes the function, scheduling it per the configured debounce/throttle strategy. */
   (...args: Parameters<T>): void;
+  /** Cancels a pending execution and discards its stored arguments. */
   cancel: VoidFn;
+  /** Runs a pending execution immediately, if one is queued, and clears the timer. */
   flush: VoidFn;
 }
+
+const DEFAULT_DEBOUNCE_MS = 300;
+const DEFAULT_THROTTLE_MS = 150;
+
+// Time-value patterns. The suffixed form requires an explicit unit so a bare
+// number (e.g. 'keydown.debounce.5') isn't mistaken for a wait. The optional
+// form accepts plain numbers (e.g. `timeout: 5000`).
+const SUFFIXED_TIME_REGEX = /^(\d*\.?\d+)(ms|s|m)$/;
+const TIME_REGEX = /^(\d*\.?\d+)(ms|s|m)?$/;
 
 /**
  * Parses an array of timing modifiers (e.g., 'debounce', '500ms', 'leading')
  * into a structured configuration object.
  */
-export function getTimingConfig(
-  modifiers: string[],
-  defaults = {
-    debounceWait: DEFAULT_DEBOUNCE_MS,
-    throttleWait: DEFAULT_THROTTLE_MS,
-  },
-): TimingConfig {
+export function getTimingConfig(modifiers: string[]): TimingConfig {
   let strategy: TimingConfig['strategy'];
   let explicitWait: number | undefined;
 
@@ -58,17 +62,14 @@ export function getTimingConfig(
     } else if (mod === 'edges') {
       leading = true;
       trailing = true;
-    } else if (/^(\d*\.?\d+)(ms|s|m)$/.test(mod)) {
-      // Regex ensures time value has an explicit suffix to prevent collisions
-      // with keyboard key modifiers (e.g., 'keydown.debounce.5').
+    } else if (SUFFIXED_TIME_REGEX.test(mod)) {
       explicitWait = parseTime(mod);
     }
   }
 
   // Determine final wait time (explicit > strategy default > safe fallback)
-  const defaultWait =
-    strategy === 'throttle' ? defaults.throttleWait : defaults.debounceWait;
-  const wait = explicitWait ?? defaultWait;
+  const wait =
+    explicitWait ?? (strategy === 'throttle' ? DEFAULT_THROTTLE_MS : DEFAULT_DEBOUNCE_MS);
 
   // Apply common pattern defaults for leading/trailing edge execution
   if (leading === undefined && trailing === undefined) {
@@ -182,30 +183,14 @@ export function throttle<T extends AnyFn>(
  * Wraps a function with a timing strategy (debounce or throttle) based on the
  * provided modifiers. Returns an augmented raw function if no strategy is matched.
  */
-export function applyTiming<T extends AnyFn>(
-  fn: T,
-  modifiers: string[],
-  defaults = {
-    debounceWait: DEFAULT_DEBOUNCE_MS,
-    throttleWait: DEFAULT_THROTTLE_MS,
-  },
-): TimedFn<T> {
-  const config = getTimingConfig(modifiers, defaults);
+export function applyTiming<T extends AnyFn>(fn: T, modifiers: string[]): TimedFn<T> {
+  const config = getTimingConfig(modifiers);
 
   if (config.strategy === 'debounce') {
-    return debounce(fn, {
-      wait: config.wait,
-      leading: config.leading,
-      trailing: config.trailing,
-    });
+    return debounce(fn, config);
   }
-
   if (config.strategy === 'throttle') {
-    return throttle(fn, {
-      wait: config.wait,
-      leading: config.leading,
-      trailing: config.trailing,
-    });
+    return throttle(fn, config);
   }
 
   // Fallback for immediate execution
@@ -215,9 +200,6 @@ export function applyTiming<T extends AnyFn>(
 
   return timed as TimedFn<T>;
 }
-
-// Suffix optional to allow plain numbers (e.g., `timeout: 5000`)
-const TIME_REGEX = /^(\d*\.?\d+)(ms|s|m)?$/;
 
 /**
  * Checks if a string or number matches the supported time formats.
@@ -231,12 +213,14 @@ export function isTimeModifier(val: unknown): boolean {
  * Defaults to milliseconds if no suffix is provided.
  *
  * @example
- * parseTime(500)     // 500
- * parseTime('500')   // 500
- * parseTime('500ms') // 500
- * parseTime('5s')    // 5000
- * parseTime('1.5s')  // 1500
- * parseTime('0.5m')  // 30000
+ * ```ts
+ * parseTime(500);     // 500
+ * parseTime('500');   // 500
+ * parseTime('500ms'); // 500
+ * parseTime('5s');    // 5000
+ * parseTime('1.5s');  // 1500
+ * parseTime('0.5m');  // 30000
+ * ```
  */
 export function parseTime(val?: string | number): number {
   // Treat empty or falsy values as valid zero states
