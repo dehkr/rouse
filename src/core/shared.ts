@@ -186,7 +186,7 @@ export function resolveRouteTargets(
 }
 
 function queryEls(appRoot: Element, selector: string): Element[] {
-  const targets = Array.from(queryTargets(appRoot, selector));
+  const targets = queryTargets(appRoot, selector);
   __DEV__ && targets.length === 0 && warn(`No targets found for '${selector}'.`);
 
   return targets;
