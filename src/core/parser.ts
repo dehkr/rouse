@@ -8,12 +8,15 @@ import {
 } from './constants';
 import { warn } from './shared';
 
-type ParsedDirectiveValue = Array<[string, string | null]>;
-type BoundaryOpener = '(' | '{' | '[';
-type BoundaryCloser = ')' | '}' | ']';
+const closers = { ')': '(', '}': '{', ']': '[' } as const;
+const openers = new Set<string>(Object.values(closers));
 
-const openers: Record<BoundaryOpener, boolean> = { '(': true, '{': true, '[': true };
-const closers: Record<BoundaryCloser, BoundaryOpener> = { ')': '(', '}': '{', ']': '[' };
+type ParsedDirectiveValue = Array<[string, string | null]>;
+type BoundaryCloser = keyof typeof closers;
+type BoundaryOpener = (typeof closers)[BoundaryCloser];
+
+const isCloser = (char: string): char is BoundaryCloser => Object.hasOwn(closers, char);
+const isOpener = (char: string): char is BoundaryOpener => openers.has(char);
 
 /**
  * Splits a directive value into `[key, value]` pairs. Pairs are comma-separated;
@@ -58,7 +61,7 @@ export function parseDirectiveValue(
     return false;
   });
 
-  if (scanResult.depth > 0 || scanResult.quote) {
+  if (!scanResult.mismatched && (scanResult.depth > 0 || scanResult.quote)) {
     __DEV__ && warn(`Malformed directive value: '${value}'.`);
   }
 
@@ -351,10 +354,15 @@ function splitOnSafeDelimiter(
 function forEachSafeChar(
   text: string,
   callback: (index: number, char: string, fullText: string) => boolean | undefined,
-): { depth: number; quote: string | null } {
+): {
+  depth: number;
+  quote: string | null;
+  mismatched: boolean;
+} {
   const depths: Record<BoundaryOpener, number> = { '(': 0, '{': 0, '[': 0 };
   let totalDepth = 0;
   let quote: string | null = null;
+  let mismatched = false;
 
   for (let i = 0; i < text.length; i++) {
     const char = text[i] as string;
@@ -373,18 +381,19 @@ function forEachSafeChar(
     }
 
     // Entering a nested block (increment depth)
-    else if (openers[char as BoundaryOpener]) {
-      depths[char as BoundaryOpener]++;
+    else if (isOpener(char)) {
+      depths[char]++;
       totalDepth++;
     }
 
     // Exiting a block (decrement depth and validate matching pairs)
-    else if (closers[char as BoundaryCloser]) {
-      const opener = closers[char as BoundaryCloser];
+    else if (isCloser(char)) {
+      const opener = closers[char];
       if (depths[opener] > 0) {
         depths[opener]--;
         totalDepth--;
       } else {
+        mismatched = true;
         __DEV__ && warn(`Mismatched bracket '${char}' in value: '${text}'.`);
       }
     }
@@ -392,12 +401,12 @@ function forEachSafeChar(
     // Safe top-level character: trigger the callback
     else if (totalDepth === 0) {
       if (callback(i, char, text)) {
-        return { depth: totalDepth, quote };
+        return { depth: totalDepth, quote, mismatched };
       }
     }
   }
 
-  return { depth: totalDepth, quote };
+  return { depth: totalDepth, quote, mismatched };
 }
 
 /**
