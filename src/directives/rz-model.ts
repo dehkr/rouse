@@ -1,3 +1,4 @@
+import { effect } from 'alien-signals';
 import type { RouseApp } from '../core/app';
 import { parseTriggers } from '../core/parser';
 import { resolveState, writeState } from '../core/path';
@@ -5,7 +6,6 @@ import { warn } from '../core/shared';
 import { dispatchTrigger } from '../dom/scheduler';
 import { getModelableValue, setModelableValue } from '../dom/updater';
 import { is } from '../dom/utils';
-import { effect } from '../reactivity';
 import type {
   BindableValue,
   BoundCleanupFn,

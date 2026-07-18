@@ -1,7 +1,7 @@
+import { effect } from 'alien-signals';
 import type { RouseApp } from '../core/app';
 import { resolveBoundValue } from '../core/injection';
 import { applyStyles, setStyleProperty, updateStyle } from '../dom/updater';
-import { effect } from '../reactivity';
 import type { BoundCleanupFn, BoundDirective, DirectiveSlug, Scope } from '../types';
 
 const SLUG = 'style' as const satisfies DirectiveSlug;

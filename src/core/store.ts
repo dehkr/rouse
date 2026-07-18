@@ -1,7 +1,6 @@
 import { dispatch } from '../dom/scheduler';
 import { request } from '../net/request';
-import { reactive, trackDirty } from '../reactivity';
-import { seedPropagation } from '../reactivity/reactive';
+import { reactive, seedPropagation, trackDirty } from '../reactivity/reactive';
 import type {
   DirectiveSlug,
   FetchConfig,

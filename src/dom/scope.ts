@@ -1,7 +1,7 @@
+import { effectScope } from 'alien-signals';
 import type { RouseApp } from '../core/app';
 import { fail } from '../core/shared';
 import { withMethodAliases } from '../net/request';
-import { effectScope } from '../reactivity';
 import type { ScopeCtx, ScopeSetup } from '../types';
 import { bindScope } from './binder';
 import { dispatch, on } from './scheduler';

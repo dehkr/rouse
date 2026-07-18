@@ -1,6 +1,8 @@
 import { setActiveSub } from 'alien-signals';
 import { handlers, readOnlyHandlers } from './handlers';
 
+export type ReactiveProxy<T> = T;
+
 const proxyCache = new WeakMap();
 const rawCache = new WeakMap();
 const readOnlyCache = new WeakMap();
@@ -10,8 +12,6 @@ export const objectRootKeys = new WeakMap<object, string>();
 
 export const RAW: unique symbol = Symbol('rz_raw');
 export const READONLY: unique symbol = Symbol('rz_readonly');
-
-export type ReactiveProxy<T> = T;
 
 /**
  * Creates a reactive proxy for the target object.
@@ -56,7 +56,9 @@ export function proxiable(target: unknown): target is object {
   return Object.prototype.toString.call(target) === '[object Object]';
 }
 
-/** Check if a value is a proxy. */
+/**
+ * Check if a value is a proxy.
+ */
 export function isProxy(target: unknown): target is ReactiveProxy<typeof target> {
   return !!(proxiable(target) && rawCache.has(target));
 }

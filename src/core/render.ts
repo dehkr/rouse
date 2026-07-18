@@ -1,4 +1,4 @@
-import { getRaw } from '../reactivity';
+import { getRaw } from '../reactivity/reactive';
 import type { HandlerCtx, RenderContext, Scope } from '../types';
 import { ITEM_KEY, ITEM_META_KEY, RENDER_PARENT } from './constants';
 
