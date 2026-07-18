@@ -16,7 +16,7 @@ import type {
 import type { RouseApp } from './app';
 import { type HttpMethod, type PatchAction, STORE_PREFIX } from './constants';
 import { parseDataSourcePath } from './parser';
-import { getNestedVal, getRootSegment, setNestedVal } from './path';
+import { getNestedVal, getPathRoot, setNestedVal } from './path';
 import { fail, getDirectiveValue, warn } from './shared';
 import { clone, deepEqual, patchState } from './state';
 
@@ -321,7 +321,7 @@ export class StoreManager {
     reference: any,
     nestedPath?: string,
   ) {
-    const rootKey = getRootSegment(nestedPath);
+    const rootKey = getPathRoot(nestedPath);
     const keys = rootKey ? [rootKey] : Object.keys(reference);
     for (const key of keys) {
       if (Object.hasOwn(reference, key) && deepEqual(data[key], reference[key])) {

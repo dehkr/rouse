@@ -10,15 +10,6 @@ const pathCache = new Map<string, string[]>();
 const warnedWrites = new Set<string>();
 
 /**
- * Dedupe per-keystroke `rz-model` repeat warnings.
- */
-function warnWriteOnce(path: string, message: string): void {
-  if (warnedWrites.has(path)) return;
-  warnedWrites.add(path);
-  warn(message);
-}
-
-/**
  * Resolve a dot-notation path to a value.
  */
 export function getNestedVal<T = unknown>(
@@ -68,47 +59,11 @@ export function setNestedVal(obj: any, path: string | undefined, value: any): vo
   current[lastKey] = value;
 }
 
-function getPathParts(path: string): string[] {
-  let parts = pathCache.get(path);
-  if (!parts) {
-    parts = path.split('.');
-
-    // Delete oldest entry when cache is full (FIFO)
-    if (pathCache.size >= MAX_CACHE_SIZE) {
-      const firstKey = pathCache.keys().next().value as string;
-      pathCache.delete(firstKey);
-    }
-
-    pathCache.set(path, parts);
-  }
-
-  return parts;
-}
-
 /**
- * Checks if `path` resolves to an existing key on `obj`. Guards `writeState` against
- * `rz-model` writes to non-existent fields. `setNestedVal` would otherwise create
- * them. Server-driven creates bypass `writeState`, so they're unaffected.
+ * Returns the first segment of a dot-path, or `undefined` when the path is
+ * empty. Maps a nested path back to its root store/scope key.
  */
-function hasNestedKey(obj: unknown, path: string): boolean {
-  const parts = getPathParts(path);
-  let current = obj as any;
-
-  for (let i = 0; i < parts.length - 1; i++) {
-    if (current == null || typeof current !== 'object') {
-      return false;
-    }
-    current = current[parts[i] as string];
-  }
-
-  return (
-    current != null &&
-    typeof current === 'object' &&
-    (parts[parts.length - 1] as string) in current
-  );
-}
-
-export function getRootSegment(path: string | undefined): string | undefined {
+export function getPathRoot(path: string | undefined): string | undefined {
   if (!path) return;
   return getPathParts(path)[0];
 }
@@ -143,7 +98,7 @@ export function resolveState<T = unknown>(
  * Writes a value to a global store, a local scope, or a render item.
  *
  * **Note:** Currently this is used exclusively as the write path for `rz-model`.
- * The warnings reflect that; they should be updated if another caller is added.
+ * The warnings reflect that. They should be updated if another caller is added.
  */
 export function writeState(
   path: string,
@@ -222,4 +177,54 @@ export function writeState(
   }
 
   setNestedVal(scope, path, value);
+}
+
+/**
+ * Splits a path string into individual parts and returns an array of the parts. Also
+ * manages the path cache, deleting the oldest entries when cache is full (FIFO).
+ */
+function getPathParts(path: string): string[] {
+  let parts = pathCache.get(path);
+  if (!parts) {
+    parts = path.split('.');
+    if (pathCache.size >= MAX_CACHE_SIZE) {
+      const firstKey = pathCache.keys().next().value as string;
+      pathCache.delete(firstKey);
+    }
+    pathCache.set(path, parts);
+  }
+
+  return parts;
+}
+
+/**
+ * Checks if `path` resolves to an existing key on `obj`. Guards `writeState` against
+ * `rz-model` writes to non-existent fields. `setNestedVal` would otherwise create
+ * them. Server-driven creates bypass `writeState`, so they're unaffected.
+ */
+function hasNestedKey(obj: unknown, path: string): boolean {
+  const parts = getPathParts(path);
+  let current = obj as any;
+
+  for (let i = 0; i < parts.length - 1; i++) {
+    if (current == null || typeof current !== 'object') {
+      return false;
+    }
+    current = current[parts[i] as string];
+  }
+
+  return (
+    current != null &&
+    typeof current === 'object' &&
+    (parts[parts.length - 1] as string) in current
+  );
+}
+
+/**
+ * Dedupe per-keystroke `rz-model` repeat warnings.
+ */
+function warnWriteOnce(path: string, message: string): void {
+  if (warnedWrites.has(path)) return;
+  warnedWrites.add(path);
+  warn(message);
 }

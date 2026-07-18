@@ -1,7 +1,7 @@
 import type { RouseApp } from '../core/app';
 import type { PatchAction } from '../core/constants';
 import { parseStoreSubject, parseTriggerSubjectPairs } from '../core/parser';
-import { getRootSegment } from '../core/path';
+import { getPathRoot } from '../core/path';
 import { getDirectiveValue, warn } from '../core/shared';
 import { resolveTarget } from '../core/store';
 import { applyTiming } from '../core/timing';
@@ -102,7 +102,7 @@ function attachMutateEffect(
   fire: VoidFn,
   nestedPath: string,
 ): VoidFn {
-  const rootKey = nestedPath ? getRootSegment(nestedPath) : null;
+  const rootKey = nestedPath ? getPathRoot(nestedPath) : null;
 
   const guardedFire = () => {
     const status = app.stores.status(storeName);
