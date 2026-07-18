@@ -30,7 +30,7 @@ export const handlers: ProxyHandler<object> = {
     const desc = Object.getOwnPropertyDescriptor(target, key);
     if (desc && typeof desc.get === 'function') {
       const comp = getComputed(target, key, desc.get, receiver)();
-      return proxiable(comp) ? reactive(comp) : comp;
+      return reactive(comp);
     }
 
     const value = getSignal(target, key)();

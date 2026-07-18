@@ -56,13 +56,6 @@ export function proxiable(target: unknown): target is object {
   return Object.prototype.toString.call(target) === '[object Object]';
 }
 
-/**
- * Creates a reactive proxy for an eligible object.
- */
-export function createProxy<T>(target: T): T {
-  return proxiable(target) ? reactive(target) : target;
-}
-
 /** Check if a value is a proxy. */
 export function isProxy(target: unknown): target is ReactiveProxy<typeof target> {
   return !!(proxiable(target) && rawCache.has(target));

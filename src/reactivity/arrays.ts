@@ -1,42 +1,52 @@
 import { endBatch, startBatch, trigger } from 'alien-signals';
 import type { AnyFn } from '../types';
 import { getSignal, ITERATION_KEY } from './handlers';
-import { createProxy, dirtyTrackers, getRaw, objectRootKeys } from './reactive';
+import { dirtyTrackers, getRaw, objectRootKeys, reactive } from './reactive';
 
+/** Array-method overrides keyed by name/symbol. */
 export const methodIntercepts: Record<string | symbol, AnyFn> = {};
 
 /**
- * Run methods on the raw array, not the proxy
+ * Unwraps a reactive array and runs the given method (like `find`, `forEach`,
+ * or `map`) on the raw contents, handing any callback it's given reactive versions
+ * of the item, `this`, and the array so code inside still tracks changes.
+ *
+ * Reads the array's iteration signal (via `getSignal`), so when this runs inside
+ * an effect or computed, that effect re-runs whenever the array mutates.
+ *
+ * @param wrapResult - For methods that return a new array, re-wrap its items
+ * in proxies before returning.
  */
 function runOnRaw(proxy: any[], method: string, args: any[], wrapResult = false) {
   const raw = getRaw(proxy) as any;
   getSignal(raw, ITERATION_KEY)();
 
-  const isReduce = method === 'reduce' || method === 'reduceRight';
-
-  // Wrap callbacks if present (e.g. forEach, map, find)
   const wrappedArgs = args.map((arg) => {
     if (typeof arg === 'function') {
-      if (isReduce) {
-        // Handle accumulator
+      if (method === 'reduce' || method === 'reduceRight') {
+        // For reduce methods, pass the accumulator through unproxied
         return (acc: any, item: any, index: number, _arr: any) => {
-          return arg.call(proxy, acc, createProxy(item), index, proxy);
+          return arg.call(proxy, acc, reactive(item), index, proxy);
         };
       } else {
         return (item: any, index: number, _arr: any) => {
-          return arg.call(proxy, createProxy(item), index, proxy);
+          return arg.call(proxy, reactive(item), index, proxy);
         };
       }
     }
     return arg;
   });
 
-  const res = raw[method](...wrappedArgs);
-  // If method returns a new array (map, filter, slice) it should contain the proxies
-  if (wrapResult && Array.isArray(res)) {
-    return res.map(createProxy);
+  const result = raw[method](...wrappedArgs);
+
+  // Methods like `map`, `filter`, and `slice` build a new array whose items may
+  // be unproxied, so they are re-wrapped here. `reactive` reuses an item's existing
+  // proxy, or creates one, and passes non-objects through.
+  if (wrapResult && Array.isArray(result)) {
+    return result.map(reactive);
   }
-  return res;
+
+  return result;
 }
 
 const MUTATORS = [
@@ -57,7 +67,7 @@ MUTATORS.forEach((key) => {
     startBatch();
     try {
       const raw = getRaw(this);
-      const res = raw[key].apply(raw, args);
+      const result = raw[key].apply(raw, args);
 
       // Trigger the signals affected by mutation
       getSignal(raw, 'length')(raw.length);
@@ -68,8 +78,7 @@ MUTATORS.forEach((key) => {
         const rootKey = objectRootKeys.get(raw) ?? 'root'; // Fallback for raw arrays
         tracker(rootKey);
       }
-
-      return res;
+      return result;
     } finally {
       endBatch();
     }
@@ -84,13 +93,13 @@ SEARCHERS.forEach((key) => {
     const raw = getRaw(this) as any;
     getSignal(raw, ITERATION_KEY)();
 
-    let res = raw[key](...args);
+    let result = raw[key](...args);
     // Try unwrapping args (in case a proxy was passed to search)
-    if (res === -1 || res === false) {
+    if (result === -1 || result === false) {
       const rawArgs = args.map(getRaw);
-      res = raw[key](...rawArgs);
+      result = raw[key](...rawArgs);
     }
-    return res;
+    return result;
   };
 });
 
@@ -104,8 +113,7 @@ ITERATORS.forEach((key) => {
 
     const iterator = raw[key]();
     for (const val of iterator) {
-      // Yield reactive values so 'for-of' loops are safe
-      yield createProxy(val);
+      yield reactive(val);
     }
   };
 });
@@ -125,9 +133,8 @@ const CONSUMERS = [
 // Run on raw, proxy callback arguments, and wrap the return value if it's an object
 CONSUMERS.forEach((key) => {
   methodIntercepts[key] = function (this: any[], ...args: any[]) {
-    // For `find` methods, create proxy if it's an object
-    const res = runOnRaw(this, key, args);
-    return typeof res === 'object' && res !== null ? createProxy(res) : res;
+    const result = runOnRaw(this, key, args);
+    return reactive(result);
   };
 });
 

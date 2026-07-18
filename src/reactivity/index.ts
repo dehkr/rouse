@@ -7,7 +7,6 @@ export {
   startBatch,
   trigger,
 } from 'alien-signals';
-
 export {
   getProxy,
   getRaw,
