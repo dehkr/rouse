@@ -94,7 +94,7 @@ SEARCHERS.forEach((key) => {
   };
 });
 
-const ITERATORS = ['entries', 'keys', 'values', '[Symbol.iterator]'] as const;
+const ITERATORS = ['entries', 'keys', 'values', Symbol.iterator] as const;
 
 // Track iteration, get raw iterator, and yield reactive proxies for safe loops
 ITERATORS.forEach((key) => {
