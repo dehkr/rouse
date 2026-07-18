@@ -75,7 +75,7 @@ export function preparePayload(url: string, options: RouseRequest, baseUrl: stri
     }
 
     // Plain object or array -> JSON
-    else if (body && typeof body === 'object') {
+    else if (typeof body === 'object') {
       finalBody = JSON.stringify(body);
       if (!reqHeaders.has('Content-Type')) {
         reqHeaders.set('Content-Type', 'application/json');
