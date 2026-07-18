@@ -22,6 +22,7 @@ import {
 } from '../dom/binder';
 import { initObserver, initScopeElement } from '../dom/initializer';
 import { initStoreRouter } from '../dom/router';
+import { dispatch } from '../dom/scheduler';
 import { destroyInstance, IS_SCOPE } from '../dom/scope';
 import { initDomSwapper } from '../dom/swapper';
 import { handleFetch } from '../net/engine';
@@ -258,12 +259,7 @@ export class RouseApp {
     this._hasStarted = true;
     this._abortController = new AbortController();
 
-    this.root.dispatchEvent(
-      new CustomEvent('rz:app:start', {
-        bubbles: true,
-        detail: { app: this },
-      }),
-    );
+    dispatch(this.root, 'rz:app:start', { app: this });
 
     // Watch for HTML fetch responses
     initDomSwapper(this.root, this._abortController.signal);
@@ -356,12 +352,7 @@ export class RouseApp {
 
     this._hasStarted = false;
 
-    this.root.dispatchEvent(
-      new CustomEvent('rz:app:destroy', {
-        bubbles: true,
-        detail: { app: this },
-      }),
-    );
+    dispatch(this.root, 'rz:app:destroy', { app: this });
   }
 }
 
