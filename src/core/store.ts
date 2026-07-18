@@ -218,10 +218,9 @@ export class StoreManager {
       | StoreSyncErrorDetail
       | StoreSyncRollbackDetail,
     storeName: string,
-    options: CustomEventInit = { cancelable: false },
   ) {
     const target = this.elementFor(storeName) || (this.app.config.root as Element);
-    return dispatch(target, eventName, detail, options);
+    return dispatch(target, eventName, detail);
   }
 
   /**
