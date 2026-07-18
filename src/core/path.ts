@@ -1,5 +1,6 @@
 import type { Scope } from '../types';
 import { ITEM_PREFIX, KEY_BLOCKLIST, STORE_PREFIX } from './constants';
+import { parseDataSourcePath } from './parser';
 import { renderItem, renderParent } from './render';
 import { EMPTY_SCOPE, warn } from './shared';
 import type { StoreManager } from './store';
@@ -15,11 +16,6 @@ function warnWriteOnce(path: string, message: string): void {
   if (warnedWrites.has(path)) return;
   warnedWrites.add(path);
   warn(message);
-}
-
-function getStorePath(path: string) {
-  const fullPath = path.slice(STORE_PREFIX.length);
-  return { fullPath, dotIndex: fullPath.indexOf('.') };
 }
 
 /**
@@ -134,16 +130,9 @@ export function resolveState<T = unknown>(
 
   // Global store
   if (path.startsWith(STORE_PREFIX)) {
-    const { fullPath, dotIndex } = getStorePath(path);
-
-    if (dotIndex === -1) {
-      return storeManager.get(fullPath) as T | undefined;
-    }
-
-    const storeName = fullPath.slice(0, dotIndex);
-    const storePath = fullPath.slice(dotIndex + 1);
-
-    return getNestedVal<T>(storeManager.get(storeName), storePath);
+    const { source: storeName, nestedPath } = parseDataSourcePath(path);
+    const store = storeManager.get(storeName);
+    return nestedPath ? getNestedVal<T>(store, nestedPath) : (store as T | undefined);
   }
 
   // Fallback to local scope state
@@ -190,9 +179,9 @@ export function writeState(
 
   // Global store
   if (path.startsWith(STORE_PREFIX)) {
-    const { fullPath, dotIndex } = getStorePath(path);
+    const { source: storeName, nestedPath } = parseDataSourcePath(path);
 
-    if (dotIndex === -1) {
+    if (!nestedPath) {
       __DEV__ &&
         warnWriteOnce(
           path,
@@ -201,12 +190,10 @@ export function writeState(
       return;
     }
 
-    const storeName = fullPath.slice(0, dotIndex);
-    const storePath = fullPath.slice(dotIndex + 1);
     const storeData = storeManager.get(storeName);
 
     // Warns if store doesn't exist, or if key doesn't exist on store
-    if (!hasNestedKey(storeData, storePath)) {
+    if (!hasNestedKey(storeData, nestedPath)) {
       __DEV__ &&
         warnWriteOnce(
           path,
@@ -215,7 +202,7 @@ export function writeState(
       return;
     }
 
-    setNestedVal(storeData, storePath, value);
+    setNestedVal(storeData, nestedPath, value);
     return;
   }
 
