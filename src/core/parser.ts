@@ -21,7 +21,7 @@ const isOpener = (char: string): char is BoundaryOpener => openers.has(char);
 /**
  * Splits a directive value into `[key, value]` pairs. Pairs are comma-separated;
  * within a pair, the first `': '` (colon + whitespace) separates key from value.
- * A bare key parses with a `null` value; a dangling colon warns and skips the
+ * A bare key parses with a `null` value; a trailing colon warns and skips the
  * segment. Quotes and bracket boundaries are respected throughout.
  *
  * When a pair has a `null` value, the consumer decides how to read the bare key.
@@ -191,9 +191,9 @@ export function parseTriggers(value: string | null | undefined): TriggerDef[] {
  *
  * @example
  * ```ts
- * parseFetchSubject('POST /api/users'); // { method: 'POST', url: '/api/users' }
- * parseFetchSubject('/api/users');      // { url: '/api/users' }
- * parseFetchSubject('DELETE');          // { method: 'DELETE' }
+ * parseFetchSubject('POST /api/users'); // => { method: 'POST', url: '/api/users' }
+ * parseFetchSubject('/api/users');      // => { url: '/api/users' }
+ * parseFetchSubject('DELETE');          // => { method: 'DELETE' }
  * ```
  */
 export function parseFetchSubject(subject: string): {
@@ -224,9 +224,9 @@ export function parseFetchSubject(subject: string): {
  *
  * @example
  * ```ts
- * parseStoreSubject('merge \@cart'); // { action: 'merge', target: '@cart' }
- * parseStoreSubject('@cart.items');  // { target: '@cart.items' }
- * parseStoreSubject('replace');      // { action: 'replace' }
+ * parseStoreSubject('merge \@cart'); // => { action: 'merge', target: '@cart' }
+ * parseStoreSubject('@cart.items');  // => { target: '@cart.items' }
+ * parseStoreSubject('replace');      // => { action: 'replace' }
  * ```
  */
 export function parseStoreSubject(
