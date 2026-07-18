@@ -8,16 +8,347 @@ import {
 } from './constants';
 import { warn } from './shared';
 
-export type ParsedDirectiveValue = Array<[string, string | null]>;
-
-const VALUE_DELIMITER = ',';
-const SEGMENT_DELIMITER = ':';
-const MODIFIER_DELIMITER = '.';
-
-const openers: Record<string, boolean> = { '(': true, '{': true, '[': true };
-const closers: Record<string, string> = { ')': '(', '}': '{', ']': '[' };
-
+type ParsedDirectiveValue = Array<[string, string | null]>;
 type BoundaryOpener = '(' | '{' | '[';
+type BoundaryCloser = ')' | '}' | ']';
+
+const openers: Record<BoundaryOpener, boolean> = { '(': true, '{': true, '[': true };
+const closers: Record<BoundaryCloser, BoundaryOpener> = { ')': '(', '}': '{', ']': '[' };
+
+/**
+ * Splits a directive value into `[key, value]` pairs. Pairs are comma-separated;
+ * within a pair, the first `': '` (colon + whitespace) separates key from value.
+ * A bare key parses with a `null` value; a dangling colon warns and skips the
+ * segment. Quotes and bracket boundaries are respected throughout.
+ *
+ * When a pair has a `null` value, the consumer decides how to read the bare key.
+ * It could be treated as a flag, or as the meaningful value itself (as in the
+ * `rz-target` selector example here).
+ *
+ * @example
+ * ```ts
+ * parseDirectiveValue('beforeend: #item-list, #log > div.output');
+ * // [
+ * //   ['beforeend', '#item-list'],
+ * //   ['#log > div.output', null],
+ * // ]
+ * ```
+ */
+export function parseDirectiveValue(
+  value: string | null | undefined,
+): ParsedDirectiveValue {
+  let cleanedValue = value?.trim();
+  if (!cleanedValue) return [];
+
+  // Strip trailing commas to allow for multi-line HTML formatting
+  if (cleanedValue.endsWith(',')) {
+    cleanedValue = cleanedValue.slice(0, -1).trim();
+  }
+
+  const parsed: ParsedDirectiveValue = [];
+  let start = 0;
+
+  // Scan for values separated by comma + space
+  const scanResult = forEachSafeChar(cleanedValue, (i, char) => {
+    if (char === ',' && hasTrailingWhitespace(cleanedValue, i)) {
+      parseSegment(cleanedValue.slice(start, i), parsed);
+      start = i + 1;
+    }
+    // Keep scanning
+    return false;
+  });
+
+  if (scanResult.depth > 0 || scanResult.quote) {
+    __DEV__ && warn(`Malformed directive value: '${value}'.`);
+  }
+
+  // Final segment
+  parseSegment(cleanedValue.slice(start), parsed);
+
+  return parsed;
+}
+
+/**
+ * Parses one segment into a `[key, value]` pair and appends it to `pairs`. A bare
+ * key appends with a `null` value. A trailing colon warns and appends nothing.
+ */
+function parseSegment(segment: string, pairs: ParsedDirectiveValue): void {
+  const trimmed = segment.trim();
+  if (!trimmed) return;
+
+  let splitIndex = -1;
+
+  forEachSafeChar(trimmed, (i, char, text) => {
+    // Colon + whitespace separates the `'key: value'` of a segment
+    if (char === ':' && hasTrailingWhitespace(text, i)) {
+      splitIndex = i;
+      // Stop at first valid separator
+      return true;
+    }
+    // Otherwise keep scanning
+    return false;
+  });
+
+  if (splitIndex !== -1) {
+    const key = stripQuotes(trimmed.slice(0, splitIndex).trim());
+    const val = stripQuotes(trimmed.slice(splitIndex + 1).trim());
+    if (key) {
+      pairs.push([key, val]);
+    }
+  } else if (trimmed.endsWith(':')) {
+    // A trailing ':' most likely means a value was inadvertently left out
+    __DEV__ && warn(`Ignoring '${trimmed}': trailing colon has no value.`);
+  } else {
+    const key = stripQuotes(trimmed);
+    if (key) {
+      pairs.push([key, null]);
+    }
+  }
+}
+
+/**
+ * Splits a directive value into trigger/subject pairs. Comma-separated groups
+ * pair space-separated triggers with one shared subject after the colon. A group
+ * with no colon yields a `null` subject, leaving the directive to resolve the
+ * URL/target from the element.
+ *
+ * @example
+ * ```ts
+ * parseTriggerSubjectPairs('input.debounce change: /api/users');
+ * // [
+ * //   {
+ * //     trigger: { event: 'input', modifiers: ['debounce'] },
+ * //     subject: '/api/users',
+ * //   },
+ * //   {
+ * //     trigger: { event: 'change', modifiers: [] },
+ * //     subject: '/api/users',
+ * //   },
+ * // ]
+ * ```
+ */
+export function parseTriggerSubjectPairs(
+  value: string | null | undefined,
+): TriggerSubjectPair[] {
+  const pairs: TriggerSubjectPair[] = [];
+  for (const [keyStr, subjectStr] of parseDirectiveValue(value)) {
+    const subject = subjectStr || null;
+    for (const trigger of parseTriggers(keyStr)) {
+      pairs.push({ trigger, subject });
+    }
+  }
+
+  return pairs;
+}
+
+/**
+ * Parses a raw trigger string into trigger definitions, splitting on whitespace
+ * outside quotes and boundaries. Commas are rejected; multi-trigger values are
+ * space-separated.
+ *
+ * @example
+ * ```ts
+ * parseTriggers('click.throttle.300ms mouseenter.once mouseleave');
+ * // [
+ * //   { event: 'click', modifiers: ['throttle', '300ms'] },
+ * //   { event: 'mouseenter', modifiers: ['once'] },
+ * //   { event: 'mouseleave', modifiers: [] },
+ * // ]
+ * ```
+ */
+export function parseTriggers(value: string | null | undefined): TriggerDef[] {
+  let raw = value?.trim();
+  if (!raw) return [];
+
+  raw = stripQuotes(raw);
+  if (raw.includes(',')) {
+    __DEV__ && warn(`Separate multi-trigger values by spaces, not commas: '${raw}'.`);
+    return [];
+  }
+
+  const triggers = splitOnSafeDelimiter(raw, (char) => /\s/.test(char));
+  const parsed: TriggerDef[] = [];
+
+  // Split the triggers into their respective event and dot-separated modifiers,
+  // ignoring dots inside quotes or boundaries.
+  for (const trigger of triggers) {
+    const parts = splitOnSafeDelimiter(trigger, '.');
+    const [event = '', ...modifiers] = parts;
+    if (!event) continue;
+    parsed.push({ event, modifiers });
+  }
+
+  return parsed;
+}
+
+/**
+ * Parses a fetch subject string into an optional HTTP method and/or a URL.
+ * The method is matched by vocabulary. Either may be omitted (a missing URL
+ * is resolved from the element).
+ *
+ * @example
+ * ```ts
+ * parseFetchSubject('POST /api/users'); // { method: 'POST', url: '/api/users' }
+ * parseFetchSubject('/api/users');      // { url: '/api/users' }
+ * parseFetchSubject('DELETE');          // { method: 'DELETE' }
+ * ```
+ */
+export function parseFetchSubject(subject: string): {
+  method?: HttpMethod;
+  url?: string;
+} {
+  const ws = subject.search(/\s/);
+  const head = ws === -1 ? subject : subject.slice(0, ws);
+
+  // A leading HTTP method is split off. The rest is the URL. If a leading
+  // HTTP method isn't detected, treat the entire string as the URL.
+  if (isHttpMethod(head)) {
+    return {
+      method: head.toUpperCase() as HttpMethod,
+      url: ws === -1 ? undefined : subject.slice(ws + 1).trim(),
+    };
+  }
+
+  return { url: subject };
+}
+
+/**
+ * Parses a store subject string into an optional patch action and store target.
+ * The action is matched by vocabulary and the target by its `@` prefix. The target
+ * may be omitted when used on a `<script>` element with the `rz-store` directive.
+ *
+ * Returns `null` when a token is neither an action nor a store reference.
+ *
+ * @example
+ * ```ts
+ * parseStoreSubject('merge \@cart'); // { action: 'merge', target: '@cart' }
+ * parseStoreSubject('@cart.items');  // { target: '@cart.items' }
+ * parseStoreSubject('replace');      // { action: 'replace' }
+ * ```
+ */
+export function parseStoreSubject(
+  subject: string,
+  el?: Element,
+): { action?: PatchAction; target?: string } | null {
+  const ws = subject.search(/\s/);
+  const head = ws === -1 ? subject : subject.slice(0, ws);
+
+  // Leading action: everything after it is the store target
+  if (isPatchAction(head)) {
+    const action = head.toLowerCase() as PatchAction;
+    const target = ws === -1 ? '' : subject.slice(ws + 1).trim();
+    if (!target) return { action };
+    if (!target.startsWith(STORE_PREFIX)) {
+      __DEV__ && warn(`'${target}' is not a '@store' reference.`, el);
+      return null;
+    }
+    return { action, target };
+  }
+
+  // No leading action: the whole subject is the store target
+  if (!subject.startsWith(STORE_PREFIX)) {
+    __DEV__ && warn(`'${subject}' is not a patch action or '@store' reference.`, el);
+    return null;
+  }
+
+  return { target: subject };
+}
+
+/**
+ * Splits a prefixed locator into its head (the segment after the single-char
+ * prefix) and the nested dot-path, if any. Shared by `@` store references and
+ * `#` script-id references.
+ *
+ * @example
+ * ```ts
+ * splitLocator('@cart.items.total'); // { head: 'cart', nestedPath: 'items.total' }
+ * splitLocator('@cart');             // { head: 'cart', nestedPath: '' }
+ * splitLocator('#config.theme');     // { head: 'config', nestedPath: 'theme' }
+ * ```
+ */
+export function splitLocator(value: string): {
+  head: string;
+  nestedPath: string;
+} {
+  const path = value.slice(1);
+  const dotIndex = path.indexOf('.');
+
+  if (dotIndex === -1) {
+    return { head: path, nestedPath: '' };
+  }
+
+  return {
+    head: path.slice(0, dotIndex),
+    nestedPath: path.slice(dotIndex + 1),
+  };
+}
+
+/**
+ * Extracts the store name and the nested path (if any) from a string value.
+ *
+ * @example
+ * ```ts
+ * parseStoreLocator('@user.profile.name');
+ * // { storeName: 'user', nestedPath: 'profile.name' }
+ * ```
+ */
+export function parseStoreLocator(value: string): {
+  storeName: string;
+  nestedPath: string;
+} {
+  const { head, nestedPath } = splitLocator(value);
+  return { storeName: head, nestedPath };
+}
+
+/**
+ * Parses a CSS declaration string into `[property, value]` pairs.
+ *
+ * @example
+ * ```ts
+ * parseDeclarations('color: red; margin: 0 auto');
+ * // [
+ * //   ['color', 'red'],
+ * //   ['margin', '0 auto'],
+ * // ]
+ * ```
+ */
+export function parseDeclarations(decl: string): Array<[string, string]> {
+  return splitOnSafeDelimiter(decl, ';')
+    .map((d) => {
+      const [prop = '', ...rest] = splitOnSafeDelimiter(d, ':');
+      return [prop.trim(), rest.join(':').trim()] as [string, string];
+    })
+    .filter(([prop]) => prop);
+}
+
+/**
+ * Splits `text` on every unescaped occurrence of `delimiter` at depth 0,
+ * returning the resulting segments. Empty segments are excluded.
+ *
+ * Centralises the start-pointer / slice / remainder pattern that would
+ * otherwise be repeated across every parsing function.
+ */
+function splitOnSafeDelimiter(
+  text: string,
+  delimiter: string | ((char: string) => boolean),
+): string[] {
+  const isDelimiter =
+    typeof delimiter === 'string' ? (c: string) => c === delimiter : delimiter;
+
+  const parts: string[] = [];
+  let start = 0;
+
+  forEachSafeChar(text, (i, char) => {
+    if (isDelimiter(char)) {
+      parts.push(text.slice(start, i));
+      start = i + 1;
+    }
+    return false;
+  });
+
+  parts.push(text.slice(start));
+  return parts.filter((p) => p.length > 0);
+}
 
 /**
  * Iterates through text and fires a callback for each character that is safe
@@ -54,14 +385,14 @@ function forEachSafeChar(
     }
 
     // Entering a nested block (increment depth)
-    else if (openers[char]) {
+    else if (openers[char as BoundaryOpener]) {
       depths[char as BoundaryOpener]++;
       totalDepth++;
     }
 
     // Exiting a block (decrement depth and validate matching pairs)
-    else if (closers[char]) {
-      const opener = closers[char] as BoundaryOpener;
+    else if (closers[char as BoundaryCloser]) {
+      const opener = closers[char as BoundaryCloser];
       if (depths[opener] > 0) {
         depths[opener]--;
         totalDepth--;
@@ -82,37 +413,7 @@ function forEachSafeChar(
 }
 
 /**
- * Splits `text` on every unescaped occurrence of `delimiter` at depth 0,
- * returning the resulting segments. Empty segments are excluded.
- *
- * Centralises the start-pointer / slice / remainder pattern that would
- * otherwise be repeated across every parsing function.
- */
-function splitOnSafeDelimiter(
-  text: string,
-  delimiter: string | ((char: string) => boolean),
-): string[] {
-  const isDelimiter =
-    typeof delimiter === 'string' ? (c: string) => c === delimiter : delimiter;
-
-  const parts: string[] = [];
-  let start = 0;
-
-  forEachSafeChar(text, (i, char) => {
-    if (isDelimiter(char)) {
-      parts.push(text.slice(start, i));
-      start = i + 1;
-    }
-    return false;
-  });
-
-  parts.push(text.slice(start));
-
-  return parts.filter((p) => p.length > 0);
-}
-
-/**
- * Check if a string is enclosed in matching quotation marks.
+ * Checks if a string is enclosed in matching quotation marks.
  */
 function isInQuotes(val: string) {
   if (val.length < 2) return false;
@@ -132,240 +433,9 @@ function stripQuotes(val: string) {
   return val;
 }
 
+/**
+ * Checks if a specific character index in a string is followed by whitespace.
+ */
 function hasTrailingWhitespace(text: string, index: number) {
   return index + 1 < text.length && /\s/.test(text.charAt(index + 1));
-}
-
-/**
- * Handles string splitting for directive values.
- *
- * rz-wake="visible, media: (min-width: 600px)" is parsed to:
- * [['visible', null], ['media', '(min-width: 600px)']]
- */
-export function parseDirectiveValue(
-  value: string | null | undefined,
-): ParsedDirectiveValue {
-  let cleanedValue = value?.trim();
-  if (!cleanedValue) return [];
-
-  // Strip trailing commas to allow for multi-line HTML formatting.
-  if (cleanedValue.endsWith(',')) {
-    cleanedValue = cleanedValue.slice(0, -1).trim();
-  }
-
-  const parsed: ParsedDirectiveValue = [];
-  let start = 0;
-
-  // Scan for values separated by comma + space
-  const scanResult = forEachSafeChar(cleanedValue, (i, char) => {
-    if (char === VALUE_DELIMITER && hasTrailingWhitespace(cleanedValue, i)) {
-      parseSegment(cleanedValue.slice(start, i), parsed);
-      start = i + 1;
-    }
-    return false; // keep scanning
-  });
-
-  if (scanResult.depth > 0 || scanResult.quote) {
-    __DEV__ && warn(`Malformed directive value: '${value}'.`);
-  }
-
-  // Final segment
-  parseSegment(cleanedValue.slice(start), parsed);
-
-  return parsed;
-}
-
-/**
- * Parse a single segment into a [key, value] pair and push it onto `acc`.
- */
-function parseSegment(segment: string, acc: ParsedDirectiveValue): void {
-  const trimmed = segment.trim();
-  if (!trimmed) return;
-
-  let splitIndex = -1;
-
-  forEachSafeChar(trimmed, (i, char, text) => {
-    if (char === SEGMENT_DELIMITER && hasTrailingWhitespace(text, i)) {
-      splitIndex = i;
-      return true; // stop at first valid separator
-    }
-    return false; // otherwise keep scanning
-  });
-
-  if (splitIndex !== -1) {
-    const key = stripQuotes(trimmed.slice(0, splitIndex).trim());
-    const val = stripQuotes(trimmed.slice(splitIndex + 1).trim());
-    if (key) acc.push([key, val]);
-  } else if (trimmed.endsWith(SEGMENT_DELIMITER)) {
-    // A trailing ':' means the value was forgotten; likely a typo
-    __DEV__ && warn(`Ignoring '${trimmed}': trailing colon has no value.`);
-  } else {
-    const key = stripQuotes(trimmed);
-    if (key) acc.push([key, null]);
-  }
-}
-
-/**
- * Utility for parsing a value that might have modifiers.
- * Safely extracts modifiers, ignoring dots inside quotes or boundaries.
- *
- * - `click.debounce.400ms` returns `{ key: 'click', modifiers: ['debounce', '400ms']}`
- * - `media.(max-width < 600px)` returns `{ key: 'media', modifiers: ['(max-width < 600px)']}`
- */
-export function parseModifiers(value: string): { key: string; modifiers: string[] } {
-  const parts = splitOnSafeDelimiter(value, MODIFIER_DELIMITER);
-  const [key = '', ...modifiers] = parts;
-  return { key, modifiers };
-}
-
-/**
- * Handles parsing raw directive values into an array of trigger definitions.
- * Splits on whitespace, ignoring spaces inside quotes or boundaries.
- */
-export function parseTriggers(value: string | null | undefined): TriggerDef[] {
-  let rawTriggers = value?.trim();
-  if (!rawTriggers) return [];
-
-  rawTriggers = stripQuotes(rawTriggers);
-
-  if (rawTriggers.includes(',')) {
-    __DEV__ &&
-      warn(`Separate multi-trigger values by spaces, not commas: '${rawTriggers}'.`);
-    return [];
-  }
-
-  const parts = splitOnSafeDelimiter(rawTriggers, (c) => /\s/.test(c));
-
-  const triggers: TriggerDef[] = [];
-  for (const trigger of parts) {
-    const { key: event, modifiers } = parseModifiers(trigger);
-    if (!event) continue;
-    triggers.push({ event, modifiers });
-  }
-
-  return triggers;
-}
-
-/**
- * Splits a directive value into trigger/subject pairs:
- * `click: /users` -> `[{ trigger: click, subject: '/users' }]`.
- *
- * Space-separated triggers before the colon share the subject after it.
- * Commas separate groups. A group with no colon is a trigger with no subject,
- * so the directive handles resolving the URL/target some other way.
- */
-export function parseTriggerSubjectPairs(
-  value: string | null | undefined,
-): TriggerSubjectPair[] {
-  const pairs: TriggerSubjectPair[] = [];
-  for (const [keyStr, subjectStr] of parseDirectiveValue(value)) {
-    const subject = subjectStr || null;
-    for (const trigger of parseTriggers(keyStr)) {
-      pairs.push({ trigger, subject });
-    }
-  }
-  return pairs;
-}
-
-/**
- * Parses a fetch subject string into an optional HTTP method and/or a URL.
- * The method is matched by vocabulary. Either may be omitted (a missing URL
- * is resolved from the element).
- */
-export function parseFetchSubject(subject: string): {
-  method?: HttpMethod;
-  url?: string;
-} {
-  const ws = subject.search(/\s/);
-  const head = ws === -1 ? subject : subject.slice(0, ws);
-
-  // A leading HTTP method is split off. The rest is the URL. If a leading
-  // HTTP method isn't detected, treat the entire string as the URL.
-  if (isHttpMethod(head)) {
-    return {
-      method: head.toUpperCase() as HttpMethod,
-      url: ws === -1 ? undefined : subject.slice(ws + 1).trim(),
-    };
-  }
-
-  return { url: subject };
-}
-
-/**
- * Parses a store subject string into an optional patch action and store target.
- * The action is matched by vocabulary and the target by its `@` prefix. The target
- * may be omitted when used on a <script> element with the `rz-store` directive.
- *
- * Returns null when a token is neither an action nor a store reference.
- */
-export function parseStoreSubject(
-  subject: string,
-  el?: Element,
-): { action?: PatchAction; target?: string } | null {
-  const ws = subject.search(/\s/);
-  const head = ws === -1 ? subject : subject.slice(0, ws);
-
-  // Leading action: everything after it is the store target
-  if (isPatchAction(head)) {
-    const action = head.toLowerCase() as PatchAction;
-    const target = ws === -1 ? '' : subject.slice(ws + 1).trim();
-    if (!target) return { action };
-    if (!target.startsWith(STORE_PREFIX)) {
-      __DEV__ && warn(`'${target}' is not a '@store' reference.`, el);
-      return null;
-    }
-    return { action, target };
-  }
-
-  // No leading action: the whole subject is the store target
-  if (!subject.startsWith(STORE_PREFIX)) {
-    __DEV__ && warn(`'${subject}' is not a patch action or '@store' reference.`, el);
-    return null;
-  }
-  return { target: subject };
-}
-
-/**
- * Splits a prefixed locator into its head (the segment after the single-char
- * prefix) and the nested dot-path, if any. Shared by `@` store references and
- * `#` script-id references.
- */
-export function splitLocator(value: string): {
-  head: string;
-  nestedPath: string;
-} {
-  const path = value.slice(1);
-  const dotIndex = path.indexOf('.');
-
-  if (dotIndex === -1) {
-    return { head: path, nestedPath: '' };
-  }
-
-  return {
-    head: path.slice(0, dotIndex),
-    nestedPath: path.slice(dotIndex + 1),
-  };
-}
-
-/**
- * Extracts the store name and the nested path (if any) from a string value.
- */
-export function parseStoreLocator(value: string): {
-  storeName: string;
-  nestedPath: string;
-} {
-  const { head, nestedPath } = splitLocator(value);
-  return { storeName: head, nestedPath };
-}
-
-/**
- * Parses a CSS declaration string into [property, value] pairs.
- */
-export function parseDeclarations(decl: string): Array<[string, string]> {
-  return splitOnSafeDelimiter(decl, ';')
-    .map((d) => {
-      const [prop = '', ...rest] = splitOnSafeDelimiter(d, ':');
-      return [prop.trim(), rest.join(':').trim()] as [string, string];
-    })
-    .filter(([prop]) => prop);
 }
