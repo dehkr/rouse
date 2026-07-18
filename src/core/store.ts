@@ -16,7 +16,7 @@ import type {
 } from '../types';
 import type { RouseApp } from './app';
 import { type HttpMethod, type PatchAction, STORE_PREFIX } from './constants';
-import { parseStoreLocator } from './parser';
+import { parseDataSourcePath } from './parser';
 import { getNestedVal, getRootSegment, setNestedVal } from './path';
 import { fail, getDirectiveValue, warn } from './shared';
 import { clone, deepEqual, patchState } from './state';
@@ -80,7 +80,7 @@ export function resolveTarget(
         );
       return null;
     }
-    const { storeName, nestedPath } = parseStoreLocator(subject);
+    const { source: storeName, nestedPath } = parseDataSourcePath(subject);
     if (!storeName) {
       __DEV__ && warn(`rz-${slug}: invalid store reference '${subject}'.`);
       return null;
@@ -107,7 +107,7 @@ export function resolveTarget(
 export function resolveStoreUrl(ref: string, stores: StoreManager): string | null {
   if (!ref.startsWith(STORE_PREFIX)) return ref;
 
-  const { storeName, nestedPath } = parseStoreLocator(ref);
+  const { source: storeName, nestedPath } = parseDataSourcePath(ref);
   const storeData = stores.get(storeName);
 
   const value = getNestedVal(storeData, nestedPath);

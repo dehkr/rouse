@@ -1,7 +1,7 @@
 import { is } from '../dom/utils';
 import type { AnyFn, BindableValue, DirectiveSlug, HandlerCtx, Scope } from '../types';
 import { KEY_BLOCKLIST, STORE_PREFIX } from './constants';
-import { parseStoreLocator, splitLocator } from './parser';
+import { parseDataSourcePath } from './parser';
 import { getNestedVal, resolveState } from './path';
 import { renderCtxOf } from './render';
 import { err, isPlainObject, warn } from './shared';
@@ -38,7 +38,7 @@ export function resolveInjection(
 
   // Store data
   if (value.startsWith(STORE_PREFIX)) {
-    const { storeName, nestedPath } = parseStoreLocator(value);
+    const { source: storeName, nestedPath } = parseDataSourcePath(value);
     const storeData = storeManager.get(storeName);
 
     if (storeData === undefined) {
@@ -51,7 +51,7 @@ export function resolveInjection(
 
   // DOM script ID
   else if (value.startsWith('#')) {
-    const { head: id, nestedPath } = splitLocator(value);
+    const { source: id, nestedPath } = parseDataSourcePath(value);
     const el = document.getElementById(id);
     if (el && is(el, 'Script') && el.type === 'application/json') {
       const content = el.textContent?.trim();
@@ -139,7 +139,7 @@ export function resolveBoundValue(
 
   if (typeof state === 'function') {
     const context = key.startsWith(STORE_PREFIX)
-      ? storeManager.get(parseStoreLocator(key).storeName)
+      ? storeManager.get(parseDataSourcePath(key).source)
       : scope;
 
     try {

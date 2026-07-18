@@ -1,7 +1,7 @@
 import type { RouseApp } from '../core/app';
 import { STORE_PREFIX } from '../core/constants';
 import { resolveInjection, splitInjection } from '../core/injection';
-import { parseStoreLocator, parseTriggers } from '../core/parser';
+import { parseDataSourcePath, parseTriggers } from '../core/parser';
 import { getNestedVal } from '../core/path';
 import { renderCtxOf } from '../core/render';
 import { err, warn } from '../core/shared';
@@ -40,7 +40,7 @@ function bind(
 
   // Global store (e.g., `@theme.toggleMode`)
   if (methodName.startsWith(STORE_PREFIX)) {
-    const { storeName, nestedPath } = parseStoreLocator(methodName);
+    const { source: storeName, nestedPath } = parseDataSourcePath(methodName);
     const storeData = app.stores.get(storeName);
 
     if (storeData === undefined) {

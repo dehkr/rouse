@@ -255,49 +255,37 @@ export function parseStoreSubject(
 }
 
 /**
- * Splits a prefixed locator into its head (the segment after the single-char
- * prefix) and the nested dot-path, if any. Shared by `@` store references and
- * `#` script-id references.
+ * Parses a prefixed data-source path into the source it names and the
+ * nested dot-path into that source, if any. Shared by `@` store references
+ * and `#` script-id references.
  *
  * @example
  * ```ts
- * splitLocator('@cart.items.total'); // { head: 'cart', nestedPath: 'items.total' }
- * splitLocator('@cart');             // { head: 'cart', nestedPath: '' }
- * splitLocator('#config.theme');     // { head: 'config', nestedPath: 'theme' }
+ * parseDataSourcePath('@cart.items.total');
+ * // => { source: 'cart', nestedPath: 'items.total' }
+ *
+ * parseDataSourcePath('@cart');
+ * // => { source: 'cart', nestedPath: '' }
+ *
+ * parseDataSourcePath('#config.theme');
+ * // => { source: 'config', nestedPath: 'theme' }
  * ```
  */
-export function splitLocator(value: string): {
-  head: string;
+export function parseDataSourcePath(value: string): {
+  source: string;
   nestedPath: string;
 } {
   const path = value.slice(1);
   const dotIndex = path.indexOf('.');
 
   if (dotIndex === -1) {
-    return { head: path, nestedPath: '' };
+    return { source: path, nestedPath: '' };
   }
 
   return {
-    head: path.slice(0, dotIndex),
+    source: path.slice(0, dotIndex),
     nestedPath: path.slice(dotIndex + 1),
   };
-}
-
-/**
- * Extracts the store name and the nested path (if any) from a string value.
- *
- * @example
- * ```ts
- * parseStoreLocator('@user.profile.name');
- * // { storeName: 'user', nestedPath: 'profile.name' }
- * ```
- */
-export function parseStoreLocator(value: string): {
-  storeName: string;
-  nestedPath: string;
-} {
-  const { head, nestedPath } = splitLocator(value);
-  return { storeName: head, nestedPath };
 }
 
 /**
