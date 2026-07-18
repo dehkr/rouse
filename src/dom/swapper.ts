@@ -4,27 +4,18 @@ import { rzTarget } from '../directives';
 import type { RouseResponse } from '../types';
 import { dispatch } from './scheduler';
 
-interface SwapOptions {
-  data: string;
-  triggerEl: Element;
-  targetEl: Element;
-  method: SwapMethod;
-  response: Response | null;
-  appRoot: Element;
-}
-
 /**
  * Listens globally for HTML fetch responses (successes, and errors the
  * server targets via `Rouse-Target`) and mutates the DOM accordingly.
  */
 export function initDomSwapper(appRoot: Element, abortSignal: AbortSignal) {
-  const handleMutate = (e: Event) => {
+  const handleSwap = (e: Event) => {
     const { detail, target } = e as CustomEvent<RouseResponse>;
-    const { data, response, config, targetOverride } = detail;
+    const { data, config, targetOverride } = detail;
     const triggerEl = target as Element;
 
-    // Programmatic fetch (app.fetch, ctx.fetch) defaults to `swap: false` so
-    // it doesn't automatically update the DOM, unlike `rz-fetch`.
+    // Programmatic fetch (`app.fetch`, `ctx.fetch`) defaults to `swap: false`
+    // so it doesn't auto-update the DOM, unlike `rz-fetch`.
     if (config?.swap === false) return;
     if (typeof data !== 'string') return;
 
@@ -41,25 +32,29 @@ export function initDomSwapper(appRoot: Element, abortSignal: AbortSignal) {
 
     for (const { targets, method } of operations) {
       for (const targetEl of targets) {
-        performSwap({
-          data,
-          triggerEl,
-          targetEl,
-          method,
-          response,
-          appRoot,
-        });
+        swap(data, targetEl, method, 'fetch');
       }
     }
   };
 
   for (const eventName of ['rz:fetch:success:html', 'rz:fetch:error:html']) {
-    appRoot.addEventListener(eventName, handleMutate, { signal: abortSignal });
+    appRoot.addEventListener(eventName, handleSwap, { signal: abortSignal });
   }
 }
 
 /**
- * Handles swapping HTML partials into the DOM.
+ * Swaps HTML content into a target element using the given method (`innerHTML`,
+ * `outerHTML`, `delete`, or an `insertAdjacentHTML` position such as `beforeend`).
+ *
+ * Fires a cancelable `rz:dom:swap:before` event first — a listener can cancel it
+ * to skip the swap, or mutate `detail.payload` to change what gets written — then
+ * a `rz:dom:swap` event after. For `outerHTML` and `delete`, both events fire from
+ * the target's parent, since the target itself is replaced or removed.
+ *
+ * @param content - The HTML string to swap in (ignored for `delete`).
+ * @param target - The element to swap into, replace, or remove.
+ * @param method - How to place the content. Defaults to `innerHTML`.
+ * @param source - Marks the swap as `fetch`-driven or `programmatic` (default); surfaced on both lifecycle events.
  */
 export function swap(
   content: string,
@@ -102,11 +97,4 @@ export function swap(
     payload: finalContent,
     source,
   });
-}
-
-/**
- * Helper to handle the specific logic of a single DOM mutation.
- */
-function performSwap({ data, targetEl, method }: SwapOptions) {
-  swap(data, targetEl, method, 'fetch');
 }
