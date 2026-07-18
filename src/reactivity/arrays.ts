@@ -119,6 +119,7 @@ ITERATORS.forEach((key) => {
 });
 
 const CONSUMERS = [
+  'at',
   'every',
   'find',
   'findIndex',
