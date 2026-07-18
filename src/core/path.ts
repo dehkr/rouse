@@ -10,7 +10,7 @@ const pathCache = new Map<string, string[]>();
 const warnedWrites = new Set<string>();
 
 /**
- * Resolve a dot-notation path to a value.
+ * Resolves a dot-notation path to a value.
  */
 export function getNestedVal<T = unknown>(
   obj: any,
@@ -30,7 +30,7 @@ export function getNestedVal<T = unknown>(
 }
 
 /**
- * Set a value at a dot-notation path.
+ * Sets a value at a dot-notation path.
  */
 export function setNestedVal(obj: any, path: string | undefined, value: any): void {
   if (!obj || typeof obj !== 'object' || !path) return;
@@ -221,7 +221,7 @@ function hasNestedKey(obj: unknown, path: string): boolean {
 }
 
 /**
- * Dedupe per-keystroke `rz-model` repeat warnings.
+ * Dedupes per-keystroke `rz-model` repeat warnings.
  */
 function warnWriteOnce(path: string, message: string): void {
   if (warnedWrites.has(path)) return;
