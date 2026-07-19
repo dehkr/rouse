@@ -523,7 +523,9 @@ export class StoreManager {
     listeners.add(callback);
     return () => {
       listeners.delete(callback);
-      if (listeners.size === 0) this._mutateListeners.delete(name);
+      if (listeners.size === 0 && this._mutateListeners.get(name) === listeners) {
+        this._mutateListeners.delete(name);
+      }
     };
   }
 
@@ -679,5 +681,7 @@ export class StoreManager {
     this._initial.delete(name);
     this._lastGood.delete(name);
     this._activeReqs.delete(name);
+    this._mutateListeners.delete(name);
+    this._pendingMutates.delete(name);
   }
 }
