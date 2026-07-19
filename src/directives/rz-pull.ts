@@ -1,14 +1,12 @@
 import type { RouseApp } from '../core/app';
 import type { PatchAction } from '../core/constants';
-import { parseStoreSubject, parseTriggerSubjectPairs } from '../core/parser';
-import { getDirectiveValue, warn } from '../core/shared';
+import { parseStoreSubject } from '../core/parser';
+import { warn } from '../core/shared';
 import { resolveTarget } from '../core/store';
 import { dispatchTrigger } from '../dom/scheduler';
 import { resolveRequestConfig } from '../net/request';
-import type { DirectiveSlug, StandaloneDirective, VoidFn } from '../types';
-
-const SLUG = 'pull' as const satisfies DirectiveSlug;
-const elementCleanups = new WeakMap<Element, Array<VoidFn>>();
+import type { VoidFn } from '../types';
+import { defineTriggerDirective } from './trigger-directive';
 
 /**
  * Resolves the merged request config from the trigger and target elements
@@ -36,26 +34,11 @@ function triggerPull(
 }
 
 /**
- * Manager entry for `rz-pull`. Parses each `[trigger]: [[action] @store[.path]]`
- * pair from the attribute value and wires the trigger to fire a pull
- * against the resolved target.
+ * Definition for the `rz-pull` directive object. Wires each parsed
+ * `[trigger]: [[action] @store[.path]]` pair to pull server state into
+ * a local store.
  */
-function initialize(el: Element, app: RouseApp) {
-  if (elementCleanups.has(el)) return;
-
-  const value = getDirectiveValue(el, SLUG);
-  if (value === null) return;
-
-  const pairs = parseTriggerSubjectPairs(value);
-  if (pairs.length === 0) {
-    __DEV__ &&
-      warn(
-        'rz-pull: at least one trigger is required (e.g., rz-pull="load: @user").',
-        el,
-      );
-    return;
-  }
-
+export const rzPull = defineTriggerDirective('pull', 'load: @user', (el, app, pairs) => {
   const cleanups: VoidFn[] = [];
 
   for (const { trigger, subject } of pairs) {
@@ -68,28 +51,12 @@ function initialize(el: Element, app: RouseApp) {
 
     const { storeName, nestedPath } = resolved;
     const fire = () => triggerPull(el, app, storeName, nestedPath, action);
+
     const cleanup = dispatchTrigger(trigger, { el, app, action: fire });
     if (cleanup) {
       cleanups.push(cleanup);
     }
   }
 
-  if (cleanups.length > 0) {
-    elementCleanups.set(el, cleanups);
-  }
-}
-
-function teardown(el: Element) {
-  elementCleanups.get(el)?.forEach((fn) => fn());
-  elementCleanups.delete(el);
-}
-
-/**
- * Definition for the `rz-pull` directive object. Wires events to pull
- * server state into a local store.
- */
-export const rzPull = {
-  slug: SLUG,
-  initialize,
-  teardown,
-} as const satisfies StandaloneDirective;
+  return cleanups;
+});

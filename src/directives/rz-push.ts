@@ -1,16 +1,14 @@
 import type { RouseApp } from '../core/app';
 import type { PatchAction } from '../core/constants';
-import { parseStoreSubject, parseTriggerSubjectPairs } from '../core/parser';
+import { parseStoreSubject } from '../core/parser';
 import { getPathRoot } from '../core/path';
-import { getDirectiveValue, warn } from '../core/shared';
+import { warn } from '../core/shared';
 import { resolveTarget } from '../core/store';
 import { applyTiming } from '../core/timing';
 import { dispatchTrigger } from '../dom/scheduler';
 import { resolveRequestConfig } from '../net/request';
-import type { DirectiveSlug, StandaloneDirective, TriggerDef, VoidFn } from '../types';
-
-const SLUG = 'push' as const satisfies DirectiveSlug;
-const elementCleanups = new WeakMap<Element, Array<VoidFn>>();
+import type { TriggerDef, VoidFn } from '../types';
+import { defineTriggerDirective } from './trigger-directive';
 
 /**
  * Resolves the merged request config from the trigger and target elements
@@ -37,25 +35,41 @@ function triggerPush(
 }
 
 /**
- * Parses each `[trigger]: [[action] @store[.path]]` pair from the attribute
- * value and wires the trigger to fire a push against the resolved target.
+ * Fires `triggerPush` whenever the store data changes.
  */
-function initialize(el: Element, app: RouseApp) {
-  if (elementCleanups.has(el)) return;
+function attachMutateEffect(
+  app: RouseApp,
+  storeName: string,
+  modifiers: TriggerDef['modifiers'],
+  fire: VoidFn,
+  nestedPath: string,
+): VoidFn {
+  const rootKey = nestedPath ? getPathRoot(nestedPath) : null;
 
-  const value = getDirectiveValue(el, SLUG);
-  if (value === null) return;
+  const guardedFire = () => {
+    const status = app.stores.status(storeName);
+    if (!status) return;
+    const hasDirty = rootKey
+      ? !!status.dirty[rootKey]
+      : Object.keys(status.dirty).length > 0;
+    if (!hasDirty) return;
+    fire();
+  };
 
-  const pairs = parseTriggerSubjectPairs(value);
-  if (pairs.length === 0) {
-    __DEV__ &&
-      warn(
-        'rz-push: at least one trigger is required (e.g., rz-push="click: @user").',
-        el,
-      );
-    return;
-  }
+  const debouncedFire = applyTiming(guardedFire, modifiers);
+  const stopListener = app.stores.onEdit(storeName, debouncedFire);
 
+  return () => {
+    debouncedFire.cancel();
+    stopListener();
+  };
+}
+
+/**
+ * Wires each parsed `[trigger]: [[action] @store[.path]]` pair to push local
+ * store state to the server.
+ */
+export const rzPush = defineTriggerDirective('push', 'click: @user', (el, app, pairs) => {
   const cleanups: VoidFn[] = [];
 
   for (const { trigger, subject } of pairs) {
@@ -82,52 +96,5 @@ function initialize(el: Element, app: RouseApp) {
     }
   }
 
-  if (cleanups.length > 0) {
-    elementCleanups.set(el, cleanups);
-  }
-}
-
-function teardown(el: Element) {
-  elementCleanups.get(el)?.forEach((fn) => fn());
-  elementCleanups.delete(el);
-}
-
-/**
- * Fires `triggerPush` whenever the store data changes.
- */
-function attachMutateEffect(
-  app: RouseApp,
-  storeName: string,
-  modifiers: TriggerDef['modifiers'],
-  fire: VoidFn,
-  nestedPath: string,
-): VoidFn {
-  const rootKey = nestedPath ? getPathRoot(nestedPath) : null;
-
-  const guardedFire = () => {
-    const status = app.stores.status(storeName);
-    if (!status) return;
-    const hasDirty = rootKey
-      ? !!status.dirty[rootKey]
-      : Object.keys(status.dirty).length > 0;
-    if (!hasDirty) return; // nothing to push
-    fire();
-  };
-
-  const debouncedFire = applyTiming(guardedFire, modifiers);
-  const stopListener = app.stores.onEdit(storeName, debouncedFire);
-
-  return () => {
-    debouncedFire.cancel();
-    stopListener();
-  };
-}
-
-/**
- * Wires events to push local store state to the server.
- */
-export const rzPush = {
-  slug: SLUG,
-  initialize,
-  teardown,
-} as const satisfies StandaloneDirective;
+  return cleanups;
+});

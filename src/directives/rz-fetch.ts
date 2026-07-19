@@ -1,14 +1,11 @@
-import type { RouseApp } from '../core/app';
-import { parseFetchSubject, parseTriggerSubjectPairs } from '../core/parser';
-import { getDirectiveValue, warn } from '../core/shared';
+import { parseFetchSubject } from '../core/parser';
+import { warn } from '../core/shared';
 import { dispatchTrigger } from '../dom/scheduler';
 import { is, isNativeNavigation } from '../dom/utils';
 import { handleFetch } from '../net/engine';
-import type { DirectiveSlug, RouseRequest, StandaloneDirective, VoidFn } from '../types';
+import type { RouseRequest, VoidFn } from '../types';
 import { rzUrl } from './rz-url';
-
-const SLUG = 'fetch' as const satisfies DirectiveSlug;
-const elementCleanups = new WeakMap<Element, Array<VoidFn>>();
+import { defineTriggerDirective } from './trigger-directive';
 
 /**
  * Returns the URL value if it exists from an anchor element's `href` or
@@ -48,86 +45,66 @@ function applySubmitterOverrides(
  * Attaches synthetic events (like polling) and custom non-standard events
  * to an element and stores their cleanup functions.
  */
-function initialize(el: Element, app: RouseApp) {
-  if (elementCleanups.has(el)) return;
+export const rzFetch = defineTriggerDirective(
+  'fetch',
+  'click: /users',
+  (el, app, pairs) => {
+    const cleanups: VoidFn[] = [];
+    const elementUrl = rzUrl.getConfig(el).url || nativeUrl(el);
 
-  const value = getDirectiveValue(el, SLUG);
-  if (value === null) return;
+    // A form without a URL at init can still get one at submit time from the
+    // submitter's `formaction`, so bind anyway and validate on dispatch.
+    const deferUrl = is(el, 'Form');
 
-  const pairs = parseTriggerSubjectPairs(value);
-  if (pairs.length === 0) {
-    __DEV__ && warn('rz-fetch: at least one trigger is required.', el);
-    return;
-  }
+    // The URL is shared by every trigger, so resolve and validate it once.
+    let warnedMissingUrl = false;
 
-  const cleanups: VoidFn[] = [];
-  const elementUrl = rzUrl.getConfig(el).url || nativeUrl(el);
+    for (const { trigger, subject } of pairs) {
+      const parsed = subject ? parseFetchSubject(subject) : {};
 
-  // A form without a URL at init can still get one at submit time from the
-  // submitter's `formaction`, so bind anyway and validate on dispatch.
-  const deferUrl = is(el, 'Form');
+      // URL value from `rz-fetch` takes precedence. Fall back to the `rz-url`
+      // value or native `href` or `action` attribute values.
+      const url = parsed.url || elementUrl;
 
-  // The URL is shared by every trigger, so resolve and validate it once.
-  let warnedMissingUrl = false;
-
-  for (const { trigger, subject } of pairs) {
-    const parsed = subject ? parseFetchSubject(subject) : {};
-
-    // URL value from `rz-fetch` takes precedence. Fall back to the `rz-url`
-    // value or native `href` or `action` attribute values.
-    const url = parsed.url || elementUrl;
-
-    // If the url is missing, it could mean there isn't a URL configured, or
-    // that it's in the wrong position (missing trigger).
-    if (!url && !deferUrl) {
-      if (!warnedMissingUrl) {
-        __DEV__ &&
-          warn(
-            `rz-fetch: no URL found. Configure it using rz-fetch (with at least one leading trigger), rz-url, or a native attribute (e.g. 'href', 'action', or 'formaction').`,
-            el,
-          );
-        warnedMissingUrl = true;
-      }
-      continue;
-    }
-
-    const cleanup = dispatchTrigger(trigger, {
-      el,
-      app,
-      action: (e?: Event) => {
-        if (e && isNativeNavigation(el, e)) {
-          e.preventDefault();
-        }
-        const opts = applySubmitterOverrides({ ...parsed, url }, e);
-        if (!opts.url) {
+      // If the url is missing, it could mean there isn't a URL configured, or
+      // that it's in the wrong position (missing trigger).
+      if (!url && !deferUrl) {
+        if (!warnedMissingUrl) {
           __DEV__ &&
             warn(
               `rz-fetch: no URL found. Configure it using rz-fetch (with at least one leading trigger), rz-url, or a native attribute (e.g. 'href', 'action', or 'formaction').`,
               el,
             );
-          return;
+          warnedMissingUrl = true;
         }
-        handleFetch(el, app, opts);
-      },
-    });
+        continue;
+      }
 
-    if (cleanup) {
-      cleanups.push(cleanup);
+      const cleanup = dispatchTrigger(trigger, {
+        el,
+        app,
+        action: (e?: Event) => {
+          if (e && isNativeNavigation(el, e)) {
+            e.preventDefault();
+          }
+          const opts = applySubmitterOverrides({ ...parsed, url }, e);
+          if (!opts.url) {
+            __DEV__ &&
+              warn(
+                `rz-fetch: no URL found. Configure it using rz-fetch (with at least one leading trigger), rz-url, or a native attribute (e.g. 'href', 'action', or 'formaction').`,
+                el,
+              );
+            return;
+          }
+          handleFetch(el, app, opts);
+        },
+      });
+
+      if (cleanup) {
+        cleanups.push(cleanup);
+      }
     }
-  }
 
-  if (cleanups.length > 0) {
-    elementCleanups.set(el, cleanups);
-  }
-}
-
-function teardown(el: Element) {
-  elementCleanups.get(el)?.forEach((fn) => fn());
-  elementCleanups.delete(el);
-}
-
-export const rzFetch = {
-  slug: SLUG,
-  initialize,
-  teardown,
-} as const satisfies StandaloneDirective;
+    return cleanups;
+  },
+);
