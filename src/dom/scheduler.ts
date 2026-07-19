@@ -153,9 +153,7 @@ export function dispatchTrigger(
   base: Omit<TriggerContext, 'modifiers'>,
 ): VoidFn | null {
   const timed = applyTiming(base.action, trigger.modifiers);
-  const timedAction: ActionFn = (e) => timed(e);
 
-  // Ensure timed callbacks cancel on teardown
   const wrapCleanup = (cleanup: VoidFn | null): VoidFn => {
     return () => {
       timed.cancel();
@@ -163,19 +161,17 @@ export function dispatchTrigger(
     };
   };
 
-  // Handle synthetic (non-standard) events
   const handler = syntheticEvents[trigger.event];
   if (handler) {
     const cleanup = handler({
       ...base,
       modifiers: trigger.modifiers,
-      action: timedAction,
+      action: timed,
     });
 
     return wrapCleanup(cleanup);
   }
 
-  // Standard DOM event listener
   const cleanup = attachListener(
     base.el,
     trigger.event,
@@ -183,7 +179,7 @@ export function dispatchTrigger(
       if (isNativeNavigation(base.el, e)) {
         e.preventDefault();
       }
-      timedAction(e);
+      timed(e);
     },
     trigger.modifiers,
   );
@@ -261,9 +257,7 @@ export const syntheticEvents: Record<string, SyntheticEventHandler> = {
       action();
       return null;
     }
-
     window.addEventListener('load', action, { once: true });
-
     return () => window.removeEventListener('load', action);
   },
 
@@ -271,14 +265,11 @@ export const syntheticEvents: Record<string, SyntheticEventHandler> = {
   ready: ({ el, app, action }) => {
     const inst = app || getApp(el);
     if (!inst) return null;
-
     if (inst.isReady) {
       action();
       return null;
     }
-
     inst.root.addEventListener('rz:app:ready', action, { once: true });
-
     return () => inst.root.removeEventListener('rz:app:ready', action);
   },
 
@@ -312,7 +303,6 @@ export const syntheticEvents: Record<string, SyntheticEventHandler> = {
     }
 
     const mql = window.matchMedia(query);
-
     if (mql.matches) {
       action();
       if (isOnce) return null;
@@ -327,7 +317,6 @@ export const syntheticEvents: Record<string, SyntheticEventHandler> = {
     };
 
     mql.addEventListener('change', changeHandler);
-
     return () => mql.removeEventListener('change', changeHandler);
   },
 
@@ -345,7 +334,6 @@ export const syntheticEvents: Record<string, SyntheticEventHandler> = {
     });
 
     observer.observe(el);
-
     return () => observer.disconnect();
   },
 
@@ -366,7 +354,6 @@ export const syntheticEvents: Record<string, SyntheticEventHandler> = {
     const cleanup = () => {
       triggers.forEach((evt) => el.removeEventListener(evt, handler));
     };
-
     triggers.forEach((evt) => el.addEventListener(evt, handler, { passive: true }));
 
     return cleanup;
@@ -381,7 +368,6 @@ export const syntheticEvents: Record<string, SyntheticEventHandler> = {
 
     // Safari fallback
     const id = window.setTimeout(action, 1);
-
     return () => window.clearTimeout(id);
   },
 };
@@ -404,7 +390,6 @@ function attachTimingEvent(type: 'timeout' | 'interval', ctx: TriggerContext) {
   const clear = type === 'timeout' ? window.clearTimeout : window.clearInterval;
 
   const id = setup(ctx.action, ms);
-
   return () => clear(id);
 }
 
@@ -432,7 +417,6 @@ function attachVisibilityChange(state: 'visible' | 'hidden', action: ActionFn): 
   };
 
   document.addEventListener('visibilitychange', handler);
-
   return () => {
     document.removeEventListener('visibilitychange', handler);
   };
