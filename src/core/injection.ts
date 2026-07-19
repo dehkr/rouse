@@ -73,7 +73,7 @@ export function resolveInjection(
     }
   }
 
-  // Inline JSON object (`{`)
+  // Inline JSON object
   else if (value.startsWith('{')) {
     try {
       resolvedValue = safeJSONParse(value);
@@ -117,6 +117,37 @@ export function splitInjection(raw: string): {
 }
 
 /**
+ * Invokes a resolved handler with a `HandlerCtx` built from the raw payload,
+ * the triggering event, and the binding scope's render context. Returns the
+ * handler's result, or `undefined` if it throws.
+ */
+export function invokeHandler(
+  method: AnyFn,
+  context: unknown,
+  name: string,
+  rawPayload: string | undefined,
+  scope: Scope,
+  storeManager: StoreManager,
+  el: Element,
+  e: Event,
+): unknown {
+  try {
+    const params =
+      rawPayload !== undefined ? (resolveInjection(rawPayload, storeManager) ?? {}) : {};
+    const args: HandlerCtx<Record<string, any>, Element> = {
+      params,
+      e,
+      el,
+      render: renderCtxOf(scope),
+    };
+    return method.call(context, args);
+  } catch (error) {
+    __DEV__ && err(`Failed to execute '${name}()'.`, el, error);
+    return undefined;
+  }
+}
+
+/**
  * Resolves a one-way binding value that may target a static property or a
  * function. If the target is a function, it is invoked with a `HandlerCtx` whose
  * `e` is a synthetic CustomEvent typed `rz:${slug}`. If a payload was provided
@@ -142,23 +173,16 @@ export function resolveBoundValue(
       ? storeManager.get(parseDataSourcePath(key).source)
       : scope;
 
-    try {
-      const payload =
-        rawPayload !== undefined
-          ? (resolveInjection(rawPayload, storeManager) ?? {})
-          : {};
-      const e = new CustomEvent(`rz:${slug}`);
-      const args: HandlerCtx<Record<string, any>, Element> = {
-        params: payload,
-        e,
-        el,
-        render: renderCtxOf(scope),
-      };
-      return (state as AnyFn).call(context, args) as BindableValue;
-    } catch (error) {
-      __DEV__ && err(`Failed to execute '${key}()'.`, el, error);
-      return undefined;
-    }
+    return invokeHandler(
+      state as AnyFn,
+      context,
+      key,
+      rawPayload,
+      scope,
+      storeManager,
+      el,
+      new CustomEvent(`rz:${slug}`),
+    ) as BindableValue;
   }
 
   if (rawPayload !== undefined) {

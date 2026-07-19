@@ -1,16 +1,15 @@
 import type { RouseApp } from '../core/app';
 import { STORE_PREFIX } from '../core/constants';
-import { resolveInjection, splitInjection } from '../core/injection';
+import { invokeHandler, splitInjection } from '../core/injection';
 import { parseDataSourcePath, parseTriggers } from '../core/parser';
 import { getNestedVal } from '../core/path';
-import { renderCtxOf } from '../core/render';
-import { err, warn } from '../core/shared';
+import { warn } from '../core/shared';
 import { dispatchTrigger } from '../dom/scheduler';
 import type {
+  AnyFn,
   BoundCleanupFn,
   BoundDirective,
   DirectiveSlug,
-  HandlerCtx,
   Scope,
   VoidFn,
 } from '../types';
@@ -27,7 +26,7 @@ function bind(
   if (!value) {
     __DEV__ &&
       warn(
-        `rz-on: value '${key}' is incomplete; at least one trigger and a handler are required (e.g., rz-on="click: submit").`,
+        `rz-on: value '${key}' is incomplete; at least one trigger and a handler are required.`,
         el,
       );
     return undefined;
@@ -77,23 +76,17 @@ function bind(
     const cleanup = dispatchTrigger(trigger, {
       el,
       app,
-      action: (e?: Event) => {
-        try {
-          const payload =
-            rawPayload !== undefined
-              ? (resolveInjection(rawPayload, app.stores) ?? {})
-              : {};
-          const args: HandlerCtx<Record<string, any>, Element> = {
-            params: payload,
-            e: e ?? new CustomEvent(trigger.event),
-            el,
-            render: renderCtxOf(scope),
-          };
-          method.call(context, args);
-        } catch (error) {
-          __DEV__ && err(`Failed to execute '${methodName}()'.`, el, error);
-        }
-      },
+      action: (e?: Event) =>
+        invokeHandler(
+          method as AnyFn,
+          context,
+          methodName,
+          rawPayload,
+          scope,
+          app.stores,
+          el,
+          e ?? new CustomEvent(trigger.event),
+        ),
     });
     if (cleanup) {
       cleanups.push(cleanup);
