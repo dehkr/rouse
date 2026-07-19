@@ -21,9 +21,6 @@ export function renderParent(scope: Scope): Scope {
  * context. Returns null fields when the scope isn't a render instance.
  */
 export function renderCtxOf(scope: Scope): HandlerCtx['render'] {
-  if (!(ITEM_META_KEY in scope)) {
-    return { item: null, index: null };
-  }
   const meta = (scope as RenderContext)[ITEM_META_KEY];
   return meta
     ? { item: meta.item ?? null, index: meta.index }
