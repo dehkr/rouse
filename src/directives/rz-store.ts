@@ -11,29 +11,6 @@ const SLUG = 'store' as const satisfies DirectiveSlug;
 const initialized = new WeakSet<HTMLScriptElement>();
 
 /**
- * Validate + normalize a declared method, warning on an unknown value.
- */
-function resolveMethod(method: string | undefined, el: Element): HttpMethod | undefined {
-  if (method == null) return undefined;
-  if (!isHttpMethod(method)) {
-    __DEV__ && warn(`rz-store: unknown HTTP method '${method}'. Ignoring.`, el);
-    return undefined;
-  }
-  return method.toUpperCase() as HttpMethod;
-}
-
-function validate(el: Element, app: RouseApp): el is HTMLScriptElement {
-  if (!(is(el, 'Script') && hasDirective(el, SLUG) && getApp(el, app))) {
-    return false;
-  }
-  if (!getDirectiveValue(el, SLUG)?.trim()) {
-    __DEV__ && warn(`rz-store: value is missing or empty.`, el);
-    return false;
-  }
-  return true;
-}
-
-/**
  * Bootstraps a global reactive store from a `<script>` tag. Initializes the
  * reactive data registry and seeds the store's URL from `rz-url` if present.
  *
@@ -41,7 +18,7 @@ function validate(el: Element, app: RouseApp): el is HTMLScriptElement {
  * store doesn't need to know about them.
  */
 function initialize(el: HTMLScriptElement, app: RouseApp) {
-  if (initialized.has(el) || !app) return;
+  if (initialized.has(el)) return;
 
   const storeName = getDirectiveValue(el, SLUG)?.trim();
   if (!storeName) return;
@@ -84,6 +61,7 @@ function initialize(el: HTMLScriptElement, app: RouseApp) {
 
   const pushMethod = resolveMethod(reqPush.method ?? reqBase.method, el);
   const pullMethod = resolveMethod(reqPull.method ?? reqBase.method, el);
+
   if (pushMethod) cfg.pushMethod = pushMethod;
   if (pullMethod) cfg.pullMethod = pullMethod;
 
@@ -99,13 +77,36 @@ function initialize(el: HTMLScriptElement, app: RouseApp) {
   initialized.add(el);
 }
 
+/**
+ * Checks for a valid HTTP method and normalizes it to uppercase.
+ */
+function resolveMethod(method: string | undefined, el: Element): HttpMethod | undefined {
+  if (method == null) return undefined;
+  if (!isHttpMethod(method)) {
+    __DEV__ && warn(`rz-store: unknown HTTP method '${method}'. Ignoring.`, el);
+    return undefined;
+  }
+  return method.toUpperCase() as HttpMethod;
+}
+
+/**
+ * Validates if `el` is a script element hosting an `rz-store` directive with a value.
+ */
+function validate(el: Element, app: RouseApp): el is HTMLScriptElement {
+  if (!(is(el, 'Script') && hasDirective(el, SLUG) && getApp(el, app))) {
+    return false;
+  }
+  if (!getDirectiveValue(el, SLUG)?.trim()) {
+    __DEV__ && warn(`rz-store: value is missing or empty.`, el);
+    return false;
+  }
+  return true;
+}
+
 function teardown(el: HTMLScriptElement) {
   initialized.delete(el);
 }
 
-/**
- * Definition for the `rz-store` directive object.
- */
 export const rzStore = {
   slug: SLUG,
   validate,
