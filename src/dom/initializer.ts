@@ -73,9 +73,9 @@ export function initScopeElement(el: HTMLElement, app: RouseApp) {
 export function initObserver(app: RouseApp) {
   const scopeSelector = directiveSelector('scope');
   const storeSelector = `script${directiveSelector('store')}`;
-  const fetchSelector = directiveSelector('fetch');
-  const pushSelector = directiveSelector('push');
-  const pullSelector = directiveSelector('pull');
+  const netDirectives = [rzFetch, rzPush, rzPull].map(
+    (directive) => [directive, directiveSelector(directive.slug)] as const,
+  );
 
   return new MutationObserver((mutations) => {
     mutations.forEach((m) => {
@@ -101,33 +101,21 @@ export function initObserver(app: RouseApp) {
 
           // Only scan if it belongs to a scope and isn't a new scope itself
           const ownerScope = el.closest<HTMLElement>(scopeSelector);
-          if (
-            ownerScope &&
-            !hasDirective(el as HTMLElement, 'scope') &&
-            getApp(ownerScope, app)
-          ) {
+          if (ownerScope && !hasDirective(el, 'scope') && getApp(ownerScope, app)) {
             scanScopeNode(ownerScope, el);
           }
 
           // Check for elements with network directives
-          queryTargets(el, fetchSelector).forEach((el) => {
-            if (getApp(el, app)) {
-              rzFetch.initialize(el, app);
-            }
-          });
-          queryTargets(el, pushSelector).forEach((el) => {
-            if (getApp(el, app)) {
-              rzPush.initialize(el, app);
-            }
-          });
-          queryTargets(el, pullSelector).forEach((el) => {
-            if (getApp(el, app)) {
-              rzPull.initialize(el, app);
-            }
-          });
+          for (const [directive, selector] of netDirectives) {
+            queryTargets(el, selector).forEach((el) => {
+              if (getApp(el, app)) {
+                directive.initialize(el, app);
+              }
+            });
+          }
 
-          // If the newly added element doesn't belong to a scope,
-          // walk its tree and auto-mount any bound directives globally.
+          // If the newly added element doesn't belong to a scope, walk its
+          // tree and auto-mount any bound directives globally.
           if (!ownerScope) {
             walkBoundElements(el, (boundEl) => {
               if (!getApp(boundEl, app)) return;
@@ -150,7 +138,7 @@ export function initObserver(app: RouseApp) {
           // Cleanup scopes
           queryTargets<HTMLElement>(el, scopeSelector).forEach(destroyInstance);
 
-          // Ownership resolved against the scopeBindings WeakMap, not DOM
+          // Ownership resolved against the `scopeBindings` WeakMap, not DOM
           // ancestry. Survives detached parents, cross-boundary moves, and
           // sync-detachment edge cases.
           const ownerScope = resolveRemovedOwner(el);
@@ -159,9 +147,9 @@ export function initObserver(app: RouseApp) {
           }
 
           // Cleanup fetch elements
-          queryTargets<HTMLElement>(el, fetchSelector).forEach(rzFetch.teardown);
-          queryTargets<HTMLElement>(el, pushSelector).forEach(rzPush.teardown);
-          queryTargets<HTMLElement>(el, pullSelector).forEach(rzPull.teardown);
+          for (const [directive, selector] of netDirectives) {
+            queryTargets<HTMLElement>(el, selector).forEach(directive.teardown);
+          }
 
           // Global teardown
           if (!ownerScope) {
