@@ -21,10 +21,6 @@ import {
 /**
  * Initializes a scope element by parsing its directive, resolving its
  * setup function from the registry, and mounting the reactive instance.
- * Honors the specified `wake` strategy before executing the mount.
- *
- * @param el - The DOM element containing the `rz-scope` directive.
- * @param defaultWake - The fallback wake strategy if the element doesn't specify one.
  */
 export function initScopeElement(el: HTMLElement, app: RouseApp) {
   const scopeValue = rzScope.getConfig(el);
@@ -35,7 +31,8 @@ export function initScopeElement(el: HTMLElement, app: RouseApp) {
   let setup: ScopeSetup;
   let isAlias = false;
 
-  // Context aliasing for stores
+  // This enables alias scopes (context aliasing for stores). Makes a store,
+  // or a nested slice of one, the scope instance directly.
   if (scopeName.startsWith(STORE_PREFIX)) {
     isAlias = true;
     setup = () => {
@@ -84,14 +81,12 @@ export function initObserver(app: RouseApp) {
         if (node.nodeType === Node.ELEMENT_NODE) {
           const el = node as Element;
 
-          // Check for stores
           queryTargets(el, storeSelector).forEach((el) => {
             if (rzStore.validate(el, app)) {
               rzStore.initialize(el, app);
             }
           });
 
-          // Check for scopes
           queryTargets<HTMLElement>(el, scopeSelector).forEach((el) => {
             // Confirm app ownership in case of nested apps
             if (getApp(el, app)) {
@@ -105,7 +100,7 @@ export function initObserver(app: RouseApp) {
             scanScopeNode(ownerScope, el);
           }
 
-          // Check for elements with network directives
+          // Network directives: rzFetch, rzPush, rzPull
           for (const [directive, selector] of netDirectives) {
             queryTargets(el, selector).forEach((el) => {
               if (getApp(el, app)) {
@@ -130,12 +125,10 @@ export function initObserver(app: RouseApp) {
         if (node.nodeType === Node.ELEMENT_NODE) {
           const el = node as Element;
 
-          // Cleanup stores
           queryTargets<HTMLScriptElement>(el, storeSelector).forEach((el) => {
             rzStore.teardown(el);
           });
 
-          // Cleanup scopes
           queryTargets<HTMLElement>(el, scopeSelector).forEach(destroyInstance);
 
           // Ownership resolved against the `scopeBindings` WeakMap, not DOM
@@ -146,12 +139,11 @@ export function initObserver(app: RouseApp) {
             teardownScopeNode(ownerScope, el);
           }
 
-          // Cleanup fetch elements
+          // Network directives: rzFetch, rzPush, rzPull
           for (const [directive, selector] of netDirectives) {
             queryTargets<HTMLElement>(el, selector).forEach(directive.teardown);
           }
 
-          // Global teardown
           if (!ownerScope) {
             teardownGlobalBindings(el);
           }
