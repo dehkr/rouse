@@ -30,13 +30,6 @@ export function registerBoundDirectives(...directives: BoundDirective[]): void {
 }
 
 /**
- * Returns the registered bound directives, in registration order.
- */
-function boundDirectives(): readonly BoundDirective[] {
-  return boundDirectiveList;
-}
-
-/**
  * Builds a CSS selector matching every registered bound directive,
  * caching the result until the next registration invalidates it.
  */
@@ -79,7 +72,7 @@ export function bindDirectives(
 ): BoundCleanupFn[] {
   const cleanups: BoundCleanupFn[] = [];
 
-  for (const directive of boundDirectives()) {
+  for (const directive of boundDirectiveList) {
     const value = getDirectiveValue(el, directive.slug);
 
     // Strict check to allow empty/boolean directives
@@ -96,7 +89,13 @@ export function bindDirectives(
 }
 
 /**
- * Scans the DOM and locates elements with bound directives.
+ * Walks `root` and its subtree, invoking `callback` for each element carrying a
+ * bound directive. Skips two boundaries so ownership stays correct: nested
+ * `rz-scope` subtrees (owned by their own scope) and `rz-render` instance
+ * subtrees (bound by the render engine with item context).
+ *
+ * A `root` that is itself a scope is skipped entirely by default; pass
+ * `acceptScopeRoot` to bind `root` itself while still skipping nested scopes.
  */
 export function walkBoundElements(
   root: Element,
@@ -183,6 +182,10 @@ export function resolveRemovedOwner(el: Element): HTMLElement | null {
   return found;
 }
 
+/**
+ * Runs each cleanup, isolating failures so one throwing cleanup doesn't
+ * abort the rest.
+ */
 function runCleanups(el: Element, fns: BoundCleanupFn[]): void {
   for (const fn of fns) {
     try {
@@ -194,8 +197,15 @@ function runCleanups(el: Element, fns: BoundCleanupFn[]): void {
 }
 
 /**
- * Binds the scope instance to the DOM.
- * Returns internal lifecycle methods so the app can delegate DOM mutations.
+ * Binds a scope instance to its DOM subtree: scans and binds directives, runs
+ * the `connect` hook, and dispatches `rz:scope:connect`. Returns the scope's DOM
+ * lifecycle handle:
+ *
+ * - `scan(el)`: bind directives on a newly added node within the scope.
+ * - `teardown(el)`: run cleanups for a removed node and its subtree.
+ * - `unbindDom()`: tear down the whole scope (all cleanups, `disconnect`, `rz:scope:disconnect`).
+ *
+ * @param skipLifecycles - Skip the `connect`/`disconnect` hooks (used by alias scopes).
  */
 export function bindScope(
   root: HTMLElement,
@@ -226,7 +236,6 @@ export function bindScope(
     runCleanups(el, cleanups);
   }
 
-  /** Process DOM directives and register their cleanup functions. */
   function bindNode(el: Element) {
     if (boundNodes.has(el)) return;
     boundNodes.add(el);
@@ -237,7 +246,6 @@ export function bindScope(
     }
   }
 
-  /** Scans a newly added node for directives. */
   function scan(startEl: Element) {
     const owner = startEl.closest(scopeSelector);
     if (!owner || owner !== root) return;
