@@ -102,7 +102,7 @@ export function splitInjection(raw: string): {
   rawPayload: string | undefined;
 } {
   // Find the first index of a payload delimiter starting after the first character.
-  // This accomodates store keys like `@my-store.handler{ "id": 234 }`.
+  // This accommodates store keys like `@my-store.handler{ "id": 234 }`.
   const matchIndex = raw.substring(1).search(/[#@{]/);
 
   if (matchIndex === -1) {

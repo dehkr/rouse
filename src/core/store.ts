@@ -565,7 +565,7 @@ export class StoreManager {
 
   /**
    * Overwrites store state, clears dirty flags, resets the store's initial data
-   * snapshot, and pulls the snapshop of the most recently server-confirmed state.
+   * snapshot, and pulls the snapshot of the most recently server-confirmed state.
    */
   update<T extends object = any>(
     name: string,
@@ -648,7 +648,7 @@ export class StoreManager {
 
   /**
    * Reverts a store to its initial state, clears dirty flags, and pulls
-   * the snapshop of the most recently server-confirmed state.
+   * the snapshot of the most recently server-confirmed state.
    */
   reset(name: string) {
     const data = this._data.get(name);
