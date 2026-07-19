@@ -9,12 +9,12 @@ import type {
 } from '../types';
 
 /**
- * Factory for standalone directives driven by `[trigger]: [subject]` pairs
- * (`rz-fetch`, `rz-push`, `rz-pull`). Owns the per-element cleanup registry
- * and the shared initialize/teardown scaffolding. `bindPairs` wires the parsed
- * pairs for one element and returns their cleanups.
+ * Factory for the network directives (rz-fetch, rz-push, rz-pull), which share
+ * the `[trigger]: [subject]` grammar. Owns the per-element cleanup registry and
+ * the shared initialize/teardown scaffolding. `bindPairs` wires the parsed pairs
+ * for one element and returns their cleanups.
  */
-export function defineTriggerDirective(
+export function defineNetworkDirective(
   slug: Extract<DirectiveSlug, 'fetch' | 'push' | 'pull'>,
   example: string,
   bindPairs: (el: Element, app: RouseApp, pairs: TriggerSubjectPair[]) => VoidFn[],

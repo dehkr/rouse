@@ -8,7 +8,7 @@ import { applyTiming } from '../core/timing';
 import { dispatchTrigger } from '../dom/scheduler';
 import { resolveRequestConfig } from '../net/request';
 import type { TriggerDef, VoidFn } from '../types';
-import { defineTriggerDirective } from './trigger-directive';
+import { defineNetworkDirective } from './network-directive';
 
 /**
  * Resolves the merged request config from the trigger and target elements
@@ -69,7 +69,7 @@ function attachMutateEffect(
  * Wires each parsed `[trigger]: [[action] @store[.path]]` pair to push local
  * store state to the server.
  */
-export const rzPush = defineTriggerDirective('push', 'click: @user', (el, app, pairs) => {
+export const rzPush = defineNetworkDirective('push', 'click: @user', (el, app, pairs) => {
   const cleanups: VoidFn[] = [];
 
   for (const { trigger, subject } of pairs) {

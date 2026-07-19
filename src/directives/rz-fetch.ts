@@ -4,8 +4,8 @@ import { dispatchTrigger } from '../dom/scheduler';
 import { is, isNativeNavigation } from '../dom/utils';
 import { handleFetch } from '../net/engine';
 import type { RouseRequest, VoidFn } from '../types';
+import { defineNetworkDirective } from './network-directive';
 import { rzUrl } from './rz-url';
-import { defineTriggerDirective } from './trigger-directive';
 
 /**
  * Returns the URL value if it exists from an anchor element's `href` or
@@ -45,7 +45,7 @@ function applySubmitterOverrides(
  * Attaches synthetic events (like polling) and custom non-standard events
  * to an element and stores their cleanup functions.
  */
-export const rzFetch = defineTriggerDirective(
+export const rzFetch = defineNetworkDirective(
   'fetch',
   'click: /users',
   (el, app, pairs) => {

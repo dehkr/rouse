@@ -6,7 +6,7 @@ import { resolveTarget } from '../core/store';
 import { dispatchTrigger } from '../dom/scheduler';
 import { resolveRequestConfig } from '../net/request';
 import type { VoidFn } from '../types';
-import { defineTriggerDirective } from './trigger-directive';
+import { defineNetworkDirective } from './network-directive';
 
 /**
  * Resolves the merged request config from the trigger and target elements
@@ -38,7 +38,7 @@ function triggerPull(
  * `[trigger]: [[action] @store[.path]]` pair to pull server state into
  * a local store.
  */
-export const rzPull = defineTriggerDirective('pull', 'load: @user', (el, app, pairs) => {
+export const rzPull = defineNetworkDirective('pull', 'load: @user', (el, app, pairs) => {
   const cleanups: VoidFn[] = [];
 
   for (const { trigger, subject } of pairs) {

@@ -70,7 +70,7 @@ export function initScopeElement(el: HTMLElement, app: RouseApp) {
 export function initObserver(app: RouseApp) {
   const scopeSelector = directiveSelector('scope');
   const storeSelector = `script${directiveSelector('store')}`;
-  const netDirectives = [rzFetch, rzPush, rzPull].map(
+  const networkDirectives = [rzFetch, rzPush, rzPull].map(
     (directive) => [directive, directiveSelector(directive.slug)] as const,
   );
 
@@ -101,7 +101,7 @@ export function initObserver(app: RouseApp) {
           }
 
           // Network directives: rzFetch, rzPush, rzPull
-          for (const [directive, selector] of netDirectives) {
+          for (const [directive, selector] of networkDirectives) {
             queryTargets(el, selector).forEach((el) => {
               if (getApp(el, app)) {
                 directive.initialize(el, app);
@@ -140,7 +140,7 @@ export function initObserver(app: RouseApp) {
           }
 
           // Network directives: rzFetch, rzPush, rzPull
-          for (const [directive, selector] of netDirectives) {
+          for (const [directive, selector] of networkDirectives) {
             queryTargets<HTMLElement>(el, selector).forEach(directive.teardown);
           }
 
