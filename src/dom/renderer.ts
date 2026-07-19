@@ -59,7 +59,7 @@ const NO_ITEM: Record<string, unknown> = {};
  * track its fields. Passes primitives through untouched.
  */
 function toItemProxy(item: unknown): unknown {
-  return item && typeof item === 'object' ? reactive(item as object) : item;
+  return reactive(item as object);
 }
 
 /**
