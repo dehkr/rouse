@@ -25,7 +25,7 @@ import { initObserver, initScopeElement } from '../dom/initializer';
 import { initStoreRouter } from '../dom/router';
 import { destroyInstance, IS_SCOPE } from '../dom/scope';
 import { initDomSwapper } from '../dom/swapper';
-import { handleFetch } from '../net/engine';
+import { handleFetch } from '../net/fetch-engine';
 import { withMethodAliases } from '../net/request';
 import { fallbackResponse } from '../net/response';
 import type {
