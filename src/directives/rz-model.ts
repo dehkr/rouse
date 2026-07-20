@@ -1,7 +1,7 @@
 import { effect } from 'alien-signals';
 import type { RouseApp } from '../core/app';
 import { parseTriggers } from '../core/parser';
-import { resolveState, writeState } from '../core/path';
+import { resolveState, writeState } from '../core/resolve';
 import { warn } from '../core/shared';
 import { dispatchTrigger } from '../dom/events';
 import { getModelableValue, setModelableValue } from '../dom/updater';

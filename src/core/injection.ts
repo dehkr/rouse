@@ -2,8 +2,9 @@ import { is } from '../dom/utils';
 import type { AnyFn, BindableValue, DirectiveSlug, HandlerCtx, Scope } from '../types';
 import { KEY_BLOCKLIST, STORE_PREFIX } from './constants';
 import { parseDataSourcePath } from './parser';
-import { getNestedVal, resolveState } from './path';
+import { getNestedVal } from './path';
 import { renderCtxOf } from './render-context';
+import { resolveState } from './resolve';
 import { err, isPlainObject, warn } from './shared';
 import type { StoreManager } from './store';
 
