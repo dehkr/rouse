@@ -1,6 +1,6 @@
 import type { RouseApp } from '../core/app';
+import { warn } from '../core/diagnostics';
 import { resolveBoundValue } from '../core/injection';
-import { warn } from '../core/shared';
 import { renderTemplate } from '../dom/renderer';
 import type { BoundCleanupFn, BoundDirective, DirectiveSlug, Scope } from '../types';
 import { rzKey } from './rz-key';

@@ -1,5 +1,5 @@
 import { KEY_BLOCKLIST } from './constants';
-import { warn } from './shared';
+import { warn } from './diagnostics';
 
 const MAX_CACHE_SIZE = 500;
 const pathCache = new Map<string, string[]>();

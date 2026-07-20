@@ -5,8 +5,9 @@ import {
   type SwapOperation,
   type TargetConfig,
 } from '../core/constants';
+import { warn } from '../core/diagnostics';
 import { parseDirectiveValue } from '../core/parser';
-import { getDirectiveValue, queryTargets, warn } from '../core/shared';
+import { getDirectiveValue, queryTargets } from '../core/shared';
 import type { ConfigDirective, DirectiveSlug } from '../types';
 
 const SLUG = 'target' as const satisfies DirectiveSlug;

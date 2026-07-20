@@ -1,4 +1,4 @@
-import { directiveSelector, err, fail, queryTargets, warn } from '../core/shared';
+import { directiveSelector, queryTargets } from '../core/shared';
 import {
   rzAttr,
   rzClass,
@@ -38,6 +38,7 @@ import type {
   ScopeSetup,
   VoidFn,
 } from '../types';
+import { err, fail, warn } from './diagnostics';
 import { ScopeRegistry } from './scope-registry';
 import { StoreManager, type SyncConfig } from './store';
 

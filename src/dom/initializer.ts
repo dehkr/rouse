@@ -1,7 +1,8 @@
 import { getApp, type RouseApp } from '../core/app';
 import { STORE_PREFIX } from '../core/constants';
+import { warn } from '../core/diagnostics';
 import { resolveInjection } from '../core/injection';
-import { directiveSelector, hasDirective, queryTargets, warn } from '../core/shared';
+import { directiveSelector, hasDirective, queryTargets } from '../core/shared';
 import { rzFetch, rzPull, rzPush, rzScope, rzStore, rzWake } from '../directives';
 import type { ScopeSetup } from '../types';
 import {

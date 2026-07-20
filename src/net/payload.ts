@@ -1,4 +1,4 @@
-import { fail } from '../core/shared';
+import { fail } from '../core/diagnostics';
 import type { RouseRequest } from '../types';
 
 /**

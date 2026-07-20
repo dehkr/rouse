@@ -1,5 +1,5 @@
+import { warn } from '../core/diagnostics';
 import { parseFetchSubject } from '../core/parser';
-import { warn } from '../core/shared';
 import { dispatchTrigger } from '../dom/events';
 import { is, isNativeNavigation } from '../dom/utils';
 import { handleFetch } from '../net/fetch-engine';

@@ -15,9 +15,10 @@ import type {
 } from '../types';
 import type { RouseApp } from './app';
 import { type HttpMethod, type PatchAction, STORE_PREFIX } from './constants';
+import { fail, warn } from './diagnostics';
 import { parseDataSourcePath } from './parser';
 import { getNestedVal, getPathRoot, setNestedVal } from './path';
-import { fail, getDirectiveValue, warn } from './shared';
+import { getDirectiveValue } from './shared';
 import { clone, deepEqual, patchState } from './state';
 
 export interface StoreStatus {

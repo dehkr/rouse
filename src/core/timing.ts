@@ -1,5 +1,5 @@
 import type { AnyFn, VoidFn } from '../types';
-import { warn } from './shared';
+import { warn } from './diagnostics';
 
 /**
  * Configuration options for timed functions.

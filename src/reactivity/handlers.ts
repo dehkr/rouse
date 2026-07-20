@@ -1,5 +1,5 @@
 import { computed, signal, trigger } from 'alien-signals';
-import { warn } from '../core/shared';
+import { warn } from '../core/diagnostics';
 import { methodIntercepts } from './arrays';
 import {
   dirtyTrackers,

@@ -1,8 +1,9 @@
 import { effect, signal } from 'alien-signals';
 import type { RouseApp } from '../core/app';
 import { ITEM_KEY, ITEM_META_KEY, RENDER_PARENT } from '../core/constants';
+import { warn } from '../core/diagnostics';
 import { getNestedVal } from '../core/path';
-import { isPlainObject, warn } from '../core/shared';
+import { isPlainObject } from '../core/shared';
 import { getRaw, reactive, untracked } from '../reactivity/reactive';
 import type { BoundCleanupFn, RenderContext, RenderMeta, Scope, VoidFn } from '../types';
 import {

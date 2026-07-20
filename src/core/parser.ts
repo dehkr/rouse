@@ -6,7 +6,7 @@ import {
   type PatchAction,
   STORE_PREFIX,
 } from './constants';
-import { warn } from './shared';
+import { warn } from './diagnostics';
 
 const closers = { ')': '(', '}': '{', ']': '[' } as const;
 const openers = new Set<string>(Object.values(closers));

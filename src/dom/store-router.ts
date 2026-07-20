@@ -1,5 +1,5 @@
 import type { RouseApp } from '../core/app';
-import { warn } from '../core/shared';
+import { warn } from '../core/diagnostics';
 import { rzTarget } from '../directives';
 import type { RouseResponse } from '../types';
 import { dispatch } from './events';

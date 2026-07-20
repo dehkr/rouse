@@ -1,9 +1,9 @@
 import type { RouseApp } from '../core/app';
 import { STORE_PREFIX } from '../core/constants';
+import { warn } from '../core/diagnostics';
 import { invokeHandler, splitInjection } from '../core/injection';
 import { parseDataSourcePath, parseTriggers } from '../core/parser';
 import { getNestedVal } from '../core/path';
-import { warn } from '../core/shared';
 import { dispatchTrigger } from '../dom/events';
 import type {
   AnyFn,

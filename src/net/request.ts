@@ -1,6 +1,6 @@
 import type { RouseApp } from '../core/app';
 import { HTTP_METHODS, type HttpMethod } from '../core/constants';
-import { warn } from '../core/shared';
+import { warn } from '../core/diagnostics';
 import {
   rzFetchHeaders,
   rzHeaders,

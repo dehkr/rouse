@@ -1,6 +1,6 @@
 import { getApp, type RouseApp } from '../core/app';
+import { warn } from '../core/diagnostics';
 import { parseTriggers } from '../core/parser';
-import { warn } from '../core/shared';
 import { applyTiming, isTimeModifier, parseTime } from '../core/timing';
 import type { ActionFn, LifecycleEventMap, TriggerDef, VoidFn } from '../types';
 import { applyModifiers, getListenerOptions, resolveListenerTarget } from './modifiers';

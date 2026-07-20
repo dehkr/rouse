@@ -1,4 +1,5 @@
-import { isPlainObject, warn } from './shared';
+import { warn } from './diagnostics';
+import { isPlainObject } from './shared';
 
 /**
  * Returns true if `obj[key]` is a serializable own data property. Excludes

@@ -1,7 +1,7 @@
 import type { RouseApp } from '../core/app';
 import type { PatchAction } from '../core/constants';
+import { warn } from '../core/diagnostics';
 import { parseStoreSubject } from '../core/parser';
-import { warn } from '../core/shared';
 import { resolveTarget } from '../core/store';
 import { dispatchTrigger } from '../dom/events';
 import { resolveRequestConfig } from '../net/request';

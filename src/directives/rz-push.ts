@@ -1,8 +1,8 @@
 import type { RouseApp } from '../core/app';
 import type { PatchAction } from '../core/constants';
+import { warn } from '../core/diagnostics';
 import { parseStoreSubject } from '../core/parser';
 import { getPathRoot } from '../core/path';
-import { warn } from '../core/shared';
 import { resolveTarget } from '../core/store';
 import { applyTiming } from '../core/timing';
 import { dispatchTrigger } from '../dom/events';

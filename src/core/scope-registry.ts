@@ -1,6 +1,6 @@
 import { IS_SCOPE } from '../dom/scope';
 import type { ScopeSetup } from '../types';
-import { fail } from './shared';
+import { fail } from './diagnostics';
 
 export class ScopeRegistry {
   private scopes = new Map<string, ScopeSetup<any>>();

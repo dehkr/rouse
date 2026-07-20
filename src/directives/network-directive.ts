@@ -1,6 +1,7 @@
 import type { RouseApp } from '../core/app';
+import { warn } from '../core/diagnostics';
 import { parseTriggerSubjectPairs } from '../core/parser';
-import { getDirectiveValue, warn } from '../core/shared';
+import { getDirectiveValue } from '../core/shared';
 import type {
   DirectiveSlug,
   StandaloneDirective,
