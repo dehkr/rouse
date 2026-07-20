@@ -1,5 +1,5 @@
-import type { SwapMethod, SwapOperation } from '../core/constants';
-import { resolveRouteTargets, rzTarget } from '../directives/rz-target';
+import type { SwapMethod } from '../core/constants';
+import { rzTarget } from '../directives';
 import type { RouseResponse } from '../types';
 import { dispatch } from './events';
 
@@ -18,16 +18,11 @@ export function initDomSwapper(appRoot: Element, abortSignal: AbortSignal) {
     if (config?.swap === false) return;
     if (typeof data !== 'string') return;
 
-    let operations: SwapOperation[];
-    if (e.type.includes('error')) {
-      // Errors route only when the server names a target via `Rouse-Target`.
-      // `rz-target` is intended for success output, not error content.
-      operations = targetOverride
-        ? resolveRouteTargets(targetOverride, triggerEl, appRoot).swaps
-        : [];
-    } else {
-      operations = rzTarget.getConfig(triggerEl, appRoot, targetOverride).swaps;
-    }
+    // Errors route only when the server names a target via `Rouse-Target`.
+    // `rz-target` is intended for success output, not error content.
+    if (e.type.includes('error') && !targetOverride) return;
+
+    const operations = rzTarget.getConfig(triggerEl, appRoot, targetOverride).swaps;
 
     for (const { targets, method } of operations) {
       for (const targetEl of targets) {

@@ -22,15 +22,22 @@ const SLUG = 'target' as const satisfies DirectiveSlug;
  * combining DOM and store targets. HTML responses ignore store targets, and JSON
  * responses ignore DOM targets.
  *
- * An empty value defaults to one swap targeting `hostEl`.
+ * An empty value defaults to one swap targeting the host element.
  *
  * - `rz-target="afterbegin: #output"`
  * - `rz-target="#output"`
  * - `rz-target="outerHTML"`
  * - `rz-target="@store"`
  * - `rz-target="@status, beforeend: #status"`
+ *
+ * @param overrideValue - Takes precedence over the element's `rz-target` attribute (e.g. a server `Rouse-Target` header).
  */
-export function resolveRouteTargets(
+function getConfig(el: Element, appRoot: Element, overrideValue?: string | null) {
+  const value = overrideValue || getDirectiveValue(el, SLUG);
+  return resolveRouteTargets(value, el, appRoot);
+}
+
+function resolveRouteTargets(
   value: string | null | undefined,
   hostEl: Element,
   appRoot: Element,
@@ -84,16 +91,6 @@ function queryEls(appRoot: Element, selector: string): Element[] {
   __DEV__ && targets.length === 0 && warn(`No targets found for '${selector}'.`);
 
   return targets;
-}
-
-/**
- * Resolves an element's `rz-target` into its routing destinations (DOM swaps and
- * `@store` names). An `overrideValue` (e.g. a server `Rouse-Target` header) takes
- * precedence over the element's attribute.
- */
-function getConfig(el: Element, appRoot: Element, overrideValue?: string | null) {
-  const value = overrideValue || getDirectiveValue(el, SLUG);
-  return resolveRouteTargets(value, el, appRoot);
 }
 
 export const rzTarget = {
