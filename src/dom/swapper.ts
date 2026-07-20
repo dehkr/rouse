@@ -1,6 +1,5 @@
 import type { SwapMethod, SwapOperation } from '../core/constants';
-import { resolveRouteTargets } from '../core/shared';
-import { rzTarget } from '../directives';
+import { resolveRouteTargets, rzTarget } from '../directives/rz-target';
 import type { RouseResponse } from '../types';
 import { dispatch } from './events';
 
