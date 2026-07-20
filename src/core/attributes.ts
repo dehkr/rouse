@@ -1,8 +1,8 @@
 import type { DirectiveSlug } from '../types';
 
 /**
- * Generates a CSS selector that matches both prefix styles.
- * Example: "[rz-text], [data-rz-text]"
+ * Generates a CSS selector that matches both prefix styles
+ * (e.g., `'[rz-text], [data-rz-text]'`).
  */
 export function directiveSelector(slug: DirectiveSlug): string {
   return `[rz-${slug}], [data-rz-${slug}]`;
@@ -23,7 +23,7 @@ export function hasDirective(el: Element, slug: DirectiveSlug): boolean {
 }
 
 /**
- * Safely query within the element boundary (including the element itself)
+ * Safely query within the element boundary (including the element itself).
  */
 export function queryTargets<T extends Element = Element>(
   el: Element,

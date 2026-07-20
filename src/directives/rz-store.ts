@@ -1,7 +1,7 @@
 import { getApp, type RouseApp } from '../core/app';
+import { getDirectiveValue, hasDirective } from '../core/attributes';
 import { type HttpMethod, isHttpMethod } from '../core/constants';
 import { err, warn } from '../core/diagnostics';
-import { getDirectiveValue, hasDirective } from '../core/shared';
 import type { SyncConfig } from '../core/store';
 import { is } from '../dom/utils';
 import type { DirectiveSlug, StoreDirective } from '../types';

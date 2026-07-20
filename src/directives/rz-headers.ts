@@ -1,8 +1,8 @@
 import type { RouseApp } from '../core/app';
+import { getDirectiveValue } from '../core/attributes';
 import { warn } from '../core/diagnostics';
 import { resolveInjection } from '../core/injection';
 import { parseDirectiveValue } from '../core/parser';
-import { getDirectiveValue } from '../core/shared';
 import type { ConfigDirective, DirectiveSlug } from '../types';
 
 /**

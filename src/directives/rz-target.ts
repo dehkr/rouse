@@ -1,3 +1,4 @@
+import { getDirectiveValue, queryTargets } from '../core/attributes';
 import {
   DEFAULT_SWAP_METHOD,
   isSwapMethod,
@@ -7,7 +8,6 @@ import {
 } from '../core/constants';
 import { warn } from '../core/diagnostics';
 import { parseDirectiveValue } from '../core/parser';
-import { getDirectiveValue, queryTargets } from '../core/shared';
 import type { ConfigDirective, DirectiveSlug } from '../types';
 
 const SLUG = 'target' as const satisfies DirectiveSlug;

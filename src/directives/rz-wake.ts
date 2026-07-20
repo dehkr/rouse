@@ -1,6 +1,6 @@
 import type { RouseApp } from '../core/app';
+import { getDirectiveValue } from '../core/attributes';
 import { parseTriggers } from '../core/parser';
-import { getDirectiveValue } from '../core/shared';
 import type { ConfigDirective, DirectiveSlug, TriggerDef } from '../types';
 
 const SLUG = 'wake' as const satisfies DirectiveSlug;

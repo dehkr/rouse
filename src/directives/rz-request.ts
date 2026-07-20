@@ -1,7 +1,7 @@
 import type { RouseApp } from '../core/app';
+import { getDirectiveValue } from '../core/attributes';
 import { resolveInjection } from '../core/injection';
 import { parseDirectiveValue } from '../core/parser';
-import { getDirectiveValue } from '../core/shared';
 import { parseTime } from '../core/timing';
 import type { ConfigDirective, DirectiveSlug, RouseRequest } from '../types';
 

@@ -1,4 +1,4 @@
-import { getDirectiveValue } from '../core/shared';
+import { getDirectiveValue } from '../core/attributes';
 import type { ConfigDirective, DirectiveSlug } from '../types';
 
 const SLUG = 'url' as const satisfies DirectiveSlug;

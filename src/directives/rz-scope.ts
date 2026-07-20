@@ -1,5 +1,5 @@
+import { getDirectiveValue } from '../core/attributes';
 import { splitInjection } from '../core/injection';
-import { getDirectiveValue } from '../core/shared';
 import type { ConfigDirective, DirectiveSlug } from '../types';
 
 const SLUG = 'scope' as const satisfies DirectiveSlug;
