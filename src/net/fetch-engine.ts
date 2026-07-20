@@ -1,6 +1,7 @@
 import type { RouseApp } from '../core/app';
 import { err, warn } from '../core/diagnostics';
-import { createKey, isFileType, isJsonType, isPlainObject } from '../core/shared';
+import { createKey } from '../core/keys';
+import { isFileType, isJsonType, isPlainObject } from '../core/shared';
 import { resolveStoreUrl } from '../core/store';
 import { dispatch } from '../dom/events';
 import { extractFieldValues } from '../dom/forms';
