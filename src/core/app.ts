@@ -38,7 +38,7 @@ import type {
   ScopeSetup,
   VoidFn,
 } from '../types';
-import { Registry } from './registry';
+import { ScopeRegistry } from './scope-registry';
 import { StoreManager, type SyncConfig } from './store';
 
 export interface RouseConfig {
@@ -85,7 +85,7 @@ export class RouseApp {
   public readonly root: HTMLElement;
   public readonly config: Readonly<ResolvedConfig>;
   public stores: StoreManager;
-  public registry: Registry;
+  public registry: ScopeRegistry;
   public isReady: boolean;
   public fetch: RouseFetch;
   public _interceptors: {
@@ -129,7 +129,7 @@ export class RouseApp {
     };
 
     this.stores = new StoreManager(this);
-    this.registry = new Registry();
+    this.registry = new ScopeRegistry();
     this.isReady = false;
 
     // Mark root so children can find parent app

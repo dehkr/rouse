@@ -2,7 +2,7 @@ import { IS_SCOPE } from '../dom/scope';
 import type { ScopeSetup } from '../types';
 import { fail } from './shared';
 
-export class Registry {
+export class ScopeRegistry {
   private scopes = new Map<string, ScopeSetup<any>>();
 
   register(name: string, setup: ScopeSetup<any>) {
