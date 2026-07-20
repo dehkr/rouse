@@ -1,7 +1,7 @@
 import type { Scope } from '../types';
 import { ITEM_PREFIX, KEY_BLOCKLIST, STORE_PREFIX } from './constants';
 import { parseDataSourcePath } from './parser';
-import { renderItem, renderParent } from './render';
+import { renderItem, renderParent } from './render-context';
 import { EMPTY_SCOPE, warn } from './shared';
 import type { StoreManager } from './store';
 

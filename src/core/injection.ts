@@ -3,7 +3,7 @@ import type { AnyFn, BindableValue, DirectiveSlug, HandlerCtx, Scope } from '../
 import { KEY_BLOCKLIST, STORE_PREFIX } from './constants';
 import { parseDataSourcePath } from './parser';
 import { getNestedVal, resolveState } from './path';
-import { renderCtxOf } from './render';
+import { renderCtxOf } from './render-context';
 import { err, isPlainObject, warn } from './shared';
 import type { StoreManager } from './store';
 
