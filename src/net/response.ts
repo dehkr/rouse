@@ -1,4 +1,3 @@
-import { isJsonType } from '../core/shared';
 import type {
   CustomErrorStatus,
   ErrorStatus,
@@ -123,4 +122,12 @@ export function fallbackResponse(
     status: null,
     config,
   };
+}
+
+export function isJsonType(val: string) {
+  return val.includes('application/json') || val.includes('+json');
+}
+
+export function isFileType(data: unknown) {
+  return data instanceof Blob || data instanceof ArrayBuffer;
 }

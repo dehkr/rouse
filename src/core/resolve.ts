@@ -3,8 +3,7 @@ import { ITEM_PREFIX, STORE_PREFIX } from './constants';
 import { warn } from './diagnostics';
 import { parseDataSourcePath } from './parser';
 import { getNestedVal, getPathParts, setNestedVal } from './path';
-import { renderItem, renderParent } from './render-context';
-import { EMPTY_SCOPE } from './shared';
+import { EMPTY_SCOPE, renderItem, renderParent } from './render-context';
 import type { StoreManager } from './store';
 
 const warnedWrites = new Set<string>();

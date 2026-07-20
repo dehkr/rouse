@@ -1,7 +1,8 @@
 import type { RouseApp } from '../core/app';
 import { err } from '../core/diagnostics';
 import { parseDirectiveValue } from '../core/parser';
-import { directiveSelector, EMPTY_SCOPE, getDirectiveValue } from '../core/shared';
+import { EMPTY_SCOPE } from '../core/render-context';
+import { directiveSelector, getDirectiveValue } from '../core/shared';
 import type { BoundCleanupFn, BoundDirective, Scope } from '../types';
 import { dispatch } from './events';
 

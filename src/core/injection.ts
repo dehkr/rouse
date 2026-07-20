@@ -6,7 +6,7 @@ import { parseDataSourcePath } from './parser';
 import { getNestedVal } from './path';
 import { renderCtxOf } from './render-context';
 import { resolveState } from './resolve';
-import { isPlainObject } from './shared';
+import { isPlainObject } from './state';
 import type { StoreManager } from './store';
 
 /**

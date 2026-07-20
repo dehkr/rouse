@@ -1,7 +1,7 @@
 import type { RouseApp } from '../core/app';
 import { resolveInjection } from '../core/injection';
 import { parseDirectiveValue } from '../core/parser';
-import { getDirectiveValue, kebabToCamel } from '../core/shared';
+import { getDirectiveValue } from '../core/shared';
 import { parseTime } from '../core/timing';
 import type { ConfigDirective, DirectiveSlug, RouseRequest } from '../types';
 
@@ -74,6 +74,10 @@ export function defineRequestDirective(
     slug,
     getConfig: (el, app) => parseRequestConfig(getDirectiveValue(el, slug), app),
   };
+}
+
+function kebabToCamel(str: string) {
+  return str.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
 }
 
 export const rzRequest = defineRequestDirective('request');

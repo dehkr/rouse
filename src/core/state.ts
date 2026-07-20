@@ -1,5 +1,4 @@
 import { warn } from './diagnostics';
-import { isPlainObject } from './shared';
 
 /**
  * Returns true if `obj[key]` is a serializable own data property. Excludes
@@ -200,4 +199,18 @@ export function patchState(
       target[sourceKey] = sourceVal;
     }
   }
+}
+
+/**
+ * Checks that a value is a plain JavaScript object (POJO).
+ * Excludes Arrays, Dates, Maps, and custom class instances.
+ */
+export function isPlainObject(val: unknown): val is Record<string, any> {
+  if (typeof val !== 'object' || val === null || Array.isArray(val)) {
+    return false;
+  }
+  const proto = Object.getPrototypeOf(val);
+
+  // Matches {} (Object.prototype) and Object.create(null)
+  return proto === null || proto === Object.prototype;
 }

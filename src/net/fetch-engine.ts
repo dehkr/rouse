@@ -1,7 +1,7 @@
 import type { RouseApp } from '../core/app';
 import { err, warn } from '../core/diagnostics';
 import { createKey } from '../core/keys';
-import { isFileType, isJsonType, isPlainObject } from '../core/shared';
+import { isPlainObject } from '../core/state';
 import { resolveStoreUrl } from '../core/store';
 import { dispatch } from '../dom/events';
 import { extractFieldValues } from '../dom/forms';
@@ -9,7 +9,7 @@ import { is } from '../dom/utils';
 import type { RouseRequest, RouseResponse } from '../types';
 import { extractRouseHeaders } from './headers';
 import { request, resolveRequestConfig } from './request';
-import { fallbackResponse } from './response';
+import { fallbackResponse, isFileType, isJsonType } from './response';
 
 type RequestState = { abortKey?: string };
 
