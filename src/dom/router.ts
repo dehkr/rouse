@@ -2,7 +2,7 @@ import type { RouseApp } from '../core/app';
 import { warn } from '../core/shared';
 import { rzTarget } from '../directives';
 import type { RouseResponse } from '../types';
-import { dispatch } from './scheduler';
+import { dispatch } from './events';
 
 /**
  * Routes successful JSON responses into global stores named by `rz-target`

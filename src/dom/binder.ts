@@ -2,7 +2,7 @@ import type { RouseApp } from '../core/app';
 import { parseDirectiveValue } from '../core/parser';
 import { directiveSelector, EMPTY_SCOPE, err, getDirectiveValue } from '../core/shared';
 import type { BoundCleanupFn, BoundDirective, Scope } from '../types';
-import { dispatch } from './scheduler';
+import { dispatch } from './events';
 
 /** Registry to track cleanup functions of globally mounted directives. */
 const globalBindings = new WeakMap<Element, BoundCleanupFn[]>();

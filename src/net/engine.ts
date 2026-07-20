@@ -8,8 +8,8 @@ import {
   warn,
 } from '../core/shared';
 import { resolveStoreUrl } from '../core/store';
+import { dispatch } from '../dom/events';
 import { extractFieldValues } from '../dom/forms';
-import { dispatch } from '../dom/scheduler';
 import { is } from '../dom/utils';
 import type { RouseRequest, RouseResponse } from '../types';
 import { extractRouseHeaders } from './headers';

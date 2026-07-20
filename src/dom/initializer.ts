@@ -10,7 +10,7 @@ import {
   teardownGlobalBindings,
   walkBoundElements,
 } from './binder';
-import { attachWakeStrategies } from './scheduler';
+import { attachWakeStrategies } from './events';
 import {
   destroyInstance,
   initScopeInstance,

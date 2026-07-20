@@ -1,4 +1,4 @@
-import { dispatch } from '../dom/scheduler';
+import { dispatch } from '../dom/events';
 import { request } from '../net/request';
 import { reactive, seedPropagation, trackDirty } from '../reactivity/reactive';
 import type {

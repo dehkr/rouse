@@ -20,9 +20,9 @@ import {
   teardownGlobalBindings,
   walkBoundElements,
 } from '../dom/binder';
+import { dispatch } from '../dom/events';
 import { initObserver, initScopeElement } from '../dom/initializer';
 import { initStoreRouter } from '../dom/router';
-import { dispatch } from '../dom/scheduler';
 import { destroyInstance, IS_SCOPE } from '../dom/scope';
 import { initDomSwapper } from '../dom/swapper';
 import { handleFetch } from '../net/engine';

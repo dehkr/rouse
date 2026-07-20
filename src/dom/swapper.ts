@@ -2,7 +2,7 @@ import type { SwapMethod, SwapOperation } from '../core/constants';
 import { resolveRouteTargets } from '../core/shared';
 import { rzTarget } from '../directives';
 import type { RouseResponse } from '../types';
-import { dispatch } from './scheduler';
+import { dispatch } from './events';
 
 /**
  * Listens globally for HTML fetch responses (successes, and errors the

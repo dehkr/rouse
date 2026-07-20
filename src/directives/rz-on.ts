@@ -4,7 +4,7 @@ import { invokeHandler, splitInjection } from '../core/injection';
 import { parseDataSourcePath, parseTriggers } from '../core/parser';
 import { getNestedVal } from '../core/path';
 import { warn } from '../core/shared';
-import { dispatchTrigger } from '../dom/scheduler';
+import { dispatchTrigger } from '../dom/events';
 import type {
   AnyFn,
   BoundCleanupFn,

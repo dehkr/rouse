@@ -5,7 +5,7 @@ import { getPathRoot } from '../core/path';
 import { warn } from '../core/shared';
 import { resolveTarget } from '../core/store';
 import { applyTiming } from '../core/timing';
-import { dispatchTrigger } from '../dom/scheduler';
+import { dispatchTrigger } from '../dom/events';
 import { resolveRequestConfig } from '../net/request';
 import type { TriggerDef, VoidFn } from '../types';
 import { defineNetworkDirective } from './network-directive';

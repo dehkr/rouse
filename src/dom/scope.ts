@@ -4,7 +4,7 @@ import { fail } from '../core/shared';
 import { withMethodAliases } from '../net/request';
 import type { ScopeCtx, ScopeSetup } from '../types';
 import { bindScope } from './binder';
-import { dispatch, on } from './scheduler';
+import { dispatch, on } from './events';
 import { swap } from './swapper';
 
 const instanceMap = new WeakMap<HTMLElement, any>();

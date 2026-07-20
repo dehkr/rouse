@@ -3,7 +3,7 @@ import type { PatchAction } from '../core/constants';
 import { parseStoreSubject } from '../core/parser';
 import { warn } from '../core/shared';
 import { resolveTarget } from '../core/store';
-import { dispatchTrigger } from '../dom/scheduler';
+import { dispatchTrigger } from '../dom/events';
 import { resolveRequestConfig } from '../net/request';
 import type { VoidFn } from '../types';
 import { defineNetworkDirective } from './network-directive';
