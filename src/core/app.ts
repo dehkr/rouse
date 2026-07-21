@@ -23,7 +23,7 @@ import { dispatch } from '../dom/events';
 import { initObserver, initScopeElement } from '../dom/initializer';
 import { destroyInstance, IS_SCOPE } from '../dom/scope';
 import { initStoreRouter } from '../dom/store-router';
-import { initDomSwapper } from '../dom/swapper';
+import { initDomRouter } from '../dom/swapper';
 import { handleFetch } from '../net/fetch-engine';
 import { withMethodAliases } from '../net/request';
 import { fallbackResponse } from '../net/response';
@@ -263,7 +263,7 @@ export class RouseApp {
     dispatch(this.root, 'rz:app:start', { app: this });
 
     // Watch for HTML fetch responses
-    initDomSwapper(this.root, this._abortController.signal);
+    initDomRouter(this, this._abortController.signal);
 
     // Watch for JSON fetch responses
     initStoreRouter(this, this._abortController.signal);
