@@ -22,7 +22,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix bare triggers (e.g., `keydown` with no key modifiers) not firing while a modifier key was held.
 - Fix `.once` modifier bug that prevented events with multiple modifiers from firing.
 - Fix `rz-fetch` on forms ignoring a submit button's `formaction` when no other URL source was set.
-- Warn and skip on trailing colons in a directive values (e.g., `rz-headers="Key: "`) instead of parsing it as a corrupted key.
+- Warn and skip on a trailing colon in directive values (e.g., `rz-headers="Key: "`) instead of corrupting the key.
+- Fix the array `at()` method returning stale values after a reordering mutation (e.g. `unshift`, `splice`).
+- Prevent a JSON array or primitive routed to a store via `rz-target="@store"` corrupting store state; reject non-object payloads with a warning.
+
+### Removed
+
+- **Breaking:** Remove `trigger` and `effectScope` from public exports.
 
 ## [0.10.0] - 2026-07-08
 
