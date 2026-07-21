@@ -70,7 +70,6 @@ export function resolveTarget(
   el: Element,
   slug: Extract<DirectiveSlug, 'push' | 'pull'>,
   subject: string | null,
-  supportsNestedPath = true,
 ): StoreTarget | null {
   if (subject) {
     if (!subject.startsWith(STORE_PREFIX)) {
@@ -85,7 +84,7 @@ export function resolveTarget(
       __DEV__ && warn(`rz-${slug}: invalid store reference '${subject}'.`);
       return null;
     }
-    return { storeName, nestedPath: supportsNestedPath ? nestedPath : '' };
+    return { storeName, nestedPath };
   }
 
   // Reference the `rz-store` value if `null`. Specific to <script> elements.

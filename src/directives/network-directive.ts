@@ -12,8 +12,9 @@ import type {
 /**
  * Factory for the network directives (rz-fetch, rz-push, rz-pull), which share
  * the `[trigger]: [subject]` grammar. Owns the per-element cleanup registry and
- * the shared initialize/teardown scaffolding. `bindPairs` wires the parsed pairs
- * for one element and returns their cleanups.
+ * the shared initialize/teardown scaffolding.
+ *
+ * @param bindPairs - Wires the parsed pairs for one element and returns their cleanups.
  */
 export function defineNetworkDirective(
   slug: Extract<DirectiveSlug, 'fetch' | 'push' | 'pull'>,
