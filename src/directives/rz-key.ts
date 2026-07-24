@@ -1,7 +1,5 @@
 import { getDirectiveValue } from '../core/attributes';
-import type { ConfigDirective, DirectiveSlug } from '../types';
-
-const SLUG = 'key' as const satisfies DirectiveSlug;
+import type { ConfigDirective } from '../types';
 
 /**
  * Explicit reconciliation key for `rz-render`. Holds an item path resolved per
@@ -13,10 +11,10 @@ const SLUG = 'key' as const satisfies DirectiveSlug;
  * <template rz-render="@todos.items" rz-key="id">
  */
 function getConfig(el: Element): string | null {
-  return getDirectiveValue(el, SLUG)?.trim() || null;
+  return getDirectiveValue(el, 'key')?.trim() || null;
 }
 
 export const rzKey = {
-  slug: SLUG,
+  slug: 'key',
   getConfig,
 } as const satisfies ConfigDirective<string | null>;

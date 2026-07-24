@@ -8,9 +8,7 @@ import {
 } from '../core/constants';
 import { warn } from '../core/diagnostics';
 import { parseDirectiveValue } from '../core/parser';
-import type { ConfigDirective, DirectiveSlug } from '../types';
-
-const SLUG = 'target' as const satisfies DirectiveSlug;
+import type { ConfigDirective } from '../types';
 
 /**
  * Resolves an `rz-target` value into its routing targets: DOM `swaps`
@@ -33,7 +31,7 @@ const SLUG = 'target' as const satisfies DirectiveSlug;
  * @param overrideValue - Takes precedence over the element's `rz-target` attribute (e.g. a server `Rouse-Target` header).
  */
 function getConfig(el: Element, appRoot: Element, overrideValue?: string | null) {
-  const value = overrideValue || getDirectiveValue(el, SLUG);
+  const value = overrideValue || getDirectiveValue(el, 'target');
   return resolveRouteTargets(value, el, appRoot);
 }
 
@@ -94,6 +92,6 @@ function queryEls(appRoot: Element, selector: string): Element[] {
 }
 
 export const rzTarget = {
-  slug: SLUG,
+  slug: 'target',
   getConfig,
 } as const satisfies ConfigDirective<TargetConfig>;

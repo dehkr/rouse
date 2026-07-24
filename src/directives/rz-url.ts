@@ -1,7 +1,5 @@
 import { getDirectiveValue } from '../core/attributes';
-import type { ConfigDirective, DirectiveSlug } from '../types';
-
-const SLUG = 'url' as const satisfies DirectiveSlug;
+import type { ConfigDirective } from '../types';
 
 /**
  * The request URL for an element. Read by `rz-fetch` (and by `rz-store` for a
@@ -12,10 +10,10 @@ const SLUG = 'url' as const satisfies DirectiveSlug;
  * <button rz-url="/api/users" rz-fetch="click: POST">Save</button>
  */
 function getConfig(el: Element): { url: string } {
-  return { url: getDirectiveValue(el, SLUG)?.trim() ?? '' };
+  return { url: getDirectiveValue(el, 'url')?.trim() ?? '' };
 }
 
 export const rzUrl = {
-  slug: SLUG,
+  slug: 'url',
   getConfig,
 } as const satisfies ConfigDirective<{ url: string }>;

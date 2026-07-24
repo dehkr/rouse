@@ -2,9 +2,7 @@ import { effect } from 'alien-signals';
 import type { RouseApp } from '../core/app';
 import { resolveBoundValue } from '../core/injection';
 import { updateClass } from '../dom/updater';
-import type { BoundCleanupFn, BoundDirective, DirectiveSlug, Scope } from '../types';
-
-const SLUG = 'class' as const satisfies DirectiveSlug;
+import type { BoundCleanupFn, BoundDirective, Scope } from '../types';
 
 function bind(
   el: Element,
@@ -14,12 +12,12 @@ function bind(
   val: string,
 ): BoundCleanupFn {
   return effect(() => {
-    const resolvedValue = resolveBoundValue(val || key, scope, app.stores, el, SLUG);
+    const resolvedValue = resolveBoundValue(val || key, scope, app.stores, el, 'class');
     updateClass(el, val === '' ? resolvedValue : { [key]: !!resolvedValue });
   }) as BoundCleanupFn;
 }
 
 export const rzClass = {
-  slug: SLUG,
+  slug: 'class',
   bind,
 } as const satisfies BoundDirective;

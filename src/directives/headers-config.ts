@@ -6,6 +6,19 @@ import { parseDirectiveValue } from '../core/parser';
 import type { ConfigDirective, DirectiveSlug } from '../types';
 
 /**
+ * Factory for `rz-headers` and its variants.
+ */
+export function defineHeadersConfigDirective(
+  slug: DirectiveSlug,
+): ConfigDirective<Record<string, string | null>> {
+  return {
+    slug,
+    getConfig: (el, app) =>
+      parseHeadersConfig(getDirectiveValue(el, slug), el, app, slug),
+  };
+}
+
+/**
  * Parses a `rz-headers` directive value into a header record.
  * Supports object injection (`#`, `@`, `{`) or static key-value pairs.
  * A `null` value removes the header from the request; an empty string
@@ -61,20 +74,7 @@ export function parseHeadersConfig(
   return headers;
 }
 
-/**
- * Factory for `rz-headers` and its variants.
- */
-export function defineHeadersDirective(
-  slug: DirectiveSlug,
-): ConfigDirective<Record<string, string | null>> {
-  return {
-    slug,
-    getConfig: (el, app) =>
-      parseHeadersConfig(getDirectiveValue(el, slug), el, app, slug),
-  };
-}
-
-export const rzHeaders = defineHeadersDirective('headers');
-export const rzPushHeaders = defineHeadersDirective('push-headers');
-export const rzFetchHeaders = defineHeadersDirective('fetch-headers');
-export const rzPullHeaders = defineHeadersDirective('pull-headers');
+export const rzHeaders = defineHeadersConfigDirective('headers');
+export const rzPushHeaders = defineHeadersConfigDirective('push-headers');
+export const rzFetchHeaders = defineHeadersConfigDirective('fetch-headers');
+export const rzPullHeaders = defineHeadersConfigDirective('pull-headers');

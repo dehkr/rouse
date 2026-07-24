@@ -1,16 +1,15 @@
 import type { RouseApp } from '../core/app';
 import { getDirectiveValue } from '../core/attributes';
 import { parseTriggers } from '../core/parser';
-import type { ConfigDirective, DirectiveSlug, TriggerDef } from '../types';
-
-const SLUG = 'wake' as const satisfies DirectiveSlug;
+import type { ConfigDirective, TriggerDef } from '../types';
 
 function getConfig(el: Element, app: RouseApp): TriggerDef[] {
-  const wakeTriggers = parseTriggers(getDirectiveValue(el, SLUG));
+  const wakeTriggers = parseTriggers(getDirectiveValue(el, 'wake'));
 
   if (wakeTriggers.length === 0) {
-    // Fall back to the app config, then to 'ready' if the config is malformed.
     const wakeTriggersConfig = parseTriggers(app.config.wake);
+
+    // Fall back to the app config or to `ready` if the config is malformed
     return wakeTriggersConfig.length === 0
       ? [{ event: 'ready', modifiers: [] }]
       : wakeTriggersConfig;
@@ -20,6 +19,6 @@ function getConfig(el: Element, app: RouseApp): TriggerDef[] {
 }
 
 export const rzWake = {
-  slug: SLUG,
+  slug: 'wake',
   getConfig,
 } as const satisfies ConfigDirective<TriggerDef[]>;

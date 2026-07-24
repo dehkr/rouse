@@ -5,16 +5,7 @@ import { invokeHandler, splitInjection } from '../core/injection';
 import { parseDataSourcePath, parseTriggers } from '../core/parser';
 import { getNestedVal } from '../core/path';
 import { dispatchTrigger } from '../dom/events';
-import type {
-  AnyFn,
-  BoundCleanupFn,
-  BoundDirective,
-  DirectiveSlug,
-  Scope,
-  VoidFn,
-} from '../types';
-
-const SLUG = 'on' as const satisfies DirectiveSlug;
+import type { AnyFn, BoundCleanupFn, BoundDirective, Scope, VoidFn } from '../types';
 
 function bind(
   el: Element,
@@ -97,6 +88,6 @@ function bind(
 }
 
 export const rzOn = {
-  slug: SLUG,
+  slug: 'on',
   bind,
 } as const satisfies BoundDirective;

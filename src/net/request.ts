@@ -6,13 +6,13 @@ import {
   rzHeaders,
   rzPullHeaders,
   rzPushHeaders,
-} from '../directives/rz-headers';
+} from '../directives/headers-config';
 import {
   rzFetchRequest,
   rzPullRequest,
   rzPushRequest,
   rzRequest,
-} from '../directives/rz-request';
+} from '../directives/request-config';
 import type {
   NetworkAction,
   RequestError,

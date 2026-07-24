@@ -4,11 +4,10 @@ import { type HttpMethod, isHttpMethod } from '../core/constants';
 import { err, warn } from '../core/diagnostics';
 import type { SyncConfig } from '../core/store';
 import { is } from '../dom/utils';
-import type { DirectiveSlug, StoreDirective } from '../types';
-import { rzPullRequest, rzPushRequest, rzRequest } from './rz-request';
+import type { StoreDirective } from '../types';
+import { rzPullRequest, rzPushRequest, rzRequest } from './request-config';
 import { rzUrl } from './rz-url';
 
-const SLUG = 'store' as const satisfies DirectiveSlug;
 const initialized = new WeakSet<HTMLScriptElement>();
 
 /**
@@ -21,7 +20,7 @@ const initialized = new WeakSet<HTMLScriptElement>();
 function initialize(el: HTMLScriptElement, app: RouseApp) {
   if (initialized.has(el)) return;
 
-  const storeName = getDirectiveValue(el, SLUG)?.trim();
+  const storeName = getDirectiveValue(el, 'store')?.trim();
   if (!storeName) return;
 
   const textContent = el.textContent?.trim();
@@ -87,6 +86,7 @@ function resolveMethod(method: string | undefined, el: Element): HttpMethod | un
     __DEV__ && warn(`rz-store: unknown HTTP method '${method}'. Ignoring.`, el);
     return undefined;
   }
+
   return method.toUpperCase() as HttpMethod;
 }
 
@@ -94,13 +94,14 @@ function resolveMethod(method: string | undefined, el: Element): HttpMethod | un
  * Validates if `el` is a script element hosting an `rz-store` directive with a value.
  */
 function validate(el: Element, app: RouseApp): el is HTMLScriptElement {
-  if (!(is(el, 'Script') && hasDirective(el, SLUG) && getApp(el, app))) {
+  if (!(is(el, 'Script') && hasDirective(el, 'store') && getApp(el, app))) {
     return false;
   }
-  if (!getDirectiveValue(el, SLUG)?.trim()) {
+  if (!getDirectiveValue(el, 'store')?.trim()) {
     __DEV__ && warn(`rz-store: value is missing or empty.`, el);
     return false;
   }
+
   return true;
 }
 
@@ -109,7 +110,7 @@ function teardown(el: HTMLScriptElement) {
 }
 
 export const rzStore = {
-  slug: SLUG,
+  slug: 'store',
   validate,
   initialize,
   teardown,

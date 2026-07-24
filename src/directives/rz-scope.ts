@@ -1,13 +1,11 @@
 import { getDirectiveValue } from '../core/attributes';
 import { splitInjection } from '../core/injection';
-import type { ConfigDirective, DirectiveSlug } from '../types';
-
-const SLUG = 'scope' as const satisfies DirectiveSlug;
+import type { ConfigDirective } from '../types';
 
 function getConfig(
   el: Element,
 ): { scopeName: string; rawPayload: string | undefined } | null {
-  const value = getDirectiveValue(el, SLUG);
+  const value = getDirectiveValue(el, 'scope');
   if (value === null) return null;
 
   const { key: scopeName, rawPayload } = splitInjection(value);
@@ -16,7 +14,7 @@ function getConfig(
 }
 
 export const rzScope = {
-  slug: SLUG,
+  slug: 'scope',
   getConfig,
 } as const satisfies ConfigDirective<{
   scopeName: string;

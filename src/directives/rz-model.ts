@@ -10,12 +10,9 @@ import type {
   BindableValue,
   BoundCleanupFn,
   BoundDirective,
-  DirectiveSlug,
   Scope,
   TriggerDef,
 } from '../types';
-
-const SLUG = 'model' as const satisfies DirectiveSlug;
 
 /**
  * Returns the default trigger for a given element. Custom elements and
@@ -86,6 +83,6 @@ function bind(
 }
 
 export const rzModel = {
-  slug: SLUG,
+  slug: 'model',
   bind,
 } as const satisfies BoundDirective;

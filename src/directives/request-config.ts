@@ -6,8 +6,19 @@ import { parseTime } from '../core/timing';
 import type { ConfigDirective, DirectiveSlug, RouseRequest } from '../types';
 
 const BOOLEAN_KEYS = ['keepalive', 'rollback-on-error', 'skip-interceptors', 'swap'];
-
 const TIME_KEYS = ['timeout', 'retry-delay'];
+
+/**
+ * Factory for `rz-request` and its variants.
+ */
+export function defineRequestConfigDirective(
+  slug: DirectiveSlug,
+): ConfigDirective<Partial<RouseRequest>> {
+  return {
+    slug,
+    getConfig: (el, app) => parseRequestConfig(getDirectiveValue(el, slug), app),
+  };
+}
 
 /**
  * Parses a `rz-request*` directive value into a partial RouseRequest config.
@@ -58,23 +69,11 @@ export function parseRequestConfig(
   return config as Partial<RouseRequest>;
 }
 
-/**
- * Factory for `rz-request` and its variants.
- */
-export function defineRequestDirective(
-  slug: DirectiveSlug,
-): ConfigDirective<Partial<RouseRequest>> {
-  return {
-    slug,
-    getConfig: (el, app) => parseRequestConfig(getDirectiveValue(el, slug), app),
-  };
-}
-
 function kebabToCamel(str: string) {
   return str.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
 }
 
-export const rzRequest = defineRequestDirective('request');
-export const rzPushRequest = defineRequestDirective('push-request');
-export const rzFetchRequest = defineRequestDirective('fetch-request');
-export const rzPullRequest = defineRequestDirective('pull-request');
+export const rzRequest = defineRequestConfigDirective('request');
+export const rzPushRequest = defineRequestConfigDirective('push-request');
+export const rzFetchRequest = defineRequestConfigDirective('fetch-request');
+export const rzPullRequest = defineRequestConfigDirective('pull-request');

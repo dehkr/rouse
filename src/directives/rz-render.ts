@@ -2,10 +2,8 @@ import type { RouseApp } from '../core/app';
 import { warn } from '../core/diagnostics';
 import { resolveBoundValue } from '../core/injection';
 import { renderTemplate } from '../dom/renderer';
-import type { BoundCleanupFn, BoundDirective, DirectiveSlug, Scope } from '../types';
+import type { BoundCleanupFn, BoundDirective, Scope } from '../types';
 import { rzKey } from './rz-key';
-
-const SLUG = 'render' as const satisfies DirectiveSlug;
 
 /**
  * Drives an `rz-render` template: resolves its value expression reactively and
@@ -27,14 +25,18 @@ function bind(
   const raw = value || key;
   const keyPath = rzKey.getConfig(el);
 
-  return renderTemplate(el, () => resolveBoundValue(raw, scope, app.stores, el, SLUG), {
-    app,
-    parentState: scope,
-    keyPath,
-  }) as BoundCleanupFn;
+  return renderTemplate(
+    el,
+    () => resolveBoundValue(raw, scope, app.stores, el, 'render'),
+    {
+      app,
+      parentState: scope,
+      keyPath,
+    },
+  ) as BoundCleanupFn;
 }
 
 export const rzRender = {
-  slug: SLUG,
+  slug: 'render',
   bind,
 } as const satisfies BoundDirective;

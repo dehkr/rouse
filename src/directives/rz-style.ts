@@ -2,9 +2,7 @@ import { effect } from 'alien-signals';
 import type { RouseApp } from '../core/app';
 import { resolveBoundValue } from '../core/injection';
 import { applyStyles, setStyleProperty, updateStyle } from '../dom/updater';
-import type { BoundCleanupFn, BoundDirective, DirectiveSlug, Scope } from '../types';
-
-const SLUG = 'style' as const satisfies DirectiveSlug;
+import type { BoundCleanupFn, BoundDirective, Scope } from '../types';
 
 function bind(
   el: Element,
@@ -15,7 +13,7 @@ function bind(
 ): BoundCleanupFn {
   return effect(() => {
     const lookup = val === '' ? key : val;
-    const resolved = resolveBoundValue(lookup, scope, app.stores, el, SLUG);
+    const resolved = resolveBoundValue(lookup, scope, app.stores, el, 'style');
 
     if (val === '') {
       updateStyle(el, resolved);
@@ -28,6 +26,6 @@ function bind(
 }
 
 export const rzStyle = {
-  slug: SLUG,
+  slug: 'style',
   bind,
 } as const satisfies BoundDirective;
