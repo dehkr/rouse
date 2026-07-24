@@ -5,13 +5,7 @@ import { parseDirectiveValue } from '../core/parser';
 import { parseTime } from '../core/timing';
 import type { ConfigDirective, DirectiveSlug, RouseRequest } from '../types';
 
-const BOOLEAN_KEYS = [
-  'dispatch-events',
-  'keepalive',
-  'rollback-on-error',
-  'skip-interceptors',
-  'swap',
-];
+const BOOLEAN_KEYS = ['keepalive', 'rollback-on-error', 'skip-interceptors', 'swap'];
 
 const TIME_KEYS = ['timeout', 'retry-delay'];
 

@@ -1,4 +1,5 @@
 import { dispatch } from '../dom/events';
+import { runRequestLifecycle } from '../net/lifecycle';
 import { request } from '../net/request';
 import { reactive, seedPropagation, trackDirty } from '../reactivity/reactive';
 import type {
@@ -7,9 +8,9 @@ import type {
   LifecycleEvent,
   RouseRequest,
   RouseResponse,
+  StoreSyncBeforeDetail,
   StoreSyncConflictDetail,
   StoreSyncDetail,
-  StoreSyncErrorDetail,
   StoreSyncRollbackDetail,
   VoidFn,
 } from '../types';
@@ -52,6 +53,7 @@ export interface StoreRequestOptions {
   overrides?: Partial<RouseRequest>;
   nestedPath?: string;
   rollbackOnError?: boolean;
+  triggerEl?: Element;
 }
 
 /**
@@ -213,14 +215,15 @@ export class StoreManager {
   private _dispatchSyncEvent(
     eventName: LifecycleEvent,
     detail:
+      | StoreSyncBeforeDetail
       | StoreSyncDetail
       | StoreSyncConflictDetail
-      | StoreSyncErrorDetail
       | StoreSyncRollbackDetail,
     storeName: string,
+    options?: CustomEventInit,
   ) {
-    const target = this.elementFor(storeName) || (this.app.config.root as Element);
-    return dispatch(target, eventName, detail);
+    const target = this.elementFor(storeName) || this.app.root;
+    return dispatch(target, eventName, detail, options);
   }
 
   /**
@@ -261,53 +264,84 @@ export class StoreManager {
       requestOptions.body = sliceAt(data, manualConfig?.nestedPath);
     }
 
-    // Unique token for this specific network request
-    const reqToken = Symbol();
-    this._activeReqs.set(id, reqToken);
+    // Request-axis events fire from the trigger element; destination-axis
+    // (rz:store:sync:*) events keep firing from elementFor(id) ?? root.
+    const firingEl = manualConfig?.triggerEl ?? this.elementFor(id) ?? this.app.root;
 
-    // Snaphot used to diff the server and client state
-    const snapshot = clone(data);
-    status.loading = operation;
-    status.error = null;
-
-    try {
-      const result = await request(url, requestOptions, this.app);
-      this._applyServerResponse(
-        id,
-        operation,
+    await runRequestLifecycle({
+      el: firingEl,
+      prefix: operation === 'push' ? 'rz:push' : 'rz:pull',
+      configDetail: {
+        storeName: id,
+        config: requestOptions,
+        url,
+        method,
+      },
+      lifecycleDetail: {
+        storeName: id,
+        config: requestOptions,
+      },
+      terminalDetail: (result) => ({
+        storeName: id,
         result,
-        data,
-        status,
-        config,
-        snapshot,
-        manualConfig,
-      );
-    } catch (e: any) {
-      status.error = e;
+      }),
+      run: async (handle) => {
+        const reqToken = Symbol();
+        this._activeReqs.set(id, reqToken);
 
-      this._dispatchSyncEvent(
-        'rz:store:sync:error',
-        { storeName: id, operation, data, error: e },
-        id,
-      );
+        const snapshot = clone(data);
+        status.loading = operation;
+        status.error = null;
 
-      // Rollback resolution chain
-      const rollbackOnError =
-        manualConfig?.rollbackOnError ??
-        (requestOptions as FetchConfig).rollbackOnError ??
-        config?.rollbackOnError ??
-        false;
+        try {
+          const result = await request(url, requestOptions, this.app);
+          handle.settle(result);
 
-      if (operation === 'push' && rollbackOnError) {
-        this._maybeRollback(id, data, status, snapshot, manualConfig?.nestedPath, e);
-      }
-    } finally {
-      // Only disable the loading state if this is the most recent request
-      if (this._activeReqs.get(id) === reqToken) {
-        status.loading = false;
-        this._activeReqs.delete(id);
-      }
-    }
+          if (result.error) {
+            if (result.error.status === 'CANCELED') {
+              return result;
+            }
+
+            status.error = result.error.message;
+
+            const rollbackOnError =
+              manualConfig?.rollbackOnError ??
+              (requestOptions as FetchConfig).rollbackOnError ??
+              config?.rollbackOnError ??
+              false;
+
+            if (operation === 'push' && rollbackOnError) {
+              this._maybeRollback(
+                id,
+                data,
+                status,
+                snapshot,
+                manualConfig?.nestedPath,
+                result.error,
+              );
+            }
+            return result;
+          }
+
+          this._applyServerResponse(
+            id,
+            operation,
+            result,
+            data,
+            status,
+            config,
+            snapshot,
+            manualConfig,
+          );
+          return result;
+        } finally {
+          if (this._activeReqs.get(id) === reqToken) {
+            status.loading = false;
+            this._activeReqs.delete(id);
+          }
+        }
+      },
+    });
   }
 
   /**
@@ -339,30 +373,32 @@ export class StoreManager {
     snapshot: any,
     manualConfig?: StoreRequestOptions,
   ) {
-    if (result.error) {
-      if (result.error.status === 'CANCELED') return;
-      throw result.error;
-    }
-
     const action = manualConfig?.action || config?.action || 'replace';
     const nestedPath = manualConfig?.nestedPath;
 
-    this._dispatchSyncEvent(
-      'rz:store:sync:before',
-      { storeName, operation, data, nestedPath, action },
-      storeName,
-    );
-
+    // Record the sync and clear dirty for pushed-and-unchanged keys. Independent
+    // of the response echo, which a conflict or a prevented `:before` skips (mirroring
+    // the conflict path below).
     if (operation === 'push') {
-      // Push accepted = synced
       status.lastSync = Date.now();
       this._clearDirtyMatching(status, data, snapshot, nestedPath);
     }
 
+    const beforeEvent = this._dispatchSyncEvent(
+      'rz:store:sync:before',
+      { storeName, operation, data, payload: result.data, nestedPath, action },
+      storeName,
+      { cancelable: true },
+    );
+    if (beforeEvent.defaultPrevented) return;
+
+    // Whole `result.data`, mutable by listeners (matches the router's deposit path)
+    const payload = (beforeEvent.detail as StoreSyncBeforeDetail).payload;
+
     // Reconcile the response body into the store. On push, how server-owned fields
     // (assigned id, computed/normalized values) return to the client. On pull, the
     // fetched data itself.
-    if (result.data && typeof result.data === 'object') {
+    if (payload && typeof payload === 'object') {
       const localSlice = sliceAt(data, nestedPath);
       const snapSlice = sliceAt(snapshot, nestedPath);
       const isMutating = !deepEqual(localSlice, snapSlice);
@@ -370,7 +406,7 @@ export class StoreManager {
       // Apply server update if local state is not being mutated during request
       if (!isMutating) {
         if (nestedPath) {
-          const incoming = getNestedVal(result.data, nestedPath);
+          const incoming = getNestedVal(payload, nestedPath);
           if (incoming !== undefined) {
             this._withPatchGuard(() => {
               const target = getNestedVal(data, nestedPath);
@@ -388,7 +424,7 @@ export class StoreManager {
             });
           }
         } else {
-          this._withPatchGuard(() => patchState(data, result.data, action));
+          this._withPatchGuard(() => patchState(data, payload, action));
         }
       } else {
         // Is mutating. Dispatch sync conflict lifecycle event.
@@ -398,7 +434,7 @@ export class StoreManager {
             storeName,
             operation,
             localData: localSlice,
-            serverData: sliceAt(result.data, nestedPath),
+            serverData: sliceAt(payload, nestedPath),
             response: result,
             nestedPath,
             action,
@@ -406,7 +442,6 @@ export class StoreManager {
           },
           storeName,
         );
-
         return;
       }
     }
@@ -419,9 +454,20 @@ export class StoreManager {
 
     this._dispatchSyncEvent(
       'rz:store:sync',
-      { storeName, operation, data, response: result, nestedPath, action },
+      { storeName, operation, data, response: result, payload, nestedPath, action },
       storeName,
     );
+  }
+
+  /**
+   * Marks a store server-synced. Used by the router's deposit path, which is
+   * server contact but goes through `update()` (a local-mutation primitive).
+   */
+  _markSynced(name: string) {
+    const status = this._status.get(name);
+    if (status) {
+      status.lastSync = Date.now();
+    }
   }
 
   private _withPatchGuard(fn: VoidFn) {

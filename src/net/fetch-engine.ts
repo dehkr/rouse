@@ -8,6 +8,7 @@ import { extractFieldValues } from '../dom/forms';
 import { is } from '../dom/utils';
 import type { RouseRequest, RouseResponse } from '../types';
 import { extractRouseHeaders } from './headers';
+import { PREVENTED, runRequestLifecycle } from './lifecycle';
 import { request, resolveRequestConfig } from './request';
 import { fallbackResponse, isFileType, isJsonType } from './response';
 
@@ -71,14 +72,12 @@ async function executeFetch(el: Element, app: RouseApp, options: RouseRequest) {
 
   if (!url) {
     __DEV__ && warn('Invalid or missing URL for the fetch request.', el);
-
     const fallback = fallbackResponse(
       options,
       'Invalid or missing URL for the fetch request.',
       'INTERNAL_ERROR',
     );
     dispatch(el, 'rz:fetch:error', fallback);
-
     return fallback;
   }
 
@@ -100,7 +99,7 @@ async function executeFetch(el: Element, app: RouseApp, options: RouseRequest) {
     extractFieldValues(el, method, finalRequestInit);
   }
 
-  // Automatically generate an abort key if one isn't provided to guarantee
+  // Auto-generate an abort key if one isn't provided to guarantee
   // an element can never have conflicting requests.
   let autoAbortKey = state?.abortKey;
   if (!autoAbortKey) {
@@ -118,121 +117,73 @@ async function executeFetch(el: Element, app: RouseApp, options: RouseRequest) {
     form: hasExplicitBody ? undefined : isFormEl ? (el as HTMLFormElement) : undefined,
   };
 
-  const shouldDispatch = finalOptions.dispatchEvents !== false;
+  const outcome = await runRequestLifecycle({
+    el,
+    prefix: 'rz:fetch',
+    configDetail: { config: finalOptions, url, method },
+    lifecycleDetail: { config: finalOptions },
+    terminalDetail: (result) => result,
+    run: async (handle) => {
+      try {
+        const result = await request(url, finalOptions, app);
+        const rouseHeaders = extractRouseHeaders(result.headers);
 
-  if (shouldDispatch) {
-    const configEvent = dispatch(
-      el,
-      'rz:fetch:config',
-      { config: finalOptions, url, method },
-      { cancelable: true },
-    );
-
-    if (configEvent.defaultPrevented) {
-      return fallbackResponse(finalOptions, 'Prevented by rz:fetch:config listener');
-    }
-  }
-
-  el.classList.add('rz-loading');
-  el.setAttribute('aria-busy', 'true');
-
-  if (shouldDispatch) {
-    dispatch(el, 'rz:fetch:start', { config: finalOptions });
-  }
-
-  try {
-    const result = await request(url, finalOptions, app);
-    const rouseHeaders = extractRouseHeaders(result.headers);
-
-    if (rouseHeaders.redirect) {
-      activeRequests.delete(el);
-      window.location.assign(rouseHeaders.redirect);
-      return result;
-    }
-
-    // Native browser-followed redirect (e.g., expired session -> login page).
-    // Server intent via Rouse-Redirect wins. Falls through to the redirected
-    // short-circuit in the error block below.
-    if (result.response?.redirected) {
-      if (isSameOrigin(result.response.url)) {
-        activeRequests.delete(el);
-        window.location.assign(result.response.url);
-        return result;
-      }
-      __DEV__ && warn(`Cross-origin redirect blocked: '${result.response.url}'.`);
-      result.error = {
-        message: 'Cross-origin redirect blocked',
-        status: 'REDIRECTED',
-      };
-    }
-
-    applyUrlChange(rouseHeaders.pushUrl, rouseHeaders.replaceUrl);
-
-    if (rouseHeaders.target) {
-      result.targetOverride = rouseHeaders.target;
-    }
-
-    if (result.error) {
-      if (result.error.status === 'CANCELED') {
-        if (shouldDispatch) {
-          dispatch(el, 'rz:fetch:abort', { config: finalOptions });
+        if (rouseHeaders.redirect) {
+          activeRequests.delete(el);
+          window.location.assign(rouseHeaders.redirect);
+          return result;
         }
-        return result;
-      }
 
-      if (result.error.status === 'REDIRECTED') {
-        // For cross-origin redirects, fire the error event for observability,
-        // but do not route the payload.
-        if (shouldDispatch) {
-          dispatch(el, 'rz:fetch:error', result);
+        // Native browser-followed redirect (e.g., expired session -> login page).
+        // Server intent via Rouse-Redirect wins. Falls through to the redirected
+        // short-circuit in the error block below.
+        if (result.response?.redirected) {
+          if (isSameOrigin(result.response.url)) {
+            activeRequests.delete(el);
+            window.location.assign(result.response.url);
+            return result;
+          }
+          __DEV__ && warn(`Cross-origin redirect blocked: '${result.response.url}'.`);
+          result.error = {
+            message: 'Cross-origin redirect blocked',
+            status: 'REDIRECTED',
+          };
         }
-        return result;
-      }
 
-      // HTTP error (4xx/5xx) or parse error: dispatch the error event, then
-      // route the body so a server `Rouse-Target` header can place it.
-      if (shouldDispatch) {
-        dispatch(el, 'rz:fetch:error', result);
+        applyUrlChange(rouseHeaders.pushUrl, rouseHeaders.replaceUrl);
 
+        if (rouseHeaders.target) {
+          result.targetOverride = rouseHeaders.target;
+        }
+
+        handle.settle(result);
+
+        if (result.error) {
+          const s = result.error.status;
+          if (s !== 'CANCELED' && s !== 'REDIRECTED' && result.response) {
+            routePayload(el, result, 'error');
+          }
+          return result;
+        }
         if (result.response) {
-          routePayload(el, result, 'error');
+          routePayload(el, result, 'success');
         }
+        return result;
+      } catch (error: any) {
+        const fallback = fallbackResponse(
+          finalOptions,
+          error.message || 'Internal Error',
+          'INTERNAL_ERROR',
+        );
+        handle.settle(fallback);
+        return fallback;
       }
-      return result;
-    }
+    },
+  });
 
-    if (shouldDispatch) {
-      dispatch(el, 'rz:fetch:success', result);
-
-      if (result.response) {
-        // Custom trigger event
-        if (rouseHeaders.trigger) {
-          dispatch(el, rouseHeaders.trigger, result);
-        }
-
-        routePayload(el, result, 'success');
-      }
-    }
-    return result;
-  } catch (error: any) {
-    const fallback = fallbackResponse(
-      finalOptions,
-      error.message || 'Internal Error',
-      'INTERNAL_ERROR',
-    );
-
-    if (shouldDispatch) {
-      dispatch(el, 'rz:fetch:error', fallback);
-    }
-    return fallback;
-  } finally {
-    el.classList.remove('rz-loading');
-    el.removeAttribute('aria-busy');
-
-    if (shouldDispatch) {
-      dispatch(el, 'rz:fetch:end', { config: finalOptions });
-    }
-  }
+  return outcome === PREVENTED
+    ? fallbackResponse(finalOptions, 'Prevented by rz:fetch:config listener')
+    : outcome;
 }
 
 /**

@@ -10,11 +10,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Add new key modifiers: `home`, `end`, `pageup`, `pagedown`, `insert`, `f1`–`f12`, and `escape` as an alias of `esc`.
+- Add `rz:push:*` and `rz:pull:*` request-lifecycle events, fired from the trigger element and mirroring `rz:fetch:*`.
+- Consume the `Rouse-Trigger` response header on `rz-push`/`rz-pull` responses, dispatching the named event from the trigger element.
+- Add loading affordances (`rz-loading` class, `aria-busy="true"`) to the trigger element for the duration of a push/pull.
+- Make `rz:store:sync:before` cancelable with a mutable `payload` on all paths (push, pull, and fetch `@store` deposits); listeners can reassign or mutate `detail.payload` before reconciliation.
 
 ### Changed
 
-- **Breaking:** Allow headers with empty values instead of removing them when `''` is provided. Use `null` to remove a header.
-- **Breaking:** Require an explicit value per header in the `rz-headers` family; a bare header name (e.g., `rz-headers="Custom-Header"`) now warns and is skipped.
+- **Breaking:** Allow headers with empty values instead of removing them (e.g., `rz-headers="Rouse-Request: ''"`). Use `null` for the value to remove a header.
+- **Breaking:** Require an explicit value per header in the `rz-headers` family..
+- **Breaking:** `rz:store:sync` events now report `operation: 'fetch'` for `rz-target="@store"` JSON deposits (previously `'pull'`).
+- **Breaking:** `rz-target="@store"` deposits now update the store's `__status.lastSync`.
 
 ### Fixed
 
@@ -29,6 +35,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 - **Breaking:** Remove `trigger` and `effectScope` from public exports.
+- **Breaking:** Remove `rz:store:sync:error`; a failed sync is now reported on the request axis by `rz:push:error`/`rz:pull:error`.
+- **Breaking:** Remove the `dispatchEvents` request option (and its `dispatch-events` declarative key).
 
 ## [0.10.0] - 2026-07-08
 

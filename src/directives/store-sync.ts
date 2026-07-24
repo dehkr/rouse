@@ -70,7 +70,7 @@ function triggerStoreSync(
   const targetEl = app.stores.elementFor(storeName);
   const overrides = resolveRequestConfig(triggerEl, op, app, targetEl);
 
-  app.stores[op](storeName, { overrides, nestedPath, action });
+  app.stores[op](storeName, { overrides, nestedPath, action, triggerEl });
 }
 
 /**

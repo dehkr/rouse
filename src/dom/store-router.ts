@@ -59,13 +59,14 @@ function routeToStore(app: RouseApp, stores: string[], payload: any) {
     const beforeEvent = dispatch(
       targetEl,
       'rz:store:sync:before',
-      { storeName, operation: 'pull', data, payload },
+      { storeName, operation: 'fetch', data, payload },
       { cancelable: true },
     );
 
     if (beforeEvent.defaultPrevented) continue;
 
     app.stores.update(storeName, beforeEvent.detail.payload as object);
-    dispatch(targetEl, 'rz:store:sync', { storeName, operation: 'pull', data });
+    app.stores._markSynced(storeName);
+    dispatch(targetEl, 'rz:store:sync', { storeName, operation: 'fetch', data });
   }
 }

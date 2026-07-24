@@ -101,12 +101,40 @@ export type FetchErrorHtmlDetail = RouseResponse<string>;
 /** Detail for `rz:fetch:error:file`: error response with a binary body (Blob/ArrayBuffer). */
 export type FetchErrorFileDetail = RouseResponse<Blob | ArrayBuffer>;
 
+/** Detail for `rz:push:config` and `rz:pull:config`; cancelable. Listeners can mutate `config`. */
+export interface PushPullConfigDetail {
+  /** Name of the store being synced. */
+  storeName: string;
+  /** The final unified request config. Mutable by listeners; carries `method` but not `url`. */
+  config: RouseRequest;
+  /** The resolved request URL. */
+  url: string;
+  /** The resolved HTTP method. */
+  method: string;
+}
+
+/** Detail for `rz:push`/`rz:pull` `:start`, `:abort`, and `:end`. */
+export interface PushPullLifecycleDetail {
+  /** Name of the store being synced. */
+  storeName: string;
+  /** The final unified request config driving this request. */
+  config: RouseRequest;
+}
+
+/** Detail for `rz:push`/`rz:pull` `:success` and `:error`: the full response, plus the store name. */
+export interface PushPullResultDetail {
+  /** Name of the store being synced. */
+  storeName: string;
+  /** The full response object that settled the request. */
+  result: RouseResponse;
+}
+
 /** Shared fields present on every `rz:store:sync:*` event detail. */
 export interface BaseStoreSync {
   /** Name of the store being synced. */
   storeName: string;
-  /** Direction of the sync: `push` (to server) or `pull` (from server). */
-  operation: 'push' | 'pull';
+  /** Network operation that initiated the sync. */
+  operation: 'push' | 'pull' | 'fetch';
   /** Dot-path of the targeted slice, when only part of the store was synced. */
   nestedPath?: string;
   /** Patch action applied to the store data (`replace` or `merge`). */
@@ -141,14 +169,6 @@ export interface StoreSyncConflictDetail extends BaseStoreSync {
   response: RouseResponse;
   /** Why the conflict occurred; always `'mutating'` (local edits in flight). */
   reason: 'mutating';
-}
-
-/** Detail for `rz:store:sync:error`. */
-export interface StoreSyncErrorDetail extends BaseStoreSync {
-  /** The store's local data, left unchanged by the failed sync. */
-  data: any;
-  /** The error that caused the sync to fail. */
-  error: any;
 }
 
 /** Detail for `rz:store:sync:rollback`. */
@@ -215,15 +235,37 @@ export interface LifecycleEventMap {
   'rz:fetch:error:html': FetchErrorHtmlDetail;
   /** Fires after `rz:fetch:error` when the body is a Blob/ArrayBuffer. */
   'rz:fetch:error:file': FetchErrorFileDetail;
+  /** Fires before a push is sent; cancelable. Listeners can mutate `config`. */
+  'rz:push:config': PushPullConfigDetail;
+  /** Fires when the push starts, after config. */
+  'rz:push:start': PushPullLifecycleDetail;
+  /** Fires if the push is aborted (overlapping programmatic pushes sharing an abortKey). */
+  'rz:push:abort': PushPullLifecycleDetail;
+  /** Fires when the push completes with an OK status. */
+  'rz:push:success': PushPullResultDetail;
+  /** Fires when the push fails (non-OK status or network error). */
+  'rz:push:error': PushPullResultDetail;
+  /** Fires when the push settles, after success/error/abort. */
+  'rz:push:end': PushPullLifecycleDetail;
+  /** Fires before a pull is sent; cancelable. Listeners can mutate `config`. */
+  'rz:pull:config': PushPullConfigDetail;
+  /** Fires when the pull starts, after config. */
+  'rz:pull:start': PushPullLifecycleDetail;
+  /** Fires if the pull is aborted (overlapping programmatic pulls sharing an abortKey). */
+  'rz:pull:abort': PushPullLifecycleDetail;
+  /** Fires when the pull completes with an OK status. */
+  'rz:pull:success': PushPullResultDetail;
+  /** Fires when the pull fails (non-OK status or network error). */
+  'rz:pull:error': PushPullResultDetail;
+  /** Fires when the pull settles, after success/error/abort. */
+  'rz:pull:end': PushPullLifecycleDetail;
   /** Fires before a sync result is applied to the local store, on both push and pull. Check `detail.operation` for direction. */
   'rz:store:sync:before': StoreSyncBeforeDetail;
   /** Fires after a push or pull successfully syncs the store. Check `detail.operation` for direction. */
   'rz:store:sync': StoreSyncDetail;
   /** Fires when the response carries server data but the store was edited while the request was in flight, so the server data is not applied. Both push and pull. */
   'rz:store:sync:conflict': StoreSyncConflictDetail;
-  /** Fires when a push or pull request fails. */
-  'rz:store:sync:error': StoreSyncErrorDetail;
-  /** Fires after `rz:store:sync:error` when `rollbackOnError` reverts local state to the last-good snapshot. Push only. */
+  /** Fires after `rz:push:error` when `rollbackOnError` reverts local state to the last-good snapshot. */
   'rz:store:sync:rollback': StoreSyncRollbackDetail;
   /** Fires before the swap executes; cancelable. Listeners can mutate `payload`. */
   'rz:dom:swap:before': DomSwapDetail;
@@ -408,8 +450,6 @@ export interface FetchConfig {
   >;
   /** When false, suppress DOM swapping even if the response contains HTML. */
   swap?: boolean;
-  /** When false, suppress `rz:fetch:*` lifecycle events for this request. */
-  dispatchEvents?: boolean;
   /** Skip all registered interceptors for this request. */
   skipInterceptors?: boolean;
   /** Number of times to retry on network failure or 5xx response. */
