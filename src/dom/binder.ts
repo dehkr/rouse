@@ -202,6 +202,21 @@ function runCleanups(el: Element, cleanups: BoundCleanupFn[]): void {
 }
 
 /**
+ * Invokes a scope lifecycle hook, isolating a throw so the surrounding mount or
+ * teardown still completes.
+ */
+function runHook(instance: Scope, name: 'connect' | 'disconnect', root: Element): void {
+  const hook = instance[name];
+  if (typeof hook !== 'function') return;
+
+  try {
+    hook.call(instance);
+  } catch (error) {
+    err(`Scope hook '${name}()' failed.`, root, error);
+  }
+}
+
+/**
  * Binds a scope instance to its DOM subtree: scans and binds directives, runs
  * the `connect` hook, and dispatches `rz:scope:connect`. Returns the scope's DOM
  * lifecycle handle:
@@ -265,9 +280,7 @@ export function bindScope(root: HTMLElement, instance: Scope, app: RouseApp) {
   // Initial scan
   scan(root);
 
-  if (typeof instance.connect === 'function') {
-    instance.connect();
-  }
+  runHook(instance, 'connect', root);
 
   // Marked before the dispatch: a `connect` handler that swaps in new DOM triggers a
   // scan, and any `wake` directive inside it must resolve an already-awake scope.
@@ -281,9 +294,7 @@ export function bindScope(root: HTMLElement, instance: Scope, app: RouseApp) {
     for (const el of elementCleanups.keys()) {
       runCleanup(el);
     }
-    if (typeof instance.disconnect === 'function') {
-      instance.disconnect();
-    }
+    runHook(instance, 'disconnect', root);
     awakeScopes.delete(root);
     dispatch(root, 'rz:scope:disconnect', { instance });
   }

@@ -1,6 +1,6 @@
 import { effectScope } from 'alien-signals';
 import type { RouseApp } from '../core/app';
-import { fail, warn } from '../core/diagnostics';
+import { err, fail, warn } from '../core/diagnostics';
 import { dispatch } from '../core/dispatch';
 import { rzScope, rzWake } from '../directives';
 import { openBoundStream } from '../net/sse-engine';
@@ -119,9 +119,16 @@ function createScope(el: HTMLElement, app: RouseApp, setup: ScopeSetup) {
     scan: (newNode: Element) => binding?.scan(newNode),
   };
 
-  // `effectScope` for setup state. Wrap effects that belong to the scope instance.
+  // `effectScope` for setup state wraps effects that belong to the scope instance.
+  // The empty instance on failure keeps teardown working, and stops a bad setup
+  // from aborting the scan that mounted it.
   const stopSetupScope = effectScope(() => {
-    instance = setup(context) || {};
+    try {
+      instance = setup(context) || {};
+    } catch (error) {
+      err('Scope setup failed.', el, error);
+      instance = {};
+    }
   });
 
   // Block async setup functions since they can't be captured in an `effectScope`,
@@ -138,7 +145,7 @@ function createScope(el: HTMLElement, app: RouseApp, setup: ScopeSetup) {
   // State exists but not bound to DOM yet
   dispatch(el, 'rz:scope:init', { context, instance });
 
-  // `effectScope` for bindings. Wrap the logic that connects the reactive state
+  // `effectScope` for bindings wraps the logic that connects the reactive state
   // to the DOM. Captures effects created by bindings (text, atts, etc.) so the
   // UI auto updates.
   const stopBindingScope = effectScope(() => {

@@ -36,7 +36,7 @@ function initialize(el: HTMLScriptElement, app: RouseApp) {
     try {
       state = JSON.parse(textContent || '{}');
     } catch (error) {
-      __DEV__ && err(`rz-store: invalid JSON in store '${storeName}'.`, el, error);
+      err(`rz-store: invalid JSON in store '${storeName}'.`, el, error);
       return;
     }
 
