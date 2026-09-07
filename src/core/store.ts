@@ -1,5 +1,6 @@
 import { type LifecycleHandle, runRequestLifecycle } from '../net/lifecycle';
 import { request } from '../net/request';
+import { fallbackResponse } from '../net/response';
 import { reactive, seedPropagation, trackDirty } from '../reactivity/reactive';
 import type {
   DirectiveSlug,
@@ -13,7 +14,7 @@ import type {
 import type { RouseApp } from './app';
 import { getDirectiveValue } from './attributes';
 import { STORE_PREFIX } from './constants';
-import { fail, warn } from './diagnostics';
+import { err, fail, warn } from './diagnostics';
 import { dispatch } from './dispatch';
 import { parseStoreRef } from './parser';
 import { deleteNestedVal, getNestedVal, getPathRoot, setNestedVal } from './path';
@@ -413,6 +414,24 @@ export class StoreManager {
       }
       this._applyServerResponse(entry, operation, result, snapshot, manualConfig);
       return result;
+    } catch (error: any) {
+      // If a request throws before returning, listeners would see `:start` then `:end`,
+      // without a terminal `:abort`/`:success`/`:error` event in between. So settle
+      // here to fulfill the lifecycle contract.
+      err(`Store '${entry.name}' ${operation} failed.`, error);
+
+      const fallback = fallbackResponse(
+        requestOptions,
+        error.message || 'Internal error',
+        'INTERNAL_ERROR',
+      );
+
+      if (entry.activeReq === reqToken) {
+        status.error = fallback.error?.message ?? null;
+      }
+
+      handle.settle(fallback);
+      return fallback;
     } finally {
       if (entry.activeReq === reqToken) {
         status.loading = false;

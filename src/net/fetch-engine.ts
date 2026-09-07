@@ -105,7 +105,7 @@ export async function runFetch(
       ? fallbackResponse(finalOptions, 'Prevented by rz:fetch:config listener')
       : outcome;
   } catch (error: any) {
-    __DEV__ && err(`Error executing fetch:`, ...(triggerEl ? [triggerEl] : []), error);
+    err(`Error executing fetch:`, ...(triggerEl ? [triggerEl] : []), error);
 
     return fallbackResponse(options, error.message || 'Internal error', 'INTERNAL_ERROR');
   }
@@ -168,6 +168,11 @@ async function sendAndRoute(
     }
     return result;
   } catch (error: any) {
+    // If a request throws before returning, listeners would see `:start` then `:end`,
+    // without a terminal `:abort`/`:success`/`:error` event in between. So settle
+    // here to fulfill the lifecycle contract.
+    err('Fetch failed unexpectedly.', hostEl, error);
+
     const fallback = fallbackResponse(
       options,
       error.message || 'Internal Error',
