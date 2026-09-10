@@ -569,7 +569,11 @@ function attachTimingSource(type: 'timeout' | 'interval', ctx: TriggerContext) {
   const { arg } = ctx.options;
 
   if (!arg) {
-    __DEV__ && warn(`Missing time argument for '${type}', e.g. ${type}-[5s].`, ctx.el);
+    __DEV__ &&
+      warn(
+        `The '${type}' trigger requires a time argument: '${type}-[5s]' in HTML, or { arg: '5s' } from app.on/ctx.on.`,
+        ctx.el,
+      );
     return null;
   }
 
