@@ -36,7 +36,8 @@ export type DirectiveSlug =
   | 'style'
   | 'target'
   | 'text'
-  | 'wake';
+  | 'wake'
+  | 'write';
 
 /** Detail for `rz:app:start`, `rz:app:ready`, and `rz:app:destroy`. */
 export interface AppEventDetail {

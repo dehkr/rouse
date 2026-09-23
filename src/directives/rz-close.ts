@@ -3,11 +3,9 @@ import { parseTriggers } from '../core/parser';
 import type { ConfigDirective, TriggerDef } from '../types';
 
 /**
- * Triggers that close the stream `rz-sse` opened on the same element. Unlike
- * `rz-wake`, these compose with OR: the first to fire closes.
+ * Returns the triggers that close the stream `rz-sse` opened on the same element.
  *
- * Read on demand by `rz-sse`, so nothing scans for it and an element carrying
- * it alone does nothing.
+ * Read on demand by `rz-sse`. Inert if used alone.
  */
 function getConfig(el: Element): TriggerDef[] {
   return parseTriggers(getDirectiveValue(el, 'close'));
