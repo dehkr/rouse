@@ -1,6 +1,6 @@
 import type { RouseApp } from '../core/app';
 import { getDirectiveValue } from '../core/attributes';
-import { err } from '../core/diagnostics';
+import { err, warn } from '../core/diagnostics';
 import { dispatch } from '../core/dispatch';
 import { parseDirectiveValue } from '../core/parser';
 import { EMPTY_SCOPE } from '../core/resolve';
@@ -80,6 +80,17 @@ export function bindDirectives(
     if (value === null) continue;
 
     const parsed = parseDirectiveValue(value);
+
+    // Use the first value if a directive only accepts one
+    if (directive.singleValue && parsed.length > 1) {
+      __DEV__ &&
+        warn(
+          `rz-${directive.slug}: accepts a single value, but received ${parsed.length}. Extra values were ignored.`,
+          el,
+        );
+      parsed.length = 1;
+    }
+
     for (const [key, val] of parsed) {
       const cleanup = directive.bind(el, scope, app, key, val ?? '');
       if (cleanup) {

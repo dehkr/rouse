@@ -47,6 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Breaking:** Stop `rz-text`, `rz-html`, `rz-model`, and `rz-render` from binding multiple comma-separated values. The first is used and a warning logged when more than one is provided, instead of binding competing values to the element.
 - Reject a `text/event-stream` response body instead of reading it and causing the request to get hung up.
 - Stop `rz-wake` from suppressing native navigation. A form or anchor scope element no longer swallows the `submit` or `click` that wakes it.
 

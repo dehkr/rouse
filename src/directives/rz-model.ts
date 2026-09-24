@@ -85,5 +85,6 @@ function bind(
 export const rzModel = {
   slug: 'model',
   selector: directiveSelector('model'),
+  singleValue: true,
   bind,
 } as const satisfies BoundDirective;

@@ -13,7 +13,7 @@ import type {
  * Factory for the directives sharing the `[trigger]: [subject]` grammar: rz-fetch,
  * rz-push, rz-pull, and rz-sse. Owns the per-element cleanup registry and the
  * shared initialize/teardown scaffolding. rz-sse shares the grammar and the
- * scaffolding without being a network op — it never reaches `request()`.
+ * scaffolding but technically isn't a network op because it doesn't touch `request()`.
  *
  * @param bindPairs - Wires the parsed pairs for one element and returns their cleanups.
  */

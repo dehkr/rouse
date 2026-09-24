@@ -40,5 +40,6 @@ function bind(
 export const rzRender = {
   slug: 'render',
   selector: directiveSelector('render'),
+  singleValue: true,
   bind,
 } as const satisfies BoundDirective;

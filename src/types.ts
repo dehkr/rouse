@@ -508,6 +508,12 @@ export interface BoundDirective {
   /** CSS selector string for elements with this directive. */
   selector: string;
   /**
+   * Bind only the first `[key: value]` segment, warning that the rest are ignored.
+   * Set on directives whose `key` *is* the subject, where extra comma-separated
+   * segments would create competing bindings on an element.
+   */
+  singleValue?: boolean;
+  /**
    * Attach the binding for one pre-split `[key: value]` segment: `key` is the
    * trigger/token, `value` the subject. `scope` is the owning `Scope`, or `EMPTY_SCOPE`
    * when globally mounted. Returns a cleanup, or `undefined` if nothing was bound.
