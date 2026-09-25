@@ -36,6 +36,13 @@ function applySubmitterOverrides(baseOpts: FetchRequest, e?: Event): FetchReques
   return opts;
 }
 
+function warnMissingUrl(el: Element) {
+  warn(
+    `rz-fetch: no URL found. Configure it using data-rz-fetch (with at least one leading trigger), or a native 'href', 'action', or 'formaction' attribute.`,
+    el,
+  );
+}
+
 /**
  * Binds each `[trigger]: [[METHOD] URL]` pair to a fetch. Resolves the URL once
  * and shares it across the element's triggers. Returns the pairs' cleanups.
@@ -61,10 +68,7 @@ function bindFetchPairs(el: Element, app: RouseApp, pairs: TriggerSubjectPair[])
     // or that it's in the wrong position (missing trigger).
     if (!url && !deferUrl) {
       if (__DEV__ && !warnedMissingUrl) {
-        warn(
-          `rz-fetch: no URL found. Configure it using data-rz-fetch (with at least one leading trigger), or a native 'href', 'action', or 'formaction' attribute.`,
-          el,
-        );
+        warnMissingUrl(el);
         warnedMissingUrl = true;
       }
       continue;
@@ -79,11 +83,7 @@ function bindFetchPairs(el: Element, app: RouseApp, pairs: TriggerSubjectPair[])
         }
         const opts = applySubmitterOverrides({ ...parsed, url, triggerEl: el }, e);
         if (!opts.url) {
-          __DEV__ &&
-            warn(
-              `rz-fetch: no URL found. Configure it using data-rz-fetch (with at least one leading trigger), or a native 'href', 'action', or 'formaction' attribute.`,
-              el,
-            );
+          __DEV__ && warnMissingUrl(el);
           return;
         }
         runFetch(app, opts);
