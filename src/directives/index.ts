@@ -14,7 +14,6 @@ export { rzProp } from './rz-prop';
 export { rzPull } from './rz-pull';
 export { rzPush } from './rz-push';
 export { rzRender } from './rz-render';
-export { rzResource } from './rz-resource';
 export { rzScope } from './rz-scope';
 export { rzSse } from './rz-sse';
 export { rzStore } from './rz-store';

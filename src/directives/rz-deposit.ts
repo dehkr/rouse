@@ -1,12 +1,12 @@
 import { getDirectiveValue } from '../core/attributes';
 import { STORE_PREFIX } from '../core/constants';
 import { warn } from '../core/diagnostics';
-import { parseDirectiveValue, parseStoreRef } from '../core/parser';
+import { parseDirectiveValue, parseStoreRef, parseStoreValue } from '../core/parser';
 import type { ConfigDirective } from '../types';
 
 /**
- * Resolves `rz-deposit` into store names a JSON payload is routed to. For a
- * fetch response or an unnamed stream message.
+ * Resolves `rz-deposit` into store names for JSON payload routing via a fetch response
+ * or an unnamed stream message.
  *
  * Whole stores only, comma separated. A nested path is a reconciliation concern
  * and belongs to `rz-pull`, which guards against clobbering in-flight edits.
@@ -22,7 +22,7 @@ function getConfig(el: Element, overrideValue?: string | null): string[] {
   // A <script data-rz-store> is its own deposit target, matching how `rz-push`
   // and `rz-pull` resolve a missing subject.
   if (!value?.trim()) {
-    const selfName = getDirectiveValue(el, 'store')?.trim();
+    const selfName = parseStoreValue(getDirectiveValue(el, 'store'))?.name;
     return selfName ? [selfName] : [];
   }
 
@@ -43,7 +43,7 @@ function getConfig(el: Element, overrideValue?: string | null): string[] {
     if (ref.nestedPath) {
       __DEV__ &&
         warn(
-          `rz-deposit: '${key}' targets a slice. A deposit writes a whole store; use rz-pull to sync a nested path.`,
+          `rz-deposit: '${key}' targets a slice. A deposit writes a whole store. Use rz-pull to sync a nested path.`,
           el,
         );
       continue;

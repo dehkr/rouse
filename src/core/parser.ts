@@ -296,6 +296,33 @@ export function parseFetchSubject(subject: string): {
 }
 
 /**
+ * Splits an `rz-store` value into the store name and its optional sync endpoint.
+ * Returns `null` when no name is present.
+ *
+ * @example
+ * parseStoreValue('user: /api/user'); // { name: 'user', url: '/api/user' }
+ * parseStoreValue('user');            // { name: 'user', url: null }
+ */
+export function parseStoreValue(
+  value: string | null | undefined,
+): { name: string; url: string | null } | null {
+  const pairs = parseDirectiveValue(value);
+  const [first] = pairs;
+
+  if (!first) {
+    return null;
+  }
+
+  const [name, url] = first;
+
+  if (__DEV__ && pairs.length > 1) {
+    warn(`rz-store: only one store can be initialized per element. Using '${name}'.`);
+  }
+
+  return { name, url: url || null };
+}
+
+/**
  * Parses a prefixed data-source path into the source it names, the `::`
  * namespace it addresses (if any), and the nested dot-path into whichever of
  * the two.

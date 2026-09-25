@@ -85,7 +85,7 @@ export function bindDirectives(
     if (directive.singleValue && parsed.length > 1) {
       __DEV__ &&
         warn(
-          `rz-${directive.slug}: accepts a single value, but received ${parsed.length}. Extra values were ignored.`,
+          `rz-${directive.slug}: accepts a single value, but received ${parsed.length}. Ignoring extra values.`,
           el,
         );
       parsed.length = 1;

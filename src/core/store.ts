@@ -16,7 +16,7 @@ import { getDirectiveValue } from './attributes';
 import { STORE_PREFIX } from './constants';
 import { err, fail, warn } from './diagnostics';
 import { dispatch } from './dispatch';
-import { parseStoreRef } from './parser';
+import { parseStoreRef, parseStoreValue } from './parser';
 import { deleteNestedVal, getNestedVal, getPathRoot, setNestedVal } from './path';
 import {
   clone,
@@ -153,8 +153,8 @@ export function resolveTarget(
     return { storeName, nestedPath };
   }
 
-  // Reference the `rz-store` value if `null`. Specific to <script> elements.
-  const selfName = getDirectiveValue(el, 'store')?.trim();
+  // Reference the `rz-store` name if `null`. Specific to <script> elements.
+  const selfName = parseStoreValue(getDirectiveValue(el, 'store'))?.name;
   if (!selfName) {
     __DEV__ &&
       warn(

@@ -29,7 +29,6 @@ export type DirectiveSlug =
   | 'pull'
   | 'push'
   | 'render'
-  | 'resource'
   | 'scope'
   | 'sse'
   | 'store'

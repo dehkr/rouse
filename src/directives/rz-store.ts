@@ -1,28 +1,33 @@
 import type { RouseApp } from '../core/app';
 import { directiveSelector, getDirectiveValue } from '../core/attributes';
 import { err, warn } from '../core/diagnostics';
+import { parseStoreValue } from '../core/parser';
 import type { SyncPolicy } from '../core/store';
 import type { StandaloneDirective } from '../types';
 import { rzHeaders } from './rz-headers';
-import { rzResource } from './rz-resource';
 
 const initialized = new WeakSet<HTMLScriptElement>();
 
 /**
  * Bootstraps a global reactive store from a `<script>` tag. Initializes the reactive
- * data registry and seeds the store's URL from `rz-resource` if present.
+ * data registry and seeds the store's URL from the endpoint, if present.
  *
  * Push/pull triggers (`rz-push`, `rz-pull`) are wired separately, so the store doesn't
  * need to know about them.
+ *
+ * @example
+ * <script data-rz-store="user: /api/user" type="application/json">
  */
 function initialize(el: HTMLScriptElement, app: RouseApp) {
   if (initialized.has(el)) return;
 
-  const storeName = getDirectiveValue(el, 'store')?.trim();
-  if (!storeName) {
+  const parsed = parseStoreValue(getDirectiveValue(el, 'store'));
+  if (!parsed) {
     __DEV__ && warn(`rz-store: value is missing or empty.`, el);
     return;
   }
+
+  const { name: storeName, url } = parsed;
 
   const textContent = el.textContent?.trim();
   const storeExists = app.stores.has(storeName);
@@ -48,7 +53,6 @@ function initialize(el: HTMLScriptElement, app: RouseApp) {
   }
 
   const cfg: Partial<SyncPolicy> = {};
-  const url = rzResource.getConfig(el);
   const headers = rzHeaders.getConfig(el);
 
   if (url) {

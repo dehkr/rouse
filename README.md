@@ -132,7 +132,7 @@ Markup:
   <span data-rz-text="count"></span>
 </div>
 
-<script data-rz-store="user" data-rz-resource="/api/user" type="application/json">
+<script data-rz-store="user: /api/user" type="application/json">
   { "name": "Ada" }
 </script>
 

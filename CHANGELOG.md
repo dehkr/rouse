@@ -39,6 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `app.on('timeout', fn, { wait: '5s' })` becomes `app.on('timeout', fn, { arg: '5s' })`.
 - **Breaking:** Drop the params type parameter from `ScopeSetup`, `ScopeCtx`, `HandlerCtx`, and `RenderHandlerCtx`. The first type parameter is now the element type.
 - **Breaking:** Move optional explicit triggers from `rz-model` to the new `rz-write` directive.
+- **Breaking:** Fold `rz-resource` into `rz-store`. A store's optional endpoint now follows its name, separated by a colon: `data-rz-store="user: /api/user"`
 
 ### Removed
 
