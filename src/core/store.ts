@@ -232,9 +232,19 @@ export class StoreManager {
     return entry;
   }
 
-  private _getStore(storeName: string) {
-    const entry = this._stores.get(storeName);
-    __DEV__ && !entry && warn(`Store '${storeName}' not found.`);
+  /**
+   * Nullish-safe lookup for accessors that report absence through their own
+   * return value. `_getStore` is the version that warns.
+   */
+  private _find(storeName: string | null | undefined) {
+    return storeName == null ? undefined : this._stores.get(storeName);
+  }
+
+  private _getStore(storeName: string | null | undefined) {
+    const entry = this._find(storeName);
+    __DEV__ &&
+      !entry &&
+      warn(storeName ? `Store '${storeName}' not found.` : 'Store name is missing.');
     return entry;
   }
 
@@ -303,14 +313,14 @@ export class StoreManager {
    * Internal unified request handler for push and pull operations.
    */
   private async _request(
-    storeName: string,
+    storeName: string | null | undefined,
     operation: 'push' | 'pull',
     manualConfig?: StoreRequestOptions,
   ) {
     const entry = this._getStore(storeName);
     if (!entry) return;
 
-    const { data, config } = entry;
+    const { data, config, name } = entry;
     const overrides = manualConfig?.overrides ?? {};
     const policy: Partial<SyncPolicy> = config ?? {};
     const { url: policyUrl, headers: policyHeaders, ...transport } = policy;
@@ -318,7 +328,7 @@ export class StoreManager {
     const url = manualConfig?.url || overrides.url || policyUrl;
 
     if (!url) {
-      __DEV__ && warn(`Cannot ${operation} store '${storeName}': URL not configured.`);
+      __DEV__ && warn(`Cannot ${operation} store '${name}': URL not configured.`);
       return;
     }
 
@@ -335,14 +345,14 @@ export class StoreManager {
       ...transport,
       ...overrides,
       headers: {
-        ...syncHeaders(operation, storeName, nestedPath),
+        ...syncHeaders(operation, name, nestedPath),
         ...this.app.config.headers,
         ...policyHeaders,
         ...overrides.headers,
       },
       method,
       triggerEl: manualConfig?.triggerEl,
-      abortKey: overrides.abortKey ?? transport.abortKey ?? `${operation}_${storeName}`,
+      abortKey: overrides.abortKey ?? transport.abortKey ?? `${operation}_${name}`,
     };
 
     // Body for push: full data, or a nested slice if nestedPath is provided
@@ -353,15 +363,14 @@ export class StoreManager {
     // Request-axis events prefer the trigger element, falling back to the store's
     // own element like the destination axis does. The fallback is deliberate: a
     // store has a home element, unlike a bare fetch, which fires from app.root.
-    const firingEl =
-      manualConfig?.triggerEl ?? this.elementFor(storeName) ?? this.app.root;
+    const firingEl = manualConfig?.triggerEl ?? entry.el ?? this.app.root;
 
     await runRequestLifecycle({
       el: firingEl,
       root: this.app.root,
       prefix: operation === 'push' ? 'rz:push' : 'rz:pull',
-      configDetail: { storeName, config: requestOptions, url, method },
-      terminalDetail: (result) => ({ storeName, result }),
+      configDetail: { storeName: name, config: requestOptions, url, method },
+      terminalDetail: (result) => ({ storeName: name, result }),
       run: (handle) =>
         this._sendAndApply(entry, operation, url, requestOptions, handle, manualConfig),
     });
@@ -655,7 +664,7 @@ export class StoreManager {
    * The store must already exist. Stores declared in markup using `<script data-rz-store>`
    * are registered during `start()`, so subscribe after that call rather than before it.
    */
-  onEdit(storeName: string, callback: EditListener): VoidFn {
+  onEdit(storeName: string | null | undefined, callback: EditListener): VoidFn {
     const entry = this._getStore(storeName);
     if (!entry) {
       return () => {};
@@ -682,8 +691,8 @@ export class StoreManager {
   /**
    * Retrieves the source `<script data-rz-store>` element for a registered store.
    */
-  elementFor(storeName: string): Element | undefined {
-    return this._stores.get(storeName)?.el;
+  elementFor(storeName: string | null | undefined): Element | undefined {
+    return this._find(storeName)?.el;
   }
 
   /**
@@ -722,13 +731,13 @@ export class StoreManager {
    * snapshots: the one `reset()` restores to, and the last-good state a failed push
    * rolls back to. To change the store's sync configuration, use `config()`.
    */
-  update<T extends object = any>(storeName: string, state: object): T {
-    const entry = this._stores.get(storeName);
+  update<T extends object = any>(storeName: string | null | undefined, state: object): T {
+    const entry = this._find(storeName);
     if (!entry) {
-      fail(`Store '${storeName}' does not exist.`);
+      fail(storeName ? `Store '${storeName}' does not exist.` : 'Store name is missing.');
     }
 
-    __DEV__ && warnNullFields(storeName, state);
+    __DEV__ && warnNullFields(entry.name, state);
 
     this._adoptState(entry, state, 'replace');
 
@@ -744,7 +753,7 @@ export class StoreManager {
    * @returns `false` if the store does not exist or a listener canceled the patch.
    */
   deposit(
-    storeName: string,
+    storeName: string | null | undefined,
     payload: object,
     options?: { response?: RouseResponse; operation?: 'fetch' | 'sse' },
   ): boolean {
@@ -753,14 +762,14 @@ export class StoreManager {
       return false;
     }
 
-    const { data } = entry;
+    const { data, name } = entry;
     const response = options?.response;
     const operation = options?.operation ?? 'fetch';
 
     const beforeEvent = this._dispatchPatchEvent(
       entry,
       'rz:store:patch:before',
-      { storeName, operation, data, payload },
+      { storeName: name, operation, data, payload },
       { cancelable: true },
     );
 
@@ -774,7 +783,7 @@ export class StoreManager {
     entry.status.lastSync = Date.now();
 
     this._dispatchPatchEvent(entry, 'rz:store:patch', {
-      storeName,
+      storeName: name,
       operation,
       data,
       payload: applied,
@@ -787,15 +796,15 @@ export class StoreManager {
   /**
    * Returns the reactive proxy for a store, or `undefined`.
    */
-  get<T extends object = any>(storeName: string): T | undefined {
-    return this._stores.get(storeName)?.data;
+  get<T extends object = any>(storeName: string | null | undefined): T | undefined {
+    return this._find(storeName)?.data;
   }
 
   /**
    * Returns a deep-cloned non-reactive copy of the store's current data.
    */
-  snapshot<T = any>(storeName: string): T | undefined {
-    const data = this._stores.get(storeName)?.data;
+  snapshot<T = any>(storeName: string | null | undefined): T | undefined {
+    const data = this._find(storeName)?.data;
     return data ? clone(data) : undefined;
   }
 
@@ -805,24 +814,24 @@ export class StoreManager {
    * reference point for unsaved changes and the target a failed push rolls back
    * to. Non-reactive, like `snapshot()`.
    */
-  baseline<T = any>(storeName: string): T | undefined {
-    const lastGood = this._stores.get(storeName)?.lastGood;
+  baseline<T = any>(storeName: string | null | undefined): T | undefined {
+    const lastGood = this._find(storeName)?.lastGood;
     return lastGood ? clone(lastGood) : undefined;
   }
 
   /**
    * Returns `true` if a store with the provided name exists.
    */
-  has(storeName: string): boolean {
-    return this._stores.has(storeName);
+  has(storeName: string | null | undefined): boolean {
+    return this._find(storeName) !== undefined;
   }
 
   /**
    * Returns the status object for a store, or `undefined`. Available store
    * status properties are `loading`, `error`, `lastSync`, and `dirty`.
    */
-  status(storeName: string): StoreStatus | undefined {
-    return this._stores.get(storeName)?.status;
+  status(storeName: string | null | undefined): StoreStatus | undefined {
+    return this._find(storeName)?.status;
   }
 
   /**
@@ -832,7 +841,7 @@ export class StoreManager {
    * Without a path the answer comes from the store's status, which updates a
    * microtask after an edit. With a path the comparison runs on the spot.
    */
-  isDirty(storeName: string, path?: string): boolean {
+  isDirty(storeName: string | null | undefined, path?: string): boolean {
     const entry = this._getStore(storeName);
     if (!entry) {
       return false;
@@ -848,8 +857,8 @@ export class StoreManager {
   /**
    * Patches `SyncPolicy` for a store. Warns if the store is missing.
    */
-  config(storeName: string, config: Partial<SyncPolicy>) {
-    const entry = this._stores.get(storeName);
+  config(storeName: string | null | undefined, config: Partial<SyncPolicy>) {
+    const entry = this._find(storeName);
     if (!entry) {
       __DEV__ && warn(`Cannot configure store '${storeName}': store not found.`);
       return;
@@ -860,14 +869,20 @@ export class StoreManager {
   /**
    * Triggers a manual store push with optional request overrides.
    */
-  async push(storeName: string, config?: StoreRequestOptions): Promise<void> {
+  async push(
+    storeName: string | null | undefined,
+    config?: StoreRequestOptions,
+  ): Promise<void> {
     return this._request(storeName, 'push', config);
   }
 
   /**
    * Pulls fresh store data from the server, unless a push is currently in flight.
    */
-  async pull(storeName: string, config?: StoreRequestOptions): Promise<void> {
+  async pull(
+    storeName: string | null | undefined,
+    config?: StoreRequestOptions,
+  ): Promise<void> {
     if (this.status(storeName)?.loading === 'push') return;
     return this._request(storeName, 'pull', config);
   }
@@ -878,8 +893,8 @@ export class StoreManager {
    *
    * To restore the last state the server confirmed instead, use `revert()`.
    */
-  reset(storeName: string) {
-    const entry = this._stores.get(storeName);
+  reset(storeName: string | null | undefined) {
+    const entry = this._find(storeName);
     if (!entry) {
       __DEV__ && warn(`Cannot reset store '${storeName}': store not found.`);
       return;
@@ -898,8 +913,8 @@ export class StoreManager {
    *
    * To restore the state the store started with, use `reset()`.
    */
-  revert(storeName: string, path?: string): boolean {
-    const entry = this._stores.get(storeName);
+  revert(storeName: string | null | undefined, path?: string): boolean {
+    const entry = this._find(storeName);
     if (!entry) {
       __DEV__ && warn(`Cannot revert store '${storeName}': store not found.`);
       return false;
@@ -920,8 +935,8 @@ export class StoreManager {
    * some means Rouse did not perform, such as a native form submit or a socket
    * acknowledgement.
    */
-  commit(storeName: string) {
-    const entry = this._stores.get(storeName);
+  commit(storeName: string | null | undefined) {
+    const entry = this._find(storeName);
     if (!entry) {
       __DEV__ && warn(`Cannot commit store '${storeName}': store not found.`);
       return;
@@ -934,11 +949,11 @@ export class StoreManager {
    * Drops all per-store state from the manager. Existing references to the proxy
    * keep working but desync. Intended for tear-down of dynamically-created stores.
    */
-  remove(storeName: string) {
-    const entry = this._stores.get(storeName);
-    if (entry) {
-      this._pendingFlush.delete(entry);
-    }
-    this._stores.delete(storeName);
+  remove(storeName: string | null | undefined) {
+    const entry = this._find(storeName);
+    if (!entry) return;
+
+    this._pendingFlush.delete(entry);
+    this._stores.delete(entry.name);
   }
 }
