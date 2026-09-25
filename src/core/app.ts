@@ -107,7 +107,7 @@ registerBoundDirectives(
  * @example
  * const app = rouse({ root: '#app', baseUrl: '/api' });
  * app.store('cart', { items: [] });
- * app.scope({ counter, cart });
+ * app.scope('counter', counter);
  * app.start();
  */
 export class RouseApp {
@@ -221,44 +221,28 @@ export class RouseApp {
   }
 
   /**
-   * Registers scope setup functions by name. `data-rz-scope="counter"` resolves against
-   * the names registered here.
+   * Registers a scope setup function by name. `data-rz-scope="counter"` resolves
+   * against the names registered here.
    *
    * Elements are wired as they are scanned, and a name that is not registered before
    * `start()` is skipped with a warning rather than picked up once it arrives.
    *
-   * @param nameOrScopes - A scope name, or an object of names mapped to setup functions.
-   * @param setup - The setup function. Only needed when the first argument is a name.
+   * @param name - Unique name. Referenced by `data-rz-scope`.
+   * @param setup - The setup function.
    * @returns The app, so calls can be chained.
-   * @throws If the registration is not a plain object, or a value is not a function.
+   * @throws If the setup is not a function.
    *
    * @example
-   * app.scope('counter', counter);
-   * // Object shorthand for bulk registration
-   * app.scope({ counter, cart });
+   * app.scope('counter', ({ host, stores }) => { ... });
    */
-  scope<E extends Element = HTMLElement>(name: string, setup: ScopeSetup<E>): this;
-  scope(scopes: Record<string, ScopeSetup<any>>): this;
-  scope(
-    nameOrScopes: string | Record<string, ScopeSetup<any>>,
-    setup?: ScopeSetup<any>,
-  ): this {
-    const map =
-      typeof nameOrScopes === 'string' ? { [nameOrScopes]: setup } : nameOrScopes;
-
-    if (!map || typeof map !== 'object' || Array.isArray(map)) {
-      fail('Invalid scope registration.');
+  scope<E extends Element = HTMLElement>(name: string, setup: ScopeSetup<E>): this {
+    if (typeof setup !== 'function') {
+      fail(`Scope '${name}' must be a setup function.`);
     }
 
-    for (const [name, fn] of Object.entries(map)) {
-      if (typeof fn !== 'function') {
-        fail(`Scope '${name}' must be a setup function.`);
-      }
-
-      // Brand as validated; registry.register rejects unbranded setups
-      (fn as any)[IS_SCOPE] = true;
-      this.registry.register(name, fn);
-    }
+    // Brand as validated; registry.register rejects unbranded setups
+    (setup as any)[IS_SCOPE] = true;
+    this.registry.register(name, setup);
 
     return this;
   }
@@ -276,7 +260,7 @@ export class RouseApp {
    * @template T - Shape of the store's data, getters, and methods.
    * @param name - Unique name. Referenced as `@name` in directives.
    * @param data - Initial state. Made reactive, and kept as the snapshot `reset()` restores.
-   * @param config - How the store syncs: URL, push and pull methods, patch action, rollback behavior.
+   * @param config - Standing sync config: the endpoint URL, headers, and other transport options.
    * @returns The store's reactive proxy.
    * @throws If a store of this name already exists.
    *

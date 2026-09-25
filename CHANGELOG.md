@@ -43,6 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Breaking:** Remove trigger sources that wrapped native events on `window` or `document`: `page-loaded`, `network-online`, `network-offline`, `page-visible`, and `page-hidden`.
 - **Breaking:** Remove the `{`, `#`, and `@` payload injections, along with `ctx.params`. Handlers and scope setups read data attributes off the element instead.
+- **Breaking:** Remove the object shorthand from `app.scope()`; register each scope by name.
 
 ### Fixed
 
