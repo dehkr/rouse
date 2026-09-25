@@ -2,6 +2,7 @@ import { effect } from 'alien-signals';
 import type { RouseApp } from '../core/app';
 import { directiveSelector } from '../core/attributes';
 import { warn } from '../core/diagnostics';
+import { parseTriggers } from '../core/parser';
 import { resolveState, writeState } from '../core/resolve';
 import { dispatchTrigger } from '../dom/events';
 import { getModelableValue, setModelableValue } from '../dom/updater';
@@ -12,7 +13,6 @@ import type {
   Scope,
   TriggerDef,
 } from '../types';
-import { rzWrite } from './rz-write';
 
 /**
  * Returns the default trigger for a given element. Custom elements and
@@ -36,25 +36,28 @@ function modelDefaultTrigger(el: Element): TriggerDef | null {
 
 /**
  * Wires two-way binding on an editable element: an effect writes resolved state
- * into the element, and each trigger writes the element's value back.
- *
- * The value is an element property. Triggers come from `rz-write`, falling back to the element's own
- * default. Binds nothing when neither supplies one.
+ * into the element, and each trigger writes the element's value back. A bare
+ * subject (no `trigger: subject` pair) uses `modelDefaultTrigger`, and binds
+ * nothing when the element has no default.
  */
 function bind(
   el: Element,
   scope: Scope,
   app: RouseApp,
-  subject: string,
+  key: string,
+  value: string,
 ): BoundCleanupFn | undefined {
-  let triggers = rzWrite.getConfig(el);
+  const subject = value || key;
 
-  if (triggers.length === 0) {
+  let triggers: TriggerDef[];
+  if (value) {
+    triggers = parseTriggers(key);
+  } else {
     const def = modelDefaultTrigger(el);
     if (!def) {
       __DEV__ &&
         warn(
-          `rz-model: <${el.tagName.toLowerCase()}> requires at least one trigger set by 'data-rz-write'.`,
+          `rz-model: an explicit trigger is required when used on <${el.tagName.toLowerCase()}> (e.g., data-rz-model="input: value").`,
           el,
         );
       return;

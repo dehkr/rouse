@@ -21,4 +21,3 @@ export { rzStyle } from './rz-style';
 export { rzTarget } from './rz-target';
 export { rzText } from './rz-text';
 export { rzWake } from './rz-wake';
-export { rzWrite } from './rz-write';

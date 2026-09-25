@@ -35,8 +35,7 @@ export type DirectiveSlug =
   | 'style'
   | 'target'
   | 'text'
-  | 'wake'
-  | 'write';
+  | 'wake';
 
 /** Detail for `rz:app:start`, `rz:app:ready`, and `rz:app:destroy`. */
 export interface AppEventDetail {
@@ -508,7 +507,7 @@ export interface BoundDirective {
   selector: string;
   /**
    * Bind only the first `[key: value]` segment, warning that the rest are ignored.
-   * Set on directives whose `key` *is* the subject, where extra comma-separated
+   * Set on directives that bind one subject per element, where extra comma-separated
    * segments would create competing bindings on an element.
    */
   singleValue?: boolean;
