@@ -14,6 +14,7 @@ No unreleased changes.
 ### Added
 
 - Add server-sent events. `data-rz-sse="[trigger]: [url]"` opens an `EventSource`, sharing the trigger grammar with the network directives. An unnamed message is a payload; a named message is an event.
+- Add `app.sse(url, options?)` and `ctx.sse(url, options?)` to open a stream from JavaScript. Each returns a function that closes the stream, and closes it automatically when the app is destroyed or the scope tears down.
 - Add the `rz-close` directive to end a stream; accepts one or more space-separated triggers.
 - Add the `sse` trigger source, exposing named messages via bracket syntax: `data-rz-on="sse-[tick]: handler"`, `data-rz-pull="sse-[cart-updated]: @cart"`, `data-rz-wake="sse-[ready]"`, `ctx.on('sse', fn, { arg: 'tick' })`.
   - `sse-[message]` captures generic messages that don't have event names.
