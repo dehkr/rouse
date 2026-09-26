@@ -1,6 +1,6 @@
 {
   "name": "rousejs",
-  "version": "0.13.0",
+  "version": "0.14.0",
   "description": "A JavaScript reactivity and state-sync layer for server-rendered HTML",
   "author": "dehkr <dehkr25@gmail.com>",
   "license": "MIT",
@@ -21,6 +21,8 @@
     "signals",
     "state-management",
     "state-sync",
+    "sse",
+    "server-sent events",
     "two-way-binding",
     "optimistic-ui",
     "typescript",

@@ -11,11 +11,11 @@
 
 Rouse coordinates server-rendered HTML and client-side reactivity within a single, cohesive system. While SPAs put the frontend in charge and hypermedia anchors to the backend, Rouse combines the strengths of each. It's designed for applications that already render HTML on the server but need rich client-side state without adopting a full SPA architecture. Whether the server or the client drives an interaction is a per-feature decision rather than an architectural commitment.
 
-- **No virtual DOM** – native DOM, web standards, zero compilation
 - **Backend agnostic** – pairs with anything that returns HTML or JSON
 - **Strict CSP compliance** – no `unsafe-eval` or expression evaluation in markup
+- **Web standards** – no virtual DOM, built on native browser APIs
 - **Buildless or bundled** – load from a CDN or install from npm, fully typed
-- **Lightweight** – 19 KB gzipped with no external dependencies
+- **Lightweight** – 20 KB gzipped with no external dependencies
 
 ## Features
 
@@ -33,7 +33,11 @@ Fetch HTML fragments – or JSON – on any event, straight from attributes. The
 
 ### State synchronization
 
-Push client state to the server and pull it back, with dirty tracking, conflict detection, and automatic rollback on failure.
+Push client state to the server and pull it back, with dirty tracking, in-flight edit protection, and automatic rollback on failure.
+
+### Server-sent events
+
+Stream updates from the server declaratively. Messages swap HTML, update stores, or fire named events the rest of your app can react to.
 
 ### Progressive activation
 
@@ -55,7 +59,7 @@ Rouse ships as ES modules only, in two builds: a development build with diagnost
 
 ```html
 <script type="module">
-  import { rouse } from 'https://cdn.jsdelivr.net/npm/rousejs@0.13.0/dist/rouse.js';
+  import { rouse } from 'https://cdn.jsdelivr.net/npm/rousejs@0.14.0/dist/rouse.js';
 
   const app = rouse();
   app.start();
@@ -65,7 +69,7 @@ Rouse ships as ES modules only, in two builds: a development build with diagnost
 Swap in `rouse.min.js` for production:
 
 ```text
-https://cdn.jsdelivr.net/npm/rousejs@0.13.0/dist/rouse.min.js
+https://cdn.jsdelivr.net/npm/rousejs@0.14.0/dist/rouse.min.js
 ```
 
 ### From npm
@@ -95,7 +99,7 @@ import { rouse, signal } from 'rousejs';
 
 const app = rouse();
 
-// Scopes: a setup function bound to a region of the page
+// Scopes: data and actions bound to a region of the page
 app.scope('counter', () => {
   const count = signal(0);
   return {
@@ -111,39 +115,40 @@ app.scope('counter', () => {
 // Stores: shared state, optionally synced with the server
 app.store('prefs', { theme: 'dark' });
 
-// Interceptors: run on every request
+// Interceptors: hooks into every request, response, and error
 app.interceptor('request', (config) => {
   const token = localStorage.getItem('auth-token');
   config.headers = { ...config.headers, Authorization: `Bearer ${token}` };
   return config;
 });
 
-// Listeners
-app.on('rz:app:ready', () => console.log('wired up'));
+// Listeners: trigger sources and events, cleaned up automatically
+app.on('ready', () => console.log('wired up'));
 
 app.start();
 ```
 
-Markup:
+Add Rouse directives to your markup using native `data-*` attributes with an `rz-` prefix:
 
 ```html
+<!-- Bind the counter scope -->
 <div data-rz-scope="counter">
   <button data-rz-on="click: increment">Add one</button>
   <span data-rz-text="count"></span>
 </div>
 
+<!-- Declare a global store that syncs with /api/user -->
 <script data-rz-store="user: /api/user" type="application/json">
   { "name": "Ada" }
 </script>
 
+<!-- Access stores anywhere in markup with the @ sigil -->
 <input data-rz-model="@user.name">
 <button data-rz-push="click: @user">Save</button>
 ```
 
 ### More about `start()`
 
-`start()` is not an initialization step that switches Rouse on. **It scans the page.** Directives are read from the DOM at that moment and wired to whatever is registered by then.
+`start()` is not an initialization step that switches Rouse on. **It scans the page.** Directives are read from the DOM at that moment and wired to whatever is registered by then. Rouse keeps watching the page and scans new elements as they're added, so registering after `start()` works for elements scanned later.
 
-Rouse keeps watching the page and scans new elements added to the DOM. So registration is legitimate after `start()`; it just has to come before the scan that needs it.
-
-**Note:** A store declared in HTML is created by the scan. A reference like `app.stores.get('user')` before `start()` returns `undefined`.
+**Note:** A store declared in HTML is created by the scan, so `app.stores.get('user')` returns `undefined` before `start()`.
