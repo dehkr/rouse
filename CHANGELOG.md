@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+No unreleased changes.
+
+## [0.14.0] - 2026-09-25
+
 ### Added
 
 - Add server-sent events. `data-rz-sse="[trigger]: [url]"` opens an `EventSource`, sharing the trigger grammar with the network directives. An unnamed message is a payload; a named message is an event.
