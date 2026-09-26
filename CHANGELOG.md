@@ -7,7 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-No unreleased changes.
+### Added
+
+- Add `ctx.app`, the app a scope is mounted in.
+- Add `ctx.interceptor(phase, fn)`, which registers a network interceptor that is removed when the scope is destroyed.
+- Export `RouseApp` for type annotations and `instanceof` checks.
+- Warn in development when `app.on`, `app.sse`, or `app.interceptor` is called during a scope's setup or `connect()`, since each outlives the scope.
+
+### Changed
+
+- **Breaking:** Remove `ctx.stores` and `ctx.appRoot`. Use `ctx.app.stores` and `ctx.app.root`.
+
+### Fixed
+
+- Throw from `app.interceptor` at registration when `fn` isn't a function, instead of failing on the next request.
 
 ## [0.14.0] - 2026-09-25
 

@@ -6,7 +6,6 @@ import type {
   RENDER_PARENT,
   SwapMethod,
 } from './core/constants';
-import type { StoreManager } from './core/store';
 
 /** Brand for {@link BoundCleanupFn}, keeping arbitrary `VoidFn`s out of directive-teardown positions. */
 declare const CLEANUP: unique symbol;
@@ -734,10 +733,12 @@ export type BoundOn = {
 export type ScopeCtx<E extends Element = HTMLElement> = {
   /** The `rz-scope` element this scope is mounted on. */
   host: E;
-  /** The root element passed to `RouseApp`. */
-  appRoot: HTMLElement;
-  /** Access to all registered stores. */
-  stores: StoreManager;
+  /**
+   * The app this scope is mounted in, for `app.stores`, `app.root`, and other app methods.
+   * Listeners, streams, and interceptors registered through it outlive the scope. Use
+   * `ctx.on`, `ctx.sse`, and `ctx.interceptor` to remove them when the scope is destroyed.
+   */
+  app: RouseApp;
   /** Aborted when the scope is destroyed. Use to clean up scope-defined subscriptions. */
   term: AbortSignal;
   /** Scoped `fetch` surface. Aborts on scope destroy. */
@@ -752,6 +753,13 @@ export type ScopeCtx<E extends Element = HTMLElement> = {
    * sources. Returns a teardown function.
    */
   on: BoundOn;
+  /**
+   * Registers a network interceptor that is removed when the scope is destroyed, such as
+   * a header that should apply only while this scope is mounted. Each call is a separate
+   * registration, so a scope mounted several times runs it once per mount. Returns a
+   * teardown function that removes it early.
+   */
+  interceptor: RouseApp['interceptor'];
   /** Scan a newly added DOM subtree for directives and initialize them. */
   scan: (newNode: Element) => void;
 };

@@ -163,11 +163,13 @@ export function on(
 /**
  * Builds the `app.on` and `ctx.on` surface: a listener bound to an owner's lifetime
  * signal, defaulting to `defaultTarget` when the caller omits an `EventTarget`.
+ * `devCheck` receives the caller's options before the owner signal is merged in.
  */
 export function createBoundOn(
   defaultTarget: EventTarget,
   ownerSignal: AbortSignal,
   app: RouseApp,
+  devCheck?: (options: ListenerOptions) => void,
 ): BoundOn {
   return (...args: any[]): VoidFn => {
     // A string or array first argument means the target was omitted
@@ -176,6 +178,7 @@ export function createBoundOn(
     const event = implied ? args[0] : args[1];
     const callback = implied ? args[1] : args[2];
     const options: ListenerOptions = (implied ? args[2] : args[3]) ?? {};
+    __DEV__ && devCheck?.(options);
     const signal = options.signal
       ? AbortSignal.any([ownerSignal, options.signal])
       : ownerSignal;

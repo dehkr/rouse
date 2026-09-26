@@ -4,8 +4,8 @@ import { err, fail, warn } from '../core/diagnostics';
 import { dispatch } from '../core/dispatch';
 import { rzScope, rzWake } from '../directives';
 import { openBoundStream } from '../net/sse-engine';
-import type { ScopeCtx, ScopeSetup, VoidFn } from '../types';
-import { bindScope } from './binder';
+import type { InterceptorPhase, ScopeCtx, ScopeSetup, VoidFn } from '../types';
+import { bindScope, enterMountPhase, exitMountPhase } from './binder';
 import { attachWakeStrategies, createBoundOn } from './events';
 
 export const IS_SCOPE: unique symbol = Symbol(__DEV__ ? 'rz.scope' : '');
@@ -103,8 +103,7 @@ function createScope(el: HTMLElement, app: RouseApp, setup: ScopeSetup) {
   // Context object passed into the scope setup function
   const context: ScopeCtx = {
     host: el,
-    appRoot: app.root,
-    stores: app.stores,
+    app,
     term: abortCtrl.signal,
     // The scope's signal aborts in-flight requests on destroy. Override with
     // `signal: undefined`, or `keepalive: true` to finish even if the tab closes.
@@ -115,6 +114,8 @@ function createScope(el: HTMLElement, app: RouseApp, setup: ScopeSetup) {
     // own; a stream never does, so detaching one leaves nothing to close it.
     sse: (url, options = {}) => openBoundStream(app, url, options, abortCtrl.signal),
     on: createBoundOn(el, abortCtrl.signal, app),
+    interceptor: ((phase: InterceptorPhase, fn: any) =>
+      app._addInterceptor(phase, fn, abortCtrl.signal)) as ScopeCtx['interceptor'],
     // Allows for triggering a scan from inside the scope
     scan: (newNode: Element) => binding?.scan(newNode),
   };
@@ -123,11 +124,14 @@ function createScope(el: HTMLElement, app: RouseApp, setup: ScopeSetup) {
   // The empty instance on failure keeps teardown working, and stops a bad setup
   // from aborting the scan that mounted it.
   const stopSetupScope = effectScope(() => {
+    __DEV__ && enterMountPhase(el, 'setup');
     try {
       instance = setup(context) || {};
     } catch (error) {
       err('Scope setup failed.', el, error);
       instance = {};
+    } finally {
+      __DEV__ && exitMountPhase();
     }
   });
 

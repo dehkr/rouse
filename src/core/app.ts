@@ -20,6 +20,7 @@ import {
   registerBoundDirectives,
   teardownGlobalBindings,
   walkBoundElements,
+  warnIfMounting,
 } from '../dom/binder';
 import { createBoundOn } from '../dom/events';
 import { initObserver } from '../dom/observer';
@@ -147,6 +148,7 @@ export class RouseApp {
    */
   public on: BoundOn;
 
+  /** @internal */
   public _interceptors: {
     request: Set<RequestInterceptor>;
     response: Set<ResponseInterceptor>;
@@ -213,11 +215,18 @@ export class RouseApp {
     this._abortController = new AbortController();
 
     // A lifecycle-safe listener bound to the app-lifetime signal, auto-removed on `destroy`
-    this.on = createBoundOn(this.root, this._abortController.signal, this);
+    this.on = createBoundOn(
+      this.root,
+      this._abortController.signal,
+      this,
+      __DEV__ ? (options) => warnIfMounting('on', options.signal != null) : undefined,
+    );
 
     // Released when the app-lifetime signal aborts, like `app.on` listeners
-    this.sse = (resource, options = {}) =>
-      openBoundStream(this, resource, options, this._abortController.signal);
+    this.sse = (resource, options = {}) => {
+      __DEV__ && warnIfMounting('sse');
+      return openBoundStream(this, resource, options, this._abortController.signal);
+    };
   }
 
   /**
@@ -233,7 +242,7 @@ export class RouseApp {
    * @throws If the setup is not a function.
    *
    * @example
-   * app.scope('counter', ({ host, stores }) => { ... });
+   * app.scope('counter', ({ host, app }) => { ... });
    */
   scope<E extends Element = HTMLElement>(name: string, setup: ScopeSetup<E>): this {
     if (typeof setup !== 'function') {
@@ -293,21 +302,56 @@ export class RouseApp {
    *   config.headers = { ...config.headers, Authorization: `Bearer ${token}` };
    *   return config;
    * });
-   * // Later, in a scope's `disconnect()`:
    * remove();
+   *
+   * // Inside a scope, use ctx.interceptor() so it's removed with the scope.
    */
   interceptor(phase: 'request', fn: RequestInterceptor): VoidFn;
   interceptor(phase: 'response', fn: ResponseInterceptor): VoidFn;
   interceptor(phase: 'error', fn: ErrorInterceptor): VoidFn;
   interceptor(phase: InterceptorPhase, fn: any): VoidFn {
+    __DEV__ && warnIfMounting('interceptor');
+    return this._addInterceptor(phase, fn);
+  }
+
+  /**
+   * Registers an interceptor without the scope-mount check, removed when `signal` aborts.
+   * Backs `app.interceptor` and `ctx.interceptor`.
+   * @internal
+   */
+  _addInterceptor(phase: InterceptorPhase, fn: any, signal?: AbortSignal): VoidFn {
     const set = this._interceptors[phase];
     if (!set) {
       fail(
         `Invalid interceptor: '${phase}'. Expected 'request', 'response', or 'error'.`,
       );
     }
-    set.add(fn);
-    return () => set.delete(fn);
+    if (typeof fn !== 'function') {
+      fail(`Interceptor for '${phase}' must be a function.`);
+    }
+
+    if (!signal) {
+      set.add(fn);
+      return () => set.delete(fn);
+    }
+
+    // An aborted signal never fires `abort` again, so registering would leak
+    if (signal.aborted) {
+      return () => {};
+    }
+
+    // Interceptors are stored in a Set, so two scopes registering the same function
+    // would share one entry, and the first teardown would remove it for both. A
+    // wrapper per call gives each registration its own entry.
+    const entry = (...args: any[]) => fn(...args);
+    const remove = () => set.delete(entry);
+    set.add(entry);
+    signal.addEventListener('abort', remove, { once: true });
+
+    return () => {
+      signal.removeEventListener('abort', remove);
+      remove();
+    };
   }
 
   /**

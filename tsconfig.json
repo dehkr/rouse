@@ -16,6 +16,7 @@
 
     /* Emit */
     "noEmit": true,
+    "stripInternal": true,
 
     /* JavaScript Support */
     /* Editor Support */
