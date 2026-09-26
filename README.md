@@ -122,13 +122,13 @@ app.interceptor('request', (config) => {
   return config;
 });
 
-// Listeners: built-in Rouse events, cleaned up automatically
+// Listeners: automatic cleanup, plus built-in Rouse events
 app.on('ready', () => console.log('wired up'));
 
 app.start();
 ```
 
-Add Rouse directives to your markup using native `data-*` attributes with an `rz-` prefix:
+Add Rouse directives to your markup using standard `data-*` attributes with the `rz-` prefix:
 
 ```html
 <!-- Bind the counter scope -->
@@ -151,4 +151,4 @@ Add Rouse directives to your markup using native `data-*` attributes with an `rz
 
 `start()` is not an initialization step that switches Rouse on. **It scans the page.** Directives are read from the DOM at that moment and wired to whatever is registered by then. Rouse keeps watching the page and scans new elements as they're added, so registering after `start()` works for elements scanned later.
 
-**Note:** A store declared in HTML is created by the scan, so `app.stores.get('user')` returns `undefined` before `start()`.
+**Note:** A store declared in the initial HTML is created by the scan, so `app.stores.get('user')` returns `undefined` before `start()`.
