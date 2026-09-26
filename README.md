@@ -122,7 +122,7 @@ app.interceptor('request', (config) => {
   return config;
 });
 
-// Listeners: trigger sources and events, cleaned up automatically
+// Listeners: built-in Rouse events, cleaned up automatically
 app.on('ready', () => console.log('wired up'));
 
 app.start();
