@@ -10,7 +10,7 @@ import type {
 /** Brand for {@link BoundCleanupFn}, keeping arbitrary `VoidFn`s out of directive-teardown positions. */
 declare const CLEANUP: unique symbol;
 
-/** Every `rz-*` attribute name supported by the framework, without the prefix. */
+/** Every `rz-*` directive name supported by the framework, without the prefix. */
 export type DirectiveSlug =
   | 'attr'
   | 'class'
@@ -250,8 +250,14 @@ export interface DomPlaceDetail {
   position: PlacePosition;
   /** The HTML string to insert. Mutable by `rz:dom:place:before` listeners. */
   payload: string;
-  /** What produced the placement: a fetch response, a stream message, or a programmatic `swap()` call. */
+  /** What produced the placement: a fetch response, a stream message, or a programmatic `place()` call. */
   source: 'fetch' | 'sse' | 'programmatic';
+}
+
+/** Options for `app.place()`. */
+export interface PlaceOptions {
+  /** Where the content goes relative to the target. Defaults to `innerHTML`. */
+  position?: PlacePosition;
 }
 
 /** Maps every lifecycle event name to the shape of `event.detail`. */
@@ -576,8 +582,11 @@ export interface BaseRequestConfig {
   /** CSS selector for elements to receive the rouse request class for the duration of the request. */
   indicator?: string | null;
   /**
-   * The element that initiated the request. Set by the declarative path; programmatic
-   * requests leave it unset unless the caller supplies one.
+   * The element that initiated the request. Set by the declarative path. Programmatic
+   * requests leave it unset unless the caller supplies one. On a fetch, supplying one
+   * adopts the element's declarative setup and behavior, including accepting HTML responses
+   * as its content (unless configured otherwise by `rz-place`). Leave it unset to handle
+   * responses manually.
    */
   triggerEl?: Element;
   /** Request headers. A `null` value removes the header. Empty strings are sent as-is. */
@@ -625,7 +634,12 @@ export type RouseFetch = (
 
 /** Options for `app.sse` and `ctx.sse`. */
 export interface SseOptions {
-  /** The element the connection binds to and dispatches from. Defaults to the app root. */
+  /**
+   * The element the connection binds to and dispatches from. Defaults to the app root.
+   * Naming one adopts its declarative setup and behavior, including accepting HTML messages
+   * as its content (unless configured otherwise by `rz-place`). Leave it unset to handle
+   * messages manually.
+   */
   triggerEl?: Element;
   /** Sends credentials on cross-origin connections. */
   withCredentials?: boolean;

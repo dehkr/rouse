@@ -22,7 +22,7 @@ import {
   walkBoundElements,
   warnIfMounting,
 } from '../dom/binder';
-import { initDomRouter } from '../dom/dom-router';
+import { initDomRouter, placeContent } from '../dom/dom-router';
 import { createBoundOn } from '../dom/events';
 import { initObserver } from '../dom/observer';
 import { destroyInstance, IS_SCOPE, initScopeElement } from '../dom/scope';
@@ -34,6 +34,7 @@ import type {
   ErrorInterceptor,
   FetchRequest,
   InterceptorPhase,
+  PlaceOptions,
   RequestInterceptor,
   ResponseInterceptor,
   RouseFetch,
@@ -132,7 +133,8 @@ export class RouseApp {
    * Opens a server-sent events stream, or joins one already open at the same URL.
    *
    * @example
-   * const close = app.sse('/api/events', { triggerEl: host });
+   * const close = app.sse('/api/feed');
+   * app.on('rz:sse:message:html', (e) => app.place(feedEl, e.detail.data, { position: 'beforeend' }));
    */
   public sse: RouseSse;
 
@@ -236,7 +238,7 @@ export class RouseApp {
    * Elements are wired as they are scanned, and a name that is not registered before
    * `start()` is skipped with a warning rather than picked up once it arrives.
    *
-   * @param name - Unique name. Referenced by `data-rz-scope`.
+   * @param name - Unique name. Referenced by `rz-scope`.
    * @param setup - The setup function.
    * @returns The app, so calls can be chained.
    * @throws If the setup is not a function.
@@ -288,6 +290,28 @@ export class RouseApp {
    */
   store<T extends object>(name: string, data: T, config?: Partial<SyncPolicy>) {
     return this.stores.create<T>(name, data, config);
+  }
+
+  /**
+   * Places an HTML string into the page, the programmatic counterpart to `rz-place`.
+   * A selector is matched within the app root, including the root itself, and every
+   * match receives the content.
+   *
+   * The position defaults to `innerHTML`. `outerHTML` replaces the target, `delete`
+   * removes it (pass `''` as the content), and positions such as `beforeend` insert
+   * next to or inside it. Each placement fires `rz:dom:place:before`, which can
+   * cancel it or change the content, and then `rz:dom:place`. Those events reach
+   * `app.on` listeners only when the target is inside the app root.
+   *
+   * @returns `true` if the content was placed into at least one element, `false` if nothing matched or every placement was canceled.
+   *
+   * @example
+   * app.place('#feed', html, { position: 'beforeend' });
+   * app.place(el, html);
+   * app.place('#item-4', '', { position: 'delete' });
+   */
+  place(target: Element | string, content: string, options?: PlaceOptions): boolean {
+    return placeContent(this, target, content, options);
   }
 
   /**

@@ -7,8 +7,8 @@ import {
 } from '../core/constants';
 import { warn } from '../core/diagnostics';
 import { dispatch } from '../core/dispatch';
-import { rzPlace } from '../directives';
-import type { RoutablePayload } from '../types';
+import { queryPlaceTargets, rzPlace } from '../directives/rz-place';
+import type { PlaceOptions, RoutablePayload } from '../types';
 
 /**
  * Listens to the app root for HTML fetch responses and stream messages, and routes
@@ -16,7 +16,7 @@ import type { RoutablePayload } from '../types';
  * a server `Rouse-Target` header.
  *
  * A programmatic fetch doesn't have an element, so it doesn't place by default. A server-
- * named target can place the payload, or the caller can place it using `swap()`. The
+ * named target can place the payload, or the caller can place it using `app.place()`. The
  * `triggerEl` option is configurable, however, so a pre-configured element can be
  * triggered remotely.
  *
@@ -40,7 +40,7 @@ export function initDomRouter(app: RouseApp, signal: AbortSignal) {
 
     for (const { targets, position } of placements) {
       for (const targetEl of targets) {
-        swap(data, targetEl, position, source);
+        placeInto(targetEl, data, position, source);
       }
     }
   };
@@ -53,48 +53,76 @@ export function initDomRouter(app: RouseApp, signal: AbortSignal) {
 }
 
 /**
- * Places HTML content into a target element, replaces it, or removes it.
+ * Places `content` into `target`, backing `app.place()`. A selector resolves the way
+ * `rz-place` resolves it; an unknown position warns and falls back to `innerHTML`.
  *
- * Fires a cancelable `rz:dom:place:before` event first; a listener can cancel it to
- * skip the placement, or mutate `detail.payload` to change what gets written. A
- * `rz:dom:place` event follows. For `outerHTML` and `delete`, both events fire from the
- * target's parent, since the target itself is replaced or removed.
- *
- * @param content - The HTML string to place (ignored for `delete`).
- * @param target - The element to place into, replace, or remove.
- * @param position - Where to place the content: `innerHTML`, `outerHTML`, `delete`, or an `insertAdjacentHTML` position such as `beforeend`. The names are case-sensitive; `innerHTML` is both the default and the fallback for an unrecognized value.
- * @param source - Marks the placement as `fetch`-driven or `programmatic` (default); surfaced on both lifecycle events.
+ * @returns `true` if at least one target received the content.
  */
-export function swap(
+export function placeContent(
+  app: RouseApp,
+  target: Element | string,
   content: string,
-  target: Element,
-  position: PlacePosition = 'innerHTML',
-  source: 'fetch' | 'sse' | 'programmatic' = 'programmatic',
-) {
-  const resolved = isPlacePosition(position) ? position : DEFAULT_PLACE_POSITION;
-  __DEV__ &&
-    resolved !== position &&
-    warn(
-      `Unknown position '${position}'. Using '${DEFAULT_PLACE_POSITION}'. Positions are case-sensitive: ${PLACE_POSITIONS.join(', ')}.`,
-      target,
-    );
+  options: PlaceOptions = {},
+): boolean {
+  const requested = options.position ?? DEFAULT_PLACE_POSITION;
+  const position = isPlacePosition(requested) ? requested : DEFAULT_PLACE_POSITION;
 
+  if (__DEV__ && position !== requested) {
+    warn(
+      `Unknown position '${requested}' in app.place(). Using '${DEFAULT_PLACE_POSITION}'. Positions are case-sensitive: ${PLACE_POSITIONS.join(', ')}.`,
+    );
+  }
+
+  let targets: Element[] = [];
+  if (typeof target === 'string') {
+    targets = queryPlaceTargets(app.root, target);
+  } else if (target instanceof Element) {
+    targets = [target];
+  } else if (__DEV__) {
+    warn(`Targets in app.place() must be an element or a selector. Got '${target}'.`);
+  }
+
+  let placed = false;
+  for (const el of targets) {
+    if (placeInto(el, content, position, 'programmatic')) {
+      placed = true;
+    }
+  }
+
+  return placed;
+}
+
+/**
+ * Writes `content` at `position` relative to `target`, between a cancelable
+ * `rz:dom:place:before` and `rz:dom:place`. Both fire from the parent for `outerHTML`
+ * and `delete`, since the target itself is replaced or removed.
+ *
+ * @returns `false` if a listener canceled the placement.
+ */
+function placeInto(
+  target: Element,
+  content: string,
+  position: PlacePosition,
+  source: 'fetch' | 'sse' | 'programmatic',
+): boolean {
   const dispatcherEl =
-    resolved === 'outerHTML' || resolved === 'delete'
+    position === 'outerHTML' || position === 'delete'
       ? target.parentElement || target
       : target;
 
   const beforeEvent = dispatch(
     dispatcherEl,
     'rz:dom:place:before',
-    { target, position: resolved, payload: content, source },
+    { target, position, payload: content, source },
     { cancelable: true },
   );
 
-  if (beforeEvent.defaultPrevented) return;
+  if (beforeEvent.defaultPrevented) {
+    return false;
+  }
   const finalContent = beforeEvent.detail.payload;
 
-  switch (resolved) {
+  switch (position) {
     case 'delete':
       target.remove();
       break;
@@ -105,13 +133,15 @@ export function swap(
       target.outerHTML = finalContent;
       break;
     default:
-      target.insertAdjacentHTML(resolved, finalContent);
+      target.insertAdjacentHTML(position, finalContent);
   }
 
   dispatch(dispatcherEl, 'rz:dom:place', {
     target,
-    position: resolved,
+    position,
     payload: finalContent,
     source,
   });
+
+  return true;
 }

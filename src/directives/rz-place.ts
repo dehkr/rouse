@@ -72,12 +72,12 @@ function resolvePlacements(
           `rz-place: unknown position '${key}'. Using '${DEFAULT_PLACE_POSITION}'. Positions are case-sensitive: ${PLACE_POSITIONS.join(', ')}.`,
           hostEl,
         );
-      placements.push({ position, targets: queryEls(appRoot, val, hostEl) });
+      placements.push({ position, targets: queryPlaceTargets(appRoot, val, hostEl) });
     } else if (isPlacePosition(key)) {
       placements.push({ targets: [hostEl], position: key });
     } else {
       placements.push({
-        targets: queryEls(appRoot, key, hostEl),
+        targets: queryPlaceTargets(appRoot, key, hostEl),
         position: DEFAULT_PLACE_POSITION,
       });
     }
@@ -86,11 +86,25 @@ function resolvePlacements(
   return placements;
 }
 
-function queryEls(appRoot: Element, selector: string, hostEl: Element): Element[] {
-  const targets = queryTargets(appRoot, selector);
-  __DEV__ &&
-    targets.length === 0 &&
-    warn(`rz-place: no targets found for '${selector}'.`, hostEl);
+/**
+ * Resolves a placement selector against every match within `root`, including `root`
+ * itself. An invalid selector matches nothing. Shared by `rz-place` and `app.place()`.
+ */
+export function queryPlaceTargets(
+  root: Element,
+  selector: string,
+  hostEl?: Element,
+): Element[] {
+  const targets = queryTargets(root, selector);
+  // `app.place()` takes its target and content as strings, so swapped arguments
+  // compile. This warning is what catches them.
+  if (__DEV__ && targets.length === 0) {
+    if (hostEl) {
+      warn(`rz-place: no targets found for '${selector}'.`, hostEl);
+    } else {
+      warn(`No targets found for '${selector}' in app.place().`);
+    }
+  }
 
   return targets;
 }
