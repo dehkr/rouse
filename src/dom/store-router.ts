@@ -6,10 +6,10 @@ import type { RouseResponse, RoutablePayload } from '../types';
 
 /**
  * Listens to the app root for JSON fetch responses and stream messages, and routes the
- * payloads into global stores named by `rz-target` or a server `Rouse-Target` header.
+ * payloads into global stores named by `rz-deposit` or a server `Rouse-Target` header.
  * Since programmatic fetch doesn't originate from an element, it doesn't route unless the
  * `triggerEl` option is set explicitly. Error responses route only when the server names
- * a target, since `rz-target` is success-only output.
+ * a target, since `rz-deposit` is success-only output.
  */
 export function initStoreRouter(app: RouseApp, signal: AbortSignal) {
   const route = (e: Event, operation: 'fetch' | 'sse') => {
@@ -43,7 +43,7 @@ export function initStoreRouter(app: RouseApp, signal: AbortSignal) {
  * per-field reconciliation `rz-pull` performs. Non-POJO payloads and unknown store
  * names warn and are skipped.
  *
- * @param stores - Store names to deposit into (from `rz-target`'s `@store` targets).
+ * @param stores - Store names to deposit into (from `rz-deposit` or a `Rouse-Target` header).
  * @param payload - The parsed JSON body to write into each store.
  * @param operation - What produced the payload, surfaced on the rz:store:patch detail.
  * @param response - The response that produced it, absent for a stream message.

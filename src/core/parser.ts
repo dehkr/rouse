@@ -31,7 +31,7 @@ const isOpener = (char: string): char is BoundaryOpener => openers.has(char);
  *
  * When a pair has a `null` value, the consumer decides how to read the bare key.
  * It could be treated as a flag, or as the meaningful value itself (as in the
- * `rz-target` selector example here).
+ * `rz-place` selector example here).
  *
  * @example
  * parseDirectiveValue('beforeend: #item-list, #log > div.output');

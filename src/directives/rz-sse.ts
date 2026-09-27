@@ -45,7 +45,7 @@ function bindSsePairs(el: Element, app: RouseApp, pairs: TriggerSubjectPair[]) {
     return cleanups;
   }
 
-  // One stream per element: rz-close and rz-target each have one home here, and
+  // One stream per element: rz-close and rz-place each have one home here, and
   // rz:sse:open fires from one node. A second stream is a second element.
   const shared = pairs.filter((pair) => pair.subject === url);
 

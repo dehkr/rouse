@@ -9,8 +9,8 @@ export const ITEM_META_KEY: unique symbol = Symbol(__DEV__ ? 'rz.itemMeta' : '')
 /** Points an instance context back at the scope/store state it layers over. */
 export const RENDER_PARENT: unique symbol = Symbol(__DEV__ ? 'rz.renderParent' : '');
 
-/** List of valid HTML DOM swap methods. */
-export const SWAP_METHODS = [
+/** List of valid DOM placement positions. */
+export const PLACE_POSITIONS = [
   'innerHTML',
   'outerHTML',
   'beforebegin',
@@ -20,21 +20,21 @@ export const SWAP_METHODS = [
   'delete',
 ] as const;
 
-/** Represents a valid DOM swap method string. */
-export type SwapMethod = (typeof SWAP_METHODS)[number];
+/** Represents a valid DOM placement position. */
+export type PlacePosition = (typeof PLACE_POSITIONS)[number];
 
-/** Represents the parameters required to execute a DOM swap. */
-export interface SwapOperation {
+/** Represents the parameters required to place content into the DOM. */
+export interface PlaceOperation {
   targets: Element[];
-  method: SwapMethod;
+  position: PlacePosition;
 }
 
-/** Default method for DOM swaps when explicit value isn't provided. */
-export const DEFAULT_SWAP_METHOD: SwapMethod = 'innerHTML';
+/** Default position for DOM placement when an explicit value isn't provided. */
+export const DEFAULT_PLACE_POSITION: PlacePosition = 'innerHTML';
 
-/** Type guard to check if a given string is a valid SwapMethod. */
-export function isSwapMethod(key: string): key is SwapMethod {
-  return SWAP_METHODS.includes(key as SwapMethod);
+/** Type guard to check if a given string is a valid PlacePosition. */
+export function isPlacePosition(key: string): key is PlacePosition {
+  return PLACE_POSITIONS.includes(key as PlacePosition);
 }
 
 /** List of valid standard HTTP methods. */

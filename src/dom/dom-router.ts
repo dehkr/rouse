@@ -1,26 +1,26 @@
 import type { RouseApp } from '../core/app';
 import {
-  DEFAULT_SWAP_METHOD,
-  isSwapMethod,
-  SWAP_METHODS,
-  type SwapMethod,
+  DEFAULT_PLACE_POSITION,
+  isPlacePosition,
+  PLACE_POSITIONS,
+  type PlacePosition,
 } from '../core/constants';
 import { warn } from '../core/diagnostics';
 import { dispatch } from '../core/dispatch';
-import { rzTarget } from '../directives';
+import { rzPlace } from '../directives';
 import type { RoutablePayload } from '../types';
 
 /**
  * Listens to the app root for HTML fetch responses and stream messages, and routes
- * the payloads into DOM targets named by `rz-target` on the originating element, or
+ * the payloads into DOM targets named by `rz-place` on the originating element, or
  * a server `Rouse-Target` header.
  *
- * A programmatic fetch doesn't have an element, so it doesn't swap by default. A server-
+ * A programmatic fetch doesn't have an element, so it doesn't place by default. A server-
  * named target can place the payload, or the caller can place it using `swap()`. The
  * `triggerEl` option is configurable, however, so a pre-configured element can be
  * triggered remotely.
  *
- * Error responses route only when the server names a target, since `rz-target` is
+ * Error responses route only when the server names a target, since `rz-place` is
  * success-only output.
  */
 export function initDomRouter(app: RouseApp, signal: AbortSignal) {
@@ -29,18 +29,18 @@ export function initDomRouter(app: RouseApp, signal: AbortSignal) {
     const { config, data, targetOverride } = detail;
     const triggerEl = config?.triggerEl;
 
-    // An empty response (`null`) or non-string body has nothing to swap
+    // An empty response (`null`) or non-string body has nothing to place
     if (typeof data !== 'string') return;
     // Don't route an error response unless the server provides an override
     if (e.type.includes('error') && !targetOverride) return;
     // No originating element means no destination or host for the declarative path
     if (!triggerEl && !targetOverride) return;
 
-    const swaps = rzTarget.getConfig(triggerEl ?? app.root, app.root, targetOverride);
+    const placements = rzPlace.getConfig(triggerEl ?? app.root, app.root, targetOverride);
 
-    for (const { targets, method } of swaps) {
+    for (const { targets, position } of placements) {
       for (const targetEl of targets) {
-        swap(data, targetEl, method, source);
+        swap(data, targetEl, position, source);
       }
     }
   };
@@ -53,48 +53,48 @@ export function initDomRouter(app: RouseApp, signal: AbortSignal) {
 }
 
 /**
- * Swaps HTML content into a target element, replaces it, or removes it.
+ * Places HTML content into a target element, replaces it, or removes it.
  *
- * Fires a cancelable `rz:dom:swap:before` event first; a listener can cancel it to
- * skip the swap, or mutate `detail.payload` to change what gets written. A `rz:dom:swap`
- * event follows. For `outerHTML` and `delete`, both events fire from the target's parent,
- * since the target itself is replaced or removed.
+ * Fires a cancelable `rz:dom:place:before` event first; a listener can cancel it to
+ * skip the placement, or mutate `detail.payload` to change what gets written. A
+ * `rz:dom:place` event follows. For `outerHTML` and `delete`, both events fire from the
+ * target's parent, since the target itself is replaced or removed.
  *
- * @param content - The HTML string to swap in (ignored for `delete`).
- * @param target - The element to swap into, replace, or remove.
- * @param method - How to place the content: `innerHTML`, `outerHTML`, `delete`, or an `insertAdjacentHTML` position such as `beforeend`. The names are case-sensitive; `innerHTML` is both the default and the fallback for an unrecognized value.
- * @param source - Marks the swap as `fetch`-driven or `programmatic` (default); surfaced on both lifecycle events.
+ * @param content - The HTML string to place (ignored for `delete`).
+ * @param target - The element to place into, replace, or remove.
+ * @param position - Where to place the content: `innerHTML`, `outerHTML`, `delete`, or an `insertAdjacentHTML` position such as `beforeend`. The names are case-sensitive; `innerHTML` is both the default and the fallback for an unrecognized value.
+ * @param source - Marks the placement as `fetch`-driven or `programmatic` (default); surfaced on both lifecycle events.
  */
 export function swap(
   content: string,
   target: Element,
-  method: SwapMethod = 'innerHTML',
+  position: PlacePosition = 'innerHTML',
   source: 'fetch' | 'sse' | 'programmatic' = 'programmatic',
 ) {
-  const swapMethod = isSwapMethod(method) ? method : DEFAULT_SWAP_METHOD;
+  const resolved = isPlacePosition(position) ? position : DEFAULT_PLACE_POSITION;
   __DEV__ &&
-    swapMethod !== method &&
+    resolved !== position &&
     warn(
-      `Unknown swap method '${method}'. Using '${DEFAULT_SWAP_METHOD}'. Methods are case-sensitive: ${SWAP_METHODS.join(', ')}.`,
+      `Unknown position '${position}'. Using '${DEFAULT_PLACE_POSITION}'. Positions are case-sensitive: ${PLACE_POSITIONS.join(', ')}.`,
       target,
     );
 
   const dispatcherEl =
-    swapMethod === 'outerHTML' || swapMethod === 'delete'
+    resolved === 'outerHTML' || resolved === 'delete'
       ? target.parentElement || target
       : target;
 
   const beforeEvent = dispatch(
     dispatcherEl,
-    'rz:dom:swap:before',
-    { target, method: swapMethod, payload: content, source },
+    'rz:dom:place:before',
+    { target, position: resolved, payload: content, source },
     { cancelable: true },
   );
 
   if (beforeEvent.defaultPrevented) return;
   const finalContent = beforeEvent.detail.payload;
 
-  switch (swapMethod) {
+  switch (resolved) {
     case 'delete':
       target.remove();
       break;
@@ -105,12 +105,12 @@ export function swap(
       target.outerHTML = finalContent;
       break;
     default:
-      target.insertAdjacentHTML(swapMethod, finalContent);
+      target.insertAdjacentHTML(resolved, finalContent);
   }
 
-  dispatch(dispatcherEl, 'rz:dom:swap', {
+  dispatch(dispatcherEl, 'rz:dom:place', {
     target,
-    method: swapMethod,
+    position: resolved,
     payload: finalContent,
     source,
   });

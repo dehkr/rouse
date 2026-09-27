@@ -3,8 +3,8 @@ import type {
   ITEM_KEY,
   ITEM_META_KEY,
   ListenTarget,
+  PlacePosition,
   RENDER_PARENT,
-  SwapMethod,
 } from './core/constants';
 
 /** Brand for {@link BoundCleanupFn}, keeping arbitrary `VoidFn`s out of directive-teardown positions. */
@@ -24,6 +24,7 @@ export type DirectiveSlug =
   | 'key'
   | 'model'
   | 'on'
+  | 'place'
   | 'prop'
   | 'pull'
   | 'push'
@@ -32,7 +33,6 @@ export type DirectiveSlug =
   | 'sse'
   | 'store'
   | 'style'
-  | 'target'
   | 'text'
   | 'wake';
 
@@ -242,15 +242,15 @@ export interface StorePatchRollbackDetail extends BaseStorePatch {
   error: unknown;
 }
 
-/** Detail for `rz:dom:swap:before` and `rz:dom:swap`. */
-export interface DomSwapDetail {
+/** Detail for `rz:dom:place:before` and `rz:dom:place`. */
+export interface DomPlaceDetail {
   /** The element being mutated. */
   target: Element;
-  /** The swap method used to apply the payload. */
-  method: SwapMethod;
-  /** The HTML string to insert. Mutable by `rz:dom:swap:before` listeners. */
+  /** Where the payload was placed relative to `target`. */
+  position: PlacePosition;
+  /** The HTML string to insert. Mutable by `rz:dom:place:before` listeners. */
   payload: string;
-  /** What produced the swap: a fetch response, a stream message, or a programmatic `swap()` call. */
+  /** What produced the placement: a fetch response, a stream message, or a programmatic `swap()` call. */
   source: 'fetch' | 'sse' | 'programmatic';
 }
 
@@ -340,10 +340,10 @@ export interface LifecycleEventMap {
   'rz:store:patch:skipped': StorePatchSkippedDetail;
   /** Fires after `rz:push:error` when local state is reverted to the last-good snapshot. */
   'rz:store:patch:rollback': StorePatchRollbackDetail;
-  /** Fires before the swap executes; cancelable. Listeners can mutate `payload`. */
-  'rz:dom:swap:before': DomSwapDetail;
-  /** Fires after the swap has been applied to the DOM. */
-  'rz:dom:swap': DomSwapDetail;
+  /** Fires before the content is placed; cancelable. Listeners can mutate `payload`. */
+  'rz:dom:place:before': DomPlaceDetail;
+  /** Fires after the content has been placed in the DOM. */
+  'rz:dom:place': DomPlaceDetail;
 }
 
 /** Union of every lifecycle event name the framework can dispatch. */
@@ -651,19 +651,19 @@ export interface RouseResponse<T = any> {
   status: number | null;
   /** The resolved request config that produced this response. */
   config: FetchRequest;
-  /** Server-supplied swap target override (`Rouse-Target` header), if present. */
+  /** Server-supplied target override (`Rouse-Target` header), if present. */
   targetOverride?: string | null;
 }
 
 /**
- * The minimum a payload needs to be routed by `rz-target`. `RouseResponse` satisfies
- * it structurally, so both the fetch and stream paths reach the same routers without
- * either one adopting the other's detail type.
+ * The minimum a payload needs to be routed by `rz-place` or `rz-deposit`. `RouseResponse`
+ * satisfies it structurally, so both the fetch and stream paths reach the same routers
+ * without either one adopting the other's detail type.
  */
 export interface RoutablePayload {
   /** The payload to place. */
   data: unknown;
-  /** Carries the element whose `rz-target` names the destination. */
+  /** Carries the element whose `rz-place` or `rz-deposit` names the destination. */
   config?: { triggerEl?: Element };
   /** Server-supplied target override. Never set on the stream path. */
   targetOverride?: string | null;

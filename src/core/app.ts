@@ -22,11 +22,11 @@ import {
   walkBoundElements,
   warnIfMounting,
 } from '../dom/binder';
+import { initDomRouter } from '../dom/dom-router';
 import { createBoundOn } from '../dom/events';
 import { initObserver } from '../dom/observer';
 import { destroyInstance, IS_SCOPE, initScopeElement } from '../dom/scope';
 import { initStoreRouter } from '../dom/store-router';
-import { initDomRouter } from '../dom/swapper';
 import { runFetch } from '../net/fetch-engine';
 import { openBoundStream } from '../net/sse-engine';
 import type {

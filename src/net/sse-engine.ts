@@ -16,7 +16,7 @@ export type SseRelease = (reason?: SseCloseReason) => void;
 
 /** One holder of a stream: a directive binding, or an `app.sse` / `ctx.sse` call. */
 interface StreamRef {
-  /** Dispatch node for this holder's events, and the `rz-target` host. */
+  /** Dispatch node for this holder's events, and the `rz-place` host. */
   el: Element;
   config: SseConnectionConfig;
 }
@@ -178,7 +178,7 @@ function onMessage(entry: StreamEntry, event: string, e: MessageEvent) {
   const raw = typeof e.data === 'string' ? e.data : String(e.data);
   const data = parseMessageData(raw);
 
-  // Only unnamed messages should route to `rz-target` or `rz-deposit`. Named
+  // Only unnamed messages should route to `rz-place` or `rz-deposit`. Named
   // messages are events and can be handled using `sse-[name]` triggers.
   const routable = event === DEFAULT_EVENT;
 
@@ -186,7 +186,7 @@ function onMessage(entry: StreamEntry, event: string, e: MessageEvent) {
     const base = { config: ref.config, event, raw, lastEventId: e.lastEventId };
 
     // Routing before the trigger source, so an `sse-[name]` handler observes the
-    // DOM already swapped. The sub-event leading its parent is deliberate.
+    // DOM already placed. The sub-event leading its parent is deliberate.
     if (routable) {
       if (Array.isArray(data) || isPlainObject(data)) {
         dispatch(ref.el, 'rz:sse:message:json', { ...base, data });

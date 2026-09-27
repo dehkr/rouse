@@ -30,7 +30,7 @@ function getConfig(el: Element, overrideValue?: string | null): string[] {
 
   for (const [key] of parseDirectiveValue(value)) {
     if (!key.startsWith(STORE_PREFIX)) {
-      // A server override may name a DOM target instead, which is the swapper's business
+      // A server override may name a DOM target instead, which is rz-place's business
       __DEV__ &&
         !overrideValue &&
         warn(`rz-deposit: '${key}' is not a store reference. Use '@name'.`, el);

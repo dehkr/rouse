@@ -746,7 +746,7 @@ export class StoreManager {
 
   /**
    * Writes a payload into a store as a JSON Merge Patch, the way a fetch response
-   * or a stream message routed by `data-rz-target="@store"` does. Fires the same
+   * or a stream message routed by `data-rz-deposit="@store"` does. Fires the same
    * events a push or pull fires, so a listener sees one shape whatever produced
    * the payload.
    *
