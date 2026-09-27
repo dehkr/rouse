@@ -251,6 +251,8 @@ export class RouseApp {
       fail(`Scope '${name}' must be a setup function.`);
     }
 
+    __DEV__ && warnIfMounting('scope');
+
     // Brand as validated; registry.register rejects unbranded setups
     (setup as any)[IS_SCOPE] = true;
     this.registry.register(name, setup);

@@ -9,11 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Add `ctx.app`, the app a scope is mounted in.
-- Add `ctx.interceptor(phase, fn)`, which registers a network interceptor that is removed when the scope is destroyed.
-- Export `RouseApp` for type annotations and `instanceof` checks.
-- Warn in development when `app.on`, `app.sse`, or `app.interceptor` is called during a scope's setup or `connect()`, since each outlives the scope.
 - Add `app.place(target, content, options?)` to place HTML from JavaScript. `target` is an element or a CSS selector. A selector is matched within the app root, including the root itself, and every match receives the content. `options.position` defaults to `innerHTML`. Returns `false` when nothing was placed.
+- Add `ctx.app` to give scopes a direct reference to the app they're mounted in.
+- Add `ctx.interceptor(phase, fn)`, which registers a network interceptor that is removed when the scope is destroyed.
+- Warn in development when `app.on`, `app.sse`, `app.interceptor`, or `app.scope` is called during a scope's setup or `connect()`, since each outlives the scope.
+- Warn in development when a scope name is registered twice.
+- Export `RouseApp` for type annotations and `instanceof` checks.
 
 ### Changed
 

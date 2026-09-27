@@ -8,7 +8,7 @@ import { rzScope, SCOPE_SELECTOR } from '../directives/rz-scope';
 import type { BoundCleanupFn, BoundDirective, Scope } from '../types';
 
 type MountPhase = 'setup' | 'connect';
-type LeakMethod = 'on' | 'sse' | 'interceptor';
+type LeakMethod = 'on' | 'sse' | 'interceptor' | 'scope';
 
 /** Registry to track cleanup functions of globally mounted directives. */
 const globalBindings = new WeakMap<Element, BoundCleanupFn[]>();
@@ -63,10 +63,10 @@ export function warnIfMounting(method: LeakMethod, hasSignal = false): void {
     on: 'outlives the scope. Use ctx.on(), or pass a signal.',
     sse: 'outlives the scope. Use ctx.sse().',
     interceptor: 'outlives the scope. Use ctx.interceptor().',
+    scope: 'registers on every mount. Register scopes at the app level.',
   }[method];
 
-  __DEV__ &&
-    warn(`rz-scope '${name}': app.${method}() during ${phase} ${advice}`, current.host);
+  warn(`rz-scope: app.${method}() in '${name}' during ${phase} ${advice}`, current.host);
 }
 
 /**
