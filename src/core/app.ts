@@ -500,16 +500,9 @@ export class RouseApp {
 }
 
 /**
- * Finds the app that owns an element by walking up to the nearest app root.
- *
- * Pass `expected` to check if the element exists within a specific app instance.
- *
- * @param el - An element somewhere inside an app root.
- * @param expected - The app the element is required to belong to.
- * @returns The owning app, or `undefined` if there is none or it is not `expected`.
- *
- * @example
- * if (getApp(el, this)) mountGlobalBinding(el, this);
+ * Returns the app owning `el`, found through its nearest app root. With `expected`,
+ * returns `undefined` when the owner is a different app, which keeps scan sites out
+ * of nested apps.
  */
 export function getApp(el: Element, expected?: RouseApp): RouseApp | undefined {
   const root = el.closest<HTMLElement>('[data-rouse-app]');
