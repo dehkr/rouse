@@ -1,4 +1,5 @@
 import type { RouseApp } from '../core/app';
+import { isSafeMethod } from '../core/constants';
 import { rzFetchInit } from '../directives/rz-fetch-init';
 import { rzHeaders } from '../directives/rz-headers';
 import type { FetchRequest, RequestError, RouseResponse } from '../types';
@@ -20,12 +21,12 @@ const abortRegistry = new Map<string | symbol, AbortEntry>();
  * apply uniformly (`skipInterceptors` is the per-call opt-out). Handles payload
  * serialization, `abortKey` concurrency, timeouts, and response normalization.
  *
- * A `GET` or `HEAD` that fails before any HTTP response arrives is retried once,
- * immediately. That covers a dropped keep-alive socket or a network handoff, where
- * nothing reached the server and so nothing can be duplicated. The retry happens
- * below the lifecycle and above the error chain, so one failure still produces one
- * terminal event and one interceptor pass. `TIMEOUT` and `CANCELED` are never
- * retried, and neither is any other method.
+ * A safe request (`GET`, `HEAD`, `OPTIONS`, `QUERY`) that fails before any HTTP
+ * response arrives is retried once, immediately. That covers a dropped keep-alive
+ * socket or a network handoff, where nothing reached the server and so nothing can
+ * be duplicated. The retry happens below the lifecycle and above the error chain, so
+ * one failure still produces one terminal event and one interceptor pass. `TIMEOUT`
+ * and `CANCELED` are never retried, and neither is any other method.
  */
 export async function request<T = any>(
   url: string,
@@ -124,7 +125,7 @@ export async function request<T = any>(
     } catch (err: any) {
       let errorPayload = mapCatchError(err, !!mainSignal?.aborted);
 
-      // One immediate retry for idempotent reads. `!responded` is what makes this a
+      // One immediate retry for safe methods. `!responded` is what makes this a
       // transport check: NETWORK_ERROR is `mapCatchError`'s fallback for any non-abort
       // throw, including one from a response interceptor, which must not re-send.
       // TIMEOUT and CANCELED are excluded since both are deadlines someone set on purpose.
@@ -132,7 +133,7 @@ export async function request<T = any>(
         !responded &&
         attempt === 0 &&
         errorPayload.status === 'NETWORK_ERROR' &&
-        (method === 'GET' || method === 'HEAD')
+        isSafeMethod(method)
       ) {
         return execute(attempt + 1);
       }

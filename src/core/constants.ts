@@ -46,6 +46,7 @@ export const HTTP_METHODS = [
   'DELETE',
   'HEAD',
   'OPTIONS',
+  'QUERY',
 ] as const;
 
 /** Represents a valid HTTP method string. */
@@ -54,6 +55,25 @@ export type HttpMethod = (typeof HTTP_METHODS)[number];
 /** Type guard to check if a given string is a valid HttpMethod. */
 export function isHttpMethod(key: string | undefined): key is HttpMethod {
   return HTTP_METHODS.includes(key?.toUpperCase() as HttpMethod);
+}
+
+/**
+ * Methods RFC 9110 defines as safe, plus `QUERY` (RFC 10008). A safe request is a
+ * read, so sending it twice can't cause a second side effect.
+ */
+export const SAFE_METHODS = [
+  'GET',
+  'HEAD',
+  'OPTIONS',
+  'QUERY',
+] as const satisfies readonly HttpMethod[];
+
+/** Represents a safe HTTP method string. */
+export type SafeMethod = (typeof SAFE_METHODS)[number];
+
+/** Type guard to check if a given string is a safe HTTP method. */
+export function isSafeMethod(key: string | undefined): key is SafeMethod {
+  return SAFE_METHODS.includes(key?.toUpperCase() as SafeMethod);
 }
 
 /**
