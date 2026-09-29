@@ -194,7 +194,7 @@ export function renderTemplate(
       },
     }) as RenderContext;
 
-    elementRoots.forEach(markRenderOwned);
+    elementRoots.forEach((root) => markRenderOwned(root, ctx));
 
     // Detach from the render effect's tracking so these per-instance effects
     // survive its re-runs (and don't leak into it).

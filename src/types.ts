@@ -30,6 +30,7 @@ export type DirectiveSlug =
   | 'push'
   | 'render'
   | 'scope'
+  | 'send'
   | 'sse'
   | 'store'
   | 'style'
@@ -591,10 +592,10 @@ export interface BaseRequestConfig {
   triggerEl?: Element;
   /** Request headers. A `null` value removes the header. Empty strings are sent as-is. */
   headers?: Record<string, string | null>;
-  /** Appended to the URL as query-string parameters. */
+  /** Added to the URL's query string. Each key replaces any value the URL already has for it. */
   params?: Record<
     string,
-    string | number | boolean | null | undefined | string[] | number[]
+    string | number | boolean | null | undefined | Array<string | number | boolean>
   >;
   /** Skip all registered interceptors for this request. Programmatic only. */
   skipInterceptors?: boolean;
@@ -608,8 +609,6 @@ export interface BaseRequestConfig {
 export interface FetchConfig extends BaseRequestConfig {
   /** Request body. Plain objects/arrays are JSON-serialized; a `BodyInit` is sent as-is. */
   body?: BodyInit | Record<string, any> | any[] | null | undefined;
-  /** Serialize and send this form's data as the request body. */
-  form?: HTMLFormElement;
 }
 
 /** The final unified options object for a fetch. */
@@ -617,8 +616,8 @@ export type FetchRequest = Omit<RequestInit, 'body' | 'headers'> & FetchConfig;
 
 /**
  * The authoring surface for a store push or pull. A push body is the store's own data
- * and a pull carries none, so `body` and `form` are absent by design. `method` is absent
- * too: a push is always `PATCH` (RFC 7396 merge patch), and a pull always `GET`.
+ * and a pull carries none, so `body` is absent by design. `method` is absent too: a
+ * push is always `PATCH` (RFC 7396 merge patch), and a pull always `GET`.
  */
 export type SyncRequest = Omit<RequestInit, 'body' | 'headers' | 'method'> &
   BaseRequestConfig;

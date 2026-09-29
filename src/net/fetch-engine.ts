@@ -1,9 +1,11 @@
 import type { RouseApp } from '../core/app';
+import { hasDirective } from '../core/attributes';
 import { err, warn } from '../core/diagnostics';
 import { dispatch } from '../core/dispatch';
 import { createKey } from '../core/keys';
 import { isPlainObject } from '../core/state';
-import { extractFieldValues } from '../dom/forms';
+import { rzSend } from '../directives/rz-send';
+import { formQueryParams, isField, readField } from '../dom/forms';
 import type { FetchRequest, RouseResponse } from '../types';
 import { type LifecycleHandle, PREVENTED, runRequestLifecycle } from './lifecycle';
 import { request, resolveRequestConfig } from './request';
@@ -56,8 +58,8 @@ export async function runFetch(
     }
 
     const finalRequestInit = resolveRequestConfig(triggerEl, app);
-    const isFormEl = triggerEl instanceof HTMLFormElement;
-    const formMethod = isFormEl ? triggerEl.getAttribute('method') : undefined;
+    const formMethod =
+      triggerEl instanceof HTMLFormElement ? triggerEl.getAttribute('method') : undefined;
 
     // Prioritization: rz-fetch > rz-request > form attribute > 'GET'
     const method = (
@@ -67,12 +69,13 @@ export async function runFetch(
       'GET'
     ).toUpperCase();
 
-    const hasExplicitBody =
-      finalRequestInit.body !== undefined || options.body !== undefined;
+    // An explicit body is the whole body, so the element contributes nothing
+    const hasExplicitBody = options.body !== undefined;
 
-    // Process standalone inputs to build the body or modify URL
     if (triggerEl && !hasExplicitBody) {
-      extractFieldValues(triggerEl, method, finalRequestInit);
+      Object.assign(finalRequestInit, resolvePayload(triggerEl, method, app));
+    } else if (__DEV__ && triggerEl && hasDirective(triggerEl, 'send')) {
+      warn('rz-send: ignored because a body was passed to app.fetch().', triggerEl);
     }
 
     // Final unified config object
@@ -83,14 +86,18 @@ export async function runFetch(
       // Programmatic headers merge per key with the resolved declarative layers,
       // matching how those layers combine with each other. `null` removes one.
       headers: { ...finalRequestInit.headers, ...options.headers },
+      // Params merge per key the same way, so a programmatic param can override
+      // one value from the element without discarding the rest
+      params: { ...finalRequestInit.params, ...options.params },
       // No `triggerEl` means no element to key on, so a programmatic caller opts
       // into deduping by setting the `abortKey` option.
       abortKey:
         options.abortKey ||
         finalRequestInit.abortKey ||
         (triggerEl ? getAbortKey(triggerEl) : undefined),
-      form: !hasExplicitBody && isFormEl ? triggerEl : undefined,
     };
+
+    __DEV__ && triggerEl && !hasExplicitBody && warnIfNotJson(triggerEl, finalOptions);
 
     const outcome = await runRequestLifecycle({
       el: hostEl,
@@ -194,6 +201,82 @@ function resolveUrl(el: Element | null, options: FetchRequest): string | null {
   }
 
   return options.url;
+}
+
+type QueryParams = NonNullable<FetchRequest['params']>;
+
+/**
+ * Builds what the element sends: its `rz-send` payload when it has one, else its own
+ * form or field. GET and HEAD carry it as query parameters, other methods as the body.
+ * A form without `rz-send` keeps native form data, so file uploads still work.
+ */
+function resolvePayload(
+  el: Element,
+  method: string,
+  app: RouseApp,
+): Partial<FetchRequest> {
+  const inQuery = method === 'GET' || method === 'HEAD';
+
+  if (hasDirective(el, 'send')) {
+    const payload = rzSend.getConfig(el, app);
+    return inQuery ? { params: toQueryParams(payload, el) } : { body: payload };
+  }
+
+  if (el instanceof HTMLFormElement) {
+    return inQuery ? { params: formQueryParams(el) } : { body: new FormData(el) };
+  }
+
+  if (!isField(el)) return {};
+
+  const value = readField(el);
+  if (value === null) return {};
+
+  const pair = { [el.name]: value };
+  return inQuery ? { params: pair } : { body: pair };
+}
+
+/**
+ * Converts an `rz-send` payload to query parameters. A query string holds only
+ * scalars and lists of scalars, so an object value warns and is dropped.
+ */
+function toQueryParams(payload: Record<string, unknown>, el: Element): QueryParams {
+  const params: QueryParams = {};
+
+  for (const [key, val] of Object.entries(payload)) {
+    if (isQueryValue(val)) {
+      params[key] = val;
+    } else {
+      __DEV__ &&
+        warn(`rz-send: '${key}' holds an object, which a query string can't carry.`, el);
+    }
+  }
+
+  return params;
+}
+
+function isQueryValue(val: unknown): val is QueryParams[string] {
+  return Array.isArray(val) ? val.every(isScalar) : val == null || isScalar(val);
+}
+
+function isScalar(val: unknown): val is string | number | boolean {
+  return typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean';
+}
+
+/**
+ * Warns when `rz-send` builds a JSON body but the request declares a non-JSON
+ * Content-Type, which would mislabel the body.
+ */
+function warnIfNotJson(el: Element, options: FetchRequest): void {
+  if (!hasDirective(el, 'send') || !isPlainObject(options.body)) return;
+
+  const [, type] =
+    Object.entries(options.headers ?? {}).find(
+      ([key]) => key.toLowerCase() === 'content-type',
+    ) ?? [];
+
+  type &&
+    !isJsonType(type) &&
+    warn(`rz-send: sends JSON, but Content-Type is '${type}'.`, el);
 }
 
 /** Navigates to a server-directed redirect target. */

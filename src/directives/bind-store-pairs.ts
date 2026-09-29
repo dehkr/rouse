@@ -20,13 +20,15 @@ export function bindStorePairs(
 ) {
   const cleanups: VoidFn[] = [];
 
-  // Sync config lives on the store, so these are inert here and otherwise silent
+  // Sync requests are shaped by the store, so these are inert here and otherwise silent
   if (__DEV__ && !hasDirective(el, 'fetch') && !hasDirective(el, 'store')) {
     hasDirective(el, 'headers') &&
       warn(
         `rz-${op}: data-rz-headers on a trigger element is ignored. Set headers on the store's <script data-rz-store> element.`,
         el,
       );
+    hasDirective(el, 'send') &&
+      warn(`rz-${op}: data-rz-send is ignored. It only applies to rz-fetch.`, el);
   }
 
   for (const { trigger, subject } of pairs) {

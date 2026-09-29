@@ -16,6 +16,7 @@ export { rzPull } from './rz-pull';
 export { rzPush } from './rz-push';
 export { rzRender } from './rz-render';
 export { rzScope } from './rz-scope';
+export { rzSend } from './rz-send';
 export { rzSse } from './rz-sse';
 export { rzStore } from './rz-store';
 export { rzStyle } from './rz-style';

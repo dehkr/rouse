@@ -14,12 +14,12 @@ type LeakMethod = 'on' | 'sse' | 'interceptor' | 'scope';
 const globalBindings = new WeakMap<Element, BoundCleanupFn[]>();
 /** Registry mapping scope-bound elements to their scope root element. */
 const scopeBindings = new WeakMap<Element, HTMLElement>();
-/** Registry of elements that are roots of an `rz-render` instance subtree. */
-const renderOwned = new WeakSet<Element>();
+/** Registry of `rz-render` instance roots, mapped to the render context they bind against. */
+const renderOwned = new WeakMap<Element, Scope>();
 /** Bound directives the binder scans for. */
 const boundDirectiveList: BoundDirective[] = [];
-/** Scope elements whose DOM is bound and whose `rz:scope:connect` has fired. */
-const awakeScopes = new WeakSet<Element>();
+/** Scope elements whose DOM is bound and whose `rz:scope:connect` has fired, mapped to their instance. */
+const awakeScopes = new WeakMap<Element, Scope>();
 /** Cache for the generated selector string. */
 let boundSelectorCache: string | null = null;
 /** Scopes running `setup` or `connect`, innermost last. Dev-only. */
@@ -96,8 +96,8 @@ function boundDirectivesSelector(): string {
 /**
  * Marks an element as the root of an `rz-render` instance subtree.
  */
-export function markRenderOwned(el: Element): void {
-  renderOwned.add(el);
+export function markRenderOwned(el: Element, ctx: Scope): void {
+  renderOwned.set(el, ctx);
 }
 
 /**
@@ -105,6 +105,26 @@ export function markRenderOwned(el: Element): void {
  */
 export function unmarkRenderOwned(el: Element): void {
   renderOwned.delete(el);
+}
+
+/**
+ * Returns the state an element's paths resolve against: the nearest render instance's
+ * context or awake scope, searching no higher than `root`. Returns `EMPTY_SCOPE` when
+ * there is neither, or when the nearest scope hasn't woken.
+ */
+export function resolveOwnerState(el: Element, root: Element): Scope {
+  for (let node: Element | null = el; node; node = node.parentElement) {
+    const ctx = renderOwned.get(node);
+    if (ctx) {
+      return ctx;
+    }
+    if (node.matches(SCOPE_SELECTOR)) {
+      return awakeScopes.get(node) ?? EMPTY_SCOPE;
+    }
+    if (node === root) break;
+  }
+
+  return EMPTY_SCOPE;
 }
 
 /**
@@ -344,7 +364,7 @@ export function bindScope(root: HTMLElement, instance: Scope, app: RouseApp) {
 
   // Marked before the dispatch: a `connect` handler that swaps in new DOM triggers a
   // scan, and any `wake` directive inside it must resolve an already-awake scope.
-  awakeScopes.add(root);
+  awakeScopes.set(root, instance);
 
   // The DOM is bound and the scope is fully active
   dispatch(root, 'rz:scope:connect', { instance });

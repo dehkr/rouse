@@ -1,11 +1,11 @@
 import { getDirectiveValue } from '../core/attributes';
 import { warn } from '../core/diagnostics';
-import { parseDirectiveValue, safeJSONParse } from '../core/parser';
+import { parseDirectiveValue } from '../core/parser';
 import { parseTime } from '../core/timing';
 import type { ConfigDirective, FetchRequest } from '../types';
 
-/** How a config value is coerced. `any` takes inline JSON or a literal. */
-type ConfigValueType = 'string' | 'boolean' | 'duration' | 'object' | 'any';
+/** How a config value is coerced. */
+type ConfigValueType = 'string' | 'boolean' | 'duration';
 
 /**
  * Keys `rz-fetch-init` accepts, and how each value is coerced. A key outside this
@@ -14,8 +14,6 @@ type ConfigValueType = 'string' | 'boolean' | 'duration' | 'object' | 'any';
  */
 const KEYS = {
   method: 'string',
-  body: 'any',
-  params: 'object',
   timeout: 'duration',
   'abort-key': 'string',
   credentials: 'string',
@@ -26,8 +24,6 @@ const KEYS = {
 
 /**
  * Request options for the element's `rz-fetch`, written as `key: value` pairs.
- * `params` takes an inline JSON object; `body` can also take an inline JSON object
- * or a literal string.
  *
  * @example
  * <button data-rz-fetch="click: /save" data-rz-fetch-init="method: post, timeout: 5s">
@@ -60,40 +56,12 @@ function getConfig(el: Element): Partial<FetchRequest> {
       config[kebabToCamel(key)] = val === 'true' || val === '';
     } else if (type === 'duration') {
       config[kebabToCamel(key)] = parseTime(val);
-    } else if (type === 'object' || (type === 'any' && isObjectLiteral(val))) {
-      const obj = parseObject(val, key, el);
-      if (obj !== undefined) {
-        config[kebabToCamel(key)] = obj;
-      }
     } else {
       config[kebabToCamel(key)] = val;
     }
   }
 
   return config as Partial<FetchRequest>;
-}
-
-function isObjectLiteral(val: string) {
-  return val.startsWith('{');
-}
-
-/**
- * Parses an inline JSON object. Returns undefined when the value isn't one, so the
- * caller can leave the key unset rather than write a malformed config value.
- */
-function parseObject(val: string, key: string, el: Element) {
-  if (isObjectLiteral(val)) {
-    try {
-      return safeJSONParse(val);
-    } catch {
-      __DEV__ && warn(`rz-fetch-init: '${key}' is not valid JSON: ${val}`, el);
-      return undefined;
-    }
-  }
-
-  __DEV__ &&
-    warn(`rz-fetch-init: '${key}' must be an inline JSON object. Got: ${val}`, el);
-  return undefined;
 }
 
 function kebabToCamel(str: string) {

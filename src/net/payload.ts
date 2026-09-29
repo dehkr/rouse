@@ -27,21 +27,17 @@ export function resolveUrl(url: string, baseUrl: string): URL {
  * Prepares the URL, headers, and body for a network request.
  */
 export function preparePayload(url: string, options: FetchRequest, baseUrl: string) {
-  const { headers = {}, body, form, params, ...restOptions } = options;
+  const { headers = {}, body, params, ...restOptions } = options;
   const method = (options.method || 'GET').toUpperCase();
-
-  if (body != null && form != null) {
-    fail(`Cannot specify both 'body' and 'form'.`, TypeError);
-  }
 
   const urlObj = resolveUrl(url, baseUrl);
 
-  // Append programmatic params
+  // A param replaces any value the URL already carries for its key
   if (params) {
     for (const [key, val] of Object.entries(params)) {
       if (val == null) continue;
-      const values = Array.isArray(val) ? val : [val];
-      for (const v of values) {
+      urlObj.searchParams.delete(key);
+      for (const v of Array.isArray(val) ? val : [val]) {
         urlObj.searchParams.append(key, String(v));
       }
     }
@@ -100,28 +96,6 @@ export function preparePayload(url: string, options: FetchRequest, baseUrl: stri
       if (!reqHeaders.has('Content-Type')) {
         reqHeaders.set('Content-Type', 'text/plain');
       }
-    }
-  }
-
-  // Fall back to form serialization if no explicit body was provided
-  else if (form) {
-    // GET forms should append to the URL as query parameters
-    if (method === 'GET' || method === 'HEAD') {
-      const formData = new FormData(form);
-
-      for (const [key, value] of formData) {
-        if (typeof value === 'string') {
-          urlObj.searchParams.append(key, value);
-        } else if (value instanceof File) {
-          // Native HTML behavior is to send the filename in the query string
-          urlObj.searchParams.append(key, value.name);
-        }
-      }
-    }
-
-    // POST/PUT/PATCH -> send as FormData body
-    else {
-      finalBody = new FormData(form);
     }
   }
 
