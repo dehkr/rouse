@@ -609,6 +609,12 @@ export interface BaseRequestConfig {
 export interface FetchConfig extends BaseRequestConfig {
   /** Request body. Plain objects/arrays are JSON-serialized; a `BodyInit` is sent as-is. */
   body?: BodyInit | Record<string, any> | any[] | null | undefined;
+  /**
+   * The button that submitted the form, when `triggerEl` is a form. Its `formaction`,
+   * `formmethod`, and `formenctype` override the form's own, and its name and value
+   * are sent with the form's fields, as in a native submission.
+   */
+  submitter?: HTMLElement | null;
 }
 
 /** The final unified options object for a fetch. */

@@ -1,5 +1,4 @@
 import type { RouseApp } from '../core/app';
-import { warn } from '../core/diagnostics';
 import { rzFetchInit } from '../directives/rz-fetch-init';
 import { rzHeaders } from '../directives/rz-headers';
 import type { FetchRequest, RequestError, RouseResponse } from '../types';
@@ -59,19 +58,11 @@ export async function request<T = any>(
   const {
     timeout = 0,
     abortKey,
-    triggerEl,
+    triggerEl: _triggerEl,
     signal: externalSignal,
     method: _method,
     ...fetchOptions
   } = restOptions;
-
-  // Enforce no body on GET/HEAD
-  let safeBody: BodyInit | null | undefined = finalBody;
-
-  if ((method === 'GET' || method === 'HEAD') && safeBody != null) {
-    __DEV__ && warn('Body is not allowed on GET or HEAD.', triggerEl);
-    safeBody = undefined;
-  }
 
   let mainSignal: AbortSignal | null = null;
   let ownerId: symbol | null = null;
@@ -107,7 +98,7 @@ export async function request<T = any>(
         headers: reqHeaders,
         signal: combinedSignal,
         ...fetchOptions,
-        ...(safeBody != null ? { body: safeBody } : {}),
+        ...(finalBody != null ? { body: finalBody } : {}),
       });
       responded = true;
 

@@ -30,6 +30,13 @@ export function preparePayload(url: string, options: FetchRequest, baseUrl: stri
   const { headers = {}, body, params, ...restOptions } = options;
   const method = (options.method || 'GET').toUpperCase();
 
+  if (body != null && (method === 'GET' || method === 'HEAD')) {
+    fail(
+      `A ${method} request can't have a body. Pass query values as 'params', or use a method that takes a body.`,
+      TypeError,
+    );
+  }
+
   const urlObj = resolveUrl(url, baseUrl);
 
   // A param replaces any value the URL already carries for its key

@@ -1,9 +1,12 @@
-import { warn } from '../core/diagnostics';
-
 /** A form control that carries a value of its own. */
 export type Field = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
-/** A field's submitted value. A multi-select, or a name shared by several fields, is a list. */
-export type FieldValue = string | string[];
+/** One value a field submits: text, or a file from a file input. */
+export type FieldEntry = string | File;
+/**
+ * A field's submitted value. A multi-select, a multiple file input, or a name shared
+ * by several fields, is a list.
+ */
+export type FieldValue = FieldEntry | FieldEntry[];
 
 /** Input types a form submits only as its submitter, never as one of its fields. */
 const BUTTON_TYPES = new Set(['submit', 'button', 'reset', 'image']);
@@ -72,7 +75,7 @@ export function collectFields(elements: Iterable<Element>): Record<string, Field
 
   for (const name of shared) {
     const value = pairs[name];
-    if (typeof value === 'string') {
+    if (value !== undefined && !Array.isArray(value)) {
       pairs[name] = [value];
     }
   }
@@ -81,15 +84,30 @@ export function collectFields(elements: Iterable<Element>): Record<string, Field
 }
 
 /**
- * Collects a form's data as query parameters, the way a native GET submission
- * does, so a file input contributes its file name.
+ * Reads what a trigger submits on its own: a field's value, or a form's fields plus
+ * its submitter's value. Returns `null` for any other element, and for a field that
+ * submits nothing. A nameless field is silent, since a field bound through
+ * `rz-model` often has no name.
  */
-export function formQueryParams(form: HTMLFormElement): Record<string, FieldValue> {
-  const pairs: Record<string, FieldValue> = {};
-  new FormData(form).forEach((value, key) =>
-    appendValue(pairs, key, typeof value === 'string' ? value : value.name),
-  );
-  return pairs;
+export function readTriggerValues(
+  el: Element,
+  submitter: HTMLElement | null = null,
+): Record<string, FieldValue> | null {
+  if (isField(el)) {
+    const value = readField(el);
+    return value === null ? null : { [el.name]: value };
+  }
+
+  return isFieldContainer(el)
+    ? { ...collectFields([el]), ...readSubmitter(submitter) }
+    : null;
+}
+
+/** Reads the name and value a form's submitter adds to the submission. */
+function readSubmitter(submitter: HTMLElement | null): Record<string, string> {
+  const isButton =
+    submitter instanceof HTMLButtonElement || submitter instanceof HTMLInputElement;
+  return isButton && submitter.name ? { [submitter.name]: submitter.value } : {};
 }
 
 /**
@@ -100,18 +118,17 @@ export function formQueryParams(form: HTMLFormElement): Record<string, FieldValu
 function submittedValue(field: Field): FieldValue | null {
   if (!field.name || field.matches(':disabled')) return null;
 
-  if (field.type === 'file') {
-    __DEV__ &&
-      warn(`File input '${field.name}' can't be sent as JSON. Ignoring it.`, field);
-    return null;
-  }
-
-  if (
-    field instanceof HTMLInputElement &&
-    (field.type === 'checkbox' || field.type === 'radio') &&
-    !field.checked
-  ) {
-    return null;
+  if (field instanceof HTMLInputElement) {
+    if ((field.type === 'checkbox' || field.type === 'radio') && !field.checked) {
+      return null;
+    }
+    if (field.type === 'file') {
+      const files = Array.from(field.files ?? []);
+      if (!files.length) {
+        return null;
+      }
+      return field.multiple ? files : (files[0] ?? null);
+    }
   }
 
   if (field instanceof HTMLSelectElement && field.multiple) {

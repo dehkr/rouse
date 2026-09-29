@@ -3,7 +3,7 @@ import { warn } from '../core/diagnostics';
 import { parseFetchSubject } from '../core/parser';
 import { dispatchTrigger, isNativeNavigation } from '../dom/events';
 import { runFetch } from '../net/fetch-engine';
-import type { FetchRequest, TriggerSubjectPair, VoidFn } from '../types';
+import type { TriggerSubjectPair, VoidFn } from '../types';
 import { defineNetworkOpDirective } from './define-network-op';
 
 /**
@@ -18,22 +18,6 @@ function nativeUrl(el: Element): string {
     return el.getAttribute('action') ?? '';
   }
   return '';
-}
-
-/**
- * Extracts `formaction` and `formmethod` from the button that triggered a
- * submit event to override the form's default request configuration.
- */
-function applySubmitterOverrides(baseOpts: FetchRequest, e?: Event): FetchRequest {
-  const opts: FetchRequest = { ...baseOpts };
-  const sub = e instanceof SubmitEvent ? e.submitter : null;
-
-  if (sub) {
-    opts.url = sub.getAttribute('formaction') ?? opts.url;
-    opts.method = sub.getAttribute('formmethod')?.toUpperCase() ?? opts.method;
-  }
-
-  return opts;
 }
 
 function warnMissingUrl(el: Element) {
@@ -81,12 +65,13 @@ function bindFetchPairs(el: Element, app: RouseApp, pairs: TriggerSubjectPair[])
         if (e && isNativeNavigation(el, e)) {
           e.preventDefault();
         }
-        const opts = applySubmitterOverrides({ ...parsed, url, triggerEl: el }, e);
-        if (!opts.url) {
+        const submitter = e instanceof SubmitEvent ? e.submitter : null;
+        // A form can take its URL from the submitter's `formaction` at submit time
+        if (!url && !submitter?.getAttribute('formaction')) {
           __DEV__ && warnMissingUrl(el);
           return;
         }
-        runFetch(app, opts);
+        runFetch(app, { ...parsed, url, triggerEl: el, submitter });
       },
     });
 

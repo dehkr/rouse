@@ -6,7 +6,12 @@ import { parseDirectiveValue, parseStoreRef, safeJSONParse } from '../core/parse
 import { resolveState } from '../core/resolve';
 import { clone, isPlainObject } from '../core/state';
 import { resolveOwnerState } from '../dom/binder';
-import { collectFields, isField, isFieldContainer, readField } from '../dom/forms';
+import {
+  collectFields,
+  isField,
+  isFieldContainer,
+  readTriggerValues,
+} from '../dom/forms';
 import { getRaw } from '../reactivity/reactive';
 import type { ConfigDirective, Scope } from '../types';
 
@@ -15,7 +20,8 @@ type Payload = Record<string, unknown>;
 /**
  * Values to send with the element's fetch, gathered from a comma-separated list of
  * sources. When two sources share a key, the later one wins. If the element is a
- * field or a form, its own values come first.
+ * field or a form, its own values come first, including the value of the button
+ * that submitted the form.
  *
  * - `query`: a scope value, sent under its last path segment
  * - `@user`: a store's data. `@user.email` sends one field, as `email`
@@ -25,14 +31,19 @@ type Payload = Record<string, unknown>;
  *   its fields. Quote a selector list: `from: '.a, .b'`
  *
  * GET and HEAD requests send the values as query parameters. Other methods send
- * them as the request body.
+ * them as the request body, encoded as the request's `Content-Type` or the form's
+ * `enctype` declares, or as form data when neither does.
  *
  * @example
  * <button data-rz-fetch="click: /search" data-rz-send='query, from: [name=tags], {"page": 2}'>
  */
-function getConfig(el: Element, app: RouseApp): Payload {
+function getConfig(
+  el: Element,
+  app: RouseApp,
+  submitter: HTMLElement | null = null,
+): Payload {
   const scope = resolveOwnerState(el, app.root);
-  const payload: Payload = { ...readTrigger(el) };
+  const payload: Payload = { ...readTriggerValues(el, submitter) };
 
   for (const [entry, val] of parseDirectiveValue(getDirectiveValue(el, 'send'))) {
     if (val === null) {
@@ -150,20 +161,6 @@ function warnUnreadable(selector: string, matches: Element[]): void {
       );
     }
   }
-}
-
-/**
- * Reads the trigger's own values: a field's value, or a form's fields. A radio
- * trigger reads its group. A nameless field contributes nothing, silently, since
- * a field bound through `rz-model` often has no name.
- */
-function readTrigger(el: Element): Payload | null {
-  if (isField(el)) {
-    const value = readField(el);
-    return value === null ? null : { [el.name]: value };
-  }
-
-  return isFieldContainer(el) ? collectFields([el]) : null;
 }
 
 export const rzSend = { getConfig } as const satisfies ConfigDirective<Payload>;

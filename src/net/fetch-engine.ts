@@ -5,7 +5,7 @@ import { dispatch } from '../core/dispatch';
 import { createKey } from '../core/keys';
 import { isPlainObject } from '../core/state';
 import { rzSend } from '../directives/rz-send';
-import { formQueryParams, isField, readField } from '../dom/forms';
+import { readTriggerValues } from '../dom/forms';
 import type { FetchRequest, RouseResponse } from '../types';
 import { type LifecycleHandle, PREVENTED, runRequestLifecycle } from './lifecycle';
 import { request, resolveRequestConfig } from './request';
@@ -22,6 +22,10 @@ const abortKeys = new WeakMap<Element, string>();
  * path. It gates everything element-derived: config attributes, field extraction, the
  * disabled guard, and the abort key. It's the node the lifecycle events fire from. A
  * programmatic fetch doesn't have a triggerEl, but it can be set manually via config.
+ *
+ * `options.submitter` is the button that submitted a form trigger. Its `formaction`,
+ * `formmethod`, and `formenctype` override the form's, and its value joins the form's
+ * fields. It's ignored on any other trigger.
  */
 export async function runFetch(
   app: RouseApp,
@@ -48,7 +52,14 @@ export async function runFetch(
       }
     }
 
-    const url = resolveUrl(triggerEl, options);
+    // Only a form has a submitter, and its attributes beat the form's own
+    const submitter =
+      triggerEl instanceof HTMLFormElement ? (options.submitter ?? null) : null;
+
+    const url = resolveUrl(
+      triggerEl,
+      submitter?.getAttribute('formaction') ?? options.url,
+    );
     if (!url) {
       return fallbackResponse(
         options,
@@ -61,34 +72,44 @@ export async function runFetch(
     const formMethod =
       triggerEl instanceof HTMLFormElement ? triggerEl.getAttribute('method') : undefined;
 
-    // Prioritization: rz-fetch > rz-request > form attribute > 'GET'
+    // Prioritization: submitter > rz-fetch > rz-fetch-init > form attribute > 'GET'
     const method = (
+      submitter?.getAttribute('formmethod') ||
       options.method ||
       finalRequestInit.method ||
       formMethod ||
       'GET'
     ).toUpperCase();
 
+    // Programmatic headers merge per key with the resolved declarative layers,
+    // matching how those layers combine with each other. `null` removes one.
+    const headers: RequestHeaders = { ...finalRequestInit.headers, ...options.headers };
+
     // An explicit body is the whole body, so the element contributes nothing
     const hasExplicitBody = options.body !== undefined;
+    const payload =
+      triggerEl && !hasExplicitBody
+        ? resolvePayload(triggerEl, submitter, method, headers, app)
+        : {};
 
-    if (triggerEl && !hasExplicitBody) {
-      Object.assign(finalRequestInit, resolvePayload(triggerEl, method, app));
-    } else if (__DEV__ && triggerEl && hasDirective(triggerEl, 'send')) {
+    __DEV__ &&
+      triggerEl &&
+      hasExplicitBody &&
+      hasDirective(triggerEl, 'send') &&
       warn('rz-send: ignored because a body was passed to app.fetch().', triggerEl);
-    }
 
     // Final unified config object
     const finalOptions: FetchRequest = {
       ...finalRequestInit,
       ...options,
+      ...payload,
+      url,
       method,
-      // Programmatic headers merge per key with the resolved declarative layers,
-      // matching how those layers combine with each other. `null` removes one.
-      headers: { ...finalRequestInit.headers, ...options.headers },
-      // Params merge per key the same way, so a programmatic param can override
-      // one value from the element without discarding the rest
-      params: { ...finalRequestInit.params, ...options.params },
+      // A multipart body replaces the headers to drop a declared Content-Type
+      headers: payload.headers ?? headers,
+      // Params merge per key like headers, so a programmatic param can override one
+      // value from the element without discarding the rest
+      params: { ...payload.params, ...options.params },
       // No `triggerEl` means no element to key on, so a programmatic caller opts
       // into deduping by setting the `abortKey` option.
       abortKey:
@@ -96,8 +117,6 @@ export async function runFetch(
         finalRequestInit.abortKey ||
         (triggerEl ? getAbortKey(triggerEl) : undefined),
     };
-
-    __DEV__ && triggerEl && !hasExplicitBody && warnIfNotJson(triggerEl, finalOptions);
 
     const outcome = await runRequestLifecycle({
       el: hostEl,
@@ -191,92 +210,195 @@ async function sendAndRoute(
 }
 
 /**
- * Returns the request URL from the options. Warns against `el` and returns `null`
- * when there is none.
+ * Returns the request URL. Warns against `el` and returns `null` when there is none.
  */
-function resolveUrl(el: Element | null, options: FetchRequest): string | null {
-  if (!options.url) {
+function resolveUrl(el: Element | null, url: string | undefined): string | null {
+  if (!url) {
     __DEV__ && warn('Invalid or missing URL for the fetch request.', ...(el ? [el] : []));
     return null;
   }
 
-  return options.url;
+  return url;
 }
 
 type QueryParams = NonNullable<FetchRequest['params']>;
+type RequestHeaders = NonNullable<FetchRequest['headers']>;
+type Encoding = 'json' | 'urlencoded' | 'multipart';
+type FormPair = [string, string | File];
 
 /**
  * Builds what the element sends: its `rz-send` payload when it has one, else its own
- * form or field. GET and HEAD carry it as query parameters, other methods as the body.
- * A form without `rz-send` keeps native form data, so file uploads still work.
+ * field or form. GET and HEAD carry it as query parameters. Other methods carry it as
+ * a body, encoded as declared.
  */
 function resolvePayload(
   el: Element,
+  submitter: HTMLElement | null,
   method: string,
+  headers: RequestHeaders,
   app: RouseApp,
 ): Partial<FetchRequest> {
-  const inQuery = method === 'GET' || method === 'HEAD';
-
-  if (hasDirective(el, 'send')) {
-    const payload = rzSend.getConfig(el, app);
-    return inQuery ? { params: toQueryParams(payload, el) } : { body: payload };
+  const payload = hasDirective(el, 'send')
+    ? rzSend.getConfig(el, app, submitter)
+    : readTriggerValues(el, submitter);
+  if (!payload) {
+    return {};
   }
 
-  if (el instanceof HTMLFormElement) {
-    return inQuery ? { params: formQueryParams(el) } : { body: new FormData(el) };
+  if (method === 'GET' || method === 'HEAD') {
+    return { params: toParams(toFormPairs(payload, el, false)) };
   }
 
-  if (!isField(el)) return {};
+  const encoding = resolveEncoding(el, submitter, headers);
+  if (encoding === 'json') {
+    return { body: dropFiles(payload, el) };
+  }
 
-  const value = readField(el);
-  if (value === null) return {};
+  const pairs = toFormPairs(payload, el, encoding === 'multipart');
+  if (encoding === 'urlencoded') {
+    return { body: new URLSearchParams(pairs as [string, string][]) };
+  }
 
-  const pair = { [el.name]: value };
-  return inQuery ? { params: pair } : { body: pair };
+  // A multipart Content-Type needs a boundary, and fetch only writes one when it
+  // sets the header itself
+  const body = new FormData();
+  pairs.forEach(([key, val]) => body.append(key, val));
+  return { body, headers: withoutContentType(headers) };
 }
 
 /**
- * Converts an `rz-send` payload to query parameters. A query string holds only
- * scalars and lists of scalars, so an object value warns and is dropped.
+ * Resolves the body encoding from its declaration: a Content-Type header, then the
+ * submitter's `formenctype` and the form's `enctype`, then the native default.
  */
-function toQueryParams(payload: Record<string, unknown>, el: Element): QueryParams {
-  const params: QueryParams = {};
+function resolveEncoding(
+  el: Element,
+  submitter: HTMLElement | null,
+  headers: RequestHeaders,
+): Encoding {
+  const declared = declaredContentType(headers);
 
-  for (const [key, val] of Object.entries(payload)) {
-    if (isQueryValue(val)) {
-      params[key] = val;
-    } else {
-      __DEV__ &&
-        warn(`rz-send: '${key}' holds an object, which a query string can't carry.`, el);
+  if (declared) {
+    const mime = declared.replace(/;.*$/s, '').trim().toLowerCase();
+    if (isJsonType(mime)) {
+      return 'json';
     }
+    if (mime === 'multipart/form-data') {
+      return 'multipart';
+    }
+    __DEV__ &&
+      mime !== 'application/x-www-form-urlencoded' &&
+      warn(
+        `Content-Type '${declared}' isn't an encoding Rouse can build. Sending form data under it.`,
+        el,
+      );
+    return 'urlencoded';
   }
 
+  if (!(el instanceof HTMLFormElement)) {
+    return 'urlencoded';
+  }
+
+  // Both properties reflect a normalized value, so an unknown encoding reads as urlencoded
+  const enctype =
+    (submitter instanceof HTMLButtonElement || submitter instanceof HTMLInputElement) &&
+    submitter.hasAttribute('formenctype')
+      ? submitter.formEnctype
+      : el.enctype;
+
+  return enctype === 'multipart/form-data' ? 'multipart' : 'urlencoded';
+}
+
+/**
+ * Reads the Content-Type the headers will send. Keys match without case, and a later
+ * key wins, as it does when the headers are applied.
+ */
+function declaredContentType(headers: RequestHeaders): string | null {
+  let type: string | null = null;
+  for (const [key, val] of Object.entries(headers)) {
+    if (key.toLowerCase() === 'content-type') {
+      type = val;
+    }
+  }
+  return type;
+}
+
+/** Returns `headers` with every spelling of Content-Type removed. */
+function withoutContentType(headers: RequestHeaders): RequestHeaders {
+  return Object.fromEntries(
+    Object.entries(headers).map(([key, val]) => [
+      key,
+      key.toLowerCase() === 'content-type' ? null : val,
+    ]),
+  );
+}
+
+/**
+ * Flattens a payload into form pairs. A list becomes repeated keys, and numbers and
+ * booleans become strings. A nested object can't be expressed and is dropped. A file
+ * survives only when `keepFiles` is set; otherwise it contributes its name, as a
+ * native form without a multipart encoding does.
+ */
+function toFormPairs(
+  payload: Record<string, unknown>,
+  el: Element,
+  keepFiles: boolean,
+): FormPair[] {
+  return Object.entries(payload).flatMap(([key, val]) =>
+    (Array.isArray(val) ? val : [val]).flatMap((item): FormPair[] => {
+      if (item == null) {
+        return [];
+      }
+      if (item instanceof File) {
+        if (keepFiles) {
+          return [[key, item]];
+        }
+        __DEV__ &&
+          warn(
+            `File in '${key}' needs a multipart encoding to be sent. Sending its name.`,
+            el,
+          );
+        return [[key, item.name]];
+      }
+      if (typeof item === 'object') {
+        __DEV__ &&
+          warn(`'${key}' holds an object, which form data can't carry. Ignoring it.`, el);
+        return [];
+      }
+      return [[key, String(item)]];
+    }),
+  );
+}
+
+/** Groups flattened pairs into query parameters, one list per key. */
+function toParams(pairs: FormPair[]): QueryParams {
+  const params: Record<string, string[]> = {};
+  pairs.forEach(([key, val]) => {
+    params[key] ??= [];
+    params[key].push(String(val));
+  });
   return params;
 }
 
-function isQueryValue(val: unknown): val is QueryParams[string] {
-  return Array.isArray(val) ? val.every(isScalar) : val == null || isScalar(val);
-}
-
-function isScalar(val: unknown): val is string | number | boolean {
-  return typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean';
-}
-
 /**
- * Warns when `rz-send` builds a JSON body but the request declares a non-JSON
- * Content-Type, which would mislabel the body.
+ * Removes files from a JSON payload, since JSON can't carry one. Each removal warns,
+ * because the file's contents are lost.
  */
-function warnIfNotJson(el: Element, options: FetchRequest): void {
-  if (!hasDirective(el, 'send') || !isPlainObject(options.body)) return;
+function dropFiles(
+  payload: Record<string, unknown>,
+  el: Element,
+): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(payload).flatMap(([key, val]): [string, unknown][] => {
+      const items = Array.isArray(val) ? val : [val];
+      if (!items.some((item) => item instanceof File)) {
+        return [[key, val]];
+      }
 
-  const [, type] =
-    Object.entries(options.headers ?? {}).find(
-      ([key]) => key.toLowerCase() === 'content-type',
-    ) ?? [];
-
-  type &&
-    !isJsonType(type) &&
-    warn(`rz-send: sends JSON, but Content-Type is '${type}'.`, el);
+      __DEV__ && warn(`File in '${key}' can't be sent as JSON. Ignoring it.`, el);
+      const rest = items.filter((item) => !(item instanceof File));
+      return Array.isArray(val) && rest.length ? [[key, rest]] : [];
+    }),
+  );
 }
 
 /** Navigates to a server-directed redirect target. */
