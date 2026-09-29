@@ -6,7 +6,7 @@ import { parseDirectiveValue, parseStoreRef, safeJSONParse } from '../core/parse
 import { resolveState } from '../core/resolve';
 import { clone, isPlainObject } from '../core/state';
 import { resolveOwnerState } from '../dom/binder';
-import { collectFields, isField, readField } from '../dom/forms';
+import { collectFields, isField, isFieldContainer, readField } from '../dom/forms';
 import { getRaw } from '../reactivity/reactive';
 import type { ConfigDirective, Scope } from '../types';
 
@@ -20,38 +20,36 @@ type Payload = Record<string, unknown>;
  * - `query`: a scope value, sent under its last path segment
  * - `@user`: a store's data. `@user.email` sends one field, as `email`
  * - `%`: the render item's data. `%.id` sends one field, as `id`
- * - `#user-name`: the element with that id. A field sends its value, and a form or fieldset sends its fields
  * - `{"page": 2}`: an inline JSON object
+ * - `from: <selector>`: the fields a CSS selector matches. A form or fieldset sends
+ *   its fields. Quote a selector list: `from: '.a, .b'`
  *
  * GET and HEAD requests send the values as query parameters. Other methods send
- * them as a JSON body.
+ * them as the request body.
  *
  * @example
- * <button data-rz-fetch="click: /search" data-rz-send='query, @filters.sort, {"page": 2}'>
+ * <button data-rz-fetch="click: /search" data-rz-send='query, from: [name=tags], {"page": 2}'>
  */
 function getConfig(el: Element, app: RouseApp): Payload {
   const scope = resolveOwnerState(el, app.root);
-  const payload: Payload = { ...readElement(el) };
+  const payload: Payload = { ...readTrigger(el) };
 
   for (const [entry, val] of parseDirectiveValue(getDirectiveValue(el, 'send'))) {
-    if (val !== null) {
-      __DEV__ &&
-        warn(
-          `rz-send: '${entry}: ${val}' is not a source. Write values as an inline JSON object.`,
-          el,
-        );
-      continue;
+    if (val === null) {
+      Object.assign(payload, readSource(entry, el, scope, app));
+    } else if (entry === 'from') {
+      Object.assign(payload, readFrom(val, el, app));
+    } else {
+      __DEV__ && warn(`rz-send: unknown key '${entry}'. The only key is 'from'.`, el);
     }
-
-    Object.assign(payload, readSource(entry, el, scope, app));
   }
 
   return payload;
 }
 
 /**
- * Reads one source. Its first character decides its type, so no entry can be read
- * two ways.
+ * Reads one bare source. Its first character decides its type, so no entry can be
+ * read two ways.
  */
 function readSource(
   entry: string,
@@ -64,9 +62,6 @@ function readSource(
   if (lead === '{') {
     return readJson(entry, el);
   }
-  if (lead === '#') {
-    return readIdRef(entry.slice(1), el, app);
-  }
   if (lead === STORE_PREFIX) {
     return parseStoreRef(entry, 'send') ? readState(entry, el, scope, app) : null;
   }
@@ -75,7 +70,12 @@ function readSource(
   }
 
   __DEV__ &&
-    warn(`rz-send: '${entry}' is not a source. Reference elements by id, as '#id'.`, el);
+    warn(
+      /^[#.[:*]/.test(entry)
+        ? `rz-send: '${entry}' looks like a selector. Write 'from: ${entry}'.`
+        : `rz-send: '${entry}' is not a source.`,
+      el,
+    );
 
   return null;
 }
@@ -121,46 +121,49 @@ function readState(
 }
 
 /**
- * Reads the element with id `id` within the app root. The id is literal, not a
- * selector, so `#user.name` is the element whose id is `user.name`.
+ * Reads the fields a selector matches within the app root. An invalid selector
+ * matches nothing, so it reports as no match.
  */
-function readIdRef(id: string, el: Element, app: RouseApp): Payload | null {
-  if (!id || /\s/.test(id)) {
-    __DEV__ &&
-      warn(`rz-send: '#${id}' is not an id. Only ids can reference elements.`, el);
+function readFrom(selector: string, el: Element, app: RouseApp): Payload | null {
+  const matches = queryTargets(app.root, selector);
+  if (!matches.length) {
+    __DEV__ && warn(`rz-send: no elements match '${selector}'.`, el);
     return null;
   }
 
-  const [target] = queryTargets(app.root, `#${CSS.escape(id)}`);
-  if (!target) {
-    __DEV__ && warn(`rz-send: no element with id '${id}'.`, el);
-    return null;
-  }
-
-  if (isField(target) && !target.name) {
-    __DEV__ && warn(`rz-send: '#${id}' has no name to send its value under.`, target);
-    return null;
-  }
-
-  const pairs = readElement(target);
-  __DEV__ && !pairs && warn(`rz-send: '#${id}' is not a field, form, or fieldset.`, el);
-  return pairs;
+  __DEV__ && warnUnreadable(selector, matches);
+  return collectFields(matches);
 }
 
 /**
- * Reads a field's value, or the fields of a form or fieldset. Returns `null` for
- * any other element.
+ * Warns for each match that can't contribute: a field with no name to send under,
+ * or an element that is neither a field nor a form or fieldset.
  */
-function readElement(target: Element): Payload | null {
-  if (target instanceof HTMLFormElement || target instanceof HTMLFieldSetElement) {
-    return collectFields(target);
+function warnUnreadable(selector: string, matches: Element[]): void {
+  for (const match of matches) {
+    if (isField(match) ? !match.name : !isFieldContainer(match)) {
+      warn(
+        isField(match)
+          ? `rz-send: '${selector}' matched a field with no name to send its value under.`
+          : `rz-send: '${selector}' matched an element that isn't a field, form, or fieldset.`,
+        match,
+      );
+    }
   }
-  if (!isField(target)) {
-    return null;
+}
+
+/**
+ * Reads the trigger's own values: a field's value, or a form's fields. A radio
+ * trigger reads its group. A nameless field contributes nothing, silently, since
+ * a field bound through `rz-model` often has no name.
+ */
+function readTrigger(el: Element): Payload | null {
+  if (isField(el)) {
+    const value = readField(el);
+    return value === null ? null : { [el.name]: value };
   }
 
-  const value = readField(target);
-  return value === null ? {} : { [target.name]: value };
+  return isFieldContainer(el) ? collectFields([el]) : null;
 }
 
 export const rzSend = { getConfig } as const satisfies ConfigDirective<Payload>;

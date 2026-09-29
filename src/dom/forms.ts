@@ -2,7 +2,7 @@ import { warn } from '../core/diagnostics';
 
 /** A form control that carries a value of its own. */
 export type Field = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
-/** A field's submitted value. A multi-select, or a name repeated in a container, is a list. */
+/** A field's submitted value. A multi-select, or a name shared by several fields, is a list. */
 export type FieldValue = string | string[];
 
 /** Input types a form submits only as its submitter, never as one of its fields. */
@@ -14,6 +14,12 @@ export function isField(el: Element): el is Field {
     el instanceof HTMLSelectElement ||
     el instanceof HTMLTextAreaElement
   );
+}
+
+export function isFieldContainer(
+  el: Element,
+): el is HTMLFormElement | HTMLFieldSetElement {
+  return el instanceof HTMLFormElement || el instanceof HTMLFieldSetElement;
 }
 
 /**
@@ -33,20 +39,41 @@ export function readField(field: Field): FieldValue | null {
 }
 
 /**
- * Collects the fields a form or fieldset would submit, keyed by name. A repeated
- * name collects into a list.
+ * Collects what a set of elements would submit, keyed by name. A form or fieldset
+ * contributes its fields, and a field reached twice counts once. A name shared by
+ * more than one non-radio field is always a list, so the shape follows the markup
+ * rather than how many boxes are checked.
  */
-export function collectFields(
-  container: HTMLFormElement | HTMLFieldSetElement,
-): Record<string, FieldValue> {
+export function collectFields(elements: Iterable<Element>): Record<string, FieldValue> {
+  const fields = new Set<Field>();
+
+  for (const el of elements) {
+    for (const member of isFieldContainer(el) ? el.elements : [el]) {
+      if (isField(member) && !BUTTON_TYPES.has(member.type)) {
+        fields.add(member);
+      }
+    }
+  }
+
   const pairs: Record<string, FieldValue> = {};
+  const named = new Set<string>();
+  const shared = new Set<string>();
 
-  for (const el of container.elements) {
-    if (!isField(el) || BUTTON_TYPES.has(el.type)) continue;
+  for (const field of fields) {
+    if (field.name && field.type !== 'radio') {
+      (named.has(field.name) ? shared : named).add(field.name);
+    }
 
-    const value = submittedValue(el);
+    const value = submittedValue(field);
     if (value !== null) {
-      appendValue(pairs, el.name, value);
+      appendValue(pairs, field.name, value);
+    }
+  }
+
+  for (const name of shared) {
+    const value = pairs[name];
+    if (typeof value === 'string') {
+      pairs[name] = [value];
     }
   }
 
@@ -88,7 +115,8 @@ function submittedValue(field: Field): FieldValue | null {
   }
 
   if (field instanceof HTMLSelectElement && field.multiple) {
-    return Array.from(field.selectedOptions, (opt) => opt.value);
+    const values = Array.from(field.selectedOptions, (opt) => opt.value);
+    return values.length ? values : null;
   }
 
   return field.value;
