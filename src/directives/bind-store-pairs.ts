@@ -22,13 +22,18 @@ export function bindStorePairs(
 
   // Sync requests are shaped by the store, so these are inert here and otherwise silent
   if (__DEV__ && !hasDirective(el, 'fetch') && !hasDirective(el, 'store')) {
-    hasDirective(el, 'headers') &&
+    if (hasDirective(el, 'headers')) {
       warn(
-        `rz-${op}: data-rz-headers on a trigger element is ignored. Set headers on the store's <script data-rz-store> element.`,
+        `rz-${op}: data-rz-headers is ignored. Set headers on the store's <script> element.`,
         el,
       );
-    hasDirective(el, 'send') &&
+    }
+    if (hasDirective(el, 'request')) {
+      warn(`rz-${op}: data-rz-request is ignored. It only applies to rz-fetch.`, el);
+    }
+    if (hasDirective(el, 'send')) {
       warn(`rz-${op}: data-rz-send is ignored. It only applies to rz-fetch.`, el);
+    }
   }
 
   for (const { trigger, subject } of pairs) {

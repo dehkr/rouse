@@ -72,7 +72,7 @@ export async function runFetch(
     const formMethod =
       triggerEl instanceof HTMLFormElement ? triggerEl.getAttribute('method') : undefined;
 
-    // Prioritization: submitter > rz-fetch > rz-fetch-init > form attribute > 'GET'
+    // Prioritization: submitter > rz-fetch > rz-request > form attribute > 'GET'
     const method = (
       submitter?.getAttribute('formmethod') ||
       options.method ||

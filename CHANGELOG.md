@@ -9,27 +9,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add the `rz-send` directive to send values with a fetch. Accepts a comma-separated list of sources: store, scope, and render item paths, CSS selectors written as `selector: <css>`, and inline JSON.
+  - A field or form element sending the request includes its own values first.
+  - GET and HEAD requests send the values as query parameters; other methods send them as the body.
+  - A name shared by more than one field (other than a radio group) is always sent as a list.
+  - When two sources produce the same key, the later one wins.
+- Add support for the HTTP QUERY method: `data-rz-fetch="input: QUERY /search"`, or `method: query` in `rz-request`.
+- Add a `submitter` fetch option, which lets you submit a form programmatically as if the button were pressed: `app.fetch(url, { triggerEl: form, submitter: button })`. If present, the button's `formaction`, `formmethod`, and `formenctype` are honored, and its name and value are sent with the form's fields.
 - Add `app.place(target, content, options?)` to place HTML from JavaScript. `target` is an element or a CSS selector. A selector is matched within the app root, including the root itself, and every match receives the content. `options.position` defaults to `innerHTML`. Returns `false` when nothing was placed.
 - Add `ctx.app` to give scopes a direct reference to the app they're mounted in.
 - Add `ctx.interceptor(phase, fn)`, which registers a network interceptor that is removed when the scope is destroyed.
 - Warn in development when `app.on`, `app.sse`, `app.interceptor`, or `app.scope` is called during a scope's setup or `connect()`, since each outlives the scope.
-- Warn in development when a scope name is registered twice.
 - Export `RouseApp` for type annotations and `instanceof` checks.
 
 ### Changed
 
+- **Breaking:** Encode a fetch body built from an element's values according to its declared type: a `Content-Type` in `rz-headers` or `headers` in the app config, else the submitting button's `formenctype` or the form's `enctype`, else `application/x-www-form-urlencoded`. A JSON `Content-Type` sends JSON, and `multipart/form-data` sends multipart.
+  - A form with `rz-fetch` now sends what its `enctype` declares, instead of `multipart/form-data`.
+  - A single field with `rz-fetch` sends `application/x-www-form-urlencoded` instead of JSON unless a JSON `Content-Type` is declared.
+  - A declared `multipart/form-data` header is removed before sending so the browser can write the boundary.
+  - Values an encoding can't carry are left out: nested objects in form data, and files outside multipart. A file sends only its name in form data, and nothing in JSON.
+- **Breaking:** A `params` key now replaces the values the URL already has for that key instead of adding to them. A list still sends one entry per value.
+- **Breaking:** A GET or HEAD request with a body is no longer sent without its body. It isn't sent at all, and the response carries an error. Pass query values as `params`, or use an HTTP method that takes a body.
 - **Breaking:** Remove `ctx.stores` and `ctx.appRoot`. Use `ctx.app.stores` and `ctx.app.root`.
 - **Breaking:** Rename the `rz-target` directive to `rz-place`.
+- **Breaking:** Rename the `rz-fetch-init` directive back to `rz-request`.
 - **Breaking:** Rename the `rz:dom:swap:before` and `rz:dom:swap` events to `rz:dom:place:before` and `rz:dom:place`, and the detail's `method` field to `position`.
+- Retry `OPTIONS` and `QUERY` requests once when no response arrives, as `GET` and `HEAD` already were.
 
 ### Removed
 
 - **Breaking:** Remove the `swap()` export. Use `app.place()`, which takes the target first and the position in an options bag:
   - `swap(html, el, 'beforeend')` -> `app.place(el, html, { position: 'beforeend' })`
+- **Breaking:** Remove the `body` and `params` keys from `rz-request`. Send values with `rz-send`, and write static query parameters in the URL.
+- **Breaking:** Remove the `form` fetch option. A form's fields are collected automatically; pass `triggerEl: form` to send them from JavaScript.
 
 ### Fixed
 
 - Throw from `app.interceptor` at registration when `fn` isn't a function, instead of failing on the next request.
+- Send the submitting button's name and value with a form's fields, and honor its `formenctype`.
 
 ## [0.14.0] - 2026-09-25
 

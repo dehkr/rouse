@@ -8,7 +8,7 @@ import type { ConfigDirective, FetchRequest } from '../types';
 type ConfigValueType = 'string' | 'boolean' | 'duration';
 
 /**
- * Keys `rz-fetch-init` accepts, and how each value is coerced. A key outside this
+ * Keys `rz-request` accepts, and how each value is coerced. A key outside this
  * table warns and is dropped, so a typo or a key belonging to another directive
  * can't sit in a config doing nothing.
  */
@@ -26,10 +26,10 @@ const KEYS = {
  * Request options for the element's `rz-fetch`, written as `key: value` pairs.
  *
  * @example
- * <button data-rz-fetch="click: /save" data-rz-fetch-init="method: post, timeout: 5s">
+ * <button data-rz-fetch="click: /save" data-rz-request="method: post, timeout: 5s">
  */
 function getConfig(el: Element): Partial<FetchRequest> {
-  const value = getDirectiveValue(el, 'fetch-init');
+  const value = getDirectiveValue(el, 'request');
   if (!value) return {};
 
   const config: Record<string, any> = {};
@@ -43,8 +43,8 @@ function getConfig(el: Element): Partial<FetchRequest> {
       __DEV__ &&
         warn(
           key === 'headers' || key === 'indicator'
-            ? `rz-fetch-init: '${key}' belongs on data-rz-${key}. Ignoring.`
-            : `rz-fetch-init: unknown key '${key}'. Ignoring.`,
+            ? `rz-request: '${key}' belongs on data-rz-${key}. Ignoring.`
+            : `rz-request: unknown key '${key}'. Ignoring.`,
           el,
         );
       continue;
@@ -68,6 +68,6 @@ function kebabToCamel(str: string) {
   return str.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
 }
 
-export const rzFetchInit = { getConfig } as const satisfies ConfigDirective<
+export const rzRequest = { getConfig } as const satisfies ConfigDirective<
   Partial<FetchRequest>
 >;
