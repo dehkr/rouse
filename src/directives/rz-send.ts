@@ -27,15 +27,15 @@ type Payload = Record<string, unknown>;
  * - `@user`: a store's data. `@user.email` sends one field, as `email`
  * - `%`: the render item's data. `%.id` sends one field, as `id`
  * - `{"page": 2}`: an inline JSON object
- * - `from: <selector>`: the fields a CSS selector matches. A form or fieldset sends
- *   its fields. Quote a selector list: `from: '.a, .b'`
+ * - `selector: <css>`: the fields a CSS selector matches. A form or fieldset sends
+ *   its fields. Quote a selector list: `selector: '.a, .b'`
  *
  * GET and HEAD requests send the values as query parameters. Other methods send
  * them as the request body, encoded as the request's `Content-Type` or the form's
  * `enctype` declares, or as form data when neither does.
  *
  * @example
- * <button data-rz-fetch="click: /search" data-rz-send='query, from: [name=tags], {"page": 2}'>
+ * <button data-rz-fetch="click: /search" data-rz-send='query, selector: [name=tags], {"page": 2}'>
  */
 function getConfig(
   el: Element,
@@ -48,10 +48,10 @@ function getConfig(
   for (const [entry, val] of parseDirectiveValue(getDirectiveValue(el, 'send'))) {
     if (val === null) {
       Object.assign(payload, readSource(entry, el, scope, app));
-    } else if (entry === 'from') {
-      Object.assign(payload, readFrom(val, el, app));
+    } else if (entry === 'selector') {
+      Object.assign(payload, readSelector(val, el, app));
     } else {
-      __DEV__ && warn(`rz-send: unknown key '${entry}'. The only key is 'from'.`, el);
+      __DEV__ && warn(`rz-send: unknown key '${entry}'. The only key is 'selector'.`, el);
     }
   }
 
@@ -83,7 +83,7 @@ function readSource(
   __DEV__ &&
     warn(
       /^[#.[:*]/.test(entry)
-        ? `rz-send: '${entry}' looks like a selector. Write 'from: ${entry}'.`
+        ? `rz-send: '${entry}' looks like a selector. Write 'selector: ${entry}'.`
         : `rz-send: '${entry}' is not a source.`,
       el,
     );
@@ -133,9 +133,19 @@ function readState(
 
 /**
  * Reads the fields a selector matches within the app root. An invalid selector
- * matches nothing, so it reports as no match.
+ * matches nothing, so it reports as no match. A state reference or JSON literal
+ * can't be a selector, so it gets a warning that names the bare form instead.
  */
-function readFrom(selector: string, el: Element, app: RouseApp): Payload | null {
+function readSelector(selector: string, el: Element, app: RouseApp): Payload | null {
+  if (/^[@%{]/.test(selector)) {
+    __DEV__ &&
+      warn(
+        `rz-send: '${selector}' isn't a selector. Write state references and JSON without 'selector:'.`,
+        el,
+      );
+    return null;
+  }
+
   const matches = queryTargets(app.root, selector);
   if (!matches.length) {
     __DEV__ && warn(`rz-send: no elements match '${selector}'.`, el);
