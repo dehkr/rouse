@@ -25,7 +25,7 @@ type Payload = Record<string, unknown>;
  *
  * - `query`: a scope value, sent under its last path segment
  * - `@user`: a store's data. `@user.email` sends one field, as `email`
- * - `%`: the render item's data. `%.id` sends one field, as `id`
+ * - `%`: the render item's data. `%id` sends one field, as `id`
  * - `{"page": 2}`: an inline JSON object
  * - `selector: <css>`: the fields a CSS selector matches. A form or fieldset sends
  *   its fields. Quote a selector list: `selector: '.a, .b'`
@@ -118,9 +118,8 @@ function readState(
 
   // A snapshot keeps getters and methods off the wire
   const data = clone(getRaw(value));
-  const lastDot = path.lastIndexOf('.');
 
-  if (lastDot === -1 && (path[0] === STORE_PREFIX || path === ITEM_PREFIX)) {
+  if (path === ITEM_PREFIX || (path[0] === STORE_PREFIX && !path.includes('.'))) {
     if (isPlainObject(data)) {
       return data;
     }
@@ -128,7 +127,9 @@ function readState(
     return null;
   }
 
-  return { [path.slice(lastDot + 1)]: data };
+  // An item path has no dot after its sigil (`%id`), so the sigil is dropped first
+  const bare = path[0] === ITEM_PREFIX ? path.slice(1) : path;
+  return { [bare.slice(bare.lastIndexOf('.') + 1)]: data };
 }
 
 /**

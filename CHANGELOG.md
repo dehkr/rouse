@@ -32,15 +32,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Breaking:** A `params` key now replaces the values the URL already has for that key instead of adding to them. A list still sends one entry per value.
 - **Breaking:** A GET or HEAD request with a body is no longer sent without its body. It isn't sent at all, and the response carries an error. Pass query values as `params`, or use an HTTP method that takes a body.
 - **Breaking:** Remove `ctx.stores` and `ctx.appRoot`. Use `ctx.app.stores` and `ctx.app.root`.
-- **Breaking:** Rename the `rz-target` directive to `rz-place`.
 - **Breaking:** Rename the `rz-fetch-init` directive back to `rz-request`.
+- **Breaking:** Rename the `rz-target` directive to `rz-place`.
 - **Breaking:** Rename the `rz:dom:swap:before` and `rz:dom:swap` events to `rz:dom:place:before` and `rz:dom:place`, and the detail's `method` field to `position`.
 - Retry `OPTIONS` and `QUERY` requests once when no response arrives, as `GET` and `HEAD` already were.
 
 ### Removed
 
-- **Breaking:** Remove the `swap()` export. Use `app.place()`, which takes the target first and the position in an options bag:
-  - `swap(html, el, 'beforeend')` -> `app.place(el, html, { position: 'beforeend' })`
+- **Breaking:** Remove the `swap()` export. Use `app.place()`, which takes the target first and the position in an options bag: `swap(html, el, 'beforeend')` -> `app.place(el, html, { position: 'beforeend' })`
 - **Breaking:** Remove the `body` and `params` keys from `rz-request`. Send values with `rz-send`, and write static query parameters in the URL.
 - **Breaking:** Remove the `form` fetch option. A form's fields are collected automatically; pass `triggerEl: form` to send them from JavaScript.
 
