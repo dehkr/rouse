@@ -80,7 +80,8 @@ export function bindStorePairs(
 /**
  * Dispatches a push or pull through the store manager. Bails when the trigger is
  * gone or disabled, when the target store isn't registered, or when the store
- * already has a request in flight. Request config comes from the store, not here.
+ * already has a request in flight, in which case a push may be sent once that request
+ * succeeds. Request config comes from the store, not here.
  */
 function triggerStoreSync(
   op: 'push' | 'pull',
@@ -104,7 +105,15 @@ function triggerStoreSync(
     __DEV__ && warn(`rz-${op}: store '@${storeName}' not found.`, triggerEl);
     return;
   }
-  if (status.loading) return;
+  if (status.loading) {
+    // A push that brings something new is sent once the current request succeeds
+    if (op === 'push') {
+      app.stores._deferPush(storeName, nestedPath, () =>
+        triggerStoreSync(op, triggerEl, app, storeName, nestedPath),
+      );
+    }
+    return;
+  }
 
   app.stores[op](storeName, { nestedPath, triggerEl });
 }
