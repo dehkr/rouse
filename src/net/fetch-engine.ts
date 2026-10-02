@@ -1,5 +1,6 @@
 import type { RouseApp } from '../core/app';
 import { hasDirective } from '../core/attributes';
+import { isSafeMethod } from '../core/constants';
 import { err, warn } from '../core/diagnostics';
 import { dispatch } from '../core/dispatch';
 import { createKey } from '../core/keys';
@@ -12,6 +13,7 @@ import { request, resolveRequestConfig } from './request';
 import { fallbackResponse, isFileType, isJsonType } from './response';
 
 const abortKeys = new WeakMap<Element, string>();
+const writesInFlight = new Set<string | symbol>();
 
 /**
  * Runs a fetch. Resolves the URL and merged request config, drives the `rz:fetch:*`
@@ -22,6 +24,10 @@ const abortKeys = new WeakMap<Element, string>();
  * path. It gates everything element-derived: config attributes, field extraction, the
  * disabled guard, and the abort key. It's the node the lifecycle events fire from. A
  * programmatic fetch doesn't have a triggerEl, but it can be set manually via config.
+ *
+ * A request never aborts a write. While a write is in flight under an abort key, new
+ * requests under that key are dropped. The key is the element's own unless one is set
+ * explicitly, so elements sharing a key share the guard.
  *
  * `options.submitter` is the button that submitted a form trigger. Its `formaction`,
  * `formmethod`, and `formenctype` override the form's, and its value joins the form's
@@ -81,6 +87,19 @@ export async function runFetch(
       'GET'
     ).toUpperCase();
 
+    // No `triggerEl` means no element to key on, so a programmatic caller opts
+    // into deduping by setting the `abortKey` option.
+    const abortKey =
+      options.abortKey ||
+      finalRequestInit.abortKey ||
+      (triggerEl ? getAbortKey(triggerEl) : undefined);
+
+    // The server may have already acted on a write, so aborting it can't undo anything
+    // and only discards the response. Requests under its key wait for it to settle instead.
+    if (abortKey && writesInFlight.has(abortKey)) {
+      return fallbackResponse(options, 'A write is in flight for this abort key');
+    }
+
     // Programmatic headers merge per key with the resolved declarative layers,
     // matching how those layers combine with each other. `null` removes one.
     const headers: RequestHeaders = { ...finalRequestInit.headers, ...options.headers };
@@ -110,12 +129,7 @@ export async function runFetch(
       // Params merge per key like headers, so a programmatic param can override one
       // value from the element without discarding the rest
       params: { ...payload.params, ...options.params },
-      // No `triggerEl` means no element to key on, so a programmatic caller opts
-      // into deduping by setting the `abortKey` option.
-      abortKey:
-        options.abortKey ||
-        finalRequestInit.abortKey ||
-        (triggerEl ? getAbortKey(triggerEl) : undefined),
+      abortKey,
     };
 
     const outcome = await runRequestLifecycle({
@@ -124,7 +138,27 @@ export async function runFetch(
       prefix: 'rz:fetch',
       configDetail: { config: finalOptions, url, method },
       terminalDetail: (result) => result,
-      run: (handle) => sendAndRoute(hostEl, triggerEl, url, finalOptions, app, handle),
+      run: async (handle) => {
+        // Read from the config, since a `:config` listener can change the method or key.
+        // A key that is already marked belongs to another write, and that write unmarks it.
+        const key = finalOptions.abortKey;
+        const marked =
+          key && !isSafeMethod(finalOptions.method) && !writesInFlight.has(key)
+            ? key
+            : null;
+
+        if (marked) {
+          writesInFlight.add(marked);
+        }
+
+        try {
+          return await sendAndRoute(hostEl, triggerEl, url, finalOptions, app, handle);
+        } finally {
+          if (marked) {
+            writesInFlight.delete(marked);
+          }
+        }
+      },
     });
 
     return outcome === PREVENTED

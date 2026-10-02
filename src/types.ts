@@ -601,7 +601,11 @@ export interface BaseRequestConfig {
   skipInterceptors?: boolean;
   /** Abort the request after this many milliseconds. */
   timeout?: number;
-  /** Requests sharing the same key cancel each other; the last one wins. */
+  /**
+   * Groups requests so they don't overlap. A new read replaces an older one still in
+   * flight. While a fetch that writes is in flight, new fetches with the same key are
+   * ignored until it finishes.
+   */
   abortKey?: string | symbol;
 }
 
