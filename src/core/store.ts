@@ -115,6 +115,11 @@ function sliceAt(obj: any, path?: string) {
   return path ? getNestedVal(obj, path) : obj;
 }
 
+/** The one root a path-level write can change, or `undefined` for the whole store. */
+function rootsFor(path?: string): string[] | undefined {
+  return path ? [getPathRoot(path) as string] : undefined;
+}
+
 /**
  * Writes the clone of `source`'s value at `path` into `base`, or deletes the path when
  * `source` has nothing there. Mutates and returns `base`.
@@ -351,11 +356,21 @@ export class StoreManager {
     return storeName == null ? undefined : this._stores.get(storeName);
   }
 
-  private _getStore(storeName: string | null | undefined) {
+  /**
+   * `_find` with a dev warning when the store is missing. `action` names what the
+   * caller was about to do, for the message.
+   */
+  private _getStore(storeName: string | null | undefined, action?: string) {
     const entry = this._find(storeName);
     __DEV__ &&
       !entry &&
-      warn(storeName ? `Store '${storeName}' not found.` : 'Store name is missing.');
+      warn(
+        !storeName
+          ? 'Store name is missing.'
+          : action
+            ? `Cannot ${action} store '${storeName}': store not found.`
+            : `Store '${storeName}' not found.`,
+      );
     return entry;
   }
 
@@ -371,7 +386,7 @@ export class StoreManager {
     }
 
     entry.lastGood = withSlice(entry.lastGood ?? {}, path, source);
-    this._reconcileDirty(entry, [getPathRoot(path) as string]);
+    this._reconcileDirty(entry, rootsFor(path));
   }
 
   /**
@@ -382,7 +397,7 @@ export class StoreManager {
     // Cloned so the baseline never shares an object or array with the store
     entry.lastGood ??= {};
     applyMergePatch(entry.lastGood, clone(payload), path, entry.data);
-    this._reconcileDirty(entry, path ? [getPathRoot(path) as string] : undefined);
+    this._reconcileDirty(entry, rootsFor(path));
   }
 
   /**
@@ -409,6 +424,11 @@ export class StoreManager {
         status.dirty[key] = true;
       }
     }
+  }
+
+  /** Returns `true` when the data at `path`, or the whole store, differs from `lastGood`. */
+  private _isSliceDirty(entry: StoreEntry, path?: string): boolean {
+    return !deepEqual(sliceAt(entry.data, path), sliceAt(entry.lastGood, path));
   }
 
   private _dispatchPatchEvent<E extends StorePatchEvent>(
@@ -451,13 +471,6 @@ export class StoreManager {
     const method = operation === 'push' ? 'PATCH' : 'GET';
 
     const nestedPath = manualConfig?.nestedPath;
-
-    __DEV__ &&
-      operation === 'push' &&
-      overrides.abortKey &&
-      warn(
-        `Store '${name}': abortKey is ignored on a push. A store sends one push at a time, so there is nothing to abort.`,
-      );
 
     // Layers, later wins: protocol defaults, app config, store policy, programmatic
     // overrides. Headers merge per key so one layer never drops another's keys.
@@ -535,12 +548,9 @@ export class StoreManager {
     // Sent after `:end`, so listeners never see a follow-up start inside this request.
     // A slice that matches the baseline again has nothing left to send.
     for (const [path, { send, waiters }] of outcome.followUps) {
-      const slicePath = path || undefined;
       const release = () => waiters.forEach((resolve) => resolve());
 
-      if (
-        !deepEqual(sliceAt(entry.data, slicePath), sliceAt(entry.lastGood, slicePath))
-      ) {
+      if (this._isSliceDirty(entry, path || undefined)) {
         Promise.resolve(send()).then(release);
       } else {
         release();
@@ -583,8 +593,12 @@ export class StoreManager {
     status.error = null;
 
     let succeeded = false;
+
+    // `finally` fills these after the `return` has built the object, which still
+    // reaches the caller because the object holds the arrays, not copies
     const followUps: SendOutcome['followUps'] = [];
     const settled: VoidFn[] = [];
+    const done = (result: RouseResponse): SendOutcome => ({ result, followUps, settled });
 
     try {
       const result = await request(url, requestOptions, this.app);
@@ -594,12 +608,12 @@ export class StoreManager {
       // both the reconcile and the rollback target belong to a request that no
       // longer owns the store. `finally` already leaves `loading` to the winner.
       if (entry.activeReq !== reqToken) {
-        return { result, followUps, settled };
+        return done(result);
       }
 
       if (result.error) {
         if (result.error.status === 'CANCELED') {
-          return { result, followUps, settled };
+          return done(result);
         }
 
         status.error = result.error.message;
@@ -607,11 +621,11 @@ export class StoreManager {
         if (operation === 'push') {
           this._maybeRollback(entry, snapshot, manualConfig?.nestedPath, result.error);
         }
-        return { result, followUps, settled };
+        return done(result);
       }
       this._applyServerResponse(entry, operation, result, snapshot, manualConfig);
       succeeded = true;
-      return { result, followUps, settled };
+      return done(result);
     } catch (error: any) {
       // If a request throws before returning, listeners would see `:start` then `:end`,
       // without a terminal `:abort`/`:success`/`:error` event in between. So settle
@@ -629,7 +643,7 @@ export class StoreManager {
       }
 
       handle.settle(fallback);
-      return { result: fallback, followUps, settled };
+      return done(fallback);
     } finally {
       if (entry.activeReq === reqToken) {
         status.loading = false;
@@ -637,10 +651,8 @@ export class StoreManager {
         settled.push(...(entry.inFlight?.waiters ?? []));
         entry.inFlight = undefined;
 
-        // The returned object holds these arrays, so filling them here still reaches
-        // the caller. Pending pushes are taken on any outcome, so a failure discards
-        // them rather than leaving them for the next request, and still resolves
-        // their callers.
+        // Pending pushes are taken on any outcome, so a failure discards them rather
+        // than leaving them for the next request, and still resolves their callers.
         const pending = entry.pendingPushes;
         entry.pendingPushes = undefined;
         if (pending && succeeded) {
@@ -730,21 +742,26 @@ export class StoreManager {
 
   /** Applies a response payload to the store's data, as a framework write. */
   private _patchPayload(entry: StoreEntry, payload: any, nestedPath?: string) {
-    this._withPatchGuard(entry, () => applyMergePatch(entry.data, payload, nestedPath));
+    this._withPatchGuard(
+      entry,
+      () => applyMergePatch(entry.data, payload, nestedPath),
+      rootsFor(nestedPath),
+    );
   }
 
   /**
    * Runs a framework write with dirty tracking suppressed, then reconciles the
-   * dirty flags against the baseline. Every framework mutation of store data
-   * goes through here, so the reconcile cannot be forgotten.
+   * dirty flags against the baseline, for `roots` or the whole store. Every
+   * framework mutation of store data goes through here, so the reconcile cannot
+   * be forgotten.
    */
-  private _withPatchGuard(entry: StoreEntry, fn: VoidFn) {
+  private _withPatchGuard(entry: StoreEntry, fn: VoidFn, roots?: string[]) {
     this._isPatching = true;
     try {
       fn();
     } finally {
       this._isPatching = false;
-      this._reconcileDirty(entry);
+      this._reconcileDirty(entry, roots);
     }
   }
 
@@ -760,13 +777,17 @@ export class StoreManager {
 
   /** Writes `value` into the store's data, whole or at `path`, as a framework write. */
   private _writeSlice(entry: StoreEntry, path: string | undefined, value: any) {
-    this._withPatchGuard(entry, () => {
-      if (path) {
-        setNestedVal(entry.data, path, value);
-      } else {
-        patchState(entry.data, value, 'replace');
-      }
-    });
+    this._withPatchGuard(
+      entry,
+      () => {
+        if (path) {
+          setNestedVal(entry.data, path, value);
+        } else {
+          patchState(entry.data, value, 'replace');
+        }
+      },
+      rootsFor(path),
+    );
   }
 
   private _maybeRollback(
@@ -782,10 +803,9 @@ export class StoreManager {
     if (!deepEqual(localSlice, sliceAt(snapshot, nestedPath))) return;
 
     // Skip if data already equals lastGood (avoids firing errant signals)
-    const lastGoodSlice = sliceAt(lastGood, nestedPath);
-    if (deepEqual(localSlice, lastGoodSlice)) return;
+    if (!this._isSliceDirty(entry, nestedPath)) return;
 
-    const rolledBackTo = clone(lastGoodSlice);
+    const rolledBackTo = clone(sliceAt(lastGood, nestedPath));
     this._writeSlice(entry, nestedPath, rolledBackTo);
 
     this._dispatchPatchEvent(entry, 'rz:store:patch:rollback', {
@@ -1017,18 +1037,16 @@ export class StoreManager {
       return Object.keys(entry.status.dirty).length > 0;
     }
 
-    return !deepEqual(getNestedVal(entry.data, path), getNestedVal(entry.lastGood, path));
+    return this._isSliceDirty(entry, path);
   }
 
   /**
    * Patches `SyncPolicy` for a store. Warns if the store is missing.
    */
   config(storeName: string | null | undefined, config: Partial<SyncPolicy>) {
-    const entry = this._find(storeName);
-    if (!entry) {
-      __DEV__ && warn(`Cannot configure store '${storeName}': store not found.`);
-      return;
-    }
+    const entry = this._getStore(storeName, 'configure');
+    if (!entry) return;
+
     this._setConfig(entry, config);
   }
 
@@ -1045,9 +1063,23 @@ export class StoreManager {
     storeName: string | null | undefined,
     config?: StoreRequestOptions,
   ): Promise<void> {
+    __DEV__ &&
+      config?.overrides?.abortKey &&
+      warn(
+        `Store '${storeName}': abortKey is ignored on a push. A store sends one push at a time, so there is nothing to abort.`,
+      );
+
+    return this._push(storeName, config);
+  }
+
+  /** `push()` without the call-site warning, so a held push's follow-up doesn't repeat it. */
+  private _push(
+    storeName: string | null | undefined,
+    config?: StoreRequestOptions,
+  ): Promise<void> {
     if (this.status(storeName)?.loading) {
       return this._deferPush(storeName, config?.nestedPath, () =>
-        this.push(storeName, config),
+        this._push(storeName, config),
       );
     }
     return this._request(storeName, 'push', config);
@@ -1119,11 +1151,8 @@ export class StoreManager {
    * To restore the last state the server confirmed instead, use `revert()`.
    */
   reset(storeName: string | null | undefined) {
-    const entry = this._find(storeName);
-    if (!entry) {
-      __DEV__ && warn(`Cannot reset store '${storeName}': store not found.`);
-      return;
-    }
+    const entry = this._getStore(storeName, 'reset');
+    if (!entry) return;
 
     const { data, initial } = entry;
 
@@ -1139,18 +1168,14 @@ export class StoreManager {
    * To restore the state the store started with, use `reset()`.
    */
   revert(storeName: string | null | undefined, path?: string): boolean {
-    const entry = this._find(storeName);
-    if (!entry) {
-      __DEV__ && warn(`Cannot revert store '${storeName}': store not found.`);
+    const entry = this._getStore(storeName, 'revert');
+    if (!entry) return false;
+
+    if (!this._isSliceDirty(entry, path)) {
       return false;
     }
 
-    const lastGoodSlice = sliceAt(entry.lastGood, path);
-    if (deepEqual(sliceAt(entry.data, path), lastGoodSlice)) {
-      return false;
-    }
-
-    this._writeSlice(entry, path, clone(lastGoodSlice));
+    this._writeSlice(entry, path, clone(sliceAt(entry.lastGood, path)));
     return true;
   }
 
@@ -1161,11 +1186,8 @@ export class StoreManager {
    * acknowledgement.
    */
   commit(storeName: string | null | undefined) {
-    const entry = this._find(storeName);
-    if (!entry) {
-      __DEV__ && warn(`Cannot commit store '${storeName}': store not found.`);
-      return;
-    }
+    const entry = this._getStore(storeName, 'commit');
+    if (!entry) return;
 
     this._updateLastGood(entry, entry.data);
   }
