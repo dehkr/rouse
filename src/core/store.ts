@@ -62,6 +62,19 @@ export interface StoreRequestOptions {
   triggerEl?: Element;
 }
 
+/** A dropped push and the `push()` callers waiting on it. */
+interface PendingPush {
+  send: () => unknown;
+  waiters: VoidFn[];
+}
+
+/** What a settled request hands back to `_request`. */
+interface SendOutcome {
+  result: RouseResponse;
+  followUps: Array<[string, PendingPush]>;
+  settled: VoidFn[];
+}
+
 interface StoreEntry {
   name: string;
   data: any;
@@ -70,10 +83,10 @@ interface StoreEntry {
   config?: SyncPolicy;
   lastGood?: any;
   activeReq?: symbol;
-  /** The data the owning request started from, while it's in flight. */
-  inFlight?: any;
+  /** The owning request's starting data, and the pushes it already carries, while it's in flight. */
+  inFlight?: { snapshot: any; waiters: VoidFn[] };
   /** Dropped pushes waiting on the owning request, keyed by slice (`''` is the whole store). */
-  pendingPushes?: Map<string, VoidFn>;
+  pendingPushes?: Map<string, PendingPush>;
   el?: Element;
   listeners?: Set<EditListener>;
   touched?: Set<string>;
@@ -341,6 +354,13 @@ export class StoreManager {
 
     const nestedPath = manualConfig?.nestedPath;
 
+    __DEV__ &&
+      operation === 'push' &&
+      overrides.abortKey &&
+      warn(
+        `Store '${name}': abortKey is ignored on a push. A store sends one push at a time, so there is nothing to abort.`,
+      );
+
     // Layers, later wins: protocol defaults, app config, store policy, programmatic
     // overrides. Headers merge per key so one layer never drops another's keys.
     const requestOptions: FetchRequest = {
@@ -356,7 +376,11 @@ export class StoreManager {
       },
       method,
       triggerEl: manualConfig?.triggerEl,
-      abortKey: overrides.abortKey ?? transport.abortKey ?? `${operation}_${name}`,
+      // A key that matched another request's would let that request abort this push
+      abortKey:
+        operation === 'push'
+          ? undefined
+          : (overrides.abortKey ?? transport.abortKey ?? `pull_${name}`),
     };
 
     // Body for push: full data, or a nested slice if nestedPath is provided
@@ -369,7 +393,7 @@ export class StoreManager {
     // store has a home element, unlike a bare fetch, which fires from app.root.
     const firingEl = manualConfig?.triggerEl ?? entry.el ?? this.app.root;
 
-    let followUps: Array<[string, VoidFn]> = [];
+    let outcome: SendOutcome | undefined;
 
     await runRequestLifecycle({
       el: firingEl,
@@ -378,7 +402,7 @@ export class StoreManager {
       configDetail: { storeName: name, config: requestOptions, url, method },
       terminalDetail: (result) => ({ storeName: name, result }),
       run: async (handle) => {
-        const settled = await this._sendAndApply(
+        outcome = await this._sendAndApply(
           entry,
           operation,
           url,
@@ -386,21 +410,29 @@ export class StoreManager {
           handle,
           manualConfig,
         );
-        followUps = settled.followUps;
-        return settled.result;
+        return outcome.result;
       },
     });
 
+    if (!outcome) return;
+
     // Sent after `:end`, so listeners never see a follow-up start inside this request.
     // A slice that matches the baseline again has nothing left to send.
-    for (const [path, send] of followUps) {
+    for (const [path, { send, waiters }] of outcome.followUps) {
       const slicePath = path || undefined;
+      const release = () => waiters.forEach((resolve) => resolve());
+
       if (
         !deepEqual(sliceAt(entry.data, slicePath), sliceAt(entry.lastGood, slicePath))
       ) {
-        send();
+        Promise.resolve(send()).then(release);
+      } else {
+        release();
       }
     }
+
+    // Callers whose data this request carried, or whose follow-up was discarded
+    outcome.settled.forEach((resolve) => resolve());
   }
 
   /**
@@ -416,19 +448,22 @@ export class StoreManager {
     requestOptions: FetchRequest,
     handle: LifecycleHandle,
     manualConfig?: StoreRequestOptions,
-  ): Promise<{ result: RouseResponse; followUps: Array<[string, VoidFn]> }> {
+  ): Promise<SendOutcome> {
     const { data, status } = entry;
 
     const reqToken = Symbol(__DEV__ ? 'rz.request' : '');
     entry.activeReq = reqToken;
 
+    // A request that supersedes another inherits its waiters, which would otherwise
+    // wait on a request that no longer settles them
     const snapshot = clone(data);
-    entry.inFlight = snapshot;
+    entry.inFlight = { snapshot, waiters: entry.inFlight?.waiters ?? [] };
     status.loading = operation;
     status.error = null;
 
     let succeeded = false;
-    const followUps: Array<[string, VoidFn]> = [];
+    const followUps: SendOutcome['followUps'] = [];
+    const settled: VoidFn[] = [];
 
     try {
       const result = await request(url, requestOptions, this.app);
@@ -438,12 +473,12 @@ export class StoreManager {
       // both the reconcile and the rollback target belong to a request that no
       // longer owns the store. `finally` already leaves `loading` to the winner.
       if (entry.activeReq !== reqToken) {
-        return { result, followUps };
+        return { result, followUps, settled };
       }
 
       if (result.error) {
         if (result.error.status === 'CANCELED') {
-          return { result, followUps };
+          return { result, followUps, settled };
         }
 
         status.error = result.error.message;
@@ -451,11 +486,11 @@ export class StoreManager {
         if (operation === 'push') {
           this._maybeRollback(entry, snapshot, manualConfig?.nestedPath, result.error);
         }
-        return { result, followUps };
+        return { result, followUps, settled };
       }
       this._applyServerResponse(entry, operation, result, snapshot, manualConfig);
       succeeded = true;
-      return { result, followUps };
+      return { result, followUps, settled };
     } catch (error: any) {
       // If a request throws before returning, listeners would see `:start` then `:end`,
       // without a terminal `:abort`/`:success`/`:error` event in between. So settle
@@ -473,19 +508,24 @@ export class StoreManager {
       }
 
       handle.settle(fallback);
-      return { result: fallback, followUps };
+      return { result: fallback, followUps, settled };
     } finally {
       if (entry.activeReq === reqToken) {
         status.loading = false;
         entry.activeReq = undefined;
+        settled.push(...(entry.inFlight?.waiters ?? []));
         entry.inFlight = undefined;
 
-        // Taken on any outcome, so a failure discards them rather than leaving them
-        // for the next request to send
+        // The returned object holds these arrays, so filling them here still reaches
+        // the caller. Pending pushes are taken on any outcome, so a failure discards
+        // them rather than leaving them for the next request, and still resolves
+        // their callers.
         const pending = entry.pendingPushes;
         entry.pendingPushes = undefined;
-        if (succeeded && pending) {
+        if (pending && succeeded) {
           followUps.push(...pending);
+        } else if (pending) {
+          settled.push(...[...pending.values()].flatMap((p) => p.waiters));
         }
       }
     }
@@ -909,32 +949,59 @@ export class StoreManager {
   }
 
   /**
-   * Triggers a manual store push with optional request overrides.
+   * Sends the store's data to the server, the whole store or the slice at `nestedPath`.
+   *
+   * If the store already has a request in flight, the push waits for it. Once that
+   * request succeeds, the push is sent if the data still differs from what the
+   * server holds. The promise resolves once the data has been sent and its request
+   * has finished, or once there is nothing left to send. It never rejects: read
+   * `status(name).error` to see whether a push failed.
    */
   async push(
     storeName: string | null | undefined,
     config?: StoreRequestOptions,
   ): Promise<void> {
+    if (this.status(storeName)?.loading) {
+      return this._deferPush(storeName, config?.nestedPath, () =>
+        this.push(storeName, config),
+      );
+    }
     return this._request(storeName, 'push', config);
   }
 
   /**
-   * Remembers a push dropped while the store had a request in flight, if its slice
-   * changed since that request started. A later drop for the same slice replaces it.
+   * Holds a push made while the store has a request in flight. A push with nothing
+   * new resolves with that request; otherwise it's sent once the request succeeds.
+   * A later push for the same slice replaces it and inherits its waiters.
    *
    * @internal
    */
-  _deferPush(storeName: string, nestedPath: string | undefined, send: VoidFn): void {
+  _deferPush(
+    storeName: string | null | undefined,
+    nestedPath: string | undefined,
+    send: () => unknown,
+  ): Promise<void> {
     const entry = this._find(storeName);
-    if (!entry?.inFlight) return;
+    const flight = entry?.inFlight;
+    if (!entry || !flight) return Promise.resolve();
 
-    // Nothing new since the request started, so this trigger had nothing to send
-    if (deepEqual(sliceAt(entry.data, nestedPath), sliceAt(entry.inFlight, nestedPath))) {
-      return;
-    }
+    return new Promise((resolve) => {
+      // What the server will hold if the request in flight succeeds: the data a push
+      // is sending, or for a pull, the baseline, since a pull saves nothing
+      const reference =
+        entry.status.loading === 'push' ? flight.snapshot : entry.lastGood;
 
-    entry.pendingPushes ??= new Map();
-    entry.pendingPushes.set(nestedPath ?? '', send);
+      if (deepEqual(sliceAt(entry.data, nestedPath), sliceAt(reference, nestedPath))) {
+        flight.waiters.push(resolve);
+        return;
+      }
+
+      const key = nestedPath ?? '';
+      entry.pendingPushes ??= new Map();
+      const waiters = entry.pendingPushes.get(key)?.waiters ?? [];
+      waiters.push(resolve);
+      entry.pendingPushes.set(key, { send, waiters });
+    });
   }
 
   /**

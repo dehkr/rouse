@@ -305,7 +305,11 @@ export interface LifecycleEventMap {
   'rz:push:config': PushPullConfigDetail;
   /** Fires when the push starts, after config. */
   'rz:push:start': PushPullLifecycleDetail;
-  /** Fires if the push is aborted (overlapping programmatic pushes sharing an abortKey). */
+  /**
+   * Fires if the push is canceled. A store sends one push at a time and a push
+   * carries no abort key, so this doesn't happen in practice. It exists because
+   * every request event family has the same set of events.
+   */
   'rz:push:abort': PushPullLifecycleDetail;
   /** Fires when the push completes with an OK status. */
   'rz:push:success': PushPullResultDetail;
