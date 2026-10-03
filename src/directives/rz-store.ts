@@ -48,7 +48,7 @@ function initialize(el: HTMLScriptElement, app: RouseApp) {
     if (storeExists) {
       app.stores.update(storeName, state);
     } else {
-      app.stores.create(storeName, state, undefined, el);
+      app.stores._create(storeName, state, undefined, el);
     }
   }
 

@@ -882,10 +882,12 @@ export class StoreManager {
   }
 
   /**
-   * Returns an iterable object containing every `<script data-rz-store>` element
-   * registered in the store manager.
+   * Yields every `<script data-rz-store>` element registered in the store manager.
+   * Used by `app.destroy()` to tear them down.
+   *
+   * @internal
    */
-  *elements(): Iterable<Element> {
+  *_elements(): Iterable<Element> {
     for (const entry of this._stores.values()) {
       if (entry.el) {
         yield entry.el;
@@ -894,9 +896,13 @@ export class StoreManager {
   }
 
   /**
-   * Registers a new store and returns its reactive proxy.
+   * Registers a new store and returns its reactive proxy. `el` is the
+   * `<script data-rz-store>` it was declared on, passed by `rz-store` only. The
+   * public spelling is `app.store()`.
+   *
+   * @internal
    */
-  create<T extends object = any>(
+  _create<T extends object = any>(
     storeName: string,
     state: T,
     config?: Partial<SyncPolicy>,

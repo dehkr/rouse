@@ -291,7 +291,7 @@ export class RouseApp {
    * cart.items.push(item);
    */
   store<T extends object>(name: string, data: T, config?: Partial<SyncPolicy>) {
-    return this.stores.create<T>(name, data, config);
+    return this.stores._create<T>(name, data, config);
   }
 
   /**
@@ -483,7 +483,7 @@ export class RouseApp {
       networkEls.forEach((el) => directive.teardown(el));
     }
 
-    for (const el of this.stores.elements()) {
+    for (const el of this.stores._elements()) {
       rzStore.teardown(el as HTMLScriptElement);
     }
 
