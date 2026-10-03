@@ -43,6 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Breaking:** Remove the `body` and `params` keys from `rz-request`. Send values with `rz-send`, and write static query parameters in the URL.
 - **Breaking:** Remove the `form` fetch option. A form's fields are collected automatically; pass `triggerEl: form` to send them from JavaScript.
 - **Breaking:** Remove `app.stores.create()` and `app.stores.elements()` from the public API. Register a store with `app.store(name, data, config)`.
+- **Breaking:** Remove `app.stores.elementFor()`. To listen to one store's events, listen at the app root and check `e.detail.storeName`, which works for stores created in markup or with `app.store()`.
 
 ### Fixed
 

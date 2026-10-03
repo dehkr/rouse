@@ -875,13 +875,6 @@ export class StoreManager {
   }
 
   /**
-   * Retrieves the source `<script data-rz-store>` element for a registered store.
-   */
-  elementFor(storeName: string | null | undefined): Element | undefined {
-    return this._find(storeName)?.el;
-  }
-
-  /**
    * Yields every `<script data-rz-store>` element registered in the store manager.
    * Used by `app.destroy()` to tear them down.
    *
