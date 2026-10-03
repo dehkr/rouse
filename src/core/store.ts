@@ -17,7 +17,13 @@ import { STORE_PREFIX } from './constants';
 import { err, fail, warn } from './diagnostics';
 import { dispatch } from './dispatch';
 import { parseStoreRef, parseStoreValue } from './parser';
-import { deleteNestedVal, getNestedVal, getPathRoot, setNestedVal } from './path';
+import {
+  deleteNestedVal,
+  getNestedVal,
+  getPathParts,
+  getPathRoot,
+  setNestedVal,
+} from './path';
 import {
   clone,
   deepEqual,
@@ -75,6 +81,16 @@ interface SendOutcome {
   settled: VoidFn[];
 }
 
+/** The request that owns a store while it's in flight. */
+interface InFlight {
+  /** The data the request started from. */
+  snapshot: any;
+  /** The slice it syncs, or none for the whole store. */
+  path?: string;
+  /** `push()` callers whose data this request already carries. */
+  waiters: VoidFn[];
+}
+
 interface StoreEntry {
   name: string;
   data: any;
@@ -83,8 +99,8 @@ interface StoreEntry {
   config?: SyncPolicy;
   lastGood?: any;
   activeReq?: symbol;
-  /** The owning request's starting data, and the pushes it already carries, while it's in flight. */
-  inFlight?: { snapshot: any; waiters: VoidFn[] };
+  /** The owning request, while it's in flight. */
+  inFlight?: InFlight;
   /** Dropped pushes waiting on the owning request, keyed by slice (`''` is the whole store). */
   pendingPushes?: Map<string, PendingPush>;
   el?: Element;
@@ -97,6 +113,44 @@ interface StoreEntry {
  */
 function sliceAt(obj: any, path?: string) {
   return path ? getNestedVal(obj, path) : obj;
+}
+
+/**
+ * Writes the clone of `source`'s value at `path` into `base`, or deletes the path when
+ * `source` has nothing there. Mutates and returns `base`.
+ */
+function withSlice(base: any, path: string, source: any) {
+  const value = getNestedVal(source, path);
+
+  if (value === undefined) {
+    deleteNestedVal(base, path);
+    return base;
+  }
+
+  // A primitive along the path can't be written through. The source replaced that
+  // primitive wholesale with an object, so the whole root is taken from the source.
+  if (hasPrimitiveAlong(base, path)) {
+    const root = getPathRoot(path) as string;
+    base[root] = clone(source[root]);
+    return base;
+  }
+
+  setNestedVal(base, path, clone(value));
+  return base;
+}
+
+/** Returns `true` when an existing intermediate on `path` holds a primitive. */
+function hasPrimitiveAlong(obj: any, path: string): boolean {
+  let current = obj;
+
+  for (const part of getPathParts(path).slice(0, -1)) {
+    const next = current[part];
+    if (next == null) return false;
+    if (typeof next !== 'object') return true;
+    current = next;
+  }
+
+  return false;
 }
 
 /**
@@ -266,25 +320,18 @@ export class StoreManager {
   }
 
   /**
-   * Advances the `lastGood` baseline to `source`, whole or at a single root,
-   * and reconciles the dirty flags that move with it.
+   * Advances the `lastGood` baseline to `source`, whole or at a single path, and
+   * reconciles the dirty flags that move with it.
    */
-  private _updateLastGood(entry: StoreEntry, source: any, rootKey?: string) {
-    if (!rootKey) {
+  private _updateLastGood(entry: StoreEntry, source: any, path?: string) {
+    if (!path) {
       entry.lastGood = clone(source);
       this._reconcileDirty(entry);
       return;
     }
 
-    entry.lastGood ??= {};
-
-    if (Object.hasOwn(source, rootKey)) {
-      entry.lastGood[rootKey] = clone(source[rootKey]);
-    } else {
-      delete entry.lastGood[rootKey];
-    }
-
-    this._reconcileDirty(entry, [rootKey]);
+    entry.lastGood = withSlice(entry.lastGood ?? {}, path, source);
+    this._reconcileDirty(entry, [getPathRoot(path) as string]);
   }
 
   /**
@@ -476,7 +523,11 @@ export class StoreManager {
 
     // A request that supersedes another inherits its waiters, which would otherwise
     // wait on a request that no longer settles them
-    entry.inFlight = { snapshot, waiters: entry.inFlight?.waiters ?? [] };
+    entry.inFlight = {
+      snapshot,
+      path: manualConfig?.nestedPath,
+      waiters: entry.inFlight?.waiters ?? [],
+    };
     status.loading = operation;
     status.error = null;
 
@@ -566,7 +617,7 @@ export class StoreManager {
     // a listener cancelling `:before`).
     if (operation === 'push') {
       status.lastSync = Date.now();
-      this._updateLastGood(entry, snapshot, getPathRoot(nestedPath));
+      this._updateLastGood(entry, snapshot, nestedPath);
     }
 
     const beforeEvent = this._dispatchPatchEvent(
@@ -606,13 +657,16 @@ export class StoreManager {
       }
 
       this._patchPayload(entry, payload, nestedPath);
+
+      // At this point, the data at path matches the server (snapshot confirmed + echo
+      // applied). With no payload, we have no new state, so keep live data from
+      // becoming the baseline.
+      this._updateLastGood(entry, data, nestedPath);
     }
 
     if (operation === 'pull') {
       status.lastSync = Date.now();
     }
-
-    this._updateLastGood(entry, data, getPathRoot(nestedPath));
 
     this._dispatchPatchEvent(entry, 'rz:store:patch', {
       storeName,
@@ -1005,12 +1059,12 @@ export class StoreManager {
     if (!entry || !flight) return Promise.resolve();
 
     return new Promise((resolve) => {
-      // What the server will hold if the request in flight succeeds: the data a push
-      // is sending, or for a pull, the baseline, since a pull saves nothing
-      const reference =
-        entry.status.loading === 'push' ? flight.snapshot : entry.lastGood;
-
-      if (deepEqual(sliceAt(entry.data, nestedPath), sliceAt(reference, nestedPath))) {
+      if (
+        deepEqual(
+          sliceAt(entry.data, nestedPath),
+          sliceAt(this._expectedBaseline(entry, flight), nestedPath),
+        )
+      ) {
         flight.waiters.push(resolve);
         return;
       }
@@ -1021,6 +1075,19 @@ export class StoreManager {
       waiters.push(resolve);
       entry.pendingPushes.set(key, { send, waiters });
     });
+  }
+
+  /** Returns what the server will hold if the request in flight succeeds. */
+  private _expectedBaseline(entry: StoreEntry, flight: InFlight) {
+    // A pull saves nothing, so the server keeps what it had
+    if (entry.status.loading !== 'push') {
+      return entry.lastGood;
+    }
+
+    // A slice push changes only its slice
+    return flight.path
+      ? withSlice(clone(entry.lastGood ?? {}), flight.path, flight.snapshot)
+      : flight.snapshot;
   }
 
   /**

@@ -50,6 +50,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Stop sending a store's getter values in a push. A push now sends a snapshot of the store's data, the same values it records as saved, rather than serializing the live store.
 - Send a pushed string slice as valid JSON. `data-rz-push="click: @user.name"` sent the bare text instead of a JSON string.
 - Skip a push of a slice the store doesn't have, instead of sending a PATCH with no body that marked the store as saved. Warns in development.
+- Keep edits made during a push dirty when the server responds with no body (such as 204), and send them in a follow-up push. They were previously marked as saved and never sent.
+- Stop a nested slice push from marking unsent changes elsewhere in the same top-level field as saved.
+- Send a push of one slice made while a push of a different slice is in flight. It was discarded as having nothing new.
 
 ## [0.14.0] - 2026-09-25
 
