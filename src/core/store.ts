@@ -386,8 +386,23 @@ export class StoreManager {
     // The body is the snapshot, not the live store. Serializing the live store later
     // would send edits made after the snapshot, and the values of its getters.
     const snapshot = clone(data);
+
     if (operation === 'push') {
-      requestOptions.body = sliceAt(snapshot, nestedPath);
+      const slice = sliceAt(snapshot, nestedPath);
+
+      // A missing slice has nothing to send. Sending a PATCH with no body would still
+      // advance the baseline on success, so the store would read as saved.
+      if (slice === undefined) {
+        __DEV__ &&
+          warn(
+            `Cannot push '@${name}.${nestedPath}': the store has no value there, and a push can't send a deletion. Push an enclosing path or the whole store to send its current state.`,
+          );
+        return;
+      }
+
+      // Serialized here because a string slice would otherwise be sent as raw text,
+      // which isn't valid JSON
+      requestOptions.body = JSON.stringify(slice);
     }
 
     // Request-axis events prefer the trigger element, falling back to the store's

@@ -47,6 +47,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Throw from `app.interceptor` at registration when `fn` isn't a function, instead of failing on the next request.
 - Send the submitting button's name and value with a form's fields, and honor its `formenctype`.
+- Stop sending a store's getter values in a push. A push now sends a snapshot of the store's data, the same values it records as saved, rather than serializing the live store.
+- Send a pushed string slice as valid JSON. `data-rz-push="click: @user.name"` sent the bare text instead of a JSON string.
+- Skip a push of a slice the store doesn't have, instead of sending a PATCH with no body that marked the store as saved. Warns in development.
 
 ## [0.14.0] - 2026-09-25
 
