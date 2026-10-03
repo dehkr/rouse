@@ -139,6 +139,46 @@ function withSlice(base: any, path: string, source: any) {
   return base;
 }
 
+/**
+ * Applies `payload` to `target` as a JSON Merge Patch, whole or at `path`. A path
+ * absent from the payload writes nothing; a `null` there removes the slice. `shape`
+ * is the live store `target` mirrors, passed when `target` is a plain copy of it.
+ */
+function applyMergePatch(target: any, payload: any, path?: string, shape?: any) {
+  if (!path) {
+    patchState(target, payload, 'merge', shape);
+    return;
+  }
+
+  const incoming = getNestedVal(payload, path);
+  if (incoming === undefined) return;
+
+  if (incoming === null) {
+    deleteNestedVal(target, path);
+    return;
+  }
+
+  if (!isPlainObject(incoming)) {
+    setNestedVal(target, path, incoming);
+    return;
+  }
+
+  let slice = getNestedVal<Record<string, any>>(target, path);
+
+  // Seed an object when the slice is missing or holds a non-object, so the
+  // merge drops nulls nested inside the incoming patch (RFC 7396).
+  if (!isPlainObject(slice)) {
+    setNestedVal(target, path, {});
+    slice = getNestedVal<Record<string, any>>(target, path);
+  }
+
+  // `setNestedVal` bails when an intermediate is a primitive, so the seed
+  // may not have landed.
+  if (slice) {
+    patchState(slice, incoming, 'merge', sliceAt(shape, path));
+  }
+}
+
 /** Returns `true` when an existing intermediate on `path` holds a primitive. */
 function hasPrimitiveAlong(obj: any, path: string): boolean {
   let current = obj;
@@ -332,6 +372,17 @@ export class StoreManager {
 
     entry.lastGood = withSlice(entry.lastGood ?? {}, path, source);
     this._reconcileDirty(entry, [getPathRoot(path) as string]);
+  }
+
+  /**
+   * Applies a response payload to `lastGood` exactly as it was applied to the data,
+   * and reconciles the dirty flags that move with it.
+   */
+  private _patchBaseline(entry: StoreEntry, payload: any, path?: string) {
+    // Cloned so the baseline never shares an object or array with the store
+    entry.lastGood ??= {};
+    applyMergePatch(entry.lastGood, clone(payload), path, entry.data);
+    this._reconcileDirty(entry, path ? [getPathRoot(path) as string] : undefined);
   }
 
   /**
@@ -658,10 +709,9 @@ export class StoreManager {
 
       this._patchPayload(entry, payload, nestedPath);
 
-      // At this point, the data at path matches the server (snapshot confirmed + echo
-      // applied). With no payload, we have no new state, so keep live data from
-      // becoming the baseline.
-      this._updateLastGood(entry, data, nestedPath);
+      // The response is applied to the baseline exactly as it was to the data. Keys
+      // it omits keep their baseline, so an unsaved edit there stays unsaved.
+      this._patchBaseline(entry, payload, nestedPath);
     }
 
     if (operation === 'pull') {
@@ -678,48 +728,9 @@ export class StoreManager {
     });
   }
 
-  /**
-   * Applies the payload to the store as a JSON Merge Patch, whole or at
-   * `nestedPath`. A path absent from the payload writes nothing; a `null` at the
-   * path removes the slice.
-   */
+  /** Applies a response payload to the store's data, as a framework write. */
   private _patchPayload(entry: StoreEntry, payload: any, nestedPath?: string) {
-    const { data } = entry;
-
-    if (!nestedPath) {
-      this._withPatchGuard(entry, () => patchState(data, payload, 'merge'));
-      return;
-    }
-
-    const incoming = getNestedVal(payload, nestedPath);
-    if (incoming === undefined) return;
-
-    if (incoming === null) {
-      this._withPatchGuard(entry, () => deleteNestedVal(data, nestedPath));
-      return;
-    }
-
-    this._withPatchGuard(entry, () => {
-      if (!isPlainObject(incoming)) {
-        setNestedVal(data, nestedPath, incoming);
-        return;
-      }
-
-      let target = getNestedVal<Record<string, any>>(data, nestedPath);
-
-      // Seed an object when the slice is missing or holds a non-object, so the
-      // merge drops nulls nested inside the incoming patch (RFC 7396).
-      if (!isPlainObject(target)) {
-        setNestedVal(data, nestedPath, {});
-        target = getNestedVal<Record<string, any>>(data, nestedPath);
-      }
-
-      // `setNestedVal` bails when an intermediate is a primitive, so the seed
-      // may not have landed.
-      if (target) {
-        patchState(target, incoming, 'merge');
-      }
-    });
+    this._withPatchGuard(entry, () => applyMergePatch(entry.data, payload, nestedPath));
   }
 
   /**

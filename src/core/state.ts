@@ -167,14 +167,26 @@ export function deepEqual(a: any, b: any, seen = new WeakMap<object, any>()): bo
 }
 
 /**
+ * Returns `true` when `obj` has `key` as an accessor or method rather than plain data.
+ */
+function hasAccessor(obj: object, key: string): boolean {
+  return !isOwnDataProp(obj, key) && !!Object.getOwnPropertyDescriptor(obj, key);
+}
+
+/**
  * Writes `source` into `target`. `replace` deletes keys absent from the source;
  * `merge` applies JSON Merge Patch (RFC 7396) semantics, where absent keys are
  * left alone and a `null` removes the key it names.
+ *
+ * `shape`, for a merge only, is a live object that `target` mirrors. A key that's
+ * an accessor there is skipped here too, so a plain copy of a store, such as its
+ * baseline, takes a patch exactly as the store does.
  */
 export function patchState(
   target: Record<string, any>,
   source: Record<string, any>,
   action: 'replace' | 'merge' = 'replace',
+  shape?: Record<string, any>,
 ) {
   // Replace
   if (action === 'replace') {
@@ -186,9 +198,7 @@ export function patchState(
     // Writing through a getter-only accessor would throw, and even when a setter
     // exists, this loop is for data-property merge.
     for (const key of Object.keys(source)) {
-      if (!isOwnDataProp(target, key) && Object.getOwnPropertyDescriptor(target, key)) {
-        continue;
-      }
+      if (hasAccessor(target, key)) continue;
       target[key] = source[key];
     }
     return;
@@ -201,10 +211,10 @@ export function patchState(
     const sourceVal = (source as Record<string, any>)[sourceKey];
     if (sourceVal === undefined) continue;
 
-    // Skip if target has an accessor at this key. Can't write to derived state.
+    // Skip derived state, on the target or on the live object it mirrors
     if (
-      !isOwnDataProp(target, sourceKey) &&
-      Object.getOwnPropertyDescriptor(target, sourceKey)
+      hasAccessor(target, sourceKey) ||
+      (isPlainObject(shape) && hasAccessor(shape, sourceKey))
     ) {
       continue;
     }
@@ -216,16 +226,17 @@ export function patchState(
     }
 
     const targetVal = target[sourceKey];
+    const nestedShape = isPlainObject(shape) ? shape[sourceKey] : undefined;
 
     // An object patched over a non-object target seeds `{}` and merges into it
     // rather than being assigned wholesale, which is what drops the nulls nested
     // inside it. Re-read after seeding: the proxy wraps what was just written.
     if (isPlainObject(sourceVal)) {
       if (isPlainObject(targetVal)) {
-        patchState(targetVal, sourceVal, 'merge');
+        patchState(targetVal, sourceVal, 'merge', nestedShape);
       } else {
         target[sourceKey] = {};
-        patchState(target[sourceKey], sourceVal, 'merge');
+        patchState(target[sourceKey], sourceVal, 'merge', nestedShape);
       }
     } else {
       target[sourceKey] = sourceVal;
