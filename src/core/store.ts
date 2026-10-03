@@ -383,9 +383,11 @@ export class StoreManager {
           : (overrides.abortKey ?? transport.abortKey ?? `pull_${name}`),
     };
 
-    // Body for push: full data, or a nested slice if nestedPath is provided
+    // The body is the snapshot, not the live store. Serializing the live store later
+    // would send edits made after the snapshot, and the values of its getters.
+    const snapshot = clone(data);
     if (operation === 'push') {
-      requestOptions.body = sliceAt(data, nestedPath);
+      requestOptions.body = sliceAt(snapshot, nestedPath);
     }
 
     // Request-axis events prefer the trigger element, falling back to the store's
@@ -407,6 +409,7 @@ export class StoreManager {
           operation,
           url,
           requestOptions,
+          snapshot,
           handle,
           manualConfig,
         );
@@ -437,26 +440,27 @@ export class StoreManager {
 
   /**
    * Sends the request and applies the outcome to the store: rolls back a failed push,
-   * otherwise reconciles the response. Tracks the request so a superseded one leaves
-   * `loading` alone when it settles. Hands back the pushes dropped while it was in
-   * flight when it owned the store and succeeded.
+   * otherwise reconciles the response. `snapshot` is the data the request carries,
+   * and what the baseline advances to if it succeeds. Tracks the request so a
+   * superseded one leaves `loading` alone when it settles. Hands back the pushes
+   * dropped while it was in flight when it owned the store and succeeded.
    */
   private async _sendAndApply(
     entry: StoreEntry,
     operation: 'push' | 'pull',
     url: string,
     requestOptions: FetchRequest,
+    snapshot: any,
     handle: LifecycleHandle,
     manualConfig?: StoreRequestOptions,
   ): Promise<SendOutcome> {
-    const { data, status } = entry;
+    const { status } = entry;
 
     const reqToken = Symbol(__DEV__ ? 'rz.request' : '');
     entry.activeReq = reqToken;
 
     // A request that supersedes another inherits its waiters, which would otherwise
     // wait on a request that no longer settles them
-    const snapshot = clone(data);
     entry.inFlight = { snapshot, waiters: entry.inFlight?.waiters ?? [] };
     status.loading = operation;
     status.error = null;
