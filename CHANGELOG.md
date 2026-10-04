@@ -29,20 +29,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - A single field with `rz-fetch` sends `application/x-www-form-urlencoded` instead of JSON unless a JSON `Content-Type` is declared.
   - A declared `multipart/form-data` header is removed before sending so the browser can write the boundary.
   - Values an encoding can't carry are left out: nested objects in form data, and files outside multipart. A file sends only its name in form data, and nothing in JSON.
-- **Breaking:** A `params` key now replaces the values the URL already has for that key instead of adding to them. A list still sends one entry per value.
-- **Breaking:** A GET or HEAD request with a body is no longer sent without its body. It isn't sent at all, and the response carries an error. Pass query values as `params`, or use an HTTP method that takes a body.
-- **Breaking:** Replace the `Rouse-Target` response header with `Rouse-Place` for HTML responses and `Rouse-Deposit` for JSON responses. Each takes the same value as the directive it overrides, `data-rz-place` or `data-rz-deposit`.
-- **Breaking:** Remove `ctx.stores` and `ctx.appRoot`. Use `ctx.app.stores` and `ctx.app.root`.
-- **Breaking:** Rename the `rz-fetch-init` directive back to `rz-request`.
+- **Breaking:** Fail a GET or HEAD request that carries a body, instead of sending it without the body. The response carries an error. Pass query values as `params`, or use an HTTP method that takes a body.
+- **Breaking:** Replace the URL's existing values for a `params` key instead of adding to them. A list still sends one entry per value.
 - **Breaking:** Rename the `rz-target` directive to `rz-place`.
 - **Breaking:** Rename the `rz:dom:swap:before` and `rz:dom:swap` events to `rz:dom:place:before` and `rz:dom:place`, and the detail's `method` field to `position`.
+- **Breaking:** Replace the `Rouse-Target` response header with `Rouse-Place` for HTML responses and `Rouse-Deposit` for JSON responses. Each takes the same value as the directive it overrides, `data-rz-place` or `data-rz-deposit`.
+- **Breaking:** Wait for an in-flight push or pull to succeed before sending an overlapping push, and send it only if it still carries changes the server doesn't have.
+  - Fixes lost edits from `rz-push` and the `edit` trigger, which previously dropped a push made during a request.
+  - `app.stores.push()` previously cancelled the push in flight. When it has to wait, its promise resolves once the store has nothing in flight and nothing left to send.
+  - `rz:push:abort` no longer fires for overlapping pushes, and `app.stores.push()` ignores `abortKey`.
+- **Breaking:** Rename the `rz-fetch-init` directive back to `rz-request`.
 - Retry `OPTIONS` and `QUERY` requests once when no response arrives, as `GET` and `HEAD` already were.
 
 ### Removed
 
-- **Breaking:** Remove the `swap()` export. Use `app.place()`, which takes the target first and the position in an options bag: `swap(html, el, 'beforeend')` -> `app.place(el, html, { position: 'beforeend' })`
 - **Breaking:** Remove the `body` and `params` keys from `rz-request`. Send values with `rz-send`, and write static query parameters in the URL.
-- **Breaking:** Remove the `form` fetch option. A form's fields are collected automatically; pass `triggerEl: form` to send them from JavaScript.
+- **Breaking:** Remove the `form` fetch option. A form's fields are collected automatically. Pass `triggerEl: form` to send them from JavaScript.
+- **Breaking:** Remove the `swap()` export. Use `app.place()`, which takes the target first and the position in an options bag: `swap(html, el, 'beforeend')` -> `app.place(el, html, { position: 'beforeend' })`
+- **Breaking:** Remove `ctx.stores` and `ctx.appRoot` from scope context. Use `ctx.app.stores` and `ctx.app.root`.
 - **Breaking:** Remove `app.stores.create()` and `app.stores.elements()` from the public API. Register a store with `app.store(name, data, config)`.
 - **Breaking:** Remove `app.stores.elementFor()`. To listen to one store's events, listen at the app root and check `e.detail.storeName`, which works for stores created in markup or with `app.store()`.
 
@@ -50,14 +54,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Throw from `app.interceptor` at registration when `fn` isn't a function, instead of failing on the next request.
 - Send the submitting button's name and value with a form's fields, and honor its `formenctype`.
+- Stop a fetch from aborting an in-flight write under the same abort key. A new request under that key is ignored until the write finishes. Read requests still replace each other.
+- Place an empty response, such as a 204, when it carries `Rouse-Place`. `Rouse-Place: delete: #row` on a response with no body removed nothing. `rz:fetch:success:html` and `rz:fetch:error:html` now fire for it with `data` set to `null`. A response without the header still places nothing.
+- Keep edits made during a push dirty when the server responds with no body (such as 204), and send them in a follow-up push. They were previously marked as saved and never sent.
+- Stop a nested slice push from marking unsent changes elsewhere in the same top-level field as saved.
+- Keep unsaved edits dirty after a pull if the response doesn't include those fields. They were previously marked as saved.
 - Stop sending a store's getter values in a push. A push now sends a snapshot of the store's data, the same values it records as saved, rather than serializing the live store.
 - Send a pushed string slice as valid JSON. `data-rz-push="click: @user.name"` sent the bare text instead of a JSON string.
 - Skip a push of a slice the store doesn't have, instead of sending a PATCH with no body that marked the store as saved. Warns in development.
-- Keep edits made during a push dirty when the server responds with no body (such as 204), and send them in a follow-up push. They were previously marked as saved and never sent.
-- Stop a nested slice push from marking unsent changes elsewhere in the same top-level field as saved.
-- Send a push of one slice made while a push of a different slice is in flight. It was discarded as having nothing new.
-- Keep unsaved edits dirty after a pull if the response doesn't include those fields. They were previously marked as saved.
-- Place an empty response, such as a 204, when it carries `Rouse-Place`. `Rouse-Place: delete: #row` on a response with no body removed nothing. `rz:fetch:success:html` and `rz:fetch:error:html` now fire for it with `data` set to `null`. A response without the header still places nothing.
 
 ## [0.14.0] - 2026-09-25
 
