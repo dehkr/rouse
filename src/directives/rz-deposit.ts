@@ -14,10 +14,11 @@ import type { ConfigDirective } from '../types';
  * - `data-rz-deposit="@cart"`
  * - `data-rz-deposit="@cart, @status"`
  *
- * @param overrideValue - Takes precedence over the attribute (a server `Rouse-Target` header).
+ * @param overrideValue - Takes precedence over the attribute (a server `Rouse-Deposit` header).
  */
 function getConfig(el: Element, overrideValue?: string | null): string[] {
   const value = overrideValue || getDirectiveValue(el, 'deposit');
+  const label = __DEV__ ? (overrideValue ? 'Rouse-Deposit' : 'rz-deposit') : '';
 
   // A <script data-rz-store> is its own deposit target, matching how `rz-push`
   // and `rz-pull` resolve a missing subject.
@@ -30,10 +31,9 @@ function getConfig(el: Element, overrideValue?: string | null): string[] {
 
   for (const [key] of parseDirectiveValue(value)) {
     if (!key.startsWith(STORE_PREFIX)) {
-      // A server override may name a DOM target instead, which is rz-place's business
-      __DEV__ &&
-        !overrideValue &&
-        warn(`rz-deposit: '${key}' is not a store reference. Use '@name'.`, el);
+      if (__DEV__) {
+        warn(`${label}: '${key}' is not a store reference. Use '@name'.`, el);
+      }
       continue;
     }
 
@@ -41,11 +41,12 @@ function getConfig(el: Element, overrideValue?: string | null): string[] {
     if (!ref) continue;
 
     if (ref.nestedPath) {
-      __DEV__ &&
+      if (__DEV__) {
         warn(
-          `rz-deposit: '${key}' targets a slice. A deposit writes a whole store. Use rz-pull to sync a nested path.`,
+          `${label}: '${key}' targets a slice. A deposit writes a whole store. Use rz-pull to sync a nested path.`,
           el,
         );
+      }
       continue;
     }
 

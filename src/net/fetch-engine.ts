@@ -210,8 +210,11 @@ async function sendAndRoute(
 
     applyUrlChange(rouseHeaders.pushUrl, rouseHeaders.replaceUrl);
 
-    if (rouseHeaders.target) {
-      result.targetOverride = rouseHeaders.target;
+    if (rouseHeaders.place) {
+      result.placeOverride = rouseHeaders.place;
+    }
+    if (rouseHeaders.deposit) {
+      result.depositOverride = rouseHeaders.deposit;
     }
 
     handle.settle(result);
@@ -464,38 +467,55 @@ function getAbortKey(el: Element): string {
  */
 function routePayload(hostEl: Element, result: RouseResponse, type: 'success' | 'error') {
   const data = result.data;
-  const prefix = `rz:fetch:${type}`;
+  const kind = payloadKind(data);
 
-  // Check for files (Blob/ArrayBuffer)
-  if (isFileType(data)) {
-    dispatch(hostEl, `${prefix}:file`, result);
-    return;
-  }
-
-  // Check for parsed JSON (POJO or Array). Store manager requires parsed objects
-  // to merge state.
-  if (Array.isArray(data) || isPlainObject(data)) {
-    dispatch(hostEl, `${prefix}:json`, result);
-    return;
-  }
-
-  // Handle strings (HTML/Text)
-  if (typeof data === 'string') {
-    if (__DEV__) {
-      const contentType = result.response?.headers.get('Content-Type') || '';
-      if (isJsonType(contentType)) {
-        warn(`Content-Type is JSON but data is a string. Defaulting to HTML.`);
-      }
+  if (kind === null) {
+    // Ignore null/undefined (e.g., 204 No Content), but warn on unhandled complex types
+    if (__DEV__ && data != null) {
+      warn(`Unsupported payload: '${data?.constructor?.name || typeof data}'.`);
     }
-
-    dispatch(hostEl, `${prefix}:html`, result);
     return;
   }
 
-  // Ignore null/undefined (e.g., 204 No Content), but warn on unhandled complex types
-  __DEV__ &&
-    data != null &&
-    warn(`Unsupported payload: '${data?.constructor?.name || typeof data}'.`);
+  // Each router reads only its own override, so a header aimed at the other
+  // router would otherwise be dropped without a trace.
+  if (__DEV__ && result.placeOverride && kind !== 'html') {
+    warn(
+      `Rouse-Place applies only to HTML responses, but this one was routed as ${kind === 'json' ? 'JSON' : 'a file'}. Ignoring it.`,
+      hostEl,
+    );
+  }
+  if (__DEV__ && result.depositOverride && kind !== 'json') {
+    warn(
+      `Rouse-Deposit applies only to JSON responses, but this one was routed as ${kind === 'html' ? 'HTML' : 'a file'}. Ignoring it.`,
+      hostEl,
+    );
+  }
+
+  if (__DEV__ && kind === 'html') {
+    const contentType = result.response?.headers.get('Content-Type') || '';
+    if (isJsonType(contentType)) {
+      warn(`Content-Type is JSON but data is a string. Defaulting to HTML.`);
+    }
+  }
+
+  dispatch(hostEl, `rz:fetch:${type}:${kind}`, result);
+}
+
+/** Classifies a response body by the router that handles it. */
+function payloadKind(data: unknown): 'file' | 'json' | 'html' | null {
+  if (isFileType(data)) {
+    return 'file';
+  }
+  // The store router needs parsed objects to merge state
+  if (Array.isArray(data) || isPlainObject(data)) {
+    return 'json';
+  }
+  if (typeof data === 'string') {
+    return 'html';
+  }
+
+  return null;
 }
 
 /**
@@ -507,7 +527,8 @@ function routePayload(hostEl: Element, result: RouseResponse, type: 'success' | 
 function extractRouseHeaders(headers: Record<string, string> | null) {
   return {
     redirect: headers?.['rouse-redirect'] || null,
-    target: headers?.['rouse-target'] || null,
+    place: headers?.['rouse-place'] || null,
+    deposit: headers?.['rouse-deposit'] || null,
     pushUrl: headers?.['rouse-push-url'] || null,
     replaceUrl: headers?.['rouse-replace-url'] || null,
   };

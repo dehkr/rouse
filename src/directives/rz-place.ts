@@ -24,17 +24,18 @@ import type { ConfigDirective } from '../types';
  * - `data-rz-place="beforeend: '#log, #status'"`
  * - `data-rz-place="beforeend: #log, afterbegin: #status"`
  *
- * @param overrideValue - Takes precedence over the element's `rz-place` attribute (e.g. a server `Rouse-Target` header).
+ * @param overrideValue - Takes precedence over the element's `rz-place` attribute (a server `Rouse-Place` header).
  */
 function getConfig(el: Element, appRoot: Element, overrideValue?: string | null) {
   const value = overrideValue || getDirectiveValue(el, 'place');
-  return resolvePlacements(value, el, appRoot);
+  return resolvePlacements(value, el, appRoot, !!overrideValue);
 }
 
 function resolvePlacements(
   value: string | null | undefined,
   hostEl: Element,
   appRoot: Element,
+  fromOverride: boolean,
 ): PlaceOperation[] {
   const parsed = value?.trim() ? parseDirectiveValue(value) : [];
 
@@ -56,28 +57,32 @@ function resolvePlacements(
   for (const [key, val] of parsed) {
     const store = key.startsWith(STORE_PREFIX) ? key : val;
     if (store?.startsWith(STORE_PREFIX)) {
-      __DEV__ &&
+      if (__DEV__) {
         warn(
-          `rz-place: '${store}' names a store. Use data-rz-deposit for store targets.`,
+          `${placeLabel(fromOverride)}: '${store}' names a store. Use ${fromOverride ? 'Rouse-Deposit' : 'data-rz-deposit'} for store targets.`,
           hostEl,
         );
+      }
       continue;
     }
 
     if (val) {
       const position = isPlacePosition(key) ? key : DEFAULT_PLACE_POSITION;
-      __DEV__ &&
-        position !== key &&
+      if (__DEV__ && position !== key) {
         warn(
-          `rz-place: unknown position '${key}'. Using '${DEFAULT_PLACE_POSITION}'. Positions are case-sensitive: ${PLACE_POSITIONS.join(', ')}.`,
+          `${placeLabel(fromOverride)}: unknown position '${key}'. Using '${DEFAULT_PLACE_POSITION}'. Positions are case-sensitive: ${PLACE_POSITIONS.join(', ')}.`,
           hostEl,
         );
-      placements.push({ position, targets: queryPlaceTargets(appRoot, val, hostEl) });
+      }
+      placements.push({
+        position,
+        targets: queryPlaceTargets(appRoot, val, hostEl, fromOverride),
+      });
     } else if (isPlacePosition(key)) {
       placements.push({ targets: [hostEl], position: key });
     } else {
       placements.push({
-        targets: queryPlaceTargets(appRoot, key, hostEl),
+        targets: queryPlaceTargets(appRoot, key, hostEl, fromOverride),
         position: DEFAULT_PLACE_POSITION,
       });
     }
@@ -94,19 +99,25 @@ export function queryPlaceTargets(
   root: Element,
   selector: string,
   hostEl?: Element,
+  fromOverride = false,
 ): Element[] {
   const targets = queryTargets(root, selector);
   // `app.place()` takes its target and content as strings, so swapped arguments
   // compile. This warning is what catches them.
   if (__DEV__ && targets.length === 0) {
     if (hostEl) {
-      warn(`rz-place: no targets found for '${selector}'.`, hostEl);
+      warn(`${placeLabel(fromOverride)}: no targets found for '${selector}'.`, hostEl);
     } else {
       warn(`No targets found for '${selector}' in app.place().`);
     }
   }
 
   return targets;
+}
+
+/** Names where a placement value came from, for a warning's label. */
+function placeLabel(fromOverride: boolean) {
+  return fromOverride ? 'Rouse-Place' : 'rz-place';
 }
 
 export const rzPlace = {

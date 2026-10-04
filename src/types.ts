@@ -678,8 +678,10 @@ export interface RouseResponse<T = any> {
   status: number | null;
   /** The resolved request config that produced this response. */
   config: FetchRequest;
-  /** Server-supplied target override (`Rouse-Target` header), if present. */
-  targetOverride?: string | null;
+  /** The server's replacement for the `rz-place` value (`Rouse-Place` header), if it sent one. */
+  placeOverride?: string | null;
+  /** The server's replacement for the `rz-deposit` value (`Rouse-Deposit` header), if it sent one. */
+  depositOverride?: string | null;
 }
 
 /**
@@ -692,8 +694,10 @@ export interface RoutablePayload {
   data: unknown;
   /** Carries the element whose `rz-place` or `rz-deposit` names the destination. */
   config?: { triggerEl?: Element };
-  /** Server-supplied target override. Never set on the stream path. */
-  targetOverride?: string | null;
+  /** Server-supplied `rz-place` override. Never set on the stream path. */
+  placeOverride?: string | null;
+  /** Server-supplied `rz-deposit` override. Never set on the stream path. */
+  depositOverride?: string | null;
 }
 
 /** Runs before a request is sent. Return a modified config to override request options. */

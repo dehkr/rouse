@@ -6,7 +6,7 @@ import type { RouseResponse, RoutablePayload } from '../types';
 
 /**
  * Listens to the app root for JSON fetch responses and stream messages, and routes the
- * payloads into global stores named by `rz-deposit` or a server `Rouse-Target` header.
+ * payloads into global stores named by `rz-deposit` or a server `Rouse-Deposit` header.
  * Since programmatic fetch doesn't originate from an element, it doesn't route unless the
  * `triggerEl` option is set explicitly. Error responses route only when the server names
  * a target, since `rz-deposit` is success-only output.
@@ -14,16 +14,16 @@ import type { RouseResponse, RoutablePayload } from '../types';
 export function initStoreRouter(app: RouseApp, signal: AbortSignal) {
   const route = (e: Event, operation: 'fetch' | 'sse') => {
     const { detail } = e as CustomEvent<RoutablePayload>;
-    const { config, data, targetOverride } = detail;
+    const { config, data, depositOverride } = detail;
     const triggerEl = config?.triggerEl;
 
     // Don't route an error response unless the server provides an override
-    if (e.type.includes('error') && !targetOverride) return;
+    if (e.type.includes('error') && !depositOverride) return;
 
     // No trigger means nothing declared a destination; the caller gets the data
-    if (!triggerEl && !targetOverride) return;
+    if (!triggerEl && !depositOverride) return;
 
-    const stores = rzDeposit.getConfig(triggerEl ?? app.root, targetOverride);
+    const stores = rzDeposit.getConfig(triggerEl ?? app.root, depositOverride);
 
     // Only the fetch listeners are registered with a `RouseResponse` detail
     const response = operation === 'fetch' ? (detail as RouseResponse) : undefined;
@@ -43,7 +43,7 @@ export function initStoreRouter(app: RouseApp, signal: AbortSignal) {
  * per-field reconciliation `rz-pull` performs. Non-POJO payloads and unknown store
  * names warn and are skipped.
  *
- * @param stores - Store names to deposit into (from `rz-deposit` or a `Rouse-Target` header).
+ * @param stores - Store names to deposit into (from `rz-deposit` or a `Rouse-Deposit` header).
  * @param payload - The parsed JSON body to write into each store.
  * @param operation - What produced the payload, surfaced on the rz:store:patch detail.
  * @param response - The response that produced it, absent for a stream message.
@@ -58,14 +58,17 @@ function routeToStore(
   if (stores.length === 0) return;
 
   if (!isPlainObject(payload)) {
-    __DEV__ &&
+    if (__DEV__) {
       warn('Cannot route JSON payload to a store. Expected a JSON object.', payload);
+    }
     return;
   }
 
   for (const storeName of stores) {
     if (!app.stores.has(storeName)) {
-      __DEV__ && warn(`Cannot route JSON payload to '@${storeName}'. No such store.`);
+      if (__DEV__) {
+        warn(`Cannot route JSON payload to '@${storeName}'. No such store.`);
+      }
       continue;
     }
 

@@ -13,7 +13,7 @@ import type { PlaceOptions, RoutablePayload } from '../types';
 /**
  * Listens to the app root for HTML fetch responses and stream messages, and routes
  * the payloads into DOM targets named by `rz-place` on the originating element, or
- * a server `Rouse-Target` header.
+ * a server `Rouse-Place` header.
  *
  * A programmatic fetch doesn't have an element, so it doesn't place by default. A server-
  * named target can place the payload, or the caller can place it using `app.place()`. The
@@ -26,17 +26,17 @@ import type { PlaceOptions, RoutablePayload } from '../types';
 export function initDomRouter(app: RouseApp, signal: AbortSignal) {
   const route = (e: Event, source: 'fetch' | 'sse') => {
     const { detail } = e as CustomEvent<RoutablePayload>;
-    const { config, data, targetOverride } = detail;
+    const { config, data, placeOverride } = detail;
     const triggerEl = config?.triggerEl;
 
     // An empty response (`null`) or non-string body has nothing to place
     if (typeof data !== 'string') return;
     // Don't route an error response unless the server provides an override
-    if (e.type.includes('error') && !targetOverride) return;
+    if (e.type.includes('error') && !placeOverride) return;
     // No originating element means no destination or host for the declarative path
-    if (!triggerEl && !targetOverride) return;
+    if (!triggerEl && !placeOverride) return;
 
-    const placements = rzPlace.getConfig(triggerEl ?? app.root, app.root, targetOverride);
+    const placements = rzPlace.getConfig(triggerEl ?? app.root, app.root, placeOverride);
 
     for (const { targets, position } of placements) {
       for (const targetEl of targets) {
