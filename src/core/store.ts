@@ -68,17 +68,11 @@ export interface StoreRequestOptions {
   triggerEl?: Element;
 }
 
-/** A dropped push and the `push()` callers waiting on it. */
-interface PendingPush {
-  send: () => unknown;
-  waiters: VoidFn[];
-}
-
 /** What a settled request hands back to `_request`. */
 interface SendOutcome {
   result: RouseResponse;
-  followUps: Array<[string, PendingPush]>;
-  settled: VoidFn[];
+  /** Pushes held while the request was in flight, by slice, if it succeeded. */
+  followUps: Array<[string, VoidFn]>;
 }
 
 /** The request that owns a store while it's in flight. */
@@ -87,8 +81,6 @@ interface InFlight {
   snapshot: any;
   /** The slice it syncs, or none for the whole store. */
   path?: string;
-  /** `push()` callers whose data this request already carries. */
-  waiters: VoidFn[];
 }
 
 interface StoreEntry {
@@ -101,8 +93,10 @@ interface StoreEntry {
   activeReq?: symbol;
   /** The owning request, while it's in flight. */
   inFlight?: InFlight;
-  /** Dropped pushes waiting on the owning request, keyed by slice (`''` is the whole store). */
-  pendingPushes?: Map<string, PendingPush>;
+  /** Pushes held while a request was in flight, keyed by slice (`''` is the whole store). */
+  pendingPushes?: Map<string, VoidFn>;
+  /** Settles held `push()` calls once the store has nothing in flight and nothing left to send. */
+  idle?: { promise: Promise<void>; resolve: VoidFn };
   el?: Element;
   listeners?: Set<EditListener>;
   touched?: Set<string>;
@@ -547,18 +541,17 @@ export class StoreManager {
 
     // Sent after `:end`, so listeners never see a follow-up start inside this request.
     // A slice that matches the baseline again has nothing left to send.
-    for (const [path, { send, waiters }] of outcome.followUps) {
-      const release = () => waiters.forEach((resolve) => resolve());
-
+    for (const [path, send] of outcome.followUps) {
       if (this._isSliceDirty(entry, path || undefined)) {
-        Promise.resolve(send()).then(release);
-      } else {
-        release();
+        send();
       }
     }
 
-    // Callers whose data this request carried, or whose follow-up was discarded
-    outcome.settled.forEach((resolve) => resolve());
+    // A follow-up that started a request has already set `loading`, so the store is
+    // still busy and held pushes keep waiting
+    if (!entry.status.loading) {
+      this._settleIdle(entry);
+    }
   }
 
   /**
@@ -582,23 +575,16 @@ export class StoreManager {
     const reqToken = Symbol(__DEV__ ? 'rz.request' : '');
     entry.activeReq = reqToken;
 
-    // A request that supersedes another inherits its waiters, which would otherwise
-    // wait on a request that no longer settles them
-    entry.inFlight = {
-      snapshot,
-      path: manualConfig?.nestedPath,
-      waiters: entry.inFlight?.waiters ?? [],
-    };
+    entry.inFlight = { snapshot, path: manualConfig?.nestedPath };
     status.loading = operation;
     status.error = null;
 
     let succeeded = false;
 
-    // `finally` fills these after the `return` has built the object, which still
-    // reaches the caller because the object holds the arrays, not copies
+    // `finally` fills this after the `return` has built the object, which still
+    // reaches the caller because the object holds the array, not a copy
     const followUps: SendOutcome['followUps'] = [];
-    const settled: VoidFn[] = [];
-    const done = (result: RouseResponse): SendOutcome => ({ result, followUps, settled });
+    const done = (result: RouseResponse): SendOutcome => ({ result, followUps });
 
     try {
       const result = await request(url, requestOptions, this.app);
@@ -648,17 +634,14 @@ export class StoreManager {
       if (entry.activeReq === reqToken) {
         status.loading = false;
         entry.activeReq = undefined;
-        settled.push(...(entry.inFlight?.waiters ?? []));
         entry.inFlight = undefined;
 
         // Pending pushes are taken on any outcome, so a failure discards them rather
-        // than leaving them for the next request, and still resolves their callers.
+        // than leaving them for the next request to send
         const pending = entry.pendingPushes;
         entry.pendingPushes = undefined;
         if (pending && succeeded) {
           followUps.push(...pending);
-        } else if (pending) {
-          settled.push(...[...pending.values()].flatMap((p) => p.waiters));
         }
       }
     }
@@ -1052,10 +1035,10 @@ export class StoreManager {
   /**
    * Sends the store's data to the server, the whole store or the slice at `nestedPath`.
    *
-   * If the store already has a request in flight, the push waits for it. Once that
-   * request succeeds, the push is sent if the data still differs from what the
-   * server holds. The promise resolves once the data has been sent and its request
-   * has finished, or once there is nothing left to send. It never rejects: read
+   * If the store already has a request in flight, the push waits for it, and once that
+   * request succeeds, it's sent if the data still differs from what the server holds.
+   * The promise resolves when the push's request finishes or, if it had to wait, once
+   * the store has nothing in flight and nothing left to send. It never rejects: read
    * `status(name).error` to see whether a push failed.
    */
   async push(
@@ -1076,47 +1059,60 @@ export class StoreManager {
     storeName: string | null | undefined,
     config?: StoreRequestOptions,
   ): Promise<void> {
-    if (this.status(storeName)?.loading) {
-      return this._deferPush(storeName, config?.nestedPath, () =>
-        this._push(storeName, config),
-      );
+    const entry = this._find(storeName);
+
+    if (entry?.status.loading) {
+      this._deferPush(storeName, config?.nestedPath, () => this._push(storeName, config));
+      return this._whenIdle(entry);
     }
     return this._request(storeName, 'push', config);
   }
 
   /**
-   * Holds a push made while the store has a request in flight. A push with nothing
-   * new resolves with that request; otherwise it's sent once the request succeeds.
-   * A later push for the same slice replaces it and inherits its waiters.
+   * Holds a push made while the store has a request in flight, to send once that
+   * request succeeds, unless it brings nothing the request isn't already carrying.
+   * A later push for the same slice replaces it.
    *
    * @internal
    */
   _deferPush(
     storeName: string | null | undefined,
     nestedPath: string | undefined,
-    send: () => unknown,
-  ): Promise<void> {
+    send: VoidFn,
+  ): void {
     const entry = this._find(storeName);
     const flight = entry?.inFlight;
-    if (!entry || !flight) return Promise.resolve();
+    if (!entry || !flight) return;
 
-    return new Promise((resolve) => {
-      if (
-        deepEqual(
-          sliceAt(entry.data, nestedPath),
-          sliceAt(this._expectedBaseline(entry, flight), nestedPath),
-        )
-      ) {
-        flight.waiters.push(resolve);
-        return;
-      }
+    if (
+      deepEqual(
+        sliceAt(entry.data, nestedPath),
+        sliceAt(this._expectedBaseline(entry, flight), nestedPath),
+      )
+    ) {
+      return;
+    }
 
-      const key = nestedPath ?? '';
-      entry.pendingPushes ??= new Map();
-      const waiters = entry.pendingPushes.get(key)?.waiters ?? [];
-      waiters.push(resolve);
-      entry.pendingPushes.set(key, { send, waiters });
-    });
+    entry.pendingPushes ??= new Map();
+    entry.pendingPushes.set(nestedPath ?? '', send);
+  }
+
+  /** Returns a promise that settles once the store has nothing in flight and nothing left to send. */
+  private _whenIdle(entry: StoreEntry): Promise<void> {
+    if (!entry.idle) {
+      let resolve!: VoidFn;
+      const promise = new Promise<void>((r) => {
+        resolve = r;
+      });
+      entry.idle = { promise, resolve };
+    }
+    return entry.idle.promise;
+  }
+
+  /** Settles held `push()` calls. */
+  private _settleIdle(entry: StoreEntry) {
+    entry.idle?.resolve();
+    entry.idle = undefined;
   }
 
   /** Returns what the server will hold if the request in flight succeeds. */
@@ -1199,6 +1195,10 @@ export class StoreManager {
     const entry = this._find(storeName);
     if (!entry) return;
 
+    // A held `push()` would otherwise wait on a store that no longer exists, and a
+    // follow-up would reach whatever store is registered under the name next
+    this._settleIdle(entry);
+    entry.pendingPushes = undefined;
     this._pendingFlush.delete(entry);
     this._stores.delete(entry.name);
   }

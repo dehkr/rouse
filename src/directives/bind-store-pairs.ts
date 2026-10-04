@@ -82,9 +82,6 @@ export function bindStorePairs(
  * gone or disabled, when the target store isn't registered, or when the store
  * already has a request in flight, in which case a push may be sent once that request
  * succeeds. Request config comes from the store, not here.
- *
- * Returns the push's promise, so a programmatic `push()` whose follow-up this
- * replaced resolves when this one settles.
  */
 function triggerStoreSync(
   op: 'push' | 'pull',
@@ -92,7 +89,7 @@ function triggerStoreSync(
   app: RouseApp,
   storeName: string,
   nestedPath?: string,
-): Promise<void> | undefined {
+): void {
   // A debounced or queued trigger can fire after the element is gone
   if (!triggerEl.isConnected) return;
 
@@ -110,12 +107,13 @@ function triggerStoreSync(
   }
   if (status.loading) {
     // A push that brings something new is sent once the current request succeeds
-    return op === 'push'
-      ? app.stores._deferPush(storeName, nestedPath, () =>
-          triggerStoreSync(op, triggerEl, app, storeName, nestedPath),
-        )
-      : undefined;
+    if (op === 'push') {
+      app.stores._deferPush(storeName, nestedPath, () =>
+        triggerStoreSync(op, triggerEl, app, storeName, nestedPath),
+      );
+    }
+    return;
   }
 
-  return app.stores[op](storeName, { nestedPath, triggerEl });
+  app.stores[op](storeName, { nestedPath, triggerEl });
 }
