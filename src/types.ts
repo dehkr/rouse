@@ -82,7 +82,7 @@ export type FetchSuccessDetail = RouseResponse;
 /** Detail for `rz:fetch:success:json`: response with a parsed-JSON body (object/array). */
 export type FetchSuccessJsonDetail = RouseResponse<Record<string, any> | any[]>;
 
-/** Detail for `rz:fetch:success:html`: response with an HTML/text body. */
+/** Detail for `rz:fetch:success:html`: response with an HTML/text body, or an empty one carrying `Rouse-Place`. */
 export type FetchSuccessHtmlDetail = RouseResponse<string>;
 
 /** Detail for `rz:fetch:success:file`: response with a binary body (Blob/ArrayBuffer). */
@@ -94,7 +94,7 @@ export type FetchErrorDetail = RouseResponse;
 /** Detail for `rz:fetch:error:json`: error response with a parsed-JSON body (object/array). */
 export type FetchErrorJsonDetail = RouseResponse<Record<string, any> | any[]>;
 
-/** Detail for `rz:fetch:error:html`: error response with an HTML/text body. */
+/** Detail for `rz:fetch:error:html`: error response with an HTML/text body, or an empty one carrying `Rouse-Place`. */
 export type FetchErrorHtmlDetail = RouseResponse<string>;
 
 /** Detail for `rz:fetch:error:file`: error response with a binary body (Blob/ArrayBuffer). */

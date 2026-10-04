@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Values an encoding can't carry are left out: nested objects in form data, and files outside multipart. A file sends only its name in form data, and nothing in JSON.
 - **Breaking:** A `params` key now replaces the values the URL already has for that key instead of adding to them. A list still sends one entry per value.
 - **Breaking:** A GET or HEAD request with a body is no longer sent without its body. It isn't sent at all, and the response carries an error. Pass query values as `params`, or use an HTTP method that takes a body.
+- **Breaking:** Replace the `Rouse-Target` response header with `Rouse-Place` for HTML responses and `Rouse-Deposit` for JSON responses. Each takes the same value as the directive it overrides, `data-rz-place` or `data-rz-deposit`.
 - **Breaking:** Remove `ctx.stores` and `ctx.appRoot`. Use `ctx.app.stores` and `ctx.app.root`.
 - **Breaking:** Rename the `rz-fetch-init` directive back to `rz-request`.
 - **Breaking:** Rename the `rz-target` directive to `rz-place`.
@@ -56,6 +57,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Stop a nested slice push from marking unsent changes elsewhere in the same top-level field as saved.
 - Send a push of one slice made while a push of a different slice is in flight. It was discarded as having nothing new.
 - Keep unsaved edits dirty after a pull if the response doesn't include those fields. They were previously marked as saved.
+- Place an empty response, such as a 204, when it carries `Rouse-Place`. `Rouse-Place: delete: #row` on a response with no body removed nothing. `rz:fetch:success:html` and `rz:fetch:error:html` now fire for it with `data` set to `null`. A response without the header still places nothing.
 
 ## [0.14.0] - 2026-09-25
 

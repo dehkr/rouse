@@ -467,7 +467,10 @@ function getAbortKey(el: Element): string {
  */
 function routePayload(hostEl: Element, result: RouseResponse, type: 'success' | 'error') {
   const data = result.data;
-  const kind = payloadKind(data);
+  // A server removing an element usually sends no body, which leaves nothing to
+  // classify. `Rouse-Place` names the placement by itself, so an empty body that
+  // carries it routes as HTML.
+  const kind = data == null && result.placeOverride ? 'html' : payloadKind(data);
 
   if (kind === null) {
     // Ignore null/undefined (e.g., 204 No Content), but warn on unhandled complex types
@@ -492,7 +495,7 @@ function routePayload(hostEl: Element, result: RouseResponse, type: 'success' | 
     );
   }
 
-  if (__DEV__ && kind === 'html') {
+  if (__DEV__ && typeof data === 'string') {
     const contentType = result.response?.headers.get('Content-Type') || '';
     if (isJsonType(contentType)) {
       warn(`Content-Type is JSON but data is a string. Defaulting to HTML.`);

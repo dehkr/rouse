@@ -29,8 +29,10 @@ export function initDomRouter(app: RouseApp, signal: AbortSignal) {
     const { config, data, placeOverride } = detail;
     const triggerEl = config?.triggerEl;
 
-    // An empty response (`null`) or non-string body has nothing to place
-    if (typeof data !== 'string') return;
+    // An empty fetch response arrives as `null`. It places only under `Rouse-Place`,
+    // where the header itself is the instruction, so a plain 204 leaves the page alone.
+    const content = data == null && placeOverride ? '' : data;
+    if (typeof content !== 'string') return;
     // Don't route an error response unless the server provides an override
     if (e.type.includes('error') && !placeOverride) return;
     // No originating element means no destination or host for the declarative path
@@ -40,7 +42,7 @@ export function initDomRouter(app: RouseApp, signal: AbortSignal) {
 
     for (const { targets, position } of placements) {
       for (const targetEl of targets) {
-        placeInto(targetEl, data, position, source);
+        placeInto(targetEl, content, position, source);
       }
     }
   };
