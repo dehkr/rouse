@@ -744,13 +744,13 @@ export type ListenerOptions = TriggerOptions & {
  */
 export type BoundOn = {
   <N extends string>(
-    events: N | N[],
+    event: N,
     callback: EventCallback<TriggerEvent<N>>,
     options?: ListenerOptions,
   ): VoidFn;
   <N extends string>(
     target: EventTarget,
-    events: N | N[],
+    event: N,
     callback: EventCallback<TriggerEvent<N>>,
     options?: ListenerOptions,
   ): VoidFn;

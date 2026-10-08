@@ -146,7 +146,8 @@ export class RouseApp {
    *
    * @example
    * app.on('click', onClick, { debounce: 300 });
-   * app.on(window, ['online', 'offline'], sync);
+   * app.on(window, 'online', sync);
+   * app.on('interval', refresh, { arg: '30s' });
    */
   public on: BoundOn;
 

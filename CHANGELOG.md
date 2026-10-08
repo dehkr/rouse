@@ -54,6 +54,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Breaking:** Remove the `swap()` export. Use `app.place()`, which takes the target first and the position in an options bag: `swap(html, el, 'beforeend')` -> `app.place(el, html, { position: 'beforeend' })`
 - **Breaking:** Remove `ctx.stores` and `ctx.appRoot` from scope context. Use `ctx.app.stores` and `ctx.app.root`.
 - **Breaking:** Remove `app.stores.create()` and `app.stores.elements()` from the public API. Register a store with `app.store(name, data, config)`.
+- **Breaking:** Remove the multi-event array form of `app.on` and `ctx.on`. Each call takes one event name.
 - **Breaking:** Remove `app.stores.elementFor()`. To listen to one store's events, listen at the app root and check `e.detail.storeName`, which works for stores created in markup or with `app.store()`.
 
 ### Fixed

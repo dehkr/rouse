@@ -90,8 +90,7 @@ function attachListener<D = any>(
 }
 
 /**
- * Attaches a listener for one event name, or for each name in an array,
- * and returns a single aggregate cleanup.
+ * Attaches a listener for one event name and returns its cleanup.
  *
  * Backs `app.on` and `ctx.on`, which bind it to an app- or scope-lifetime
  * abort signal. The optional `app` is threaded to the trigger engine so
@@ -100,11 +99,11 @@ function attachListener<D = any>(
  *
  * @example
  * ctx.on(el, 'click', handleClick, { debounce: 500 });
- * app.on(window, ['online', 'offline'], sync);
+ * app.on(window, 'online', sync);
  */
 export function on<N extends string>(
   target: EventTarget,
-  events: N | N[],
+  event: N,
   callback: EventCallback<TriggerEvent<N>>,
   options?: ListenerOptions,
   app?: RouseApp,
@@ -112,7 +111,7 @@ export function on<N extends string>(
 
 export function on(
   target: EventTarget,
-  events: string | string[],
+  event: string,
   callback: EventCallback<any>,
   options: ListenerOptions = {},
   app?: RouseApp,
@@ -120,7 +119,7 @@ export function on(
   const { signal, ...triggerOptions } = options;
 
   // Bail before attaching on an already-aborted signal. Otherwise the
-  // listeners attach and the abort event never fires to remove them.
+  // listener attaches and the abort event never fires to remove it.
   if (signal?.aborted) {
     return () => {};
   }
@@ -132,32 +131,25 @@ export function on(
       ? (callback as ActionFn)
       : (e?: Event) => callback.handleEvent(e as Event);
 
-  const cleanups = (Array.isArray(events) ? events : [events]).flatMap((entry) => {
-    const event = entry.trim();
+  const name = event.trim();
 
-    // Trigger grammar is parsed out of directive values only
-    __DEV__ &&
-      /\||-\[/.test(event) &&
-      warn(
-        `'${event}' looks like Rouse trigger syntax, which isn't parsed in app.on/ctx.on. Pass modifiers and arguments as options instead: app.on('sse', fn, { arg: 'late', once: true }).`,
-        target,
-      );
-
-    return (
-      dispatchTrigger(
-        { event, options: triggerOptions },
-        { el: target as Element, app, action, suppressNavigation: false },
-      ) ?? []
+  // Trigger grammar is parsed out of directive values only
+  __DEV__ &&
+    /\||-\[/.test(name) &&
+    warn(
+      `'${name}' looks like Rouse trigger syntax, which isn't parsed in app.on/ctx.on. Pass modifiers and arguments as options instead: app.on('sse', fn, { arg: 'late', once: true }).`,
+      target,
     );
-  });
 
-  if (signal) {
-    signal.addEventListener('abort', () => cleanups.forEach((cleanup) => cleanup()), {
-      once: true,
-    });
-  }
+  const cleanup =
+    dispatchTrigger(
+      { event: name, options: triggerOptions },
+      { el: target as Element, app, action, suppressNavigation: false },
+    ) ?? (() => {});
 
-  return () => cleanups.forEach((cleanup) => cleanup());
+  signal?.addEventListener('abort', cleanup, { once: true });
+
+  return cleanup;
 }
 
 /**
@@ -172,8 +164,8 @@ export function createBoundOn(
   devCheck?: (options: ListenerOptions) => void,
 ): BoundOn {
   return (...args: any[]): VoidFn => {
-    // A string or array first argument means the target was omitted
-    const implied = typeof args[0] === 'string' || Array.isArray(args[0]);
+    // A string first argument means the target was omitted
+    const implied = typeof args[0] === 'string';
     const target = implied ? defaultTarget : args[0];
     const event = implied ? args[0] : args[1];
     const callback = implied ? args[1] : args[2];
