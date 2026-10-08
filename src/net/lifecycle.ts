@@ -86,7 +86,7 @@ export async function runRequestLifecycle(
     if (settled) return;
     settled = true;
 
-    if (result.error?.status === 'CANCELED') {
+    if (result.error?.code === 'CANCELED') {
       dispatch(el, `${prefix}:abort`, lifecycleDetail);
       return;
     }

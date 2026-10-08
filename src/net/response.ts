@@ -1,6 +1,6 @@
 import type {
-  CustomErrorStatus,
-  ErrorStatus,
+  CustomErrorCode,
+  ErrorCode,
   FetchRequest,
   RequestError,
   RouseResponse,
@@ -23,7 +23,7 @@ export async function normalizeResponse(
     if (response.bodyUsed) {
       return {
         data: null,
-        error: { message: 'Stream already consumed', status: 'INTERNAL_ERROR' },
+        error: { message: 'Stream already consumed', code: 'INTERNAL_ERROR' },
         response,
         headers: parsedHeaders,
         status: response.status,
@@ -42,7 +42,7 @@ export async function normalizeResponse(
         response.body?.cancel();
         error = {
           message: 'Cannot read an event stream as a response. Open it with rz-sse.',
-          status: 'PARSE_ERROR',
+          code: 'PARSE_ERROR',
         };
       } else if (isJsonType(contentType)) {
         const text = await response.text();
@@ -59,7 +59,7 @@ export async function normalizeResponse(
   } catch (e) {
     const errorMessage = e instanceof Error ? e.message : String(e);
     data = null;
-    error = { message: errorMessage, status: 'PARSE_ERROR' };
+    error = { message: errorMessage, code: 'PARSE_ERROR' };
   }
 
   // HTTP errors (4xx/5xx) overwrite PARSE_ERRORs here,
@@ -67,9 +67,9 @@ export async function normalizeResponse(
   if (!response.ok) {
     error = {
       message: response.statusText || 'Request failed',
-      status: response.status,
+      code: response.status,
       body: data ?? undefined,
-      parseError: error?.status === 'PARSE_ERROR' ? error.message : undefined,
+      parseError: error?.code === 'PARSE_ERROR' ? error.message : undefined,
     };
   }
 
@@ -87,14 +87,14 @@ export async function normalizeResponse(
  * Maps native DOM exceptions into standardized `RequestError` objects.
  *
  * **Note:** If a global timeout and a manual abort happen simultaneously, the
- * manual abort (`isMainAborted`) wins out and the status is set to 'CANCELED'.
+ * manual abort (`isMainAborted`) wins out and the code is set to 'CANCELED'.
  */
 export function mapCatchError(error: any, isMainAborted: boolean): RequestError {
   const isAbort = error.name === 'AbortError';
   const isTimeout = error.name === 'TimeoutError';
 
   // Distinguish between timeout and explicit cancel
-  const status: CustomErrorStatus = isTimeout
+  const code: CustomErrorCode = isTimeout
     ? 'TIMEOUT'
     : isAbort
       ? isMainAborted
@@ -103,13 +103,13 @@ export function mapCatchError(error: any, isMainAborted: boolean): RequestError 
       : 'NETWORK_ERROR';
 
   const message =
-    status === 'TIMEOUT'
+    code === 'TIMEOUT'
       ? 'Request timed out'
-      : status === 'CANCELED'
+      : code === 'CANCELED'
         ? 'Request canceled'
         : error.message || 'Network error';
 
-  return { message, status, original: error };
+  return { message, code, original: error };
 }
 
 /**
@@ -118,11 +118,11 @@ export function mapCatchError(error: any, isMainAborted: boolean): RequestError 
 export function fallbackResponse(
   config: FetchRequest,
   message: string,
-  status: ErrorStatus = 'CANCELED',
+  code: ErrorCode = 'CANCELED',
 ): RouseResponse {
   return {
     data: null,
-    error: { message, status },
+    error: { message, code },
     response: null,
     headers: null,
     status: null,

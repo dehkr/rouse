@@ -598,7 +598,7 @@ export class StoreManager {
       }
 
       if (result.error) {
-        if (result.error.status === 'CANCELED') {
+        if (result.error.code === 'CANCELED') {
           return done(result);
         }
 

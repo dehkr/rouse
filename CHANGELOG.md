@@ -39,6 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `app.stores.push()` previously cancelled the push in flight. When it has to wait, its promise resolves once the store has nothing in flight and nothing left to send.
   - `rz:push:abort` no longer fires for overlapping pushes, and `app.stores.push()` ignores `abortKey`.
 - **Breaking:** Rename the `rz-fetch-init` directive back to `rz-request`.
+- **Breaking:** Rename `RequestError.status` to `code`. Read it as `error.code` in `rz:*:error` listeners, error interceptors, and the result of `app.fetch`.
 - Retry `OPTIONS` and `QUERY` requests once when no response arrives, as `GET` and `HEAD` already were.
 
 ### Removed

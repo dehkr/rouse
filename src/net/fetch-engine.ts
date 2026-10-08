@@ -204,7 +204,7 @@ async function sendAndRoute(
       __DEV__ && warn(`Cross-origin redirect blocked: '${result.response.url}'.`);
       result.error = {
         message: 'Cross-origin redirect blocked',
-        status: 'REDIRECTED',
+        code: 'REDIRECTED',
       };
     }
 
@@ -220,8 +220,8 @@ async function sendAndRoute(
     handle.settle(result);
 
     if (result.error) {
-      const s = result.error.status;
-      if (s !== 'CANCELED' && s !== 'REDIRECTED' && result.response) {
+      const { code } = result.error;
+      if (code !== 'CANCELED' && code !== 'REDIRECTED' && result.response) {
         routePayload(hostEl, result, 'error');
       }
       return result;

@@ -132,7 +132,7 @@ export async function request<T = any>(
       if (
         !responded &&
         attempt === 0 &&
-        errorPayload.status === 'NETWORK_ERROR' &&
+        errorPayload.code === 'NETWORK_ERROR' &&
         isSafeMethod(method)
       ) {
         return execute(attempt + 1);

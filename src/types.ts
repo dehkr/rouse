@@ -546,7 +546,7 @@ export interface StandaloneDirective<T extends Element = Element> {
 }
 
 /**
- * Custom error statuses for non-HTTP failures.
+ * Codes for failures an HTTP status doesn't describe.
  *
  * - `CANCELED`: User or AbortController canceled the request.
  * - `TIMEOUT`: Request exceeded timeout threshold.
@@ -555,7 +555,7 @@ export interface StandaloneDirective<T extends Element = Element> {
  * - `INTERNAL_ERROR`: Unexpected error in request engine.
  * - `REDIRECTED`: Cross-origin redirect refused by the fetch engine.
  */
-export type CustomErrorStatus =
+export type CustomErrorCode =
   | 'CANCELED'
   | 'TIMEOUT'
   | 'NETWORK_ERROR'
@@ -563,20 +563,20 @@ export type CustomErrorStatus =
   | 'INTERNAL_ERROR'
   | 'REDIRECTED';
 
-/** HTTP status codes (2xx-5xx) or custom error status. */
-export type ErrorStatus = CustomErrorStatus | number;
+/** An HTTP status code, or a custom error code. */
+export type ErrorCode = CustomErrorCode | number;
 
 /** Normalized error object. Can include a parsed response body for non-OK HTTP responses (JSON object/array or text/HTML string). */
 export interface RequestError {
   /** Human-readable description of the failure. */
   message: string;
-  /** HTTP status code, or a custom status for non-HTTP failures. */
-  status: ErrorStatus;
+  /** The HTTP status code, or a custom code for failures an HTTP status doesn't describe. */
+  code: ErrorCode;
   /** The underlying thrown value (native `Error`, `DOMException`, etc.) for non-HTTP failures. */
   original?: any;
   /** Parsed error-response body, for inspection. Aliases `result.data`. Mutating it affects what gets routed/rendered. */
   body?: unknown;
-  /** Present with a PARSE_ERROR status; describes why the response body couldn't be parsed. */
+  /** Present with a PARSE_ERROR code; describes why the response body couldn't be parsed. */
   parseError?: string;
 }
 
