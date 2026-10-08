@@ -331,8 +331,8 @@ export function parseStoreValue(
  * parseDataSourcePath('@cart.items.total');
  * // { source: 'cart', namespace: null, nestedPath: 'items.total' }
  *
- * parseDataSourcePath('@cart::status.loading');
- * // { source: 'cart', namespace: 'status', nestedPath: 'loading' }
+ * parseDataSourcePath('@cart::status.syncing');
+ * // { source: 'cart', namespace: 'status', nestedPath: 'syncing' }
  */
 export function parseDataSourcePath(value: string): {
   source: string;

@@ -105,7 +105,7 @@ function triggerStoreSync(
     __DEV__ && warn(`rz-${op}: store '@${storeName}' not found.`, triggerEl);
     return;
   }
-  if (status.loading) {
+  if (status.syncing) {
     // A push that brings something new is sent once the current request succeeds
     if (op === 'push') {
       app.stores._deferPush(storeName, nestedPath, () =>

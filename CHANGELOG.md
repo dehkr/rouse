@@ -40,6 +40,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `rz:push:abort` no longer fires for overlapping pushes, and `app.stores.push()` ignores `abortKey`.
 - **Breaking:** Rename the `rz-fetch-init` directive back to `rz-request`.
 - **Breaking:** Rename `RequestError.status` to `code`. Read it as `error.code` in `rz:*:error` listeners, error interceptors, and the result of `app.fetch`.
+- **Breaking:** Update the store status object:
+  - Rename `loading` to `syncing`.
+  - Rename `dirty`, the per-key map of dirty root keys, to `dirtyKeys`.
+  - Add a `dirty` boolean that returns `true` if any keys in the store are dirty.
+  - Make `error` an object that holds `code` and `message`.
 - Retry `OPTIONS` and `QUERY` requests once when no response arrives, as `GET` and `HEAD` already were.
 
 ### Removed

@@ -6,6 +6,7 @@ import type {
   DirectiveSlug,
   FetchRequest,
   LifecycleEventMap,
+  RequestError,
   RouseResponse,
   StorePatchEvent,
   SyncRequest,
@@ -36,11 +37,23 @@ import {
 /** Receives the store roots that changed in one batch of user edits. */
 export type EditListener = (roots: ReadonlySet<string>) => void;
 
+/**
+ * A store's sync status. Read it with `app.stores.status(name)` in JavaScript,
+ * or as `@name::status` in a directive, for example
+ * `data-rz-prop="disabled: @cart::status.syncing"`. Every property updates
+ * reactively, and none of them can be written from HTML.
+ */
 export interface StoreStatus {
-  loading: false | 'push' | 'pull';
-  error: string | null;
+  /** `'push'` or `'pull'` while that operation is in progress, `false` when idle. */
+  syncing: false | 'push' | 'pull';
+  /** Why the last push or pull failed, or `null`. Cleared when the next one starts. */
+  error: Pick<RequestError, 'code' | 'message'> | null;
+  /** When the store last took in data from the server, in milliseconds, or `0`. */
   lastSync: number;
-  dirty: Record<string, boolean>;
+  /** `true` when the store holds changes the server hasn't confirmed. */
+  dirty: boolean;
+  /** The top-level keys whose values differ from what the server has. */
+  dirtyKeys: Record<string, boolean>;
 }
 
 export interface StoreTarget {
@@ -107,6 +120,11 @@ interface StoreEntry {
  */
 function sliceAt(obj: any, path?: string) {
   return path ? getNestedVal(obj, path) : obj;
+}
+
+/** Copies the fields a store's status exposes from a request error. */
+function storeError(error: RequestError | null): StoreStatus['error'] {
+  return error && { code: error.code, message: error.message };
 }
 
 /** The one root a path-level write can change, or `undefined` for the whole store. */
@@ -305,10 +323,11 @@ export class StoreManager {
     __DEV__ && warnNullFields(storeName, state);
 
     const status: StoreStatus = reactive({
-      loading: false,
+      syncing: false,
       error: null,
       lastSync: 0,
-      dirty: {},
+      dirty: false,
+      dirtyKeys: {},
     });
 
     const proxyState = reactive(state);
@@ -395,9 +414,9 @@ export class StoreManager {
   }
 
   /**
-   * Recomputes dirty flags against `lastGood`. The only writer of `status.dirty`.
-   * Without `roots`, walks every root in the data or the baseline, so a root
-   * deleted locally still reads dirty.
+   * Recomputes the dirty status against `lastGood`. The only writer of
+   * `status.dirtyKeys` and `status.dirty`. Without `roots`, walks every root in
+   * the data or the baseline, so a root deleted locally still reads dirty.
    */
   private _reconcileDirty(entry: StoreEntry, roots?: Iterable<string>) {
     const { data, status } = entry;
@@ -413,11 +432,13 @@ export class StoreManager {
       }
 
       if (deepEqual(data[key], baseline[key])) {
-        delete status.dirty[key];
+        delete status.dirtyKeys[key];
       } else {
-        status.dirty[key] = true;
+        status.dirtyKeys[key] = true;
       }
     }
+
+    status.dirty = Object.keys(status.dirtyKeys).length > 0;
   }
 
   /** Returns `true` when the data at `path`, or the whole store, differs from `lastGood`. */
@@ -547,9 +568,9 @@ export class StoreManager {
       }
     }
 
-    // A follow-up that started a request has already set `loading`, so the store is
+    // A follow-up that started a request has already set `syncing`, so the store is
     // still busy and held pushes keep waiting
-    if (!entry.status.loading) {
+    if (!entry.status.syncing) {
       this._settleIdle(entry);
     }
   }
@@ -558,7 +579,7 @@ export class StoreManager {
    * Sends the request and applies the outcome to the store: rolls back a failed push,
    * otherwise reconciles the response. `snapshot` is the data the request carries,
    * and what the baseline advances to if it succeeds. Tracks the request so a
-   * superseded one leaves `loading` alone when it settles. Hands back the pushes
+   * superseded one leaves `syncing` alone when it settles. Hands back the pushes
    * dropped while it was in flight when it owned the store and succeeded.
    */
   private async _sendAndApply(
@@ -576,7 +597,7 @@ export class StoreManager {
     entry.activeReq = reqToken;
 
     entry.inFlight = { snapshot, path: manualConfig?.nestedPath };
-    status.loading = operation;
+    status.syncing = operation;
     status.error = null;
 
     let succeeded = false;
@@ -592,7 +613,7 @@ export class StoreManager {
 
       // A superseded request must not touch store data. Its snapshot is stale, so
       // both the reconcile and the rollback target belong to a request that no
-      // longer owns the store. `finally` already leaves `loading` to the winner.
+      // longer owns the store. `finally` already leaves `syncing` to the winner.
       if (entry.activeReq !== reqToken) {
         return done(result);
       }
@@ -602,7 +623,7 @@ export class StoreManager {
           return done(result);
         }
 
-        status.error = result.error.message;
+        status.error = storeError(result.error);
 
         if (operation === 'push') {
           this._maybeRollback(entry, snapshot, manualConfig?.nestedPath, result.error);
@@ -625,14 +646,14 @@ export class StoreManager {
       );
 
       if (entry.activeReq === reqToken) {
-        status.error = fallback.error?.message ?? null;
+        status.error = storeError(fallback.error);
       }
 
       handle.settle(fallback);
       return done(fallback);
     } finally {
       if (entry.activeReq === reqToken) {
-        status.loading = false;
+        status.syncing = false;
         entry.activeReq = undefined;
         entry.inFlight = undefined;
 
@@ -996,7 +1017,7 @@ export class StoreManager {
 
   /**
    * Returns the status object for a store, or `undefined`. Available store
-   * status properties are `loading`, `error`, `lastSync`, and `dirty`.
+   * status properties are `syncing`, `error`, `lastSync`, `dirty`, and `dirtyKeys`.
    */
   status(storeName: string | null | undefined): StoreStatus | undefined {
     return this._find(storeName)?.status;
@@ -1016,7 +1037,7 @@ export class StoreManager {
     }
 
     if (!path) {
-      return Object.keys(entry.status.dirty).length > 0;
+      return entry.status.dirty;
     }
 
     return this._isSliceDirty(entry, path);
@@ -1061,7 +1082,7 @@ export class StoreManager {
   ): Promise<void> {
     const entry = this._find(storeName);
 
-    if (entry?.status.loading) {
+    if (entry?.status.syncing) {
       this._deferPush(storeName, config?.nestedPath, () => this._push(storeName, config));
       return this._whenIdle(entry);
     }
@@ -1118,7 +1139,7 @@ export class StoreManager {
   /** Returns what the server will hold if the request in flight succeeds. */
   private _expectedBaseline(entry: StoreEntry, flight: InFlight) {
     // A pull saves nothing, so the server keeps what it had
-    if (entry.status.loading !== 'push') {
+    if (entry.status.syncing !== 'push') {
       return entry.lastGood;
     }
 
@@ -1135,7 +1156,7 @@ export class StoreManager {
     storeName: string | null | undefined,
     config?: StoreRequestOptions,
   ): Promise<void> {
-    if (this.status(storeName)?.loading === 'push') return;
+    if (this.status(storeName)?.syncing === 'push') return;
     return this._request(storeName, 'pull', config);
   }
 
