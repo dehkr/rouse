@@ -1,7 +1,7 @@
 import { getApp, type RouseApp } from '../core/app';
 import { getDirectiveValue } from '../core/attributes';
 import { STORE_PREFIX } from '../core/constants';
-import { warn } from '../core/diagnostics';
+import { fail, warn } from '../core/diagnostics';
 import { parseStoreRef, parseTriggers } from '../core/parser';
 import { getPathRoot } from '../core/path';
 import { applyTiming, parseTime } from '../core/timing';
@@ -170,6 +170,16 @@ export function createBoundOn(
     const event = implied ? args[0] : args[1];
     const callback = implied ? args[1] : args[2];
     const options: ListenerOptions = (implied ? args[2] : args[3]) ?? {};
+
+    // A querySelector returns `null` if there's no match, and passing that through
+    // throws a TypeError from inside Rouse that doesn't point back to this call.
+    if (typeof target?.addEventListener !== 'function') {
+      fail(
+        `app.on/ctx.on expected an EventTarget, but got ${target === null ? 'null' : typeof target}.`,
+        TypeError,
+      );
+    }
+
     __DEV__ && devCheck?.(options);
     const signal = options.signal
       ? AbortSignal.any([ownerSignal, options.signal])

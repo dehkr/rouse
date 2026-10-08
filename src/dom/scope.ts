@@ -121,15 +121,18 @@ function createScope(el: HTMLElement, app: RouseApp, setup: ScopeSetup) {
   };
 
   // `effectScope` for setup state wraps effects that belong to the scope instance.
-  // The empty instance on failure keeps teardown working, and stops a bad setup
-  // from aborting the scan that mounted it.
+  // A failed setup leaves the region unbound, so the setup error is the only report
+  // instead of one warning per directive resolving against nothing. Teardown still
+  // works and the scan that mounted it continues.
+  let setupFailed = false;
   const stopSetupScope = effectScope(() => {
     __DEV__ && enterMountPhase(el, 'setup');
     try {
       instance = setup(context) || {};
     } catch (error) {
-      err('Scope setup failed.', el, error);
+      err('Scope setup failed. Its directives were not bound:', el, error);
       instance = {};
+      setupFailed = true;
     } finally {
       __DEV__ && exitMountPhase();
     }
@@ -146,19 +149,21 @@ function createScope(el: HTMLElement, app: RouseApp, setup: ScopeSetup) {
 
   cleanups.push(stopSetupScope);
 
-  // State exists but not bound to DOM yet
-  dispatch(el, 'rz:scope:init', { context, instance });
+  if (!setupFailed) {
+    // State exists but not bound to DOM yet
+    dispatch(el, 'rz:scope:init', { context, instance });
 
-  // `effectScope` for bindings wraps the logic that connects the reactive state
-  // to the DOM. Captures effects created by bindings (text, atts, etc.) so the
-  // UI auto updates.
-  const stopBindingScope = effectScope(() => {
-    const { unbindDom, scan, teardown } = bindScope(el, instance, app);
-    binding = { scan, teardown };
-    cleanups.push(unbindDom);
-  });
+    // `effectScope` for bindings wraps the logic that connects the reactive state
+    // to the DOM. Captures effects created by bindings (text, atts, etc.) so the
+    // UI auto updates.
+    const stopBindingScope = effectScope(() => {
+      const { unbindDom, scan, teardown } = bindScope(el, instance, app);
+      binding = { scan, teardown };
+      cleanups.push(unbindDom);
+    });
 
-  cleanups.push(stopBindingScope);
+    cleanups.push(stopBindingScope);
+  }
 
   return {
     instance,
