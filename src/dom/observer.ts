@@ -1,5 +1,6 @@
 import { getApp, NETWORK_DIRECTIVES, type RouseApp } from '../core/app';
-import { hasDirective, queryTargets } from '../core/attributes';
+import { hasDirective, queryTargets, unknownDirectiveNames } from '../core/attributes';
+import { warn } from '../core/diagnostics';
 import { SCOPE_SELECTOR } from '../directives/rz-scope';
 import { rzStore } from '../directives/rz-store';
 import {
@@ -14,6 +15,20 @@ import {
   scanScopeNode,
   teardownScopeNode,
 } from './scope';
+
+/** Warns for each `data-rz-*` attribute in `root`'s subtree, root included, that isn't a directive. */
+export function warnUnknownDirectives(root: Element, app: RouseApp) {
+  for (const el of queryTargets(root, '*')) {
+    if (!getApp(el, app)) continue;
+
+    unknownDirectiveNames(el).forEach((name) =>
+      warn(
+        `'${name}' isn't a Rouse directive. The data-rz- prefix is reserved for directives.`,
+        el,
+      ),
+    );
+  }
+}
 
 /**
  * Creates a `MutationObserver` scoped to the provided app instance. Initializes
@@ -32,6 +47,8 @@ export function initObserver(app: RouseApp) {
       for (const node of mutation.addedNodes) {
         if (node.nodeType === Node.ELEMENT_NODE) {
           const addedEl = node as Element;
+
+          __DEV__ && warnUnknownDirectives(addedEl, app);
 
           const storeScriptEls = queryTargets<HTMLScriptElement>(
             addedEl,

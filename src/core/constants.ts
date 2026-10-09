@@ -1,3 +1,39 @@
+/** Every `rz-*` directive name supported by the framework, without the prefix. */
+export const DIRECTIVE_SLUGS = [
+  'attr',
+  'class',
+  'close',
+  'deposit',
+  'fetch',
+  'headers',
+  'html',
+  'indicator',
+  'key',
+  'model',
+  'on',
+  'place',
+  'prop',
+  'pull',
+  'push',
+  'render',
+  'request',
+  'scope',
+  'send',
+  'sse',
+  'store',
+  'style',
+  'text',
+  'wake',
+] as const;
+
+/** Represents a directive name without the `data-rz-` prefix. */
+export type DirectiveSlug = (typeof DIRECTIVE_SLUGS)[number];
+
+/** Type guard to check if a given string is a valid DirectiveSlug. */
+export function isDirectiveSlug(key: string): key is DirectiveSlug {
+  return DIRECTIVE_SLUGS.includes(key as DirectiveSlug);
+}
+
 export const STORE_PREFIX = '@';
 export const ITEM_PREFIX = '%';
 export const KEY_BLOCKLIST = ['__proto__', 'constructor', 'prototype'];

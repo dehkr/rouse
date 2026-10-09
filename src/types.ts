@@ -1,5 +1,6 @@
 import type { RouseApp } from './core/app';
 import type {
+  DirectiveSlug,
   ITEM_KEY,
   ITEM_META_KEY,
   ListenTarget,
@@ -7,35 +8,10 @@ import type {
   RENDER_PARENT,
 } from './core/constants';
 
+export type { DirectiveSlug };
+
 /** Brand for {@link BoundCleanupFn}, keeping arbitrary `VoidFn`s out of directive-teardown positions. */
 declare const CLEANUP: unique symbol;
-
-/** Every `rz-*` directive name supported by the framework, without the prefix. */
-export type DirectiveSlug =
-  | 'attr'
-  | 'class'
-  | 'close'
-  | 'deposit'
-  | 'fetch'
-  | 'headers'
-  | 'html'
-  | 'indicator'
-  | 'key'
-  | 'model'
-  | 'on'
-  | 'place'
-  | 'prop'
-  | 'pull'
-  | 'push'
-  | 'render'
-  | 'request'
-  | 'scope'
-  | 'send'
-  | 'sse'
-  | 'store'
-  | 'style'
-  | 'text'
-  | 'wake';
 
 /** Detail for `rz:app:start`, `rz:app:ready`, and `rz:app:destroy`. */
 export interface AppEventDetail {

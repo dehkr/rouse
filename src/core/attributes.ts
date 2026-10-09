@@ -1,10 +1,13 @@
 import type { DirectiveSlug } from '../types';
+import { isDirectiveSlug } from './constants';
+
+const PREFIX = 'data-rz-';
 
 /**
  * Generates a CSS selector matching a directive, optionally qualified by `tag`.
  */
 export function directiveSelector(slug: DirectiveSlug, tag = ''): string {
-  return `${tag}[data-rz-${slug}]`;
+  return `${tag}[${PREFIX}${slug}]`;
 }
 
 /**
@@ -12,14 +15,23 @@ export function directiveSelector(slug: DirectiveSlug, tag = ''): string {
  * the directive isn't present.
  */
 export function getDirectiveValue(el: Element, slug: DirectiveSlug): string | null {
-  return el.getAttribute(`data-rz-${slug}`);
+  return el.getAttribute(`${PREFIX}${slug}`);
 }
 
 /**
  * Checks if the element has a specific directive.
  */
 export function hasDirective(el: Element, slug: DirectiveSlug): boolean {
-  return el.hasAttribute(`data-rz-${slug}`);
+  return el.hasAttribute(`${PREFIX}${slug}`);
+}
+
+/** Returns the `data-rz-*` attribute names on `el` that don't name a directive. */
+export function unknownDirectiveNames(el: Element): string[] {
+  return el
+    .getAttributeNames()
+    .filter(
+      (name) => name.startsWith(PREFIX) && !isDirectiveSlug(name.slice(PREFIX.length)),
+    );
 }
 
 /**

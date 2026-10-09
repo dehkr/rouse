@@ -24,7 +24,7 @@ import {
 } from '../dom/binder';
 import { initDomRouter, placeContent } from '../dom/dom-router';
 import { createBoundOn } from '../dom/events';
-import { initObserver } from '../dom/observer';
+import { initObserver, warnUnknownDirectives } from '../dom/observer';
 import { destroyInstance, IS_SCOPE, initScopeElement } from '../dom/scope';
 import { initStoreRouter } from '../dom/store-router';
 import { runFetch } from '../net/fetch-engine';
@@ -420,6 +420,8 @@ export class RouseApp {
 
     initDomRouter(this, this._abortController.signal);
     initStoreRouter(this, this._abortController.signal);
+
+    __DEV__ && warnUnknownDirectives(this.root, this);
 
     // Scan for store <script> elements first to ensure state exists for bindings
     const storeScriptEls = queryTargets<HTMLScriptElement>(this.root, rzStore.selector);
