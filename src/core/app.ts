@@ -515,8 +515,10 @@ export function getApp(el: Element, expected?: RouseApp): RouseApp | undefined {
   }
 
   const found = appInstances.get(root);
+
+  // A nested app's elements should not be picked up if a parent app scans its
+  // subtree. That's the normal case, so it returns without a warning.
   if (expected && found !== expected) {
-    __DEV__ && warn('Element does not belong to the expected app instance.', el);
     return undefined;
   }
 

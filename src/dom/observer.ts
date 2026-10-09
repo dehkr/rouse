@@ -48,6 +48,11 @@ export function initObserver(app: RouseApp) {
         if (node.nodeType === Node.ELEMENT_NODE) {
           const addedEl = node as Element;
 
+          // If a subtree is added then removed before the current task finishes,
+          // the add will be reported, but the node will be detached when the observer
+          // runs. So skip it to avoid errant ownership warnings.
+          if (!addedEl.isConnected) continue;
+
           __DEV__ && warnUnknownDirectives(addedEl, app);
 
           const storeScriptEls = queryTargets<HTMLScriptElement>(
