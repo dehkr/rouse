@@ -60,6 +60,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Throw from `app.interceptor` at registration when `fn` isn't a function, instead of failing on the next request.
+- Pass a custom event to `app.on` and `ctx.on` callbacks if the trigger source doesn't fire an event (consistent with `rz-on`).
 - Send the submitting button's name and value with a form's fields, and honor its `formenctype`.
 - Stop a fetch from aborting an in-flight write under the same abort key. A new request under that key is ignored until the write finishes. Read requests still replace each other.
 - Place an empty response, such as a 204, when it carries `Rouse-Place`. `Rouse-Place: delete: #row` on a response with no body removed nothing. `rz:fetch:success:html` and `rz:fetch:error:html` now fire for it with `data` set to `null`. A response without the header still places nothing.

@@ -124,14 +124,16 @@ export function on(
     return () => {};
   }
 
+  const name = event.trim();
+
   // An object with a `handleEvent` method can be used as the listener, mirroring
-  // `addEventListener`. Resolved per call so it can be swapped after binding.
+  // `addEventListener`. Resolved per call so it can be swapped after binding. Also,
+  // provide a custom event when Rouse trigger sources don't fire one (which is most of
+  // them). This is consistent with `rz-on`.
   const action: ActionFn =
     typeof callback === 'function'
-      ? (callback as ActionFn)
-      : (e?: Event) => callback.handleEvent(e as Event);
-
-  const name = event.trim();
+      ? (e?: Event) => callback(e ?? new CustomEvent(name))
+      : (e?: Event) => callback.handleEvent(e ?? new CustomEvent(name));
 
   // Trigger grammar is parsed out of directive values only
   __DEV__ &&
