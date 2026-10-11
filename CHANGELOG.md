@@ -18,8 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add a `submitter` fetch option, which lets you submit a form programmatically as if the button were pressed: `app.fetch(url, { triggerEl: form, submitter: button })`. If present, the button's `formaction`, `formmethod`, and `formenctype` are honored, and its name and value are sent with the form's fields.
 - Add `app.place(target, content, options?)` to place HTML from JavaScript. `target` is an element or a CSS selector. A selector is matched within the app root, including the root itself, and every match receives the content. `options.position` defaults to `innerHTML`. Returns `false` when nothing was placed.
 - Add `ctx.app` to give scopes a direct reference to the app they're mounted in.
-- Add `ctx.interceptor(phase, fn)`, which registers a network interceptor that is removed when the scope is destroyed.
-- Warn in development when `app.on`, `app.sse`, `app.interceptor`, or `app.scope` is called during a scope's setup or `connect()`, since each outlives the scope.
+- Add a `signal` option to `app.sse(url, { signal })` and `app.interceptor(phase, fn, { signal })`. Aborting it closes the stream or removes the interceptor. Inside a scope, pass `signal: term` to end either with the scope, consistent with `app.on` and `app.fetch`.
 - Export `RouseApp` for type annotations and `instanceof` checks.
 
 ### Changed
@@ -53,14 +52,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Breaking:** Remove the `form` fetch option. A form's fields are collected automatically. Pass `triggerEl: form` to send them from JavaScript.
 - **Breaking:** Remove the `swap()` export. Use `app.place()`, which takes the target first and the position in an options bag: `swap(html, el, 'beforeend')` -> `app.place(el, html, { position: 'beforeend' })`
 - **Breaking:** Remove `ctx.stores` and `ctx.appRoot` from scope context. Use `ctx.app.stores` and `ctx.app.root`.
+- **Breaking:** Remove `ctx.fetch`, `ctx.sse`, and `ctx.on` from scope context. Call `ctx.app.fetch`, `ctx.app.sse`, and `ctx.app.on`, and pass `signal: term` to end them with the scope.
 - **Breaking:** Remove `app.stores.create()` and `app.stores.elements()` from the public API. Register a store with `app.store(name, data, config)`.
-- **Breaking:** Remove the multi-event array form of `app.on` and `ctx.on`. Each call takes one event name.
+- **Breaking:** Remove the multi-event array form of `app.on`. Each call takes one event name.
 - **Breaking:** Remove `app.stores.elementFor()`. To listen to one store's events, listen at the app root and check `e.detail.storeName`, which works for stores created in markup or with `app.store()`.
 
 ### Fixed
 
 - Throw from `app.interceptor` at registration when `fn` isn't a function, instead of failing on the next request.
-- Pass a custom event to `app.on` and `ctx.on` callbacks if the trigger source doesn't fire an event (consistent with `rz-on`).
+- Pass a custom event to `app.on` callbacks if the trigger source doesn't fire an event (consistent with `rz-on`).
 - Send the submitting button's name and value with a form's fields, and honor its `formenctype`.
 - Stop a fetch from aborting an in-flight write under the same abort key. A new request under that key is ignored until the write finishes. Read requests still replace each other.
 - Place an empty response, such as a 204, when it carries `Rouse-Place`. `Rouse-Place: delete: #row` on a response with no body removed nothing. `rz:fetch:success:html` and `rz:fetch:error:html` now fire for it with `data` set to `null`. A response without the header still places nothing.

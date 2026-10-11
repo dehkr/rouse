@@ -1,7 +1,7 @@
 import { getApp, type RouseApp } from '../core/app';
 import { getDirectiveValue } from '../core/attributes';
 import { STORE_PREFIX } from '../core/constants';
-import { fail, warn } from '../core/diagnostics';
+import { warn } from '../core/diagnostics';
 import { parseStoreRef, parseTriggers } from '../core/parser';
 import { getPathRoot } from '../core/path';
 import { applyTiming, parseTime } from '../core/timing';
@@ -9,7 +9,6 @@ import { SCOPE_SELECTOR } from '../directives/rz-scope';
 import { subscribeNamed } from '../net/sse-engine';
 import type {
   ActionFn,
-  BoundOn,
   EventCallback,
   ListenerOptions,
   SseMessageDetail,
@@ -30,7 +29,7 @@ export interface TriggerContext {
    * Whether to suppress the browser's native navigation before running the action.
    *
    * Defaults to `true`: directives on anchors and forms take ownership of the
-   * interaction. `app.on`/`ctx.on` and `rz-wake` default to `false` — a programmatic
+   * interaction. `app.on` and `rz-wake` default to `false` — a programmatic
    * listener observes an element rather than taking control of it, and a wake gate
    * only watches for the moment to activate. Those callers can opt in with the
    * `prevent` modifier.
@@ -92,13 +91,13 @@ function attachListener<D = any>(
 /**
  * Attaches a listener for one event name and returns its cleanup.
  *
- * Backs `app.on` and `ctx.on`, which bind it to an app- or scope-lifetime
- * abort signal. The optional `app` is threaded to the trigger engine so
- * trigger sources like `ready` resolve the owning instance without a
- * DOM lookup (and work on non-element targets such as `window`).
+ * Backs `app.on`, which binds it to the app-lifetime abort signal. The optional
+ * `app` is threaded to the trigger engine so trigger sources like `ready` resolve
+ * the owning instance without a DOM lookup (and work on non-element targets such
+ * as `window`).
  *
  * @example
- * ctx.on(el, 'click', handleClick, { debounce: 500 });
+ * app.on(el, 'click', handleClick, { debounce: 500 });
  * app.on(window, 'online', sync);
  */
 export function on<N extends string>(
@@ -139,7 +138,7 @@ export function on(
   __DEV__ &&
     /\||-\[/.test(name) &&
     warn(
-      `'${name}' looks like Rouse trigger syntax, which isn't parsed in app.on/ctx.on. Pass modifiers and arguments as options instead: app.on('sse', fn, { arg: 'late', once: true }).`,
+      `'${name}' looks like Rouse trigger syntax, which isn't parsed in app.on. Pass modifiers and arguments as options instead: app.on('sse', fn, { arg: 'late', once: true }).`,
       target,
     );
 
@@ -155,43 +154,6 @@ export function on(
 }
 
 /**
- * Builds the `app.on` and `ctx.on` surface: a listener bound to an owner's lifetime
- * signal, defaulting to `defaultTarget` when the caller omits an `EventTarget`.
- * `devCheck` receives the caller's options before the owner signal is merged in.
- */
-export function createBoundOn(
-  defaultTarget: EventTarget,
-  ownerSignal: AbortSignal,
-  app: RouseApp,
-  devCheck?: (options: ListenerOptions) => void,
-): BoundOn {
-  return (...args: any[]): VoidFn => {
-    // A string first argument means the target was omitted
-    const implied = typeof args[0] === 'string';
-    const target = implied ? defaultTarget : args[0];
-    const event = implied ? args[0] : args[1];
-    const callback = implied ? args[1] : args[2];
-    const options: ListenerOptions = (implied ? args[2] : args[3]) ?? {};
-
-    // A querySelector returns `null` if there's no match, and passing that through
-    // throws a TypeError from inside Rouse that doesn't point back to this call.
-    if (typeof target?.addEventListener !== 'function') {
-      fail(
-        `app.on/ctx.on expected an EventTarget, but got ${target === null ? 'null' : typeof target}.`,
-        TypeError,
-      );
-    }
-
-    __DEV__ && devCheck?.(options);
-    const signal = options.signal
-      ? AbortSignal.any([ownerSignal, options.signal])
-      : ownerSignal;
-
-    return on(target, event, callback, { ...options, signal }, app);
-  };
-}
-
-/**
  * Routes a single trigger to its handler. Trigger sources go through the
  * `triggerSources` registry. Standard DOM events fall through to `attachListener`.
  *
@@ -200,7 +162,7 @@ export function createBoundOn(
  * also cancels any pending timed calls.
  *
  * Native navigation is suppressed for form submits and anchor clicks unless the
- * caller opts out with `suppressNavigation: false`, which `app.on`/`ctx.on` and
+ * caller opts out with `suppressNavigation: false`, which `app.on` and
  * `attachWakeStrategies` do.
  *
  * @returns Cleanup function, or `null` if the trigger has no teardown.
@@ -348,7 +310,7 @@ export function attachWakeStrategies(
 }
 
 /**
- * Universal trigger sources available to directives and `app.on`/`ctx.on`.
+ * Universal trigger sources available to directives and `app.on`.
  */
 export const triggerSources: Record<string, TriggerSourceHandler> = {
   /** Fires when the RouseApp instance is fully initialized. */
@@ -416,7 +378,7 @@ export const triggerSources: Record<string, TriggerSourceHandler> = {
     if (!query) {
       __DEV__ &&
         warn(
-          `The 'media' trigger requires a query argument: 'media-[(min-width: 640px)]' in HTML, or { arg: '(min-width: 640px)' } from app.on/ctx.on.`,
+          `The 'media' trigger requires a query argument: 'media-[(min-width: 640px)]' in HTML, or { arg: '(min-width: 640px)' } from app.on.`,
           el,
         );
       return null;
@@ -494,7 +456,7 @@ export const triggerSources: Record<string, TriggerSourceHandler> = {
     if (!name) {
       __DEV__ &&
         warn(
-          `The 'sse' trigger requires an event name argument: 'sse-[cart-updated]' in HTML, or { arg: 'cart-updated' } from app.on/ctx.on.`,
+          `The 'sse' trigger requires an event name argument: 'sse-[cart-updated]' in HTML, or { arg: 'cart-updated' } from app.on.`,
           el,
         );
       return null;
@@ -545,7 +507,7 @@ export const triggerSources: Record<string, TriggerSourceHandler> = {
     if (!ref || !ref.startsWith(STORE_PREFIX)) {
       __DEV__ &&
         warn(
-          `The 'edit' trigger requires a store argument: 'edit-[@cart.items]' in HTML, or { arg: '@cart.items' } from app.on/ctx.on.`,
+          `The 'edit' trigger requires a store argument: 'edit-[@cart.items]' in HTML, or { arg: '@cart.items' } from app.on.`,
           el,
         );
       return null;
@@ -578,7 +540,7 @@ function attachTimingSource(type: 'timeout' | 'interval', ctx: TriggerContext) {
   if (!arg) {
     __DEV__ &&
       warn(
-        `The '${type}' trigger requires a time argument: '${type}-[5s]' in HTML, or { arg: '5s' } from app.on/ctx.on.`,
+        `The '${type}' trigger requires a time argument: '${type}-[5s]' in HTML, or { arg: '5s' } from app.on.`,
         ctx.el,
       );
     return null;

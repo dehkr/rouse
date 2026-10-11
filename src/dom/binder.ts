@@ -4,11 +4,8 @@ import { err, warn } from '../core/diagnostics';
 import { dispatch } from '../core/dispatch';
 import { parseDirectiveValue } from '../core/parser';
 import { EMPTY_SCOPE } from '../core/resolve';
-import { rzScope, SCOPE_SELECTOR } from '../directives/rz-scope';
+import { SCOPE_SELECTOR } from '../directives/rz-scope';
 import type { BoundCleanupFn, BoundDirective, Scope } from '../types';
-
-type MountPhase = 'setup' | 'connect';
-type LeakMethod = 'on' | 'sse' | 'interceptor' | 'scope';
 
 /** Registry to track cleanup functions of globally mounted directives. */
 const globalBindings = new WeakMap<Element, BoundCleanupFn[]>();
@@ -22,51 +19,10 @@ const boundDirectiveList: BoundDirective[] = [];
 const awakeScopes = new WeakMap<Element, Scope>();
 /** Cache for the generated selector string. */
 let boundSelectorCache: string | null = null;
-/** Scopes running `setup` or `connect`, innermost last. Dev-only. */
-const mountingScopes: { host: Element; phase: MountPhase }[] = [];
-/** `${scopeName}:${method}` keys already warned by `warnIfMounting`. Dev-only. */
-const warnedLeaks = new Set<string>();
 
 /** Returns true if a scope element is currently connected. */
 export function isScopeAwake(el: Element): boolean {
   return awakeScopes.has(el);
-}
-
-/**
- * Marks a scope as running `phase` until the matching `exitMountPhase`.
- * Call as `__DEV__ && enterMountPhase(...)`.
- */
-export function enterMountPhase(host: Element, phase: MountPhase): void {
-  mountingScopes.push({ host, phase });
-}
-
-/** Closes the innermost `enterMountPhase`. Call as `__DEV__ && exitMountPhase()`. */
-export function exitMountPhase(): void {
-  mountingScopes.pop();
-}
-
-/**
- * Warns once per scope name and method when an app-lifetime registration runs
- * inside a scope's `setup` or `connect`. Call as `__DEV__ && warnIfMounting(...)`.
- */
-export function warnIfMounting(method: LeakMethod, hasSignal = false): void {
-  const current = mountingScopes[mountingScopes.length - 1];
-  if (!current || hasSignal) return;
-
-  const name = rzScope.getConfig(current.host);
-  const key = `${name}:${method}`;
-  if (warnedLeaks.has(key)) return;
-  warnedLeaks.add(key);
-
-  const phase = current.phase === 'connect' ? 'connect()' : 'setup';
-  const advice = {
-    on: 'outlives the scope. Use ctx.on(), or pass a signal.',
-    sse: 'outlives the scope. Use ctx.sse().',
-    interceptor: 'outlives the scope. Use ctx.interceptor().',
-    scope: 'registers on every mount. Register scopes at the app level.',
-  }[method];
-
-  warn(`rz-scope: app.${method}() in '${name}' during ${phase} ${advice}`, current.host);
 }
 
 /**
@@ -284,15 +240,10 @@ function runHook(instance: Scope, name: 'connect' | 'disconnect', root: Element)
   const hook = instance[name];
   if (typeof hook !== 'function') return;
 
-  const tracked = __DEV__ && name === 'connect';
-  tracked && enterMountPhase(root, 'connect');
-
   try {
     hook.call(instance);
   } catch (error) {
     err(`Scope hook '${name}()' failed.`, root, error);
-  } finally {
-    tracked && exitMountPhase();
   }
 }
 

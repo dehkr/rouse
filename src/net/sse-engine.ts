@@ -14,7 +14,7 @@ import { resolveUrl } from './payload';
 /** Releases one reference to a stream. Assignable to `VoidFn`. */
 export type SseRelease = (reason?: SseCloseReason) => void;
 
-/** One holder of a stream: a directive binding, or an `app.sse` / `ctx.sse` call. */
+/** One holder of a stream: a directive binding, or an `app.sse` call. */
 interface StreamRef {
   /** Dispatch node for this holder's events, and the `rz-place` host. */
   el: Element;
@@ -104,8 +104,8 @@ export function openStream(
 
 /**
  * Opens a stream whose lifetime is bound to `signal`. Aborting releases the
- * reference, which is how `app.sse` and `ctx.sse` clean up without the caller
- * holding on to the closer.
+ * reference, which is how `app.sse` cleans up without the caller holding on
+ * to the closer.
  */
 export function openBoundStream(
   app: RouseApp,

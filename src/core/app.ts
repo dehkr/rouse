@@ -20,10 +20,9 @@ import {
   registerBoundDirectives,
   teardownGlobalBindings,
   walkBoundElements,
-  warnIfMounting,
 } from '../dom/binder';
 import { initDomRouter, placeContent } from '../dom/dom-router';
-import { createBoundOn } from '../dom/events';
+import { on } from '../dom/events';
 import { initObserver, warnUnknownDirectives } from '../dom/observer';
 import { destroyInstance, IS_SCOPE, initScopeElement } from '../dom/scope';
 import { initStoreRouter } from '../dom/store-router';
@@ -33,7 +32,9 @@ import type {
   BoundOn,
   ErrorInterceptor,
   FetchRequest,
+  InterceptorOptions,
   InterceptorPhase,
+  ListenerOptions,
   PlaceOptions,
   RequestInterceptor,
   ResponseInterceptor,
@@ -51,7 +52,7 @@ import { StoreManager, type SyncPolicy } from './store';
 export interface RouseConfig {
   /** Element or selector where the app mounts. Defaults to `document.body`. */
   root?: string | HTMLElement;
-  /** Prepended to relative URLs in `rz-fetch`, `rz-push`, `rz-pull`, and `{app,ctx}.fetch()`. */
+  /** Prepended to relative URLs in `rz-fetch`, `rz-push`, `rz-pull`, and `app.fetch()`. */
   baseUrl?: string;
   /** Default headers applied to every request. Merged with per-request and directive-level headers; a `null` value removes the header. */
   headers?: Record<string, string | null>;
@@ -122,15 +123,20 @@ export class RouseApp {
   /**
    * Makes a network request using the app's configuration. Registered interceptors,
    * default headers, and credentials all apply, and a relative URL is resolved against
-   * the configured `baseUrl`.
+   * the configured `baseUrl`. Inside a scope, pass `signal: term` to abort the request
+   * when the scope is destroyed.
    *
    * @example
    * const { data, error } = await app.fetch('/api/user');
+   * const { data } = await app.fetch('/api/search', { signal: term });
    */
   public fetch: RouseFetch;
 
   /**
    * Opens a server-sent events stream, or joins one already open at the same URL.
+   * The stream closes when the app is destroyed, when `options.signal` aborts, or
+   * when the returned closer is called. Inside a scope, pass `signal: term` to close
+   * it with the scope.
    *
    * @example
    * const close = app.sse('/api/feed');
@@ -140,7 +146,8 @@ export class RouseApp {
 
   /**
    * Adds an event listener that is auto-removed when the app is destroyed. Listens
-   * on `app.root` unless an `EventTarget` is passed first.
+   * on `app.root` unless an `EventTarget` is passed first. Inside a scope, pass the
+   * host and `signal: term` to listen on the scope's element until it is destroyed.
    *
    * @returns A teardown closure that removes the listener early.
    *
@@ -148,6 +155,7 @@ export class RouseApp {
    * app.on('click', onClick, { debounce: 300 });
    * app.on(window, 'online', sync);
    * app.on('interval', refresh, { arg: '30s' });
+   * app.on(host, 'input', search, { signal: term });
    */
   public on: BoundOn;
 
@@ -218,17 +226,38 @@ export class RouseApp {
     this._abortController = new AbortController();
 
     // A lifecycle-safe listener bound to the app-lifetime signal, auto-removed on `destroy`
-    this.on = createBoundOn(
-      this.root,
-      this._abortController.signal,
-      this,
-      __DEV__ ? (options) => warnIfMounting('on', options.signal != null) : undefined,
-    );
+    this.on = (...args: any[]): VoidFn => {
+      // A string first argument means the target was omitted
+      const implied = typeof args[0] === 'string';
+      const target = implied ? this.root : args[0];
+      const event = implied ? args[0] : args[1];
+      const callback = implied ? args[1] : args[2];
+      const options: ListenerOptions = (implied ? args[2] : args[3]) ?? {};
 
-    // Released when the app-lifetime signal aborts, like `app.on` listeners
+      // A querySelector returns `null` if there's no match, and passing that through
+      // throws a TypeError from inside Rouse that doesn't point back to this call.
+      if (typeof target?.addEventListener !== 'function') {
+        fail(
+          `app.on expected an EventTarget, but got ${target === null ? 'null' : typeof target}.`,
+          TypeError,
+        );
+      }
+
+      const appSignal = this._abortController.signal;
+      const signal = options.signal
+        ? AbortSignal.any([appSignal, options.signal])
+        : appSignal;
+
+      return on(target, event, callback, { ...options, signal }, this);
+    };
+
+    // Released when the app-lifetime signal or the caller's signal aborts
     this.sse = (resource, options = {}) => {
-      __DEV__ && warnIfMounting('sse');
-      return openBoundStream(this, resource, options, this._abortController.signal);
+      const appSignal = this._abortController.signal;
+      const signal = options.signal
+        ? AbortSignal.any([appSignal, options.signal])
+        : appSignal;
+      return openBoundStream(this, resource, options, signal);
     };
   }
 
@@ -251,8 +280,6 @@ export class RouseApp {
     if (typeof setup !== 'function') {
       fail(`Scope '${name}' must be a setup function.`);
     }
-
-    __DEV__ && warnIfMounting('scope');
 
     // Brand as validated; registry.register rejects unbranded setups
     (setup as any)[IS_SCOPE] = true;
@@ -320,7 +347,8 @@ export class RouseApp {
   /**
    * Registers a network interceptor. Interceptors run in FIFO order and are
    * `await`ed sequentially, so async interceptors block subsequent ones in
-   * the same phase.
+   * the same phase. Inside a scope, pass `signal: term` to remove it when the
+   * scope is destroyed.
    *
    * @returns A teardown closure that unregisters the interceptor.
    *
@@ -331,19 +359,29 @@ export class RouseApp {
    * });
    * remove();
    *
-   * // Inside a scope, use ctx.interceptor() so it's removed with the scope.
+   * app.interceptor('request', addScopeHeader, { signal: term });
    */
-  interceptor(phase: 'request', fn: RequestInterceptor): VoidFn;
-  interceptor(phase: 'response', fn: ResponseInterceptor): VoidFn;
-  interceptor(phase: 'error', fn: ErrorInterceptor): VoidFn;
-  interceptor(phase: InterceptorPhase, fn: any): VoidFn {
-    __DEV__ && warnIfMounting('interceptor');
-    return this._addInterceptor(phase, fn);
+  interceptor(
+    phase: 'request',
+    fn: RequestInterceptor,
+    options?: InterceptorOptions,
+  ): VoidFn;
+  interceptor(
+    phase: 'response',
+    fn: ResponseInterceptor,
+    options?: InterceptorOptions,
+  ): VoidFn;
+  interceptor(phase: 'error', fn: ErrorInterceptor, options?: InterceptorOptions): VoidFn;
+  interceptor(
+    phase: InterceptorPhase,
+    fn: any,
+    options: InterceptorOptions = {},
+  ): VoidFn {
+    return this._addInterceptor(phase, fn, options.signal);
   }
 
   /**
-   * Registers an interceptor without the scope-mount check, removed when `signal` aborts.
-   * Backs `app.interceptor` and `ctx.interceptor`.
+   * Registers an interceptor, removed when `signal` aborts. Backs `app.interceptor`.
    * @internal
    */
   _addInterceptor(phase: InterceptorPhase, fn: any, signal?: AbortSignal): VoidFn {

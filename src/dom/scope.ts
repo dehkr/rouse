@@ -3,10 +3,9 @@ import type { RouseApp } from '../core/app';
 import { err, fail, warn } from '../core/diagnostics';
 import { dispatch } from '../core/dispatch';
 import { rzScope, rzWake } from '../directives';
-import { openBoundStream } from '../net/sse-engine';
-import type { InterceptorPhase, ScopeCtx, ScopeSetup, VoidFn } from '../types';
-import { bindScope, enterMountPhase, exitMountPhase } from './binder';
-import { attachWakeStrategies, createBoundOn } from './events';
+import type { ScopeCtx, ScopeSetup, VoidFn } from '../types';
+import { bindScope } from './binder';
+import { attachWakeStrategies } from './events';
 
 export const IS_SCOPE: unique symbol = Symbol(__DEV__ ? 'rz.scope' : '');
 
@@ -105,18 +104,6 @@ function createScope(el: HTMLElement, app: RouseApp, setup: ScopeSetup) {
     host: el,
     app,
     term: abortCtrl.signal,
-    // The scope's signal aborts in-flight requests on destroy. Override with
-    // `signal: undefined`, or `keepalive: true` to finish even if the tab closes.
-    fetch: (url, options = {}) =>
-      app.fetch(url, { signal: abortCtrl.signal, ...options }),
-    // The signal is a parameter here, not an option, so a caller can't detach the
-    // stream from the scope the way `fetch` above allows. A fetch completes on its
-    // own; a stream never does, so detaching one leaves nothing to close it.
-    sse: (url, options = {}) => openBoundStream(app, url, options, abortCtrl.signal),
-    on: createBoundOn(el, abortCtrl.signal, app),
-    interceptor: ((phase: InterceptorPhase, fn: any) =>
-      app._addInterceptor(phase, fn, abortCtrl.signal)) as ScopeCtx['interceptor'],
-    // Allows for triggering a scan from inside the scope
     scan: (newNode: Element) => binding?.scan(newNode),
   };
 
@@ -126,15 +113,12 @@ function createScope(el: HTMLElement, app: RouseApp, setup: ScopeSetup) {
   // works and the scan that mounted it continues.
   let setupFailed = false;
   const stopSetupScope = effectScope(() => {
-    __DEV__ && enterMountPhase(el, 'setup');
     try {
       instance = setup(context) || {};
     } catch (error) {
       err('Scope setup failed. Its directives were not bound:', el, error);
       instance = {};
       setupFailed = true;
-    } finally {
-      __DEV__ && exitMountPhase();
     }
   });
 

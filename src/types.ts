@@ -621,7 +621,7 @@ export type RouseFetch = (
   options?: FetchRequest,
 ) => Promise<RouseResponse>;
 
-/** Options for `app.sse` and `ctx.sse`. */
+/** Options for `app.sse`. */
 export interface SseOptions {
   /**
    * The element the connection binds to and dispatches from. Defaults to the app root.
@@ -632,6 +632,8 @@ export interface SseOptions {
   triggerEl?: Element;
   /** Sends credentials on cross-origin connections. */
   withCredentials?: boolean;
+  /** Closes the stream when aborted. Pass a scope's `term` to close it with the scope. */
+  signal?: AbortSignal;
 }
 
 /**
@@ -640,7 +642,7 @@ export interface SseOptions {
  */
 export type RouseSse = (resource: string, options?: SseOptions) => VoidFn;
 
-/** The enhanced response object returned by `ctx.fetch` and `request()`. */
+/** The enhanced response object returned by `app.fetch` and `request()`. */
 export interface RouseResponse<T = any> {
   /** Parsed response body, or `null` on error or empty response. */
   data: T | null;
@@ -697,6 +699,12 @@ export type ErrorInterceptor = (
 /** The three points in the request lifecycle where interceptors can be registered. */
 export type InterceptorPhase = 'request' | 'response' | 'error';
 
+/** Options for `app.interceptor`. */
+export interface InterceptorOptions {
+  /** Removes the interceptor when aborted. Pass a scope's `term` to remove it with the scope. */
+  signal?: AbortSignal;
+}
+
 /**
  * A scope setup function. Receives a `ScopeCtx` and returns a `Scope` object
  * whose properties become the scope's reactive state and methods.
@@ -705,17 +713,16 @@ export type InterceptorPhase = 'request' | 'response' | 'error';
  */
 export type ScopeSetup<E extends Element = HTMLElement> = (ctx: ScopeCtx<E>) => Scope;
 
-/** Options for `app.on` and `ctx.on`: a trigger's modifiers, plus a caller abort signal. */
+/** Options for `app.on`: a trigger's modifiers, plus a caller abort signal. */
 export type ListenerOptions = TriggerOptions & {
-  /** Combined with the app or scope lifetime signal. Aborting removes the listeners. */
+  /** Combined with the app lifetime signal. Aborting removes the listener. */
   signal?: AbortSignal;
 };
 
 /**
- * The overload shape shared by `app.on` and `ctx.on`. Listens on a default
- * target (the app root or the scope host) unless an `EventTarget` is passed
- * first. Modifiers, filters, and timing are passed as options, along with an
- * optional `AbortSignal` combined with the owner's lifetime signal. Returns a
+ * The overload shape of `app.on`. Listens on the app root unless an `EventTarget`
+ * is passed first. Modifiers, filters, and timing are passed as options, along with
+ * an optional `AbortSignal` combined with the app's lifetime signal. Returns a
  * teardown function.
  */
 export type BoundOn = {
@@ -741,32 +748,16 @@ export type ScopeCtx<E extends Element = HTMLElement> = {
   /** The `rz-scope` element this scope is mounted on. */
   host: E;
   /**
-   * The app this scope is mounted in, for `app.stores`, `app.root`, and other app methods.
-   * Listeners, streams, and interceptors registered through it outlive the scope. Use
-   * `ctx.on`, `ctx.sse`, and `ctx.interceptor` to remove them when the scope is destroyed.
+   * The app this scope is mounted in. Listeners, requests, streams, and interceptors
+   * registered through it last as long as the app unless given `signal: term`, or
+   * removed in `disconnect()`.
    */
   app: RouseApp;
-  /** Aborted when the scope is destroyed. Use to clean up scope-defined subscriptions. */
+  /**
+   * Aborted when the scope is destroyed. Pass it as `signal` to `app.on`, `app.fetch`,
+   * `app.sse`, or `app.interceptor` to end what they start along with the scope.
+   */
   term: AbortSignal;
-  /** Scoped `fetch` surface. Aborts on scope destroy. */
-  fetch: RouseFetch;
-  /** Scoped stream surface. Closes on scope destroy. */
-  sse: RouseSse;
-  /**
-   * Adds an event listener that is auto-removed when the scope is destroyed. Listens
-   * on the scope host unless an `EventTarget` is passed first. Modifiers, filters, and
-   * timing are passed as options, with an optional `AbortSignal` combined with the
-   * scope's own (`term`). The programmatic twin of `rz-on`, with the same trigger
-   * sources. Returns a teardown function.
-   */
-  on: BoundOn;
-  /**
-   * Registers a network interceptor that is removed when the scope is destroyed, such as
-   * a header that should apply only while this scope is mounted. Each call is a separate
-   * registration, so a scope mounted several times runs it once per mount. Returns a
-   * teardown function that removes it early.
-   */
-  interceptor: RouseApp['interceptor'];
   /** Scan a newly added DOM subtree for directives and initialize them. */
   scan: (newNode: Element) => void;
 };
