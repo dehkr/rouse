@@ -132,6 +132,12 @@ export async function runFetch(
       abortKey,
     };
 
+    // A fetch without a trigger element fires its events from the app root. If left
+    // unset, the indicator defaults to it as well, which would mark the whole app busy.
+    if (!triggerEl && finalOptions.indicator === undefined) {
+      finalOptions.indicator = null;
+    }
+
     const outcome = await runRequestLifecycle({
       el: hostEl,
       root: app.root,

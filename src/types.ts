@@ -560,8 +560,11 @@ export interface RequestError {
 export interface BaseRequestConfig {
   /** The request URL. */
   url?: string;
-  /** CSS selector for elements to receive the rouse request class for the duration of the request. */
-  indicator?: string | null;
+  /**
+   * Elements that receive the `rouse-request` class while the request is in flight:
+   * an element, or a CSS selector matched within the app root. `null` sets none.
+   */
+  indicator?: string | Element | null;
   /**
    * The element that initiated the request. Set by the declarative path. Programmatic
    * requests leave it unset unless the caller supplies one. On a fetch, supplying one

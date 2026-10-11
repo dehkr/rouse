@@ -113,23 +113,47 @@ export async function runRequestLifecycle(
 }
 
 /**
- * Resolves which elements get the request class: an explicit programmatic
+ * Resolves which elements get the `rouse-request` class: an explicit programmatic
  * `indicator`, else `rz-indicator` on the firing element, else the firing element
  * itself. `null` at either level means no indicators at all.
  */
 function resolveIndicators(
   el: Element,
   root: Element,
-  indicator: string | null | undefined,
+  indicator: string | Element | null | undefined,
 ): Element[] {
   const resolved = indicator === undefined ? rzIndicator.getConfig(el) : indicator;
 
-  if (resolved === undefined) return [el];
-  if (resolved === null) return [];
+  if (resolved === undefined) {
+    return [el];
+  }
+  if (resolved === null) {
+    return [];
+  }
 
-  const els = queryTargets(root, resolved);
-  __DEV__ && !els.length && warn(`No indicator elements match '${resolved}'.`, el);
-  return els;
+  if (typeof resolved === 'string') {
+    const els = queryTargets(root, resolved);
+    __DEV__ &&
+      !els.length &&
+      warn(
+        `No request indicator applied. Selector '${resolved}' does not match any elements.`,
+        ...(el === root ? [] : [el]),
+      );
+    return els;
+  }
+
+  // Checked by shape, not `instanceof`, so an element from another frame passes
+  if ((resolved as Partial<Element>)?.nodeType === Node.ELEMENT_NODE) {
+    return [resolved];
+  }
+
+  __DEV__ &&
+    warn(
+      `No request indicator applied. Expected an element, a selector, or null. Got: ${Array.isArray(resolved) ? 'array' : typeof resolved}.`,
+      ...(el === root ? [] : [el]),
+    );
+
+  return [];
 }
 
 /**

@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add `app.place(target, content, options?)` to place HTML from JavaScript. `target` is an element or a CSS selector. A selector is matched within the app root, including the root itself, and every match receives the content. `options.position` defaults to `innerHTML`. Returns `false` when nothing was placed.
 - Add `ctx.app` to give scopes a direct reference to the app they're mounted in.
 - Add a `signal` option to `app.sse(url, { signal })` and `app.interceptor(phase, fn, { signal })`. Aborting it closes the stream or removes the interceptor. Inside a scope, pass `signal: term` to end either with the scope, consistent with `app.on` and `app.fetch`.
+- Accept an element as the `indicator` request option, in addition to a CSS selector.
 - Export `RouseApp` for type annotations and `instanceof` checks.
 
 ### Changed
@@ -69,6 +70,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Keep unsaved edits dirty after a pull if the response doesn't include those fields. They were previously marked as saved.
 - Stop sending a store's getter values in a push. A push now sends a snapshot of the store's data, the same values it records as saved, rather than serializing the live store.
 - Send a pushed string slice as valid JSON. `data-rz-push="click: @user.name"` sent the bare text instead of a JSON string.
+- Stop marking the app root busy during an `app.fetch` with no `triggerEl`. Pass `indicator` to show one.
 - Skip a push of a slice the store doesn't have, instead of sending a PATCH with no body that marked the store as saved. Warns in development.
 
 ## [0.14.0] - 2026-09-25
