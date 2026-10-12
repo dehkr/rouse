@@ -16,18 +16,26 @@ import type { ConfigDirective } from '../types';
  *
  * Store targets moved to `rz-deposit`. Multi-target updates are still supported.
  * Commas separate pairs, not selectors, so a selector list sharing one position must
- * be quoted. An empty value defaults to one placement into the host element.
+ * be quoted. An empty value defaults to one placement into the host element, and
+ * `null` places nothing while the payload's events still fire.
  *
  * - `data-rz-place="afterbegin: #output"`
  * - `data-rz-place="#output"`
  * - `data-rz-place="outerHTML"`
  * - `data-rz-place="beforeend: '#log, #status'"`
  * - `data-rz-place="beforeend: #log, afterbegin: #status"`
+ * - `data-rz-place="null"`
  *
  * @param overrideValue - Takes precedence over the element's `rz-place` attribute (a server `Rouse-Place` header).
  */
 function getConfig(el: Element, appRoot: Element, overrideValue?: string | null) {
   const value = overrideValue || getDirectiveValue(el, 'place');
+
+  // Checked before parsing, which strips quotes, so `'null'` is still a selector
+  if (value?.trim() === 'null') {
+    return [];
+  }
+
   return resolvePlacements(value, el, appRoot, !!overrideValue);
 }
 

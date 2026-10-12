@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add `app.place(target, content, options?)` to place HTML from JavaScript. `target` is an element or a CSS selector. A selector is matched within the app root, including the root itself, and every match receives the content. `options.position` defaults to `innerHTML`. Returns `false` when nothing was placed.
 - Add `ctx.app` to give scopes a direct reference to the app they're mounted in.
 - Add a `signal` option to `app.sse(url, { signal })` and `app.interceptor(phase, fn, { signal })`. Aborting it closes the stream or removes the interceptor. Inside a scope, pass `signal: term` to end either with the scope, consistent with `app.on` and `app.fetch`.
+- Accept `null` for `rz-place` and `rz-deposit` to suppress routing a response. Events still fire, so a listener can handle the payload. The `Rouse-Place` and `Rouse-Deposit` headers accept `null` as well.
 - Accept an element as the `indicator` request option, in addition to a CSS selector.
 - Export `RouseApp` for type annotations and `instanceof` checks.
 
