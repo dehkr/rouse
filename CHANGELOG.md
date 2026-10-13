@@ -32,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Values an encoding can't carry are left out: nested objects in form data, and files outside multipart. A file sends only its name in form data, and nothing in JSON.
 - **Breaking:** Fail a GET or HEAD request that carries a body, instead of sending it without the body. The response carries an error. Pass query values as `params`, or use an HTTP method that takes a body.
 - **Breaking:** Replace the URL's existing values for a `params` key instead of adding to them. A list still sends one entry per value.
+- **Breaking:** Scope `sse-[name]` triggers to the element they're written on. A trigger hears the element's own stream and the streams of elements inside it, so `data-rz-close="sse-[done]"` no longer closes a stream when a different stream sends `done`. Add the `root` target modifier to hear every stream in the app: `data-rz-pull="sse-[cart-updated]|root: @cart"`.
 - **Breaking:** Rename the `rz-target` directive to `rz-place`.
 - **Breaking:** Rename the `rz:dom:swap:before` and `rz:dom:swap` events to `rz:dom:place:before` and `rz:dom:place`, and the detail's `method` field to `position`.
 - **Breaking:** Replace the `Rouse-Target` response header with `Rouse-Place` for HTML responses and `Rouse-Deposit` for JSON responses. Each takes the same value as the directive it overrides, `data-rz-place` or `data-rz-deposit`.

@@ -1,4 +1,4 @@
-import { getApp } from '../core/app';
+import type { RouseApp } from '../core/app';
 import type { TriggerOptions } from '../types';
 
 const sysModifierMap = {
@@ -45,7 +45,11 @@ export function getListenerOptions(options: TriggerOptions): AddEventListenerOpt
 /**
  * Resolves the target of the event listener.
  */
-export function resolveListenerTarget(el: Element, options: TriggerOptions): EventTarget {
+export function resolveListenerTarget(
+  el: Element,
+  options: TriggerOptions,
+  app: RouseApp,
+): EventTarget {
   if (options.listenOn === 'window') {
     return window;
   }
@@ -53,7 +57,7 @@ export function resolveListenerTarget(el: Element, options: TriggerOptions): Eve
     return document;
   }
   if (options.listenOn === 'root') {
-    return getApp(el)?.root || el;
+    return app.root;
   }
 
   // To detect outside clicks, listen on the document

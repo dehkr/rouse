@@ -22,7 +22,7 @@ import { applyModifiers, getListenerOptions, resolveListenerTarget } from './mod
 
 export interface TriggerContext {
   el: Element;
-  app?: RouseApp;
+  app: RouseApp;
   options: TriggerOptions;
   action: ActionFn;
   /**
@@ -61,7 +61,8 @@ function attachListener<D = any>(
   el: Element,
   name: string,
   callback: (ev: CustomEvent<D>) => void,
-  triggerOptions: TriggerOptions = {},
+  triggerOptions: TriggerOptions,
+  app: RouseApp,
 ): VoidFn {
   const options = getListenerOptions(triggerOptions);
   const listener = (e: Event) => {
@@ -75,7 +76,7 @@ function attachListener<D = any>(
     callback(e as CustomEvent<D>);
   };
 
-  const target = resolveListenerTarget(el, triggerOptions);
+  const target = resolveListenerTarget(el, triggerOptions, app);
   const cleanup = () => {
     target.removeEventListener(name, listener, options.capture);
   };
@@ -91,10 +92,10 @@ function attachListener<D = any>(
 /**
  * Attaches a listener for one event name and returns its cleanup.
  *
- * Backs `app.on`, which binds it to the app-lifetime abort signal. The optional
- * `app` is threaded to the trigger engine so trigger sources like `ready` resolve
- * the owning instance without a DOM lookup (and work on non-element targets such
- * as `window`).
+ * Backs `app.on`, which binds it to the app-lifetime abort signal. `app` is
+ * threaded to the trigger engine so trigger sources and the `root` listen target
+ * resolve the owning instance without a DOM lookup, which also makes them work on
+ * non-element targets such as `window`.
  *
  * @example
  * app.on(el, 'click', handleClick, { debounce: 500 });
@@ -104,16 +105,16 @@ export function on<N extends string>(
   target: EventTarget,
   event: N,
   callback: EventCallback<TriggerEvent<N>>,
-  options?: ListenerOptions,
-  app?: RouseApp,
+  options: ListenerOptions,
+  app: RouseApp,
 ): VoidFn;
 
 export function on(
   target: EventTarget,
   event: string,
   callback: EventCallback<any>,
-  options: ListenerOptions = {},
-  app?: RouseApp,
+  options: ListenerOptions,
+  app: RouseApp,
 ): VoidFn {
   const { signal, ...triggerOptions } = options;
 
@@ -202,6 +203,7 @@ export function dispatchTrigger(
       timed(e);
     },
     trigger.options,
+    base.app,
   );
 
   return wrapCleanup(cleanup);
@@ -314,17 +316,13 @@ export function attachWakeStrategies(
  */
 export const triggerSources: Record<string, TriggerSourceHandler> = {
   /** Fires when the RouseApp instance is fully initialized. */
-  ready: ({ el, app, action }) => {
-    const inst = app || getApp(el);
-    if (!inst) {
-      return null;
-    }
-    if (inst.isReady) {
+  ready: ({ app, action }) => {
+    if (app.isReady) {
       action();
       return null;
     }
-    inst.root.addEventListener('rz:app:ready', action, { once: true });
-    return () => inst.root.removeEventListener('rz:app:ready', action);
+    app.root.addEventListener('rz:app:ready', action, { once: true });
+    return () => app.root.removeEventListener('rz:app:ready', action);
   },
 
   /** Fires when the nearest enclosing scope is activated. */
@@ -336,8 +334,7 @@ export const triggerSources: Record<string, TriggerSourceHandler> = {
       return null;
     }
 
-    const inst = app || getApp(el);
-    if (!inst || !getApp(scopeEl, inst)) {
+    if (!getApp(scopeEl, app)) {
       return null;
     }
 
@@ -446,7 +443,8 @@ export const triggerSources: Record<string, TriggerSourceHandler> = {
 
   /**
    * Fires on a stream message with the named event: `sse-[cart-updated]`.
-   * Listens at the app root and filters by name.
+   * Listens on the element, which hears its own stream and its descendants'.
+   * `|root` widens it to every stream in the app.
    *
    * Subscribing is what makes the name observable.
    */
@@ -462,12 +460,9 @@ export const triggerSources: Record<string, TriggerSourceHandler> = {
       return null;
     }
 
-    const inst = app || getApp(el);
-    if (!inst) {
-      return null;
-    }
-
     subscribeNamed(name);
+
+    const target = resolveListenerTarget(el, options, app);
 
     const handler = (e: Event) => {
       const { detail } = e as CustomEvent<SseMessageDetail>;
@@ -476,9 +471,9 @@ export const triggerSources: Record<string, TriggerSourceHandler> = {
       }
     };
 
-    inst.root.addEventListener('rz:sse:message', handler);
+    target.addEventListener('rz:sse:message', handler);
 
-    return () => inst.root.removeEventListener('rz:sse:message', handler);
+    return () => target.removeEventListener('rz:sse:message', handler);
   },
 
   /** window.requestIdleCallback (one-time execution). */
@@ -498,11 +493,6 @@ export const triggerSources: Record<string, TriggerSourceHandler> = {
    * writes in one tick coalesce into a single notification.
    */
   edit: ({ el, app, options, action }) => {
-    const inst = app || getApp(el);
-    if (!inst) {
-      return null;
-    }
-
     const ref = options.arg;
     if (!ref || !ref.startsWith(STORE_PREFIX)) {
       __DEV__ &&
@@ -523,7 +513,7 @@ export const triggerSources: Record<string, TriggerSourceHandler> = {
     // Filter here, before the timed action. `debounce` forwards only the last
     // batch's roots, so filtering downstream would drop a real edit whenever a
     // different root was touched later in the same window.
-    return inst.stores.onEdit(target.source, (roots) => {
+    return app.stores.onEdit(target.source, (roots) => {
       if (!rootKey || roots.has(rootKey)) {
         action();
       }
