@@ -10,10 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 - **Breaking:** Remove nested paths from store sync. A push or pull always syncs the whole store.
+  - `data-rz-push` and `data-rz-pull` no longer accept a path, so `@user.profile` binds nothing. Use `@user`.
   - The `nestedPath` option of `app.stores.push()` and `app.stores.pull()` is gone.
   - The `Rouse-Path` header is no longer sent.
   - `rz:store:patch:*` event details no longer carry `nestedPath`.
   - You can still filter an `edit` trigger with a store path to push only when part of the store changes: `data-rz-push="edit-[@user.profile]: @user"`.
+  - A server can still change part of a store: a response that nests the change, such as `{"profile":{"name":"Bob"}}`, updates `profile.name` and leaves the rest alone.
 
 ## [0.15.0] - 2026-10-15
 
