@@ -15,7 +15,7 @@ Rouse coordinates server-rendered HTML and client-side reactivity within a singl
 - **Strict CSP compliance** – no `unsafe-eval` or expression evaluation in markup
 - **Web standards** – no virtual DOM, built on native browser APIs
 - **Buildless or bundled** – load from a CDN or install from npm, fully typed
-- **Lightweight** – 20 KB gzipped with no external dependencies
+- **Lightweight** – 22 KB gzipped with no external dependencies
 
 ## Features
 
@@ -37,7 +37,7 @@ Push client state to the server and pull it back, with dirty tracking, in-flight
 
 ### Server-sent events
 
-Stream updates from the server declaratively. Messages swap HTML, update stores, or fire named events the rest of your app can react to.
+Stream updates from the server declaratively. Messages place HTML, update stores, or fire named events the rest of your app can react to.
 
 ### Progressive activation
 
@@ -59,7 +59,7 @@ Rouse ships as ES modules only, in two builds: a development build with diagnost
 
 ```html
 <script type="module">
-  import { rouse } from 'https://cdn.jsdelivr.net/npm/rousejs@0.14.0/dist/rouse.js';
+  import { rouse } from 'https://cdn.jsdelivr.net/npm/rousejs@0.15.0/dist/rouse.js';
 
   const app = rouse();
   app.start();
@@ -69,7 +69,7 @@ Rouse ships as ES modules only, in two builds: a development build with diagnost
 Swap in `rouse.min.js` for production:
 
 ```text
-https://cdn.jsdelivr.net/npm/rousejs@0.14.0/dist/rouse.min.js
+https://cdn.jsdelivr.net/npm/rousejs@0.15.0/dist/rouse.min.js
 ```
 
 ### From npm

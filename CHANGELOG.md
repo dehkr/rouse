@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+No unreleased changes.
+
+## [0.15.0] - 2026-10-15
+
 ### Added
 
 - Add the `rz-send` directive to send values with a fetch. Accepts a comma-separated list of sources: store, scope, and render item paths, CSS selectors written as `selector: <css>`, and inline JSON.
@@ -25,17 +29,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Breaking:** Encode a fetch body built from an element's values according to its declared type: a `Content-Type` in `rz-headers` or `headers` in the app config, else the submitting button's `formenctype` or the form's `enctype`, else `application/x-www-form-urlencoded`. A JSON `Content-Type` sends JSON, and `multipart/form-data` sends multipart.
+- **Breaking:** Encode a fetch body built from an element's values according to its declared type. A `Content-Type` header comes first, either from `rz-headers`, the app config's `headers`, or `headers` passed to `app.fetch`. Otherwise, Rouse uses the submitting button's `formenctype` or the form's `enctype`, and falls back to `application/x-www-form-urlencoded`.
   - A form with `rz-fetch` now sends what its `enctype` declares, instead of `multipart/form-data`.
   - A single field with `rz-fetch` sends `application/x-www-form-urlencoded` instead of JSON unless a JSON `Content-Type` is declared.
-  - A declared `multipart/form-data` header is removed before sending so the browser can write the boundary.
-  - Values an encoding can't carry are left out: nested objects in form data, and files outside multipart. A file sends only its name in form data, and nothing in JSON.
+  - A `Content-Type` set in a request interceptor doesn't change the encoding, since interceptors run after the body is built.
+  - Values the encoding can't carry are left out, such as nested objects in form data and files outside multipart.
 - **Breaking:** Fail a GET or HEAD request that carries a body, instead of sending it without the body. The response carries an error. Pass query values as `params`, or use an HTTP method that takes a body.
 - **Breaking:** Replace the URL's existing values for a `params` key instead of adding to them. A list still sends one entry per value.
 - **Breaking:** Scope `sse-[name]` triggers to the element they're written on. A trigger hears the element's own stream and the streams of elements inside it, so `data-rz-close="sse-[done]"` no longer closes a stream when a different stream sends `done`. Add the `root` target modifier to hear every stream in the app: `data-rz-pull="sse-[cart-updated]|root: @cart"`.
 - **Breaking:** Rename the `rz-target` directive to `rz-place`.
 - **Breaking:** Rename the `rz:dom:swap:before` and `rz:dom:swap` events to `rz:dom:place:before` and `rz:dom:place`, and the detail's `method` field to `position`.
-- **Breaking:** Replace the `Rouse-Target` response header with `Rouse-Place` for HTML responses and `Rouse-Deposit` for JSON responses. Each takes the same value as the directive it overrides, `data-rz-place` or `data-rz-deposit`.
+- **Breaking:** Replace the `Rouse-Target` response header with `Rouse-Place` for HTML responses and `Rouse-Deposit` for JSON responses. Each takes the same value as the directive attribute it overrides, `data-rz-place` or `data-rz-deposit`.
 - **Breaking:** Wait for an in-flight push or pull to succeed before sending an overlapping push, and send it only if it still carries changes the server doesn't have.
   - Fixes lost edits from `rz-push` and the `edit` trigger, which previously dropped a push made during a request.
   - `app.stores.push()` previously cancelled the push in flight. When it has to wait, its promise resolves once the store has nothing in flight and nothing left to send.
