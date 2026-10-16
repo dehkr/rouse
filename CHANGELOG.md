@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-No unreleased changes.
+### Removed
+
+- **Breaking:** Remove nested paths from store sync. A push or pull always syncs the whole store.
+  - The `nestedPath` option of `app.stores.push()` and `app.stores.pull()` is gone.
+  - The `Rouse-Path` header is no longer sent.
+  - `rz:store:patch:*` event details no longer carry `nestedPath`.
+  - You can still filter an `edit` trigger with a store path to push only when part of the store changes: `data-rz-push="edit-[@user.profile]: @user"`.
 
 ## [0.15.0] - 2026-10-15
 

@@ -8,10 +8,8 @@ import type { ConfigDirective } from '../types';
  * Resolves `rz-deposit` into store names for JSON payload routing via a fetch response
  * or an unnamed stream message.
  *
- * Whole stores only, comma separated. A nested path is a reconciliation concern
- * and belongs to `rz-pull`, which guards against clobbering in-flight edits. `null`
- * deposits nothing, including on a store script that would otherwise deposit into
- * its own store.
+ * Whole stores only, comma separated. `null` deposits nothing, including on a
+ * store script that would otherwise deposit into its own store.
  *
  * - `data-rz-deposit="@cart"`
  * - `data-rz-deposit="@cart, @status"`
@@ -50,10 +48,7 @@ function getConfig(el: Element, overrideValue?: string | null): string[] {
 
     if (ref.nestedPath) {
       if (__DEV__) {
-        warn(
-          `${label}: '${key}' targets a slice. A deposit writes a whole store. Use rz-pull to sync a nested path.`,
-          el,
-        );
+        warn(`${label}: '${key}' targets a slice. A deposit writes a whole store.`, el);
       }
       continue;
     }

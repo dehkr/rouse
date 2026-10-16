@@ -2,13 +2,12 @@ import type { RouseApp } from '../core/app';
 import { hasDirective } from '../core/attributes';
 import { STORE_PREFIX } from '../core/constants';
 import { warn } from '../core/diagnostics';
-import { getPathRoot } from '../core/path';
 import { resolveTarget } from '../core/store';
 import { dispatchTrigger } from '../dom/events';
 import type { TriggerSubjectPair, VoidFn } from '../types';
 
 /**
- * Binds each `[trigger]: @store[.path]` pair to a push or pull. The push `edit`
+ * Binds each `[trigger]: @store` pair to a push or pull. The push `edit`
  * trigger fires on store mutation via the `edit` trigger source; every other
  * trigger routes through `dispatchTrigger`. Returns the cleanups.
  */
@@ -37,12 +36,10 @@ export function bindStorePairs(
   }
 
   for (const { trigger, subject } of pairs) {
-    const resolved = resolveTarget(el, op, subject);
-    if (!resolved) continue;
+    const storeName = resolveTarget(el, op, subject);
+    if (!storeName) continue;
 
-    const { storeName, nestedPath } = resolved;
     const isEdit = trigger.event === 'edit';
-    const rootKey = getPathRoot(nestedPath);
 
     // The trigger resolves its own store, so hand it the one the subject named
     const def =
@@ -51,18 +48,18 @@ export function bindStorePairs(
             ...trigger,
             options: {
               ...trigger.options,
-              arg: `${STORE_PREFIX}${storeName}${nestedPath ? `.${nestedPath}` : ''}`,
+              arg: `${STORE_PREFIX}${storeName}`,
             },
           }
         : trigger;
 
-    const sync = () => triggerStoreSync(op, el, app, storeName, nestedPath);
+    const sync = () => triggerStoreSync(op, el, app, storeName);
 
     // A debounced edit can settle after the value was pushed, reset, or retyped
     // back to the baseline, so the check runs when the timer fires, not when armed.
     const fire = isEdit
       ? () => {
-          if (app.stores.isDirty(storeName, rootKey)) {
+          if (app.stores.isDirty(storeName)) {
             sync();
           }
         }
@@ -88,7 +85,6 @@ function triggerStoreSync(
   triggerEl: Element,
   app: RouseApp,
   storeName: string,
-  nestedPath?: string,
 ): void {
   // A debounced or queued trigger can fire after the element is gone
   if (!triggerEl.isConnected) return;
@@ -108,12 +104,12 @@ function triggerStoreSync(
   if (status.syncing) {
     // A push that brings something new is sent once the current request succeeds
     if (op === 'push') {
-      app.stores._deferPush(storeName, nestedPath, () =>
-        triggerStoreSync(op, triggerEl, app, storeName, nestedPath),
+      app.stores._deferPush(storeName, () =>
+        triggerStoreSync(op, triggerEl, app, storeName),
       );
     }
     return;
   }
 
-  app.stores[op](storeName, { nestedPath, triggerEl });
+  app.stores[op](storeName, { triggerEl });
 }

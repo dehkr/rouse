@@ -177,8 +177,6 @@ export interface BaseStorePatch {
   storeName: string;
   /** Network operation that produced the payload. */
   operation: 'push' | 'pull' | 'fetch' | 'sse';
-  /** Dot-path of the targeted slice, when only part of the store was patched. */
-  nestedPath?: string;
 }
 
 /** Detail for `rz:store:patch`. */
@@ -201,9 +199,9 @@ export interface StorePatchBeforeDetail extends BaseStorePatch {
 
 /** Detail for `rz:store:patch:skipped`. */
 export interface StorePatchSkippedDetail extends BaseStorePatch {
-  /** The local slice with unsaved edits that was kept. */
+  /** The store's local data, with the unsaved edits that were kept. */
   localData: any;
-  /** The incoming server slice that was not applied. */
+  /** The server payload that was not applied. */
   serverData: any;
   /** The response carrying the server data. */
   response: RouseResponse;

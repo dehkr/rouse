@@ -18,21 +18,8 @@ import { STORE_PREFIX } from './constants';
 import { err, fail, warn } from './diagnostics';
 import { dispatch } from './dispatch';
 import { parseStoreRef, parseStoreValue } from './parser';
-import {
-  deleteNestedVal,
-  getNestedVal,
-  getPathParts,
-  getPathRoot,
-  setNestedVal,
-} from './path';
-import {
-  clone,
-  deepEqual,
-  isOwnDataProp,
-  isPlainObject,
-  nullPaths,
-  patchState,
-} from './state';
+import { getNestedVal, getPathRoot, setNestedVal } from './path';
+import { clone, deepEqual, isOwnDataProp, nullPaths, patchState } from './state';
 
 /** Receives the store roots that changed in one batch of user edits. */
 export type EditListener = (roots: ReadonlySet<string>) => void;
@@ -56,11 +43,6 @@ export interface StoreStatus {
   dirtyKeys: Record<string, boolean>;
 }
 
-export interface StoreTarget {
-  storeName: string;
-  nestedPath: string;
-}
-
 /**
  * A store's standing sync policy. Seeded at init, applied to every push and pull.
  *
@@ -77,23 +59,20 @@ export interface StoreRequestOptions {
   url?: string;
   /** `triggerEl` is omitted: the top-level field is its only home. */
   overrides?: Omit<SyncRequest, 'triggerEl'>;
-  nestedPath?: string;
   triggerEl?: Element;
 }
 
 /** What a settled request hands back to `_request`. */
 interface SendOutcome {
   result: RouseResponse;
-  /** Pushes held while the request was in flight, by slice, if it succeeded. */
-  followUps: Array<[string, VoidFn]>;
+  /** The push held while the request was in flight, if it succeeded. */
+  followUp?: VoidFn;
 }
 
 /** The request that owns a store while it's in flight. */
 interface InFlight {
   /** The data the request started from. */
   snapshot: any;
-  /** The slice it syncs, or none for the whole store. */
-  path?: string;
 }
 
 interface StoreEntry {
@@ -106,8 +85,8 @@ interface StoreEntry {
   activeReq?: symbol;
   /** The owning request, while it's in flight. */
   inFlight?: InFlight;
-  /** Pushes held while a request was in flight, keyed by slice (`''` is the whole store). */
-  pendingPushes?: Map<string, VoidFn>;
+  /** The push held while a request was in flight. A later one replaces it. */
+  pendingPush?: VoidFn;
   /** Settles held `push()` calls once the store has nothing in flight and nothing left to send. */
   idle?: { promise: Promise<void>; resolve: VoidFn };
   el?: Element;
@@ -133,91 +112,12 @@ function rootsFor(path?: string): string[] | undefined {
 }
 
 /**
- * Writes the clone of `source`'s value at `path` into `base`, or deletes the path when
- * `source` has nothing there. Mutates and returns `base`.
- */
-function withSlice(base: any, path: string, source: any) {
-  const value = getNestedVal(source, path);
-
-  if (value === undefined) {
-    deleteNestedVal(base, path);
-    return base;
-  }
-
-  // A primitive along the path can't be written through. The source replaced that
-  // primitive wholesale with an object, so the whole root is taken from the source.
-  if (hasPrimitiveAlong(base, path)) {
-    const root = getPathRoot(path) as string;
-    base[root] = clone(source[root]);
-    return base;
-  }
-
-  setNestedVal(base, path, clone(value));
-  return base;
-}
-
-/**
- * Applies `payload` to `target` as a JSON Merge Patch, whole or at `path`. A path
- * absent from the payload writes nothing; a `null` there removes the slice. `shape`
- * is the live store `target` mirrors, passed when `target` is a plain copy of it.
- */
-function applyMergePatch(target: any, payload: any, path?: string, shape?: any) {
-  if (!path) {
-    patchState(target, payload, 'merge', shape);
-    return;
-  }
-
-  const incoming = getNestedVal(payload, path);
-  if (incoming === undefined) return;
-
-  if (incoming === null) {
-    deleteNestedVal(target, path);
-    return;
-  }
-
-  if (!isPlainObject(incoming)) {
-    setNestedVal(target, path, incoming);
-    return;
-  }
-
-  let slice = getNestedVal<Record<string, any>>(target, path);
-
-  // Seed an object when the slice is missing or holds a non-object, so the
-  // merge drops nulls nested inside the incoming patch (RFC 7396).
-  if (!isPlainObject(slice)) {
-    setNestedVal(target, path, {});
-    slice = getNestedVal<Record<string, any>>(target, path);
-  }
-
-  // `setNestedVal` bails when an intermediate is a primitive, so the seed
-  // may not have landed.
-  if (slice) {
-    patchState(slice, incoming, 'merge', sliceAt(shape, path));
-  }
-}
-
-/** Returns `true` when an existing intermediate on `path` holds a primitive. */
-function hasPrimitiveAlong(obj: any, path: string): boolean {
-  let current = obj;
-
-  for (const part of getPathParts(path).slice(0, -1)) {
-    const next = current[part];
-    if (next == null) return false;
-    if (typeof next !== 'object') return true;
-    current = next;
-  }
-
-  return false;
-}
-
-/**
  * Protocol headers describing the sync to the server. Merged under the user layers,
  * so `data-rz-headers="Rouse-Store: null"` can drop any of them.
  */
 function syncHeaders(
   operation: 'push' | 'pull',
   storeName: string,
-  nestedPath?: string,
 ): Record<string, string> {
   const headers: Record<string, string> = {
     'Rouse-Sync': operation,
@@ -227,10 +127,6 @@ function syncHeaders(
   // A push body is a JSON Merge Patch (RFC 7396). A pull carries no body.
   if (operation === 'push') {
     headers['Content-Type'] = 'application/merge-patch+json';
-  }
-
-  if (nestedPath) {
-    headers['Rouse-Path'] = nestedPath;
   }
 
   return headers;
@@ -249,15 +145,15 @@ function warnNullFields(storeName: string, state: object) {
 }
 
 /**
- * Resolves a push/pull subject into a store name and optional nested path.
- * A `null` subject means self-target, which is valid only on a <script> element
- * with the `rz-store` directive present.
+ * Resolves a push/pull subject into a store name. A `null` subject means
+ * self-target, which is valid only on a <script> element with the `rz-store`
+ * directive present.
  */
 export function resolveTarget(
   el: Element,
   slug: Extract<DirectiveSlug, 'push' | 'pull'>,
   subject: string | null,
-): StoreTarget | null {
+): string | null {
   if (subject) {
     if (!subject.startsWith(STORE_PREFIX)) {
       __DEV__ &&
@@ -278,7 +174,17 @@ export function resolveTarget(
       __DEV__ && warn(`rz-${slug}: invalid store reference '${subject}'.`);
       return null;
     }
-    return { storeName, nestedPath };
+
+    if (nestedPath) {
+      __DEV__ &&
+        warn(
+          `rz-${slug}: '${subject}' names a path, but a store syncs as a whole. Use '@${storeName}'.`,
+          el,
+        );
+      return null;
+    }
+
+    return storeName;
   }
 
   // Reference the `rz-store` name if `null`. Specific to <script> elements.
@@ -292,7 +198,7 @@ export function resolveTarget(
     return null;
   }
 
-  return { storeName: selfName, nestedPath: '' };
+  return selfName;
 }
 
 /**
@@ -388,29 +294,24 @@ export class StoreManager {
   }
 
   /**
-   * Advances the `lastGood` baseline to `source`, whole or at a single path, and
-   * reconciles the dirty flags that move with it.
+   * Advances the `lastGood` baseline to `source` and reconciles the dirty flags
+   * that move with it.
    */
-  private _updateLastGood(entry: StoreEntry, source: any, path?: string) {
-    if (!path) {
-      entry.lastGood = clone(source);
-      this._reconcileDirty(entry);
-      return;
-    }
-
-    entry.lastGood = withSlice(entry.lastGood ?? {}, path, source);
-    this._reconcileDirty(entry, rootsFor(path));
+  private _updateLastGood(entry: StoreEntry, source: any) {
+    entry.lastGood = clone(source);
+    this._reconcileDirty(entry);
   }
 
   /**
    * Applies a response payload to `lastGood` exactly as it was applied to the data,
    * and reconciles the dirty flags that move with it.
    */
-  private _patchBaseline(entry: StoreEntry, payload: any, path?: string) {
-    // Cloned so the baseline never shares an object or array with the store
+  private _patchBaseline(entry: StoreEntry, payload: any) {
+    // Cloned so the baseline never shares an object or array with the store. The
+    // live data is the shape, so a key that's a getter on the store isn't stored.
     entry.lastGood ??= {};
-    applyMergePatch(entry.lastGood, clone(payload), path, entry.data);
-    this._reconcileDirty(entry, rootsFor(path));
+    patchState(entry.lastGood, clone(payload), 'merge', entry.data);
+    this._reconcileDirty(entry);
   }
 
   /**
@@ -485,8 +386,6 @@ export class StoreManager {
     // Both verbs are prescribed: a push is a merge patch, a pull carries no body.
     const method = operation === 'push' ? 'PATCH' : 'GET';
 
-    const nestedPath = manualConfig?.nestedPath;
-
     // Layers, later wins: protocol defaults, app config, store policy, programmatic
     // overrides. Headers merge per key so one layer never drops another's keys.
     const requestOptions: FetchRequest = {
@@ -495,7 +394,7 @@ export class StoreManager {
       ...transport,
       ...overrides,
       headers: {
-        ...syncHeaders(operation, name, nestedPath),
+        ...syncHeaders(operation, name),
         ...this.app.config.headers,
         ...policyHeaders,
         ...overrides.headers,
@@ -514,21 +413,7 @@ export class StoreManager {
     const snapshot = clone(data);
 
     if (operation === 'push') {
-      const slice = sliceAt(snapshot, nestedPath);
-
-      // A missing slice has nothing to send. Sending a PATCH with no body would still
-      // advance the baseline on success, so the store would read as saved.
-      if (slice === undefined) {
-        __DEV__ &&
-          warn(
-            `Cannot push '@${name}.${nestedPath}': the store has no value there, and a push can't send a deletion. Push an enclosing path or the whole store to send its current state.`,
-          );
-        return;
-      }
-
-      // Serialized here because a string slice would otherwise be sent as raw text,
-      // which isn't valid JSON
-      requestOptions.body = JSON.stringify(slice);
+      requestOptions.body = JSON.stringify(snapshot);
     }
 
     // Request-axis events prefer the trigger element, falling back to the store's
@@ -552,7 +437,6 @@ export class StoreManager {
           requestOptions,
           snapshot,
           handle,
-          manualConfig,
         );
         return outcome.result;
       },
@@ -561,11 +445,9 @@ export class StoreManager {
     if (!outcome) return;
 
     // Sent after `:end`, so listeners never see a follow-up start inside this request.
-    // A slice that matches the baseline again has nothing left to send.
-    for (const [path, send] of outcome.followUps) {
-      if (this._isSliceDirty(entry, path || undefined)) {
-        send();
-      }
+    // A store that matches the baseline again has nothing left to send.
+    if (outcome.followUp && this._isSliceDirty(entry)) {
+      outcome.followUp();
     }
 
     // A follow-up that started a request has already set `syncing`, so the store is
@@ -579,8 +461,8 @@ export class StoreManager {
    * Sends the request and applies the outcome to the store: rolls back a failed push,
    * otherwise reconciles the response. `snapshot` is the data the request carries,
    * and what the baseline advances to if it succeeds. Tracks the request so a
-   * superseded one leaves `syncing` alone when it settles. Hands back the pushes
-   * dropped while it was in flight when it owned the store and succeeded.
+   * superseded one leaves `syncing` alone when it settles. Hands back the push
+   * held while it was in flight when it owned the store and succeeded.
    */
   private async _sendAndApply(
     entry: StoreEntry,
@@ -589,23 +471,22 @@ export class StoreManager {
     requestOptions: FetchRequest,
     snapshot: any,
     handle: LifecycleHandle,
-    manualConfig?: StoreRequestOptions,
   ): Promise<SendOutcome> {
     const { status } = entry;
 
     const reqToken = Symbol(__DEV__ ? 'rz.request' : '');
     entry.activeReq = reqToken;
 
-    entry.inFlight = { snapshot, path: manualConfig?.nestedPath };
+    entry.inFlight = { snapshot };
     status.syncing = operation;
     status.error = null;
 
     let succeeded = false;
 
-    // `finally` fills this after the `return` has built the object, which still
-    // reaches the caller because the object holds the array, not a copy
-    const followUps: SendOutcome['followUps'] = [];
-    const done = (result: RouseResponse): SendOutcome => ({ result, followUps });
+    // `finally` sets the follow-up after the `return` has handed this back, which
+    // still reaches the caller because it's the same object
+    const outcome = {} as SendOutcome;
+    const done = (result: RouseResponse) => Object.assign(outcome, { result });
 
     try {
       const result = await request(url, requestOptions, this.app);
@@ -626,11 +507,11 @@ export class StoreManager {
         status.error = storeError(result.error);
 
         if (operation === 'push') {
-          this._maybeRollback(entry, snapshot, manualConfig?.nestedPath, result.error);
+          this._maybeRollback(entry, snapshot, result.error);
         }
         return done(result);
       }
-      this._applyServerResponse(entry, operation, result, snapshot, manualConfig);
+      this._applyServerResponse(entry, operation, result, snapshot);
       succeeded = true;
       return done(result);
     } catch (error: any) {
@@ -657,12 +538,12 @@ export class StoreManager {
         entry.activeReq = undefined;
         entry.inFlight = undefined;
 
-        // Pending pushes are taken on any outcome, so a failure discards them rather
-        // than leaving them for the next request to send
-        const pending = entry.pendingPushes;
-        entry.pendingPushes = undefined;
-        if (pending && succeeded) {
-          followUps.push(...pending);
+        // The pending push is taken on any outcome, so a failure discards it rather
+        // than leaving it for the next request to send
+        const pending = entry.pendingPush;
+        entry.pendingPush = undefined;
+        if (succeeded) {
+          outcome.followUp = pending;
         }
       }
     }
@@ -673,18 +554,15 @@ export class StoreManager {
     operation: 'push' | 'pull',
     result: RouseResponse,
     snapshot: any,
-    manualConfig?: StoreRequestOptions,
   ) {
     const { name: storeName, data, status } = entry;
-
-    const nestedPath = manualConfig?.nestedPath;
 
     // Request-scoped, not response-scoped: a 200 means the data reached the server,
     // so this stands even when the echo below is never applied (mid-flight skip, or
     // a listener cancelling `:before`).
     if (operation === 'push') {
       status.lastSync = Date.now();
-      this._updateLastGood(entry, snapshot, nestedPath);
+      this._updateLastGood(entry, snapshot);
     }
 
     const beforeEvent = this._dispatchPatchEvent(
@@ -695,7 +573,6 @@ export class StoreManager {
         operation,
         data,
         payload: result.data,
-        nestedPath,
       },
       { cancelable: true },
     );
@@ -708,26 +585,23 @@ export class StoreManager {
     // (assigned id, computed/normalized values) return to the client. On pull, the
     // fetched data itself.
     if (payload && typeof payload === 'object') {
-      const localSlice = sliceAt(data, nestedPath);
-
       // Local state moved mid-flight; keep the edit and skip the echo
-      if (!deepEqual(localSlice, sliceAt(snapshot, nestedPath))) {
+      if (!deepEqual(data, snapshot)) {
         this._dispatchPatchEvent(entry, 'rz:store:patch:skipped', {
           storeName,
           operation,
-          localData: localSlice,
-          serverData: sliceAt(payload, nestedPath),
+          localData: data,
+          serverData: payload,
           response: result,
-          nestedPath,
         });
         return;
       }
 
-      this._patchPayload(entry, payload, nestedPath);
+      this._patchPayload(entry, payload);
 
       // The response is applied to the baseline exactly as it was to the data. Keys
       // it omits keep their baseline, so an unsaved edit there stays unsaved.
-      this._patchBaseline(entry, payload, nestedPath);
+      this._patchBaseline(entry, payload);
     }
 
     if (operation === 'pull') {
@@ -740,17 +614,12 @@ export class StoreManager {
       data,
       response: result,
       payload,
-      nestedPath,
     });
   }
 
   /** Applies a response payload to the store's data, as a framework write. */
-  private _patchPayload(entry: StoreEntry, payload: any, nestedPath?: string) {
-    this._withPatchGuard(
-      entry,
-      () => applyMergePatch(entry.data, payload, nestedPath),
-      rootsFor(nestedPath),
-    );
+  private _patchPayload(entry: StoreEntry, payload: any) {
+    this._withPatchGuard(entry, () => patchState(entry.data, payload, 'merge'));
   }
 
   /**
@@ -794,30 +663,23 @@ export class StoreManager {
     );
   }
 
-  private _maybeRollback(
-    entry: StoreEntry,
-    snapshot: any,
-    nestedPath: string | undefined,
-    error: unknown,
-  ): void {
+  private _maybeRollback(entry: StoreEntry, snapshot: any, error: unknown): void {
     const { name: storeName, data, lastGood } = entry;
 
     // Skip when the user has kept editing during flight
-    const localSlice = sliceAt(data, nestedPath);
-    if (!deepEqual(localSlice, sliceAt(snapshot, nestedPath))) return;
+    if (!deepEqual(data, snapshot)) return;
 
     // Skip if data already equals lastGood (avoids firing errant signals)
-    if (!this._isSliceDirty(entry, nestedPath)) return;
+    if (!this._isSliceDirty(entry)) return;
 
-    const rolledBackTo = clone(sliceAt(lastGood, nestedPath));
-    this._writeSlice(entry, nestedPath, rolledBackTo);
+    const rolledBackTo = clone(lastGood);
+    this._writeSlice(entry, undefined, rolledBackTo);
 
     this._dispatchPatchEvent(entry, 'rz:store:patch:rollback', {
       storeName,
       operation: 'push',
       data,
       rolledBackTo,
-      nestedPath,
       error,
     });
   }
@@ -1054,7 +916,7 @@ export class StoreManager {
   }
 
   /**
-   * Sends the store's data to the server, the whole store or the slice at `nestedPath`.
+   * Sends the store's data to the server.
    *
    * If the store already has a request in flight, the push waits for it, and once that
    * request succeeds, it's sent if the data still differs from what the server holds.
@@ -1083,7 +945,7 @@ export class StoreManager {
     const entry = this._find(storeName);
 
     if (entry?.status.syncing) {
-      this._deferPush(storeName, config?.nestedPath, () => this._push(storeName, config));
+      this._deferPush(storeName, () => this._push(storeName, config));
       return this._whenIdle(entry);
     }
     return this._request(storeName, 'push', config);
@@ -1092,30 +954,20 @@ export class StoreManager {
   /**
    * Holds a push made while the store has a request in flight, to send once that
    * request succeeds, unless it brings nothing the request isn't already carrying.
-   * A later push for the same slice replaces it.
+   * A later push replaces it.
    *
    * @internal
    */
-  _deferPush(
-    storeName: string | null | undefined,
-    nestedPath: string | undefined,
-    send: VoidFn,
-  ): void {
+  _deferPush(storeName: string | null | undefined, send: VoidFn): void {
     const entry = this._find(storeName);
     const flight = entry?.inFlight;
     if (!entry || !flight) return;
 
-    if (
-      deepEqual(
-        sliceAt(entry.data, nestedPath),
-        sliceAt(this._expectedBaseline(entry, flight), nestedPath),
-      )
-    ) {
+    if (deepEqual(entry.data, this._expectedBaseline(entry, flight))) {
       return;
     }
 
-    entry.pendingPushes ??= new Map();
-    entry.pendingPushes.set(nestedPath ?? '', send);
+    entry.pendingPush = send;
   }
 
   /** Returns a promise that settles once the store has nothing in flight and nothing left to send. */
@@ -1139,14 +991,7 @@ export class StoreManager {
   /** Returns what the server will hold if the request in flight succeeds. */
   private _expectedBaseline(entry: StoreEntry, flight: InFlight) {
     // A pull saves nothing, so the server keeps what it had
-    if (entry.status.syncing !== 'push') {
-      return entry.lastGood;
-    }
-
-    // A slice push changes only its slice
-    return flight.path
-      ? withSlice(clone(entry.lastGood ?? {}), flight.path, flight.snapshot)
-      : flight.snapshot;
+    return entry.status.syncing === 'push' ? flight.snapshot : entry.lastGood;
   }
 
   /**
@@ -1219,7 +1064,7 @@ export class StoreManager {
     // A held `push()` would otherwise wait on a store that no longer exists, and a
     // follow-up would reach whatever store is registered under the name next
     this._settleIdle(entry);
-    entry.pendingPushes = undefined;
+    entry.pendingPush = undefined;
     this._pendingFlush.delete(entry);
     this._stores.delete(entry.name);
   }
