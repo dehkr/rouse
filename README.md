@@ -33,7 +33,7 @@ Fetch HTML fragments – or JSON – on any event, straight from attributes. The
 
 ### State synchronization
 
-Push client state to the server and pull it back, with dirty tracking, in-flight edit protection, and automatic rollback on failure.
+Give a store an endpoint and keep it in sync with your server over plain HTTP, with built-in dirty tracking and protection for edits made mid-request.
 
 ### Server-sent events
 
