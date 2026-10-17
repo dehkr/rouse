@@ -458,11 +458,12 @@ export class StoreManager {
   }
 
   /**
-   * Sends the request and applies the outcome to the store: rolls back a failed push,
-   * otherwise reconciles the response. `snapshot` is the data the request carries,
-   * and what the baseline advances to if it succeeds. Tracks the request so a
-   * superseded one leaves `syncing` alone when it settles. Hands back the push
-   * held while it was in flight when it owned the store and succeeded.
+   * Sends the request and applies the outcome to the store: records a failure in
+   * `status.error`, leaving the data alone, or reconciles the response.
+   *
+   * `snapshot` is the data the request carries, and what the baseline advances to if it
+   * succeeds. Tracks the request so a superseded one leaves `syncing` alone when it settles.
+   * Hands back the push held while it was in flight when it owned the store and succeeded.
    */
   private async _sendAndApply(
     entry: StoreEntry,
@@ -492,9 +493,9 @@ export class StoreManager {
       const result = await request(url, requestOptions, this.app);
       handle.settle(result);
 
-      // A superseded request must not touch store data. Its snapshot is stale, so
-      // both the reconcile and the rollback target belong to a request that no
-      // longer owns the store. `finally` already leaves `syncing` to the winner.
+      // A superseded request must not touch the store. Its snapshot is stale, and
+      // its error belongs to a request that no longer owns the store. `finally`
+      // already leaves `syncing` to the winner.
       if (entry.activeReq !== reqToken) {
         return done(result);
       }
@@ -505,10 +506,6 @@ export class StoreManager {
         }
 
         status.error = storeError(result.error);
-
-        if (operation === 'push') {
-          this._maybeRollback(entry, snapshot, result.error);
-        }
         return done(result);
       }
       this._applyServerResponse(entry, operation, result, snapshot);
@@ -640,48 +637,12 @@ export class StoreManager {
 
   /**
    * Patches the store's data, then makes it the new baseline: both restore targets
-   * (`reset()` and rollback) and the dirty flags are refreshed to match.
+   * (`reset()` and `revert()`) and the dirty flags are refreshed to match.
    */
   private _adoptState(entry: StoreEntry, state: object, action: 'replace' | 'merge') {
     this._withPatchGuard(entry, () => patchState(entry.data, state, action));
     entry.initial = clone(entry.data);
     this._updateLastGood(entry, entry.data);
-  }
-
-  /** Writes `value` into the store's data, whole or at `path`, as a framework write. */
-  private _writeSlice(entry: StoreEntry, path: string | undefined, value: any) {
-    this._withPatchGuard(
-      entry,
-      () => {
-        if (path) {
-          setNestedVal(entry.data, path, value);
-        } else {
-          patchState(entry.data, value, 'replace');
-        }
-      },
-      rootsFor(path),
-    );
-  }
-
-  private _maybeRollback(entry: StoreEntry, snapshot: any, error: unknown): void {
-    const { name: storeName, data, lastGood } = entry;
-
-    // Skip when the user has kept editing during flight
-    if (!deepEqual(data, snapshot)) return;
-
-    // Skip if data already equals lastGood (avoids firing errant signals)
-    if (!this._isSliceDirty(entry)) return;
-
-    const rolledBackTo = clone(lastGood);
-    this._writeSlice(entry, undefined, rolledBackTo);
-
-    this._dispatchPatchEvent(entry, 'rz:store:patch:rollback', {
-      storeName,
-      operation: 'push',
-      data,
-      rolledBackTo,
-      error,
-    });
   }
 
   /**
@@ -779,8 +740,8 @@ export class StoreManager {
 
   /**
    * Replaces the store's data, then clears dirty flags and refreshes both
-   * snapshots: the one `reset()` restores to, and the last-good state a failed push
-   * rolls back to. To change the store's sync configuration, use `config()`.
+   * snapshots: the one `reset()` restores to, and the last synced state `revert()`
+   * restores to. To change the store's sync configuration, use `config()`.
    */
   update<T extends object = any>(storeName: string | null | undefined, state: object): T {
     const entry = this._find(storeName);
@@ -862,8 +823,8 @@ export class StoreManager {
   /**
    * Returns a copy of the last synced state: what a push or pull last confirmed,
    * or what `commit()`, `update()`, or `deposit()` last asserted. This is the
-   * reference point for unsaved changes and the target a failed push rolls back
-   * to. Non-reactive, like `snapshot()`.
+   * reference point for unsaved changes and what `revert()` restores. Non-reactive,
+   * like `snapshot()`.
    */
   baseline<T = any>(storeName: string | null | undefined): T | undefined {
     const lastGood = this._find(storeName)?.lastGood;
@@ -1036,7 +997,18 @@ export class StoreManager {
       return false;
     }
 
-    this._writeSlice(entry, path, clone(sliceAt(entry.lastGood, path)));
+    const value = clone(sliceAt(entry.lastGood, path));
+    this._withPatchGuard(
+      entry,
+      () => {
+        if (path) {
+          setNestedVal(entry.data, path, value);
+        } else {
+          patchState(entry.data, value, 'replace');
+        }
+      },
+      rootsFor(path),
+    );
     return true;
   }
 

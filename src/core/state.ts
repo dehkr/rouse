@@ -17,7 +17,7 @@ export function isOwnDataProp(obj: object, key: string): boolean {
 /**
  * Deep-clone `obj`, stripping non-serializable properties (functions,
  * `undefined`, and accessors). Produces snapshots safe to JSON-serialize,
- * diff, or use as rollback targets.
+ * diff, or use as restore targets.
  */
 export function clone<T>(obj: T, seen = new WeakMap(), path = 'root'): T {
   if (obj === null || typeof obj !== 'object') {

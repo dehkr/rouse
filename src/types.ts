@@ -207,16 +207,6 @@ export interface StorePatchSkippedDetail extends BaseStorePatch {
   response: RouseResponse;
 }
 
-/** Detail for `rz:store:patch:rollback`. */
-export interface StorePatchRollbackDetail extends BaseStorePatch {
-  /** The store's local data after the rollback (now equal to the last-good snapshot). */
-  data: any;
-  /** The last-good snapshot the state was reverted to. */
-  rolledBackTo: any;
-  /** The push error that triggered the rollback. */
-  error: unknown;
-}
-
 /** Detail for `rz:dom:place:before` and `rz:dom:place`. */
 export interface DomPlaceDetail {
   /** The element being mutated. */
@@ -323,8 +313,6 @@ export interface LifecycleEventMap {
   'rz:store:patch': StorePatchDetail;
   /** Fires when the response carries server data but the store was edited while the request was in flight, so the server data is not applied and the local edit is kept. Push and pull only. */
   'rz:store:patch:skipped': StorePatchSkippedDetail;
-  /** Fires after `rz:push:error` when local state is reverted to the last-good snapshot. */
-  'rz:store:patch:rollback': StorePatchRollbackDetail;
   /** Fires before the content is placed; cancelable. Listeners can mutate `payload`. */
   'rz:dom:place:before': DomPlaceDetail;
   /** Fires after the content has been placed in the DOM. */

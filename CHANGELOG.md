@@ -7,15 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking:** Stop rolling stores back to their last synced state on a failed push.
+  - Unsent changes stay dirty with `status.error` set.
+  - To roll back on failure, use `revert()` on `rz:push:error`: `app.on('rz:push:error', (e) => app.stores.revert(e.detail.storeName))`.
+
 ### Removed
 
-- **Breaking:** Remove nested paths from store sync. A push or pull always syncs the whole store.
-  - `data-rz-push` and `data-rz-pull` no longer accept a path, so `@user.profile` binds nothing. Use `@user`.
+- **Breaking:** Remove the `rz:store:patch:rollback` event.
+- **Breaking:** Remove nested path support from store sync. A push or pull now syncs the whole store.
+  - `data-rz-push` and `data-rz-pull` no longer accept path values, so `@user.profile` doesn't bind anything. Use `@user`.
   - The `nestedPath` option of `app.stores.push()` and `app.stores.pull()` is gone.
   - The `Rouse-Path` header is no longer sent.
   - `rz:store:patch:*` event details no longer carry `nestedPath`.
-  - You can still filter an `edit` trigger with a store path to push only when part of the store changes: `data-rz-push="edit-[@user.profile]: @user"`.
-  - A server can still change part of a store: a response that nests the change, such as `{"profile":{"name":"Bob"}}`, updates `profile.name` and leaves the rest alone.
+  - A store path can still be used with an `edit` trigger to push only when that part changes: `data-rz-push="edit-[@user.profile]: @user"`.
+  - A server can target a store slice with a response that nests the change. E.g. `{"profile":{"name":"Bob"}}` updates `profile.name` and leaves the rest untouched.
 
 ## [0.15.0] - 2026-10-15
 
