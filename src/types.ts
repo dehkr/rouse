@@ -33,24 +33,15 @@ export interface ScopeLifecycleDetail {
   instance: Scope;
 }
 
-/** Detail for `rz:fetch:config`. */
+/** Detail for `rz:fetch:config`, `rz:fetch:start`, `rz:fetch:abort`, and `rz:fetch:end`. */
 export interface FetchConfigDetail {
   /**
-   * The final unified request config. Mutable in place by listeners; replacing the object
-   * has no effect on the request. Carries `method` but not the resolved `url`.
+   * The request config, the same object the interceptors receive and the response
+   * carries. A `rz:fetch:config` listener can change it in place, including `url` and
+   * `method`. Replacing the object has no effect on the request.
    */
   config: FetchRequest;
-  /** The resolved request URL actually fetched. Surfaced here because `config` does not carry it. */
-  url: string;
-  /** The resolved HTTP method. Also present on `config`; duplicated here for convenience. */
-  method: string;
 }
-
-/**
- * Detail for `rz:fetch:start`, `rz:fetch:abort`, and `rz:fetch:end`. The config
- * detail minus the request-identifying fields, which only `:config` carries.
- */
-export type FetchLifecycleDetail = Omit<FetchConfigDetail, 'url' | 'method'>;
 
 /** Detail for `rz:fetch:success`: the full response object. */
 export type FetchSuccessDetail = RouseResponse;
@@ -76,26 +67,17 @@ export type FetchErrorHtmlDetail = RouseResponse<string>;
 /** Detail for `rz:fetch:error:file`: error response with a binary body (Blob/ArrayBuffer). */
 export type FetchErrorFileDetail = RouseResponse<Blob | ArrayBuffer>;
 
-/** Detail for `rz:push:config` and `rz:pull:config`; cancelable. Listeners can mutate `config`. */
+/** Detail for `rz:push` and `rz:pull` `:config`, `:start`, `:abort`, and `:end`. */
 export interface PushPullConfigDetail {
   /** Name of the store being synced. */
   storeName: string;
   /**
-   * The final unified request config. Mutable in place by listeners; replacing the object
-   * has no effect on the request. Carries `method` but not the resolved `url`.
+   * The request config, the same object the interceptors receive and the response
+   * carries. A `:config` listener can change it in place, including `url`. Replacing
+   * the object has no effect on the request.
    */
   config: FetchRequest;
-  /** The resolved request URL. */
-  url: string;
-  /** The resolved HTTP method. */
-  method: string;
 }
-
-/**
- * Detail for `rz:push`/`rz:pull` `:start`, `:abort`, and `:end`. The config detail
- * minus the request-identifying fields, which only `:config` carries.
- */
-export type PushPullLifecycleDetail = Omit<PushPullConfigDetail, 'url' | 'method'>;
 
 /** A stream's resolved connection config, carried on every `rz:sse:*` detail. */
 export interface SseConnectionConfig {
@@ -244,11 +226,11 @@ export interface LifecycleEventMap {
   /** Fires before the request is sent; cancelable. Listeners can mutate `config`. */
   'rz:fetch:config': FetchConfigDetail;
   /** Fires when the fetch starts, after config. */
-  'rz:fetch:start': FetchLifecycleDetail;
+  'rz:fetch:start': FetchConfigDetail;
   /** Fires if the fetch is aborted. */
-  'rz:fetch:abort': FetchLifecycleDetail;
+  'rz:fetch:abort': FetchConfigDetail;
   /** Fires when the request settles, after success or error. */
-  'rz:fetch:end': FetchLifecycleDetail;
+  'rz:fetch:end': FetchConfigDetail;
   /** Fires when the request completes with an OK status. */
   'rz:fetch:success': FetchSuccessDetail;
   /** Fires after `rz:fetch:success` when the body is parsed JSON (object/array). */
@@ -268,31 +250,31 @@ export interface LifecycleEventMap {
   /** Fires before a push is sent; cancelable. Listeners can mutate `config`. */
   'rz:push:config': PushPullConfigDetail;
   /** Fires when the push starts, after config. */
-  'rz:push:start': PushPullLifecycleDetail;
+  'rz:push:start': PushPullConfigDetail;
   /**
    * Fires if the push is canceled. A store sends one push at a time and a push
    * carries no abort key, so this doesn't happen in practice. It exists because
    * every request event family has the same set of events.
    */
-  'rz:push:abort': PushPullLifecycleDetail;
+  'rz:push:abort': PushPullConfigDetail;
   /** Fires when the push completes with an OK status. */
   'rz:push:success': PushPullResultDetail;
   /** Fires when the push fails (non-OK status or network error). */
   'rz:push:error': PushPullResultDetail;
   /** Fires when the push settles, after success/error/abort. */
-  'rz:push:end': PushPullLifecycleDetail;
+  'rz:push:end': PushPullConfigDetail;
   /** Fires before a pull is sent; cancelable. Listeners can mutate `config`. */
   'rz:pull:config': PushPullConfigDetail;
   /** Fires when the pull starts, after config. */
-  'rz:pull:start': PushPullLifecycleDetail;
+  'rz:pull:start': PushPullConfigDetail;
   /** Fires if the pull is aborted (overlapping programmatic pulls sharing an abortKey). */
-  'rz:pull:abort': PushPullLifecycleDetail;
+  'rz:pull:abort': PushPullConfigDetail;
   /** Fires when the pull completes with an OK status. */
   'rz:pull:success': PushPullResultDetail;
   /** Fires when the pull fails (non-OK status or network error). */
   'rz:pull:error': PushPullResultDetail;
   /** Fires when the pull settles, after success/error/abort. */
-  'rz:pull:end': PushPullLifecycleDetail;
+  'rz:pull:end': PushPullConfigDetail;
   /** Fires once before the initial connection attempt; cancelable. Listeners can mutate `config`. */
   'rz:sse:config': SseConfigDetail;
   /** Fires when the stream connects, and again after every successful reconnect. */
@@ -544,7 +526,11 @@ export interface RequestError {
 
 /** Request options shared by `rz-fetch` and store sync (`rz-push`/`rz-pull`). */
 export interface BaseRequestConfig {
-  /** The request URL. */
+  /**
+   * The request URL. On a request in progress it's absolute, resolved against `baseUrl`,
+   * and doesn't include the query string `params` adds. A `:config` listener or a request
+   * interceptor can change it to send the request somewhere else.
+   */
   url?: string;
   /**
    * Elements that receive the `rouse-request` class while the request is in flight:
@@ -667,7 +653,11 @@ export interface RoutablePayload {
   depositOverride?: string | null;
 }
 
-/** Runs before a request is sent. Return a modified config to override request options. */
+/**
+ * Runs before a request is sent. Change the config in place, or return the fields to
+ * change. Leaving a field out of the returned object doesn't remove it: set it to
+ * `undefined` instead.
+ */
 export type RequestInterceptor = (
   config: FetchRequest,
 ) => FetchRequest | Promise<FetchRequest>;

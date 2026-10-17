@@ -9,13 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Breaking:** Resolve `config.url` against `baseUrl` before `rz:fetch:config`, `rz:push:config`, and `rz:pull:config`, so listeners and interceptors see the absolute URL that's sent.
+  - Push and pull configs now always carry `url`.
+  - `url` and `method` no longer live in `rz:*:config` details. Read from `e.detail.config` instead.
+- **Breaking:** Merge a request interceptor's return value into the config instead of replacing it. To remove a field, set it to `undefined`.
 - **Breaking:** Stop rolling stores back to their last synced state on a failed push.
   - Unsent changes stay dirty with `status.error` set.
+  - The `rz:store:patch:rollback` event is no longer dispatched.
   - To roll back on failure, use `revert()` on `rz:push:error`: `app.on('rz:push:error', (e) => app.stores.revert(e.detail.storeName))`.
 
 ### Removed
 
-- **Breaking:** Remove the `rz:store:patch:rollback` event.
 - **Breaking:** Remove nested path support from store sync. A push or pull now syncs the whole store.
   - `data-rz-push` and `data-rz-pull` no longer accept path values, so `@user.profile` doesn't bind anything. Use `@user`.
   - The `nestedPath` option of `app.stores.push()` and `app.stores.pull()` is gone.
@@ -23,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `rz:store:patch:*` event details no longer carry `nestedPath`.
   - A store path can still be used with an `edit` trigger to push only when that part changes: `data-rz-push="edit-[@user.profile]: @user"`.
   - A server can target a store slice with a response that nests the change. E.g. `{"profile":{"name":"Bob"}}` updates `profile.name` and leaves the rest untouched.
+- **Breaking:** Remove `url` from the `overrides` option of `app.stores.push()` and `app.stores.pull()`. Use the top-level `url` option: `app.stores.pull('user', { url })`.
 
 ## [0.15.0] - 2026-10-15
 

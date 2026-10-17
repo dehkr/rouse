@@ -350,6 +350,10 @@ export class RouseApp {
    * the same phase. Inside a scope, pass `signal: term` to remove it when the
    * scope is destroyed.
    *
+   * A request interceptor can change the config in place or return the fields to
+   * change, including `url` to send the request somewhere else. Leaving a field out
+   * of the returned object doesn't remove it: set it to `undefined` instead.
+   *
    * @returns A teardown closure that unregisters the interceptor.
    *
    * @example

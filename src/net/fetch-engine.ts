@@ -9,6 +9,7 @@ import { rzSend } from '../directives/rz-send';
 import { readTriggerValues } from '../dom/forms';
 import type { FetchRequest, RouseResponse } from '../types';
 import { type LifecycleHandle, PREVENTED, runRequestLifecycle } from './lifecycle';
+import { resolveUrl } from './payload';
 import { request, resolveRequestConfig } from './request';
 import { fallbackResponse, isFileType, isJsonType } from './response';
 
@@ -62,17 +63,22 @@ export async function runFetch(
     const submitter =
       triggerEl instanceof HTMLFormElement ? (options.submitter ?? null) : null;
 
-    const url = resolveUrl(
-      triggerEl,
-      submitter?.getAttribute('formaction') ?? options.url,
-    );
-    if (!url) {
+    const rawUrl = submitter?.getAttribute('formaction') ?? options.url;
+    if (!rawUrl) {
+      __DEV__ &&
+        warn(
+          'Invalid or missing URL for the fetch request.',
+          ...(triggerEl ? [triggerEl] : []),
+        );
       return fallbackResponse(
         options,
         'Invalid or missing URL for the fetch request.',
         'INTERNAL_ERROR',
       );
     }
+
+    // Resolved before `:config`, so listeners and interceptors see the URL that's sent
+    const url = resolveUrl(rawUrl, app.config.baseUrl).href;
 
     const finalRequestInit = resolveRequestConfig(triggerEl, app);
     const formMethod =
@@ -142,7 +148,7 @@ export async function runFetch(
       el: hostEl,
       root: app.root,
       prefix: 'rz:fetch',
-      configDetail: { config: finalOptions, url, method },
+      configDetail: { config: finalOptions },
       terminalDetail: (result) => result,
       run: async (handle) => {
         // Read from the config, since a `:config` listener can change the method or key.
@@ -158,7 +164,7 @@ export async function runFetch(
         }
 
         try {
-          return await sendAndRoute(hostEl, triggerEl, url, finalOptions, app, handle);
+          return await sendAndRoute(hostEl, triggerEl, finalOptions, app, handle);
         } finally {
           if (marked) {
             writesInFlight.delete(marked);
@@ -185,13 +191,12 @@ export async function runFetch(
 async function sendAndRoute(
   hostEl: Element,
   triggerEl: Element | null,
-  url: string,
   options: FetchRequest,
   app: RouseApp,
   handle: LifecycleHandle,
 ): Promise<RouseResponse> {
   try {
-    const result = await request(url, options, app);
+    const result = await request(options, app);
     const rouseHeaders = extractRouseHeaders(result.headers);
 
     if (rouseHeaders.redirect) {
@@ -250,18 +255,6 @@ async function sendAndRoute(
     handle.settle(fallback);
     return fallback;
   }
-}
-
-/**
- * Returns the request URL. Warns against `el` and returns `null` when there is none.
- */
-function resolveUrl(el: Element | null, url: string | undefined): string | null {
-  if (!url) {
-    __DEV__ && warn('Invalid or missing URL for the fetch request.', ...(el ? [el] : []));
-    return null;
-  }
-
-  return url;
 }
 
 type QueryParams = NonNullable<FetchRequest['params']>;

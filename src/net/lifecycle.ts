@@ -60,14 +60,12 @@ export async function runRequestLifecycle(
 
   if (configEvent.defaultPrevented) return PREVENTED;
 
-  // Only the `:config` detail carries `url` and `method` so drop them
-  const { url: _url, method: _method, ...lifecycleDetail } = configDetail;
   // Resolved after the `:config` gate so listeners can retarget `indicator`
   const indicators = resolveIndicators(el, root, configDetail.config.indicator);
 
   trackInFlight(indicators, 1);
 
-  dispatch(el, `${prefix}:start`, lifecycleDetail);
+  dispatch(el, `${prefix}:start`, configDetail);
 
   let settled = false;
 
@@ -87,7 +85,7 @@ export async function runRequestLifecycle(
     settled = true;
 
     if (result.error?.code === 'CANCELED') {
-      dispatch(el, `${prefix}:abort`, lifecycleDetail);
+      dispatch(el, `${prefix}:abort`, configDetail);
       return;
     }
 
@@ -108,7 +106,7 @@ export async function runRequestLifecycle(
     return await run({ settle });
   } finally {
     trackInFlight(indicators, -1);
-    dispatch(el, `${prefix}:end`, lifecycleDetail);
+    dispatch(el, `${prefix}:end`, configDetail);
   }
 }
 

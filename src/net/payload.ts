@@ -24,10 +24,11 @@ export function resolveUrl(url: string, baseUrl: string): URL {
 }
 
 /**
- * Prepares the URL, headers, and body for a network request.
+ * Prepares the URL, headers, and body for a network request. `url` is left out of
+ * `restOptions`, since it isn't a `RequestInit` field.
  */
-export function preparePayload(url: string, options: FetchRequest, baseUrl: string) {
-  const { headers = {}, body, params, ...restOptions } = options;
+export function preparePayload(options: FetchRequest, baseUrl: string) {
+  const { url, headers = {}, body, params, ...restOptions } = options;
   const method = (options.method || 'GET').toUpperCase();
 
   if (body != null && (method === 'GET' || method === 'HEAD')) {
@@ -37,7 +38,7 @@ export function preparePayload(url: string, options: FetchRequest, baseUrl: stri
     );
   }
 
-  const urlObj = resolveUrl(url, baseUrl);
+  const urlObj = resolveUrl(url as string, baseUrl);
 
   // A param replaces any value the URL already carries for its key
   if (params) {

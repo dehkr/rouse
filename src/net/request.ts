@@ -21,6 +21,10 @@ const abortRegistry = new Map<string | symbol, AbortEntry>();
  * apply uniformly (`skipInterceptors` is the per-call opt-out). Handles payload
  * serialization, `abortKey` concurrency, timeouts, and response normalization.
  *
+ * The URL is read from `config.url` after the request interceptors run, so a `:config`
+ * listener or an interceptor can retarget the request. `config` is the caller's object,
+ * mutated in place and carried on `response.config`.
+ *
  * A safe request (`GET`, `HEAD`, `OPTIONS`, `QUERY`) that fails before any HTTP
  * response arrives is retried once, immediately. That covers a dropped keep-alive
  * socket or a network handoff, where nothing reached the server and so nothing can
@@ -29,29 +33,26 @@ const abortRegistry = new Map<string | symbol, AbortEntry>();
  * and `CANCELED` are never retried, and neither is any other method.
  */
 export async function request<T = any>(
-  url: string,
-  options: FetchRequest = {},
+  config: FetchRequest,
   app: RouseApp,
 ): Promise<RouseResponse<T>> {
-  let currentOptions = { ...options };
-
-  if (!currentOptions.skipInterceptors) {
+  if (!config.skipInterceptors) {
     try {
+      // Merged rather than replaced, so every event and interceptor shares one config
       for (const fn of app._interceptors.request) {
-        currentOptions = await fn(currentOptions);
+        Object.assign(config, await fn(config));
       }
     } catch (e: unknown) {
       let errorPayload = mapCatchError(e, false);
       for (const fn of app._interceptors.error) {
-        errorPayload = await fn(errorPayload, currentOptions);
+        errorPayload = await fn(errorPayload, config);
       }
-      return wrapErrorResponse(errorPayload, currentOptions);
+      return wrapErrorResponse(errorPayload, config);
     }
   }
 
   const { finalUrl, method, reqHeaders, finalBody, restOptions } = preparePayload(
-    url,
-    currentOptions,
+    config,
     app.config.baseUrl,
   );
 
@@ -88,7 +89,7 @@ export async function request<T = any>(
   const execute = async (attempt = 0): Promise<RouseResponse<T>> => {
     if (combinedSignal.aborted) {
       const status = mainSignal?.aborted ? 'CANCELED' : 'TIMEOUT';
-      return fallbackResponse(currentOptions, 'Request canceled or timed out', status);
+      return fallbackResponse(config, 'Request canceled or timed out', status);
     }
 
     let responded = false;
@@ -103,20 +104,20 @@ export async function request<T = any>(
       });
       responded = true;
 
-      const normalized = await normalizeResponse(response, currentOptions);
+      const normalized = await normalizeResponse(response, config);
 
       // Run response/error interceptors
-      if (!currentOptions.skipInterceptors) {
+      if (!config.skipInterceptors) {
         if (normalized.error) {
           for (const fn of app._interceptors.error) {
-            normalized.error = await fn(normalized.error, currentOptions);
+            normalized.error = await fn(normalized.error, config);
           }
         } else {
           for (const fn of app._interceptors.response) {
             normalized.data = await fn(
               normalized.data,
               normalized.response as Response,
-              currentOptions,
+              config,
             );
           }
         }
@@ -139,12 +140,12 @@ export async function request<T = any>(
       }
 
       // Error interceptors run on the final failure or explicit cancellation
-      if (!currentOptions.skipInterceptors) {
+      if (!config.skipInterceptors) {
         for (const fn of app._interceptors.error) {
-          errorPayload = await fn(errorPayload, currentOptions);
+          errorPayload = await fn(errorPayload, config);
         }
       }
-      return wrapErrorResponse(errorPayload, currentOptions);
+      return wrapErrorResponse(errorPayload, config);
     }
   };
 

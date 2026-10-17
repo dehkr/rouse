@@ -1,4 +1,5 @@
 import { type LifecycleHandle, runRequestLifecycle } from '../net/lifecycle';
+import { resolveUrl } from '../net/payload';
 import { request } from '../net/request';
 import { fallbackResponse } from '../net/response';
 import { reactive, seedPropagation, trackDirty } from '../reactivity/reactive';
@@ -57,8 +58,8 @@ export interface SyncPolicy extends Omit<SyncRequest, 'url' | 'indicator'> {
 
 export interface StoreRequestOptions {
   url?: string;
-  /** `triggerEl` is omitted: the top-level field is its only home. */
-  overrides?: Omit<SyncRequest, 'triggerEl'>;
+  /** `triggerEl` and `url` are omitted: the top-level fields are their only home. */
+  overrides?: Omit<SyncRequest, 'triggerEl' | 'url'>;
   triggerEl?: Element;
 }
 
@@ -376,10 +377,25 @@ export class StoreManager {
     const policy: Partial<SyncPolicy> = config ?? {};
     const { url: policyUrl, headers: policyHeaders, ...transport } = policy;
 
-    const url = manualConfig?.url || overrides.url || policyUrl;
+    const endpoint = manualConfig?.url || policyUrl;
 
-    if (!url) {
+    if (!endpoint) {
       __DEV__ && warn(`Cannot ${operation} store '${name}': URL not configured.`);
+      return;
+    }
+
+    // Resolved before `:config`, so listeners and interceptors see the URL that's sent.
+    // An unparseable URL would reject `push()` and `pull()`, which promise not to, so
+    // it's recorded as the store's error instead. No request events fire for it.
+    let url: string;
+    try {
+      url = resolveUrl(endpoint, this.app.config.baseUrl).href;
+    } catch (error: any) {
+      __DEV__ && err(`Store '${name}' ${operation} failed.`, error);
+      entry.status.error = storeError({
+        code: 'INTERNAL_ERROR',
+        message: error.message || 'Internal error',
+      });
       return;
     }
 
@@ -393,6 +409,7 @@ export class StoreManager {
       timeout: this.app.config.timeout,
       ...transport,
       ...overrides,
+      url,
       headers: {
         ...syncHeaders(operation, name),
         ...this.app.config.headers,
@@ -427,13 +444,12 @@ export class StoreManager {
       el: firingEl,
       root: this.app.root,
       prefix: operation === 'push' ? 'rz:push' : 'rz:pull',
-      configDetail: { storeName: name, config: requestOptions, url, method },
+      configDetail: { storeName: name, config: requestOptions },
       terminalDetail: (result) => ({ storeName: name, result }),
       run: async (handle) => {
         outcome = await this._sendAndApply(
           entry,
           operation,
-          url,
           requestOptions,
           snapshot,
           handle,
@@ -468,7 +484,6 @@ export class StoreManager {
   private async _sendAndApply(
     entry: StoreEntry,
     operation: 'push' | 'pull',
-    url: string,
     requestOptions: FetchRequest,
     snapshot: any,
     handle: LifecycleHandle,
@@ -490,7 +505,7 @@ export class StoreManager {
     const done = (result: RouseResponse) => Object.assign(outcome, { result });
 
     try {
-      const result = await request(url, requestOptions, this.app);
+      const result = await request(requestOptions, this.app);
       handle.settle(result);
 
       // A superseded request must not touch the store. Its snapshot is stale, and
