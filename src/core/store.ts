@@ -438,6 +438,13 @@ export class StoreManager {
     // store has a home element, unlike a bare fetch, which fires from app.root.
     const firingEl = manualConfig?.triggerEl ?? entry.el ?? this.app.root;
 
+    // A store created in JS doesn't have an element, so a programmatic sync fires its
+    // events from the app root. If left unset, the in-flight indicator would default to it
+    // as well, marking the whole app busy.
+    if (!manualConfig?.triggerEl && !entry.el && requestOptions.indicator === undefined) {
+      requestOptions.indicator = null;
+    }
+
     let outcome: SendOutcome | undefined;
 
     await runRequestLifecycle({
