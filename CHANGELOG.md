@@ -27,11 +27,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `rz:store:patch:*` event details no longer carry `nestedPath`.
   - A store path can still be used with an `edit` trigger to push only when that part changes: `data-rz-push="edit-[@user.profile]: @user"`.
   - A server can target a store slice with a response that nests the change. E.g. `{"profile":{"name":"Bob"}}` updates `profile.name` and leaves the rest untouched.
-- **Breaking:** Remove `url` from the `overrides` option of `app.stores.push()` and `app.stores.pull()`. Use the top-level `url` option: `app.stores.pull('user', { url })`.
+- **Breaking:** Remove the `overrides` option from `app.stores.push()` and `app.stores.pull()`. Pass request options directly, consistent with `app.fetch()`. E.g.: `app.stores.push('user', { indicator: '#save', timeout: 5000 })`.
 
 ### Fixed
 
-- Stop a programmatic push or pull on a store created with `app.store()` from marking the whole app as busy with the `rouse-request` class. Pass `overrides: { indicator }` to mark an element while it syncs.
+- Stop a programmatic push or pull on a store created with `app.store()` from marking the whole app as busy with the `rouse-request` class. Set the `indicator` option to mark an element during sync.
 
 ## [0.15.0] - 2026-10-15
 

@@ -56,13 +56,6 @@ export interface SyncPolicy extends Omit<SyncRequest, 'url' | 'indicator'> {
   url: string;
 }
 
-export interface StoreRequestOptions {
-  url?: string;
-  /** `triggerEl` and `url` are omitted: the top-level fields are their only home. */
-  overrides?: Omit<SyncRequest, 'triggerEl' | 'url'>;
-  triggerEl?: Element;
-}
-
 /** What a settled request hands back to `_request`. */
 interface SendOutcome {
   result: RouseResponse;
@@ -367,17 +360,16 @@ export class StoreManager {
   private async _request(
     storeName: string | null | undefined,
     operation: 'push' | 'pull',
-    manualConfig?: StoreRequestOptions,
+    options: SyncRequest = {},
   ) {
     const entry = this._getStore(storeName);
     if (!entry) return;
 
     const { data, config, name } = entry;
-    const overrides = manualConfig?.overrides ?? {};
     const policy: Partial<SyncPolicy> = config ?? {};
     const { url: policyUrl, headers: policyHeaders, ...transport } = policy;
 
-    const endpoint = manualConfig?.url || policyUrl;
+    const endpoint = options.url || policyUrl;
 
     if (!endpoint) {
       __DEV__ && warn(`Cannot ${operation} store '${name}': URL not configured.`);
@@ -402,27 +394,27 @@ export class StoreManager {
     // Both verbs are prescribed: a push is a merge patch, a pull carries no body.
     const method = operation === 'push' ? 'PATCH' : 'GET';
 
-    // Layers, later wins: protocol defaults, app config, store policy, programmatic
-    // overrides. Headers merge per key so one layer never drops another's keys.
+    // Layers, later wins: protocol defaults, app config, store policy, per-call
+    // options. Headers merge per key so one layer never drops another's keys.
     const requestOptions: FetchRequest = {
       credentials: this.app.config.credentials,
       timeout: this.app.config.timeout,
       ...transport,
-      ...overrides,
+      ...options,
       url,
       headers: {
         ...syncHeaders(operation, name),
         ...this.app.config.headers,
         ...policyHeaders,
-        ...overrides.headers,
+        ...options.headers,
       },
       method,
-      triggerEl: manualConfig?.triggerEl,
+      triggerEl: options.triggerEl,
       // A key that matched another request's would let that request abort this push
       abortKey:
         operation === 'push'
           ? undefined
-          : (overrides.abortKey ?? transport.abortKey ?? `pull_${name}`),
+          : (options.abortKey ?? transport.abortKey ?? `pull_${name}`),
     };
 
     // The body is the snapshot, not the live store. Serializing the live store later
@@ -436,12 +428,12 @@ export class StoreManager {
     // Request-axis events prefer the trigger element, falling back to the store's
     // own element like the destination axis does. The fallback is deliberate: a
     // store has a home element, unlike a bare fetch, which fires from app.root.
-    const firingEl = manualConfig?.triggerEl ?? entry.el ?? this.app.root;
+    const firingEl = options.triggerEl ?? entry.el ?? this.app.root;
 
     // A store created in JS doesn't have an element, so a programmatic sync fires its
     // events from the app root. If left unset, the in-flight indicator would default to it
     // as well, marking the whole app busy.
-    if (!manualConfig?.triggerEl && !entry.el && requestOptions.indicator === undefined) {
+    if (!options.triggerEl && !entry.el && requestOptions.indicator === undefined) {
       requestOptions.indicator = null;
     }
 
@@ -906,32 +898,33 @@ export class StoreManager {
    * The promise resolves when the push's request finishes or, if it had to wait, once
    * the store has nothing in flight and nothing left to send. It never rejects: read
    * `status(name).error` to see whether a push failed.
+   *
+   * Options apply to this push only and take precedence over the store's own config,
+   * for example `push('user', { indicator: '#save', timeout: 5000 })`. A push is
+   * always a `PATCH` carrying the whole store, so there is no `method` or `body`.
    */
-  async push(
-    storeName: string | null | undefined,
-    config?: StoreRequestOptions,
-  ): Promise<void> {
+  async push(storeName: string | null | undefined, options?: SyncRequest): Promise<void> {
     __DEV__ &&
-      config?.overrides?.abortKey &&
+      options?.abortKey &&
       warn(
         `Store '${storeName}': abortKey is ignored on a push. A store sends one push at a time, so there is nothing to abort.`,
       );
 
-    return this._push(storeName, config);
+    return this._push(storeName, options);
   }
 
   /** `push()` without the call-site warning, so a held push's follow-up doesn't repeat it. */
   private _push(
     storeName: string | null | undefined,
-    config?: StoreRequestOptions,
+    options?: SyncRequest,
   ): Promise<void> {
     const entry = this._find(storeName);
 
     if (entry?.status.syncing) {
-      this._deferPush(storeName, () => this._push(storeName, config));
+      this._deferPush(storeName, () => this._push(storeName, options));
       return this._whenIdle(entry);
     }
-    return this._request(storeName, 'push', config);
+    return this._request(storeName, 'push', options);
   }
 
   /**
@@ -979,13 +972,14 @@ export class StoreManager {
 
   /**
    * Pulls fresh store data from the server, unless a push is currently in flight.
+   *
+   * Options apply to this pull only and take precedence over the store's own config.
+   * Pass `url` to pull from somewhere other than the store's endpoint:
+   * `pull('user', { url: '/api/user?fields=name' })`.
    */
-  async pull(
-    storeName: string | null | undefined,
-    config?: StoreRequestOptions,
-  ): Promise<void> {
+  async pull(storeName: string | null | undefined, options?: SyncRequest): Promise<void> {
     if (this.status(storeName)?.syncing === 'push') return;
-    return this._request(storeName, 'pull', config);
+    return this._request(storeName, 'pull', options);
   }
 
   /**
