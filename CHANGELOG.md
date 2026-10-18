@@ -32,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Stop a programmatic push or pull on a store created with `app.store()` from marking the whole app as busy with the `rouse-request` class. Set the `indicator` option to mark an element during sync.
+- Resolve a relative `baseUrl`, such as `rouse({ baseUrl: '/api' })`, against the document URL to prevent requests from failing.
 
 ## [0.15.0] - 2026-10-15
 

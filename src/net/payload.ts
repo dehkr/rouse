@@ -3,7 +3,8 @@ import type { FetchRequest } from '../types';
 
 /**
  * Resolves a request URL against `baseUrl`, falling back to the document base.
- * An absolute URL is returned unchanged.
+ * A relative `baseUrl` is resolved against the document base. An absolute URL is
+ * returned unchanged.
  */
 export function resolveUrl(url: string, baseUrl: string): URL {
   try {
@@ -11,10 +12,9 @@ export function resolveUrl(url: string, baseUrl: string): URL {
       return new URL(url);
     }
 
+    // Resolve a relative `baseUrl` against the document first to make it absolute
     const base = baseUrl
-      ? baseUrl.endsWith('/')
-        ? baseUrl
-        : `${baseUrl}/`
+      ? new URL(baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`, document.baseURI)
       : document.baseURI;
 
     return new URL(url, base);
