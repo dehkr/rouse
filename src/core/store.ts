@@ -40,8 +40,8 @@ export interface StoreStatus {
   lastSync: number;
   /** `true` when the store holds changes the server hasn't confirmed. */
   dirty: boolean;
-  /** The top-level keys whose values differ from what the server has. */
-  dirtyKeys: Record<string, boolean>;
+  /** The roots whose values differ from what the server has. */
+  dirtyRoots: Record<string, true>;
 }
 
 /**
@@ -227,7 +227,7 @@ export class StoreManager {
       error: null,
       lastSync: 0,
       dirty: false,
-      dirtyKeys: {},
+      dirtyRoots: {},
     });
 
     const proxyState = reactive(state);
@@ -310,7 +310,7 @@ export class StoreManager {
 
   /**
    * Recomputes the dirty status against `lastGood`. The only writer of
-   * `status.dirtyKeys` and `status.dirty`. Without `roots`, walks every root in
+   * `status.dirtyRoots` and `status.dirty`. Without `roots`, walks every root in
    * the data or the baseline, so a root deleted locally still reads dirty.
    */
   private _reconcileDirty(entry: StoreEntry, roots?: Iterable<string>) {
@@ -327,13 +327,13 @@ export class StoreManager {
       }
 
       if (deepEqual(data[key], baseline[key])) {
-        delete status.dirtyKeys[key];
+        delete status.dirtyRoots[key];
       } else {
-        status.dirtyKeys[key] = true;
+        status.dirtyRoots[key] = true;
       }
     }
 
-    status.dirty = Object.keys(status.dirtyKeys).length > 0;
+    status.dirty = Object.keys(status.dirtyRoots).length > 0;
   }
 
   /** Returns `true` when the data at `path`, or the whole store, differs from `lastGood`. */
@@ -854,30 +854,49 @@ export class StoreManager {
 
   /**
    * Returns the status object for a store, or `undefined`. Available store
-   * status properties are `syncing`, `error`, `lastSync`, `dirty`, and `dirtyKeys`.
+   * status properties are `syncing`, `error`, `lastSync`, `dirty`, and `dirtyRoots`.
    */
   status(storeName: string | null | undefined): StoreStatus | undefined {
     return this._find(storeName)?.status;
   }
 
   /**
-   * Returns `true` when the store has unsaved changes. Pass a dot path to ask
-   * about a single field or branch instead of the whole store.
+   * Returns `true` when the store has unsaved changes. Pass a root key to ask
+   * about that key alone, the same question `@name::status.dirtyRoots.key` answers
+   * in HTML.
    *
-   * Without a path the answer comes from the store's status, which updates a
-   * microtask after an edit. With a path the comparison runs on the spot.
+   * The answer comes from the store's status, which updates a microtask after an
+   * edit.
    */
-  isDirty(storeName: string | null | undefined, path?: string): boolean {
+  isDirty(storeName: string | null | undefined, root?: string): boolean {
     const entry = this._getStore(storeName);
     if (!entry) {
       return false;
     }
 
-    if (!path) {
+    if (!root) {
       return entry.status.dirty;
     }
 
-    return this._isSliceDirty(entry, path);
+    const key = getPathRoot(root) as string;
+    __DEV__ &&
+      key !== root &&
+      warn(
+        `Store '${storeName}': isDirty() takes a root key, not a path. Checking '${key}' for '${root}'.`,
+      );
+
+    return entry.status.dirtyRoots[key] === true;
+  }
+
+  /**
+   * Returns the root keys that hold unsaved changes, or an empty array when there
+   * are none. The array is a copy, so changing it leaves the store's status alone.
+   *
+   * Like `isDirty()`, the answer updates a microtask after an edit.
+   */
+  dirtyRoots(storeName: string | null | undefined): string[] {
+    const entry = this._getStore(storeName);
+    return entry ? Object.keys(entry.status.dirtyRoots) : [];
   }
 
   /**

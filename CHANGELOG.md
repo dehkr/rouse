@@ -7,8 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add `app.stores.dirtyRoots(name)`, which returns a store's root keys holding unsaved changes.
+
 ### Changed
 
+- **Breaking:** Rename store status `dirtyKeys` to `dirtyRoots`.
+- **Breaking:** Accept a root key as the second argument of `app.stores.isDirty()` to normalize the programmatic and declarative dirty tracking APIs around root keys. Compare against `app.stores.baseline(name)` for checking a nested path.
 - **Breaking:** Resolve `config.url` against `baseUrl` before `rz:fetch:config`, `rz:push:config`, and `rz:pull:config`, so listeners and interceptors see the absolute URL that's sent.
   - Push and pull configs now always carry `url`.
   - `url` and `method` no longer live in `rz:*:config` details. Read from `e.detail.config` instead.
@@ -31,7 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Stop a programmatic push or pull on a store created with `app.store()` from marking the whole app as busy with the `rouse-request` class. Set the `indicator` option to mark an element during sync.
+- Stop a programmatic push or pull on a store created in JS from adding the `rouse-request` class to the app root. Set the `indicator` option to mark an element during a sync.
 - Resolve a relative `baseUrl`, such as `rouse({ baseUrl: '/api' })`, against the document URL to prevent requests from failing.
 
 ## [0.15.0] - 2026-10-15
