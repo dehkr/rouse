@@ -241,8 +241,10 @@ export class StoreManager {
 
     this._stores.set(storeName, entry);
 
+    // Copies of this callback live on every nested object the store has read, so a
+    // reference kept after `remove()` would still report edits through it
     trackDirty(proxyState, (rootKey: string) => {
-      if (this._isPatching) return;
+      if (this._isPatching || !this._isRegistered(entry)) return;
 
       entry.touched ??= new Set();
       entry.touched.add(rootKey);
@@ -259,6 +261,11 @@ export class StoreManager {
     }
 
     return entry;
+  }
+
+  /** Returns `true` while `entry` is the store registered under its name. */
+  private _isRegistered(entry: StoreEntry): boolean {
+    return this._stores.get(entry.name) === entry;
   }
 
   /**
@@ -509,8 +516,10 @@ export class StoreManager {
 
       // A superseded request must not touch the store. Its snapshot is stale, and
       // its error belongs to a request that no longer owns the store. `finally`
-      // already leaves `syncing` to the winner.
-      if (entry.activeReq !== reqToken) {
+      // already leaves `syncing` to the winner. A removed store is checked here
+      // rather than in `remove()`, so a removal from a `:config` or `:start`
+      // listener is caught too.
+      if (entry.activeReq !== reqToken || !this._isRegistered(entry)) {
         return done(result);
       }
 
@@ -1058,17 +1067,24 @@ export class StoreManager {
   }
 
   /**
-   * Drops all per-store state from the manager. Existing references to the proxy
-   * keep working but desync. Intended for tear-down of dynamically-created stores.
+   * Drops all per-store state from the manager. Intended for tear-down of
+   * dynamically-created stores.
+   *
+   * Existing references to the proxy keep working but desync: edits through them
+   * won't notify `onEdit` listeners or trigger pushes, and an in-flight request won't
+   * apply its response.
    */
   remove(storeName: string | null | undefined) {
     const entry = this._find(storeName);
     if (!entry) return;
 
     // A held `push()` would otherwise wait on a store that no longer exists, and a
-    // follow-up would reach whatever store is registered under the name next
+    // follow-up would reach whatever store is registered under the name next.
+    // A running flush has its own copy of the queue, so listeners can also be cleared.
     this._settleIdle(entry);
     entry.pendingPush = undefined;
+    entry.listeners = undefined;
+    entry.touched = undefined;
     this._pendingFlush.delete(entry);
     this._stores.delete(entry.name);
   }
