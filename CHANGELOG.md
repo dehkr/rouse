@@ -14,7 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **Breaking:** Rename store status `dirtyKeys` to `dirtyRoots`.
-- **Breaking:** Accept a root key as the second argument of `app.stores.isDirty()` to normalize the programmatic and declarative dirty tracking APIs around root keys. Compare against `app.stores.baseline(name)` for checking a nested path.
+- **Breaking:** Accept a root key as the second argument of `app.stores.isDirty()` to normalize the programmatic and declarative dirty tracking APIs around root keys. To check a nested path, compare against `app.stores.baseline(name)`.
+- **Breaking:** Stop a deposit from marking a store's unsaved changes as saved. A deposit, from `data-rz-deposit` or `app.stores.deposit()`, now marks only the values in its payload as saved, the way a pull does.
+  - `reset()` no longer restores deposited data. It restores the state the store started with.
+  - To mark the whole store as saved after a deposit, call `app.stores.commit(name)`.
 - **Breaking:** Resolve `config.url` against `baseUrl` before `rz:fetch:config`, `rz:push:config`, and `rz:pull:config`, so listeners and interceptors see the absolute URL that's sent.
   - Push and pull configs now always carry `url`.
   - `url` and `method` no longer live in `rz:*:config` details. Read from `e.detail.config` instead.

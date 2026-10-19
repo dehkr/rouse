@@ -650,16 +650,6 @@ export class StoreManager {
   }
 
   /**
-   * Patches the store's data, then makes it the new baseline: both restore targets
-   * (`reset()` and `revert()`) and the dirty flags are refreshed to match.
-   */
-  private _adoptState(entry: StoreEntry, state: object, action: 'replace' | 'merge') {
-    this._withPatchGuard(entry, () => patchState(entry.data, state, action));
-    entry.initial = clone(entry.data);
-    this._updateLastGood(entry, entry.data);
-  }
-
-  /**
    * Queues a store for end-of-microtask reconciliation, coalescing a batch of
    * synchronous writes into one dirty recompute and one round of notifications.
    */
@@ -765,7 +755,9 @@ export class StoreManager {
 
     __DEV__ && warnNullFields(entry.name, state);
 
-    this._adoptState(entry, state, 'replace');
+    this._withPatchGuard(entry, () => patchState(entry.data, state, 'replace'));
+    entry.initial = clone(entry.data);
+    this._updateLastGood(entry, entry.data);
 
     return entry.data;
   }
@@ -775,6 +767,10 @@ export class StoreManager {
    * or a stream message routed by `data-rz-deposit="@store"` does. Fires the same
    * events a push or pull fires, so a listener sees one shape whatever produced
    * the payload.
+   *
+   * The payload's keys become the last synced state, as they would after a pull.
+   * Keys it leaves out keep any unsaved changes, and `reset()` still restores the
+   * state the store started with.
    *
    * @returns `false` if the store does not exist or a listener canceled the patch.
    */
@@ -805,7 +801,8 @@ export class StoreManager {
 
     const applied = beforeEvent.detail.payload as object;
 
-    this._adoptState(entry, applied, 'merge');
+    this._patchPayload(entry, applied);
+    this._patchBaseline(entry, applied);
     entry.status.lastSync = Date.now();
 
     this._dispatchPatchEvent(entry, 'rz:store:patch', {
