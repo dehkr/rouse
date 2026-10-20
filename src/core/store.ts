@@ -83,6 +83,11 @@ interface StoreEntry {
   pendingPush?: VoidFn;
   /** Settles held `push()` calls once the store has nothing in flight and nothing left to send. */
   idle?: { promise: Promise<void>; resolve: VoidFn };
+  /**
+   * The `<script data-rz-store>` the store was declared on. Kept after the script is
+   * removed, so a same-name replacement can be told apart from a duplicate. Read it
+   * through `_elementOf`, which ignores a detached one.
+   */
   el?: Element;
   listeners?: Set<EditListener>;
   touched?: Set<string>;
@@ -263,6 +268,14 @@ export class StoreManager {
     return entry;
   }
 
+  /**
+   * Returns the store's element while it's on the page. Events dispatched on a
+   * detached script never reach the app root.
+   */
+  private _elementOf(entry: StoreEntry): Element | undefined {
+    return entry.el?.isConnected ? entry.el : undefined;
+  }
+
   /** Returns `true` while `entry` is the store registered under its name. */
   private _isRegistered(entry: StoreEntry): boolean {
     return this._stores.get(entry.name) === entry;
@@ -354,7 +367,7 @@ export class StoreManager {
     detail: LifecycleEventMap[E],
     options?: CustomEventInit,
   ): CustomEvent<LifecycleEventMap[E]> {
-    const target = entry.el || this.app.root;
+    const target = this._elementOf(entry) ?? this.app.root;
 
     return dispatch(target, eventName, detail as any, options) as CustomEvent<
       LifecycleEventMap[E]
@@ -435,12 +448,13 @@ export class StoreManager {
     // Request-axis events prefer the trigger element, falling back to the store's
     // own element like the destination axis does. The fallback is deliberate: a
     // store has a home element, unlike a bare fetch, which fires from app.root.
-    const firingEl = options.triggerEl ?? entry.el ?? this.app.root;
+    const storeEl = this._elementOf(entry);
+    const firingEl = options.triggerEl ?? storeEl ?? this.app.root;
 
-    // A store created in JS doesn't have an element, so a programmatic sync fires its
-    // events from the app root. If left unset, the in-flight indicator would default to it
-    // as well, marking the whole app busy.
-    if (!options.triggerEl && !entry.el && requestOptions.indicator === undefined) {
+    // A store created in JS, or one whose <script> element was removed, doesn't have an
+    // element on the page, so a programmatic sync fires its events from the app root. If left
+    // unset, the in-flight indicator would default to it as well, marking the whole app busy.
+    if (!options.triggerEl && !storeEl && requestOptions.indicator === undefined) {
       requestOptions.indicator = null;
     }
 
@@ -752,6 +766,54 @@ export class StoreManager {
   }
 
   /**
+   * Applies a `<script data-rz-store>`: creates the store on a new name, or
+   * re-declares it if it's replacing the store's own detached script.
+   * `state` is the script's JSON, or `undefined` when it has none.
+   *
+   * @internal
+   */
+  _declare(
+    el: Element,
+    storeName: string,
+    state: object | undefined,
+    declared: Pick<Partial<SyncPolicy>, 'url' | 'headers'>,
+  ) {
+    const entry = this._stores.get(storeName);
+
+    if (!entry) {
+      this._create(storeName, state ?? {}, declared, el);
+      return;
+    }
+
+    if (!entry.el || (entry.el !== el && entry.el.isConnected)) {
+      __DEV__ &&
+        warn(
+          entry.el
+            ? `rz-store: store '${storeName}' is already declared by another <script> on the page. This one is ignored.`
+            : `rz-store: store '${storeName}' was created in JS, so this <script> is ignored.`,
+          el,
+        );
+      return;
+    }
+
+    if (state) {
+      this._reseed(entry, state);
+    }
+
+    entry.el = el;
+
+    // Update url and headers config defined on the <script>. Options that can only be set
+    // via JS are untouched.
+    const config: SyncPolicy = { ...entry.config, url: declared.url ?? '' };
+    if (declared.headers) {
+      config.headers = declared.headers;
+    } else {
+      delete config.headers;
+    }
+    entry.config = config;
+  }
+
+  /**
    * Replaces the store's data, then clears dirty flags and refreshes both
    * snapshots: the one `reset()` restores to, and the last synced state `revert()`
    * restores to. To change the store's sync configuration, use `config()`.
@@ -762,13 +824,21 @@ export class StoreManager {
       fail(storeName ? `Store '${storeName}' does not exist.` : 'Store name is missing.');
     }
 
+    this._reseed(entry, state);
+
+    return entry.data;
+  }
+
+  /**
+   * Replaces the store's data and makes it both restore targets. Shared by `update()`
+   * and a re-declared script.
+   */
+  private _reseed(entry: StoreEntry, state: object) {
     __DEV__ && warnNullFields(entry.name, state);
 
     this._withPatchGuard(entry, () => patchState(entry.data, state, 'replace'));
     entry.initial = clone(entry.data);
     this._updateLastGood(entry, entry.data);
-
-    return entry.data;
   }
 
   /**

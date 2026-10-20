@@ -30,42 +30,31 @@ function initialize(el: HTMLScriptElement, app: RouseApp) {
   const { name: storeName, url } = parsed;
 
   const textContent = el.textContent?.trim();
-  const storeExists = app.stores.has(storeName);
 
-  // If the store was already created programmatically and this `<script>` has
-  // no JSON, we skip defining state and move on to attaching the network directives.
-  // If the programmatic store exists and the script contains JSON, however, the
-  // programmatic data gets replaced.
-  if (textContent || !storeExists) {
-    let state: any;
+  let state: object | undefined;
+  if (textContent) {
     try {
-      state = JSON.parse(textContent || '{}');
+      state = JSON.parse(textContent);
     } catch (error) {
       err(`rz-store: invalid JSON in store '${storeName}'.`, el, error);
       return;
     }
-
-    if (storeExists) {
-      app.stores.update(storeName, state);
-    } else {
-      app.stores._create(storeName, state, undefined, el);
-    }
   }
 
-  const cfg: Partial<SyncPolicy> = {};
+  const declared: Pick<Partial<SyncPolicy>, 'url' | 'headers'> = {};
   const headers = rzHeaders.getConfig(el);
 
   if (url) {
-    cfg.url = url;
+    declared.url = url;
   }
 
   if (Object.keys(headers).length) {
-    cfg.headers = headers;
+    declared.headers = headers;
   }
 
-  if (Object.keys(cfg).length) {
-    app.stores.config(storeName, cfg);
-  }
+  // A store <script> with the same name that replaces its own <script> element
+  // re-declares the store. If it was declared elsewhere it's ignored.
+  app.stores._declare(el, storeName, state, declared);
 
   initialized.add(el);
 }
