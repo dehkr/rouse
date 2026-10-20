@@ -45,7 +45,8 @@ export interface StoreStatus {
 }
 
 /**
- * A store's standing sync policy. Seeded at init, applied to every push and pull.
+ * A store's standing sync policy, applied to every push and pull. A store script seeds
+ * it when it declares the store, and replaces `url` and `headers` when it re-declares it.
  *
  * `indicator` is deliberately absent: it belongs to the trigger, not the store. A
  * store has many triggers, and `resolveIndicators` takes a single value, so a
