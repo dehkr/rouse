@@ -2,6 +2,7 @@ import type { RouseApp } from '../core/app';
 import { directiveSelector, getDirectiveValue } from '../core/attributes';
 import { err, warn } from '../core/diagnostics';
 import { parseStoreValue } from '../core/parser';
+import { isPlainObject } from '../core/state';
 import type { SyncPolicy } from '../core/store';
 import type { StandaloneDirective } from '../types';
 import { rzHeaders } from './rz-headers';
@@ -31,12 +32,18 @@ function initialize(el: HTMLScriptElement, app: RouseApp) {
 
   const textContent = el.textContent?.trim();
 
+  // Errors below log in production since a rejected store leaves its bindings
+  // empty with no explanation.
   let state: object | undefined;
   if (textContent) {
     try {
       state = JSON.parse(textContent);
     } catch (error) {
       err(`rz-store: invalid JSON in store '${storeName}'.`, el, error);
+      return;
+    }
+    if (!isPlainObject(state)) {
+      err(`rz-store: store '${storeName}' must be a JSON object.`, el);
       return;
     }
   }

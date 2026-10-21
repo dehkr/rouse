@@ -133,6 +133,18 @@ function syncHeaders(
 }
 
 /**
+ * Throws unless `state` is an object. It can't be an array. A root array's own
+ * mutations never mark it dirty, and sync would merge it index by index.
+ */
+function assertStoreState(storeName: string, state: unknown) {
+  if (typeof state !== 'object' || state === null || Array.isArray(state)) {
+    fail(
+      `Store '${storeName}' must be an object, not ${Array.isArray(state) ? 'an array' : String(state)}.`,
+    );
+  }
+}
+
+/**
  * Warns for each object property holding `null` in a baseline the caller is
  * asserting. Dev-only; gate every call with `__DEV__`.
  */
@@ -759,6 +771,7 @@ export class StoreManager {
     if (this._stores.has(storeName)) {
       fail(`A store named '${storeName}' already exists.`);
     }
+    assertStoreState(storeName, state);
 
     const entry = this._register(storeName, state, config, el);
     this._updateLastGood(entry, state);
@@ -824,6 +837,7 @@ export class StoreManager {
     if (!entry) {
       fail(storeName ? `Store '${storeName}' does not exist.` : 'Store name is missing.');
     }
+    assertStoreState(entry.name, state);
 
     this._reseed(entry, state);
 
