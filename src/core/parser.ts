@@ -533,7 +533,7 @@ function isInQuotes(val: string) {
 /**
  * Strips matching outer quotes from a string and trims the result.
  */
-function stripQuotes(val: string) {
+export function stripQuotes(val: string) {
   if (isInQuotes(val)) {
     return val.slice(1, -1).trim();
   }
