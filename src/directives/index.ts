@@ -2,6 +2,7 @@ export { rzAttr } from './rz-attr';
 export { rzClass } from './rz-class';
 export { rzClose } from './rz-close';
 export { rzDeposit } from './rz-deposit';
+export { rzDisable } from './rz-disable';
 export { rzFetch } from './rz-fetch';
 export { rzHeaders } from './rz-headers';
 export { rzHtml } from './rz-html';

@@ -4,6 +4,7 @@ export const DIRECTIVE_SLUGS = [
   'class',
   'close',
   'deposit',
+  'disable',
   'fetch',
   'headers',
   'html',

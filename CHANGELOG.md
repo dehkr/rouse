@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Add `app.stores.dirtyRoots(name)`, which returns a store's root keys holding unsaved changes.
+- Add the `rz-disable` directive to disable elements during active requests from the element. Accepts a CSS selector, or defaults to the host element if no value is provided.
 
 ### Changed
 

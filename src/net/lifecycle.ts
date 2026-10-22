@@ -1,6 +1,7 @@
 import { queryTargets } from '../core/attributes';
 import { warn } from '../core/diagnostics';
 import { dispatch } from '../core/dispatch';
+import { rzDisable } from '../directives/rz-disable';
 import { rzIndicator } from '../directives/rz-indicator';
 import type {
   FetchConfigDetail,
@@ -15,6 +16,12 @@ const REQUEST_CLASS = 'rouse-request';
 
 /** In-flight request count per indicator element. */
 const inFlight = new WeakMap<Element, number>();
+
+/**
+ * Tracks request counts for elements disabled by Rouse. If an element is `disabled`
+ * but not in this map, it was disabled externally.
+ */
+const heldDisabled = new WeakMap<Element, number>();
 
 export interface LifecycleHandle {
   settle: (result: RouseResponse) => void;
@@ -63,9 +70,21 @@ export async function runRequestLifecycle(
   // Resolved after the `:config` gate so listeners can retarget `indicator`
   const indicators = resolveIndicators(el, root, configDetail.config.indicator);
 
+  // A request with no trigger fires from the app root, and its `rz-disable` would
+  // apply to every trigger-less fetch. A store's script is a deliberate firing element.
+  const disableHost = configDetail.config.triggerEl ?? (el === root ? null : el);
+  const disabled = holdDisabled(resolveDisabled(disableHost, root));
+
   trackInFlight(indicators, 1);
 
   dispatch(el, `${prefix}:start`, configDetail);
+
+  let released = false;
+  const release = () => {
+    if (released) return;
+    released = true;
+    releaseDisabled(disabled);
+  };
 
   let settled = false;
 
@@ -79,10 +98,14 @@ export async function runRequestLifecycle(
    * Then honors a `Rouse-Trigger` header by dispatching the named event with the
    * raw response as its detail. Idempotent. Affordances clear and `:end` fires even
    * when `run` never settles.
+   *
+   * Disabled elements are released first, so a terminal listener can focus them and a
+   * `Rouse-Trigger` event can start a request from them.
    */
   const settle = (result: RouseResponse) => {
     if (settled) return;
     settled = true;
+    release();
 
     if (result.error?.code === 'CANCELED') {
       dispatch(el, `${prefix}:abort`, configDetail);
@@ -106,14 +129,16 @@ export async function runRequestLifecycle(
     return await run({ settle });
   } finally {
     trackInFlight(indicators, -1);
+    release();
     dispatch(el, `${prefix}:end`, configDetail);
   }
 }
 
 /**
- * Resolves which elements get the `rouse-request` class: an explicit programmatic
- * `indicator`, else `rz-indicator` on the firing element, else the firing element
- * itself. `null` at either level means no indicators at all.
+ * Determines which elements receive the `rouse-request` indicator class.
+ *
+ * Precedence: explicit `indicator` option -> `rz-indicator` attribute -> firing element (`el`).
+ * If resolved to `null`, no indicators are returned.
  */
 function resolveIndicators(
   el: Element,
@@ -140,7 +165,7 @@ function resolveIndicators(
     return els;
   }
 
-  // Checked by shape, not `instanceof`, so an element from another frame passes
+  // Shape check instead of instanceof so cross-origin/iframe elements aren't rejected
   if ((resolved as Partial<Element>)?.nodeType === Node.ELEMENT_NODE) {
     return [resolved];
   }
@@ -152,6 +177,65 @@ function resolveIndicators(
     );
 
   return [];
+}
+
+/**
+ * Resolves the target elements to disable for an `rz-disable` directive on a host
+ * element. Returns `[]` if the directive is missing, `[host]` for empty values, or all
+ * matching elements that can be disabled for CSS selectors.
+ */
+function resolveDisabled(host: Element | null, root: Element): Element[] {
+  if (!host) return [];
+
+  const selector = rzDisable.getConfig(host);
+  if (selector === undefined) return [];
+
+  const els = selector === '' ? [host] : queryTargets(root, selector);
+  __DEV__ &&
+    !els.length &&
+    warn(`rz-disable: selector '${selector}' does not match any elements.`, host);
+
+  // Filter out elements that don't support the native `disabled` property (e.g. <div>, <a>)
+  return els.filter((match) => {
+    if ('disabled' in match) return true;
+    __DEV__ &&
+      warn(
+        `rz-disable: <${match.localName}> can't be disabled. Name a form control or a fieldset.`,
+        match,
+        host,
+      );
+    return false;
+  });
+}
+
+/**
+ * Disables target elements and tracks their in-flight request count. Preserves pre-existing
+ * author-disabled states by skipping elements that were disabled prior to tracking.
+ */
+function holdDisabled(els: Element[]): Element[] {
+  const held = els.filter((el) => heldDisabled.has(el) || !el.hasAttribute('disabled'));
+  held.forEach((el) => {
+    heldDisabled.set(el, (heldDisabled.get(el) ?? 0) + 1);
+    el.setAttribute('disabled', '');
+  });
+
+  return held;
+}
+
+/**
+ * Releases in-flight disabled holds on target elements. Re-enables an element only when
+ * its active request count reaches zero.
+ */
+function releaseDisabled(els: Element[]) {
+  for (const el of els) {
+    const n = (heldDisabled.get(el) ?? 1) - 1;
+    if (n > 0) {
+      heldDisabled.set(el, n);
+      continue;
+    }
+    heldDisabled.delete(el);
+    el.removeAttribute('disabled');
+  }
 }
 
 /**
