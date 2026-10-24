@@ -773,6 +773,13 @@ export class StoreManager {
     }
     assertStoreState(storeName, state);
 
+    // A store name with a dot is read as a path everywhere except through `app.stores`
+    __DEV__ &&
+      storeName.includes('.') &&
+      warn(
+        `Store name '${storeName}' contains a dot, so '@${storeName}' and { edit: '${storeName}' } read as store '${storeName.slice(0, storeName.indexOf('.'))}'. Use a name without dots.`,
+      );
+
     const entry = this._register(storeName, state, config, el);
     this._updateLastGood(entry, state);
 
