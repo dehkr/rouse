@@ -368,7 +368,7 @@ export type RenderContext = Scope & {
  * The HTML grammar (`click|debounce-[300ms].once`) is its serialized form, produced by
  * `parseTriggers`. Consumers read fields from this object rather than scanning tokens.
  */
-export interface TriggerOptions {
+export interface TriggerModifiers {
   /** Remove the listener after it fires. Events rejected by a filter don't count. */
   once?: boolean;
   /** Listen during the capture phase. */
@@ -411,17 +411,52 @@ export interface TriggerOptions {
   leading?: boolean;
   /** Run on the trailing edge of the timing window. */
   trailing?: boolean;
-
-  /** The trigger's bracketed argument (`timeout-[5s]`, `media-[(min-width: 640px)]`). */
-  arg?: string;
 }
 
-/** Parsed trigger event with its resolved options. */
+/** The argument each trigger source takes, by trigger name. */
+export interface TriggerSourceArgs {
+  /** How long to wait, in milliseconds or as a duration such as `'5s'`. */
+  timeout: number | string;
+  /** How often to fire, in milliseconds or as a duration such as `'10s'`. */
+  interval: number | string;
+  /** The media query to match, such as `'(min-width: 640px)'`. */
+  media: string;
+  /** How much of the element must be visible to fire, from 0 to 1. */
+  intersect: number;
+  /** The server event name to listen for. */
+  sse: string;
+  /** The store to watch and an optional path into it, such as `'cart.items'`. */
+  edit: string;
+}
+
+/** A trigger source's argument, of any source. */
+export type TriggerArg = TriggerSourceArgs[keyof TriggerSourceArgs];
+
+/** Trigger sources that can't be named by a string alone, since they need an argument. */
+export type RequiredArgSource = Exclude<keyof TriggerSourceArgs, 'intersect'>;
+
+/**
+ * A trigger source with its argument, written as an object with one key:
+ * `{ interval: '10s' }`, `{ edit: 'cart.items' }`. It's the `app.on` form of the
+ * `interval-[10s]` trigger in HTML.
+ */
+export type TriggerDescriptor = {
+  [K in keyof TriggerSourceArgs]: { [P in K]: TriggerSourceArgs[K] } & {
+    [P in Exclude<keyof TriggerSourceArgs, K>]?: never;
+  };
+}[keyof TriggerSourceArgs];
+
+/** Parsed trigger event with its resolved modifiers. */
 export type TriggerDef = {
   /** The DOM event or trigger-source name, stripped of its argument and modifiers. */
   event: string;
+  /**
+   * The trigger's raw bracketed argument (`timeout-[5s]`). Resolved into the
+   * source's argument at dispatch.
+   */
+  arg?: string;
   /** The trigger's resolved modifiers. */
-  options: TriggerOptions;
+  options: TriggerModifiers;
 };
 
 /** A trigger paired with its subject. `subject` is `null` when the directive resolves the URL/target from the element itself. */
@@ -693,27 +728,42 @@ export interface InterceptorOptions {
 export type ScopeSetup<E extends Element = HTMLElement> = (ctx: ScopeCtx<E>) => Scope;
 
 /** Options for `app.on`: a trigger's modifiers, plus a caller abort signal. */
-export type ListenerOptions = TriggerOptions & {
+export type ListenerOptions = TriggerModifiers & {
   /** Combined with the app lifetime signal. Aborting removes the listener. */
   signal?: AbortSignal;
 };
 
+/** An event name `app.on` accepts as a string, excluding sources that need an argument. */
+export type ListenerEventName<N extends string> = N extends RequiredArgSource ? never : N;
+
 /**
  * The overload shape of `app.on`. Listens on the app root unless an `EventTarget`
- * is passed first. Modifiers, filters, and timing are passed as options, along with
- * an optional `AbortSignal` combined with the app's lifetime signal. Returns a
- * teardown function.
+ * is passed first. The event is a name, or a trigger source with its argument
+ * (`{ interval: '10s' }`). Modifiers, filters, and timing are passed as options,
+ * along with an optional `AbortSignal` combined with the app's lifetime signal.
+ * Returns a teardown function.
  */
 export type BoundOn = {
   <N extends string>(
-    event: N,
+    event: ListenerEventName<N>,
     callback: EventCallback<TriggerEvent<N>>,
+    options?: ListenerOptions,
+  ): VoidFn;
+  (
+    trigger: TriggerDescriptor,
+    callback: EventCallback<CustomEvent<any>>,
     options?: ListenerOptions,
   ): VoidFn;
   <N extends string>(
     target: EventTarget,
-    event: N,
+    event: ListenerEventName<N>,
     callback: EventCallback<TriggerEvent<N>>,
+    options?: ListenerOptions,
+  ): VoidFn;
+  (
+    target: EventTarget,
+    trigger: TriggerDescriptor,
+    callback: EventCallback<CustomEvent<any>>,
     options?: ListenerOptions,
   ): VoidFn;
 };

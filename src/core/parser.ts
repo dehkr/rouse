@@ -1,7 +1,7 @@
 import type {
   DirectiveSlug,
   TriggerDef,
-  TriggerOptions,
+  TriggerModifiers,
   TriggerSubjectPair,
 } from '../types';
 import {
@@ -153,12 +153,12 @@ function parseArgToken(token: string): [name: string, arg: string] | null {
 }
 
 /**
- * Resolves dot-separated modifier tokens into `TriggerOptions`. A bare token is a
+ * Resolves dot-separated modifier tokens into `TriggerModifiers`. A bare token is a
  * flag (`once`) or a listener target (`window`); a `name-[argument]` token binds
  * a value to that modifier (`debounce-[300ms]`, `key-[enter]`).
  */
-function normalizeModifiers(tokens: string[], trigger: string): TriggerOptions {
-  const options: TriggerOptions = {};
+function normalizeModifiers(tokens: string[], trigger: string): TriggerModifiers {
+  const options: TriggerModifiers = {};
   const keys: string[] = [];
 
   for (const token of tokens) {
@@ -252,15 +252,18 @@ export function parseTriggers(value: string | null | undefined): TriggerDef[] {
       ? splitOnSafeDelimiter(modifierGroup, '.').filter(Boolean)
       : [];
 
-    // A trigger argument (`timeout-[5s]`) rides in `options.arg`; each source reads it.
+    // A trigger argument (`timeout-[5s]`) stays raw; its source resolves it at dispatch
     const argToken = parseArgToken(event);
-    const options = normalizeModifiers(modifiers, trigger);
+    const def: TriggerDef = {
+      event: argToken ? argToken[0] : event,
+      options: normalizeModifiers(modifiers, trigger),
+    };
 
     if (argToken) {
-      options.arg = argToken[1];
+      def.arg = argToken[1];
     }
 
-    parsed.push({ event: argToken ? argToken[0] : event, options });
+    parsed.push(def);
   }
 
   return parsed;

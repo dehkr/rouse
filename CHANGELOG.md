@@ -29,6 +29,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Unsent changes stay dirty with `status.error` set.
   - The `rz:store:patch:rollback` event is no longer dispatched.
   - To roll back on failure, use `revert()` on `rz:push:error`: `app.on('rz:push:error', (e) => app.stores.revert(e.detail.storeName))`.
+- **Breaking:** Move trigger source arguments into `app.on` event descriptors:
+  - Update `app.on('interval', fn, { arg: '10s' })` to `app.on({ interval: '10s' }, fn)`.
+  - `intersect` accepts numeric thresholds, e.g. `{ intersect: 0.5 }`.
+  - Omit `@` from JS `edit` targets: use `app.on({ edit: 'cart.items' }, fn)`.
+  - `edit` now requires an explicit store target; directives no longer infer the store from the subject. Use `data-rz-push="edit-[@cart]: @cart"` instead of `data-rz-push="edit: @cart"`.
+  - Make `app.stores.onEdit` internal. Migrate to `app.on({ edit: 'cart' }, fn)`.
 
 ### Removed
 

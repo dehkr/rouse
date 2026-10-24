@@ -126,7 +126,7 @@ export function isSafeMethod(key: string | undefined): key is SafeMethod {
 }
 
 /**
- * Bare trigger modifiers that set a boolean `TriggerOptions` field. Each names
+ * Bare trigger modifiers that set a boolean `TriggerModifiers` field. Each names
  * its field directly except `stop-immediate`, whose kebab-case declarative
  * spelling maps to the camelCase `stopImmediate` at the parse site.
  */

@@ -47,6 +47,7 @@ import { queryTargets } from './attributes';
 import { fail, info, warn } from './diagnostics';
 import { dispatch } from './dispatch';
 import { ScopeRegistry } from './scope-registry';
+import { isPlainObject } from './state';
 import { StoreManager, type SyncPolicy } from './store';
 
 export interface RouseConfig {
@@ -154,7 +155,7 @@ export class RouseApp {
    * @example
    * app.on('click', onClick, { debounce: 300 });
    * app.on(window, 'online', sync);
-   * app.on('interval', refresh, { arg: '30s' });
+   * app.on({ interval: '30s' }, refresh);
    * app.on(host, 'input', search, { signal: term });
    */
   public on: BoundOn;
@@ -227,8 +228,8 @@ export class RouseApp {
 
     // A lifecycle-safe listener bound to the app-lifetime signal, auto-removed on `destroy`
     this.on = (...args: any[]): VoidFn => {
-      // A string first argument means the target was omitted
-      const implied = typeof args[0] === 'string';
+      // A string or trigger descriptor as the first argument means the target was omitted
+      const implied = typeof args[0] === 'string' || isPlainObject(args[0]);
       const target = implied ? this.root : args[0];
       const event = implied ? args[0] : args[1];
       const callback = implied ? args[1] : args[2];

@@ -12,9 +12,10 @@ import type {
   EventCallback,
   ListenerOptions,
   SseMessageDetail,
+  TriggerArg,
   TriggerDef,
-  TriggerEvent,
-  TriggerOptions,
+  TriggerDescriptor,
+  TriggerModifiers,
   VoidFn,
 } from '../types';
 import { isScopeAwake } from './binder';
@@ -23,7 +24,9 @@ import { applyModifiers, getListenerOptions, resolveListenerTarget } from './mod
 export interface TriggerContext {
   el: Element;
   app: RouseApp;
-  options: TriggerOptions;
+  /** The source's argument, resolved from markup or passed by the caller. */
+  arg?: TriggerArg;
+  options: TriggerModifiers;
   action: ActionFn;
   /**
    * Whether to suppress the browser's native navigation before running the action.
@@ -38,6 +41,17 @@ export interface TriggerContext {
 }
 
 export type TriggerSourceHandler = (ctx: TriggerContext) => VoidFn | null;
+
+/**
+ * A trigger source in the registry. `fromArg` turns the bracketed argument from HTML
+ * into the source's typed argument. Without it, the text is used as written. `null` means
+ * the argument was invalid and already reported, so nothing attaches. `undefined` leaves
+ * the source to report a missing argument itself.
+ */
+export interface TriggerSource {
+  fromArg?: (arg: string, el: Element) => TriggerArg | undefined | null;
+  attach: TriggerSourceHandler;
+}
 
 /** Checks for native anchor or form element navigation events. */
 export function isNativeNavigation(el: Element, e: Event): boolean {
@@ -61,7 +75,7 @@ function attachListener<D = any>(
   el: Element,
   name: string,
   callback: (ev: CustomEvent<D>) => void,
-  triggerOptions: TriggerOptions,
+  triggerOptions: TriggerModifiers,
   app: RouseApp,
 ): VoidFn {
   const options = getListenerOptions(triggerOptions);
@@ -90,7 +104,8 @@ function attachListener<D = any>(
 }
 
 /**
- * Attaches a listener for one event name and returns its cleanup.
+ * Attaches a listener for one event name, or one trigger source with its argument,
+ * and returns its cleanup.
  *
  * Backs `app.on`, which binds it to the app-lifetime abort signal. `app` is
  * threaded to the trigger engine so trigger sources and the `root` listen target
@@ -99,24 +114,16 @@ function attachListener<D = any>(
  *
  * @example
  * app.on(el, 'click', handleClick, { debounce: 500 });
- * app.on(window, 'online', sync);
+ * app.on({ interval: '10s' }, poll);
  */
-export function on<N extends string>(
-  target: EventTarget,
-  event: N,
-  callback: EventCallback<TriggerEvent<N>>,
-  options: ListenerOptions,
-  app: RouseApp,
-): VoidFn;
-
 export function on(
   target: EventTarget,
-  event: string,
+  event: string | TriggerDescriptor,
   callback: EventCallback<any>,
   options: ListenerOptions,
   app: RouseApp,
 ): VoidFn {
-  const { signal, ...triggerOptions } = options;
+  const { signal, ...modifiers } = options;
 
   // Bail before attaching on an already-aborted signal. Otherwise the
   // listener attaches and the abort event never fires to remove it.
@@ -124,7 +131,36 @@ export function on(
     return () => {};
   }
 
-  const name = event.trim();
+  let name: string;
+  let arg: TriggerArg | undefined;
+
+  if (typeof event === 'string') {
+    name = event.trim();
+
+    // Trigger grammar is parsed out of directive values only
+    __DEV__ &&
+      /\||-\[/.test(name) &&
+      warn(
+        `'${name}' looks like Rouse trigger syntax, which isn't parsed in app.on. Pass a trigger's argument with its name and modifiers as options: app.on({ sse: 'late' }, fn, { once: true }).`,
+        target,
+      );
+  } else {
+    const keys = Object.keys(event);
+    const [key] = keys;
+
+    // An empty or multi-key object names no single trigger, so nothing binds
+    if (key === undefined || keys.length > 1) {
+      __DEV__ &&
+        warn(
+          `app.on expected a trigger source with its argument, such as { interval: '10s' }, but got an object with ${keys.length} keys.`,
+          target,
+        );
+      return () => {};
+    }
+
+    name = key;
+    arg = event[key as keyof TriggerDescriptor];
+  }
 
   // An object with a `handleEvent` method can be used as the listener, mirroring
   // `addEventListener`. Resolved per call so it can be swapped after binding. Also,
@@ -135,18 +171,10 @@ export function on(
       ? (e?: Event) => callback(e ?? new CustomEvent(name))
       : (e?: Event) => callback.handleEvent(e ?? new CustomEvent(name));
 
-  // Trigger grammar is parsed out of directive values only
-  __DEV__ &&
-    /\||-\[/.test(name) &&
-    warn(
-      `'${name}' looks like Rouse trigger syntax, which isn't parsed in app.on. Pass modifiers and arguments as options instead: app.on('sse', fn, { arg: 'late', once: true }).`,
-      target,
-    );
-
   const cleanup =
     dispatchTrigger(
-      { event: name, options: triggerOptions },
-      { el: target as Element, app, action, suppressNavigation: false },
+      { event: name, options: modifiers },
+      { el: target as Element, app, arg, action, suppressNavigation: false },
     ) ?? (() => {});
 
   signal?.addEventListener('abort', cleanup, { once: true });
@@ -166,6 +194,9 @@ export function on(
  * caller opts out with `suppressNavigation: false`, which `app.on` and
  * `attachWakeStrategies` do.
  *
+ * A source's argument comes from the trigger's own bracketed text when it has one,
+ * otherwise from `base.arg`, which callers pass already typed.
+ *
  * @returns Cleanup function, or `null` if the trigger has no teardown.
  */
 export function dispatchTrigger(
@@ -182,10 +213,21 @@ export function dispatchTrigger(
     };
   };
 
-  const handler = triggerSources[trigger.event];
-  if (handler) {
-    const cleanup = attachTriggerSource(handler, {
+  const source = triggerSources[trigger.event];
+  if (source) {
+    let arg = base.arg;
+
+    if (trigger.arg !== undefined) {
+      const resolved = source.fromArg
+        ? source.fromArg(trigger.arg, base.el)
+        : trigger.arg;
+      if (resolved === null) return null;
+      arg = resolved;
+    }
+
+    const cleanup = attachTriggerSource(source.attach, {
       ...base,
+      arg,
       options: trigger.options,
       action: timed,
     });
@@ -314,131 +356,139 @@ export function attachWakeStrategies(
 /**
  * Universal trigger sources available to directives and `app.on`.
  */
-export const triggerSources: Record<string, TriggerSourceHandler> = {
+export const triggerSources: Record<string, TriggerSource> = {
   /** Fires when the RouseApp instance is fully initialized. */
-  ready: ({ app, action }) => {
-    if (app.isReady) {
-      action();
-      return null;
-    }
-    app.root.addEventListener('rz:app:ready', action, { once: true });
-    return () => app.root.removeEventListener('rz:app:ready', action);
+  ready: {
+    attach: ({ app, action }) => {
+      if (app.isReady) {
+        action();
+        return null;
+      }
+      app.root.addEventListener('rz:app:ready', action, { once: true });
+      return () => app.root.removeEventListener('rz:app:ready', action);
+    },
   },
 
   /** Fires when the nearest enclosing scope is activated. */
-  wake: ({ el, app, action }) => {
-    const scopeEl = el.closest<HTMLElement>(SCOPE_SELECTOR);
+  wake: {
+    attach: ({ el, app, action }) => {
+      const scopeEl = el.closest<HTMLElement>(SCOPE_SELECTOR);
 
-    if (!scopeEl) {
-      __DEV__ && warn(`The 'wake' trigger requires an enclosing scope element.`, el);
-      return null;
-    }
-
-    if (!getApp(scopeEl, app)) {
-      return null;
-    }
-
-    if (__DEV__ && scopeEl === el && gatesOnWake(el)) {
-      warn(`The 'wake' trigger can't be used to wake its own scope element.`, el);
-    }
-
-    // A directive mounted into a scope that connected earlier missed the event.
-    // The listener still attaches, so a later reconnect fires too.
-    if (isScopeAwake(scopeEl)) {
-      action();
-    }
-
-    const onConnect = (e: Event) => {
-      // rz:scope:connect bubbles, so a descendant scope's connect would trigger action
-      if (e.target === scopeEl) {
-        action(e);
+      if (!scopeEl) {
+        __DEV__ && warn(`The 'wake' trigger requires an enclosing scope element.`, el);
+        return null;
       }
-    };
 
-    scopeEl.addEventListener('rz:scope:connect', onConnect);
-    return () => scopeEl.removeEventListener('rz:scope:connect', onConnect);
+      if (!getApp(scopeEl, app)) {
+        return null;
+      }
+
+      if (__DEV__ && scopeEl === el && gatesOnWake(el)) {
+        warn(`The 'wake' trigger can't be used to wake its own scope element.`, el);
+      }
+
+      // A directive mounted into a scope that connected earlier missed the event.
+      // The listener still attaches, so a later reconnect fires too.
+      if (isScopeAwake(scopeEl)) {
+        action();
+      }
+
+      const onConnect = (e: Event) => {
+        // rz:scope:connect bubbles, so a descendant scope's connect would trigger action
+        if (e.target === scopeEl) {
+          action(e);
+        }
+      };
+
+      scopeEl.addEventListener('rz:scope:connect', onConnect);
+      return () => scopeEl.removeEventListener('rz:scope:connect', onConnect);
+    },
   },
 
   /** Opts the directive out of all auto-binding (explicit no-op). */
-  none: () => null,
+  none: { attach: () => null },
 
   /** Fires once after a specified period (`setTimeout`). */
-  timeout: (ctx) => attachTimingSource('timeout', ctx),
+  timeout: { attach: (ctx) => attachTimingSource('timeout', ctx) },
 
   /** Repeating timer (`setInterval`). */
-  interval: (ctx) => attachTimingSource('interval', ctx),
+  interval: { attach: (ctx) => attachTimingSource('interval', ctx) },
 
   /** Listens to a media query. */
-  media: ({ el, options, action }) => {
-    const query = options.arg;
+  media: {
+    attach: ({ el, arg: query, action }) => {
+      if (typeof query !== 'string' || !query) {
+        __DEV__ &&
+          warn(
+            `The 'media' trigger requires a query: 'media-[(min-width: 640px)]' in HTML, or { media: '(min-width: 640px)' } from app.on.`,
+            el,
+          );
+        return null;
+      }
 
-    if (!query) {
+      const mql = window.matchMedia(query);
+
+      // An invalid query doesn't throw; it serializes to 'not all' and never matches
       __DEV__ &&
-        warn(
-          `The 'media' trigger requires a query argument: 'media-[(min-width: 640px)]' in HTML, or { arg: '(min-width: 640px)' } from app.on.`,
-          el,
-        );
-      return null;
-    }
+        mql.media === 'not all' &&
+        query !== 'not all' &&
+        warn(`Invalid media query '${query}'. It will never match.`, el);
 
-    const mql = window.matchMedia(query);
-
-    // An invalid query doesn't throw; it serializes to 'not all' and never matches
-    __DEV__ &&
-      mql.media === 'not all' &&
-      query !== 'not all' &&
-      warn(`Invalid media query '${query}'. It will never match.`, el);
-
-    if (mql.matches) {
-      action();
-    }
-
-    const changeHandler = (e: MediaQueryListEvent) => {
-      if (e.matches) {
+      if (mql.matches) {
         action();
       }
-    };
 
-    mql.addEventListener('change', changeHandler);
-    return () => mql.removeEventListener('change', changeHandler);
+      const changeHandler = (e: MediaQueryListEvent) => {
+        if (e.matches) {
+          action();
+        }
+      };
+
+      mql.addEventListener('change', changeHandler);
+      return () => mql.removeEventListener('change', changeHandler);
+    },
   },
 
   /** Element intersection with the viewport. */
-  intersect: ({ el, options, action }) => {
-    const arg = options.arg;
-    let threshold = arg === undefined ? 0 : Number.parseFloat(arg);
+  intersect: {
+    fromArg: (arg) => Number.parseFloat(arg),
+    attach: ({ el, arg, action }) => {
+      let threshold = arg ?? 0;
 
-    // A value outside 0–1 makes the observer constructor throw
-    if (!(threshold >= 0 && threshold <= 1)) {
-      __DEV__ &&
-        warn(`Invalid intersect threshold '${arg}'. Use a number from 0 to 1.`, el);
-      threshold = 0;
-    }
+      // A value outside 0–1 makes the observer constructor throw
+      if (typeof threshold !== 'number' || !(threshold >= 0 && threshold <= 1)) {
+        __DEV__ &&
+          warn(`Invalid intersect threshold '${arg}'. Use a number from 0 to 1.`, el);
+        threshold = 0;
+      }
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (!entry.isIntersecting || entry.intersectionRatio < threshold) continue;
-          action();
-          break;
-        }
-      },
-      { threshold },
-    );
+      const observer = new IntersectionObserver(
+        (entries) => {
+          for (const entry of entries) {
+            if (!entry.isIntersecting || entry.intersectionRatio < threshold) continue;
+            action();
+            break;
+          }
+        },
+        { threshold },
+      );
 
-    observer.observe(el);
-    return () => observer.disconnect();
+      observer.observe(el);
+      return () => observer.disconnect();
+    },
   },
 
   /**
    * Fires on pointer or focus interaction with the element. `pointerover` covers
    * mouse, touch, and pen. `focusin` covers keyboard.
    */
-  interact: ({ el, action }) => {
-    const events = ['pointerover', 'focusin'];
-    events.forEach((evt) => el.addEventListener(evt, action, { passive: true }));
+  interact: {
+    attach: ({ el, action }) => {
+      const events = ['pointerover', 'focusin'];
+      events.forEach((evt) => el.addEventListener(evt, action, { passive: true }));
 
-    return () => events.forEach((evt) => el.removeEventListener(evt, action));
+      return () => events.forEach((evt) => el.removeEventListener(evt, action));
+    },
   },
 
   /**
@@ -448,76 +498,92 @@ export const triggerSources: Record<string, TriggerSourceHandler> = {
    *
    * Subscribing is what makes the name observable.
    */
-  sse: ({ el, app, options, action }) => {
-    const name = options.arg;
-
-    if (!name) {
-      __DEV__ &&
-        warn(
-          `The 'sse' trigger requires an event name argument: 'sse-[cart-updated]' in HTML, or { arg: 'cart-updated' } from app.on.`,
-          el,
-        );
-      return null;
-    }
-
-    subscribeNamed(name);
-
-    const target = resolveListenerTarget(el, options, app);
-
-    const handler = (e: Event) => {
-      const { detail } = e as CustomEvent<SseMessageDetail>;
-      if (detail.event === name) {
-        action(e);
+  sse: {
+    attach: ({ el, app, arg: name, options, action }) => {
+      if (typeof name !== 'string' || !name) {
+        __DEV__ &&
+          warn(
+            `The 'sse' trigger requires an event name: 'sse-[cart-updated]' in HTML, or { sse: 'cart-updated' } from app.on.`,
+            el,
+          );
+        return null;
       }
-    };
 
-    target.addEventListener('rz:sse:message', handler);
+      subscribeNamed(name);
 
-    return () => target.removeEventListener('rz:sse:message', handler);
+      const target = resolveListenerTarget(el, options, app);
+
+      const handler = (e: Event) => {
+        const { detail } = e as CustomEvent<SseMessageDetail>;
+        if (detail.event === name) {
+          action(e);
+        }
+      };
+
+      target.addEventListener('rz:sse:message', handler);
+
+      return () => target.removeEventListener('rz:sse:message', handler);
+    },
   },
 
   /** window.requestIdleCallback (one-time execution). */
-  idle: ({ action }) => {
-    if (typeof window.requestIdleCallback === 'function') {
-      const id = window.requestIdleCallback(() => action());
-      return () => window.cancelIdleCallback(id);
-    }
+  idle: {
+    attach: ({ action }) => {
+      if (typeof window.requestIdleCallback === 'function') {
+        const id = window.requestIdleCallback(() => action());
+        return () => window.cancelIdleCallback(id);
+      }
 
-    // Safari fallback
-    const id = window.setTimeout(action, 1);
-    return () => window.clearTimeout(id);
+      // Safari fallback
+      const id = window.setTimeout(action, 1);
+      return () => window.clearTimeout(id);
+    },
   },
 
   /**
    * Fires when a store's data is edited. Framework writes are excluded; user
    * writes in one tick coalesce into a single notification.
    */
-  edit: ({ el, app, options, action }) => {
-    const ref = options.arg;
-    if (!ref || !ref.startsWith(STORE_PREFIX)) {
-      __DEV__ &&
-        warn(
-          `The 'edit' trigger requires a store argument: 'edit-[@cart.items]' in HTML, or { arg: '@cart.items' } from app.on.`,
-          el,
-        );
-      return null;
-    }
-
-    const target = parseStoreRef(ref);
-    if (!target) {
-      return null;
-    }
-
-    const rootKey = getPathRoot(target.nestedPath);
-
-    // Filter here, before the timed action. `debounce` forwards only the last
-    // batch's roots, so filtering downstream would drop a real edit whenever a
-    // different root was touched later in the same window.
-    return app.stores.onEdit(target.source, (roots) => {
-      if (!rootKey || roots.has(rootKey)) {
-        action();
+  edit: {
+    // The store sigil `@` is required in HTML, so if missing it falls through to the warning
+    fromArg: (arg) =>
+      arg.startsWith(STORE_PREFIX) ? arg.slice(STORE_PREFIX.length) : undefined,
+    attach: ({ el, app, arg: path, action }) => {
+      if (typeof path !== 'string' || !path) {
+        __DEV__ &&
+          warn(
+            `The 'edit' trigger requires a store, e.g. 'edit-[@cart]' in HTML, or { edit: 'cart' } from app.on.`,
+            el,
+          );
+        return null;
       }
-    });
+
+      // Warn if the store sigil is used in JS. Store names can't include `@`.
+      // The sigil is used only in HTML to indicate a store reference, since HTML
+      // doesn't have field names.
+      if (path.startsWith(STORE_PREFIX)) {
+        __DEV__ &&
+          warn(
+            `The 'edit' trigger takes a store without '${STORE_PREFIX}' from app.on: { edit: '${path.slice(STORE_PREFIX.length)}' }.`,
+            el,
+          );
+        return null;
+      }
+
+      const ref = parseStoreRef(`${STORE_PREFIX}${path}`);
+      if (!ref) return null;
+
+      const rootKey = getPathRoot(ref.nestedPath);
+
+      // Filter here, before the timed action. `debounce` forwards only the last
+      // batch's roots, so filtering downstream would drop a real edit whenever a
+      // different root was touched later in the same window.
+      return app.stores._onEdit(ref.source, (roots) => {
+        if (!rootKey || roots.has(rootKey)) {
+          action();
+        }
+      });
+    },
   },
 };
 
@@ -525,18 +591,18 @@ export const triggerSources: Record<string, TriggerSourceHandler> = {
  * Helper for the `timeout` and `interval` trigger sources.
  */
 function attachTimingSource(type: 'timeout' | 'interval', ctx: TriggerContext) {
-  const { arg } = ctx.options;
+  const delay = ctx.arg;
 
-  if (!arg) {
+  if (delay === undefined || delay === '') {
     __DEV__ &&
       warn(
-        `The '${type}' trigger requires a time argument: '${type}-[5s]' in HTML, or { arg: '5s' } from app.on.`,
+        `The '${type}' trigger requires a delay: '${type}-[5s]' in HTML, or { ${type}: '5s' } from app.on.`,
         ctx.el,
       );
     return null;
   }
 
-  const ms = parseTime(arg);
+  const ms = parseTime(delay);
   if (ms <= 0) {
     return null;
   }

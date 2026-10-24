@@ -1,4 +1,4 @@
-import type { AnyFn, TriggerOptions, VoidFn } from '../types';
+import type { AnyFn, TriggerModifiers, VoidFn } from '../types';
 import { warn } from './diagnostics';
 
 /**
@@ -39,7 +39,7 @@ const TIME_REGEX = /^(\d*\.?\d+)(ms|s|m)?$/;
 /**
  * Resolves a trigger's timing options into a strategy config.
  */
-export function getTimingConfig(options: TriggerOptions): TimingConfig {
+export function getTimingConfig(options: TriggerModifiers): TimingConfig {
   const { debounce: debounceOpt, throttle: throttleOpt } = options;
 
   const strategy: TimingConfig['strategy'] =
@@ -172,7 +172,10 @@ export function throttle<T extends AnyFn>(
  * Wraps a function with a timing strategy (debounce or throttle) based on the
  * provided options. Returns an augmented raw function if no strategy is matched.
  */
-export function applyTiming<T extends AnyFn>(fn: T, options: TriggerOptions): TimedFn<T> {
+export function applyTiming<T extends AnyFn>(
+  fn: T,
+  options: TriggerModifiers,
+): TimedFn<T> {
   const config = getTimingConfig(options);
 
   if (config.strategy === 'debounce') {

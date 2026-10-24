@@ -1,6 +1,5 @@
 import type { RouseApp } from '../core/app';
 import { hasDirective } from '../core/attributes';
-import { STORE_PREFIX } from '../core/constants';
 import { warn } from '../core/diagnostics';
 import { resolveTarget } from '../core/store';
 import { dispatchTrigger } from '../dom/events';
@@ -41,18 +40,6 @@ export function bindStorePairs(
 
     const isEdit = trigger.event === 'edit';
 
-    // The trigger resolves its own store, so hand it the one the subject named
-    const def =
-      isEdit && !trigger.options.arg
-        ? {
-            ...trigger,
-            options: {
-              ...trigger.options,
-              arg: `${STORE_PREFIX}${storeName}`,
-            },
-          }
-        : trigger;
-
     const sync = () => triggerStoreSync(op, el, app, storeName);
 
     // A debounced edit can settle after the value was pushed, reset, or retyped
@@ -65,7 +52,7 @@ export function bindStorePairs(
         }
       : sync;
 
-    const cleanup = dispatchTrigger(def, { el, app, action: fire });
+    const cleanup = dispatchTrigger(trigger, { el, app, action: fire });
     if (cleanup) {
       cleanups.push(cleanup);
     }

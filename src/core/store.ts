@@ -712,12 +712,12 @@ export class StoreManager {
   }
 
   /**
-   * Listens for user-driven mutations to the store. Returns a cleanup function.
+   * Subscribes to user edits of a store, passing each batch's edited roots.
+   * Returns an unsubscribe. Backs the `edit` trigger source.
    *
-   * The store must already exist. Stores declared in markup using `<script data-rz-store>`
-   * are registered during `start()`, so subscribe after that call rather than before it.
+   * @internal
    */
-  onEdit(storeName: string | null | undefined, callback: EditListener): VoidFn {
+  _onEdit(storeName: string | null | undefined, callback: EditListener): VoidFn {
     const entry = this._getStore(storeName);
     if (!entry) {
       return () => {};
@@ -1156,7 +1156,7 @@ export class StoreManager {
    * dynamically-created stores.
    *
    * Existing references to the proxy keep working but desync: edits through them
-   * won't notify `onEdit` listeners or trigger pushes, and an in-flight request won't
+   * won't fire `edit` triggers, and an in-flight request won't
    * apply its response.
    */
   remove(storeName: string | null | undefined) {

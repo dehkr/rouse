@@ -1,5 +1,5 @@
 import type { RouseApp } from '../core/app';
-import type { TriggerOptions } from '../types';
+import type { TriggerModifiers } from '../types';
 
 const sysModifierMap = {
   ctrl: 'ctrlKey',
@@ -26,7 +26,7 @@ const modifierKeyFlags = new Map<string, (typeof SYS_MODIFIER_FLAGS)[number]>([
  * parser already lowercases what it parses; this covers the programmatic surface,
  * where keys keep their real casing (`{ key: 'ArrowUp' }`).
  */
-function expectedKeys(key: TriggerOptions['key']): string[] {
+function expectedKeys(key: TriggerModifiers['key']): string[] {
   if (key === undefined) return [];
   return (Array.isArray(key) ? key : [key]).map((k) => k.toLowerCase());
 }
@@ -34,7 +34,7 @@ function expectedKeys(key: TriggerOptions['key']): string[] {
 /**
  * Maps trigger options to native AddEventListenerOptions.
  */
-export function getListenerOptions(options: TriggerOptions): AddEventListenerOptions {
+export function getListenerOptions(options: TriggerModifiers): AddEventListenerOptions {
   return {
     capture: !!options.capture,
     once: !!options.once,
@@ -47,7 +47,7 @@ export function getListenerOptions(options: TriggerOptions): AddEventListenerOpt
  */
 export function resolveListenerTarget(
   el: Element,
-  options: TriggerOptions,
+  options: TriggerModifiers,
   app: RouseApp,
 ): EventTarget {
   if (options.listenOn === 'window') {
@@ -75,7 +75,11 @@ export function resolveListenerTarget(
  *
  * @returns `true` if the handler should execute, `false` otherwise
  */
-export function applyModifiers(e: Event, el: Element, options: TriggerOptions): boolean {
+export function applyModifiers(
+  e: Event,
+  el: Element,
+  options: TriggerModifiers,
+): boolean {
   if (options.self && e.target !== e.currentTarget) {
     return false;
   }
