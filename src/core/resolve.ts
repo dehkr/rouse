@@ -1,9 +1,9 @@
 import type { Scope } from '../types';
-import { ITEM_PREFIX, STORE_PREFIX } from './constants';
+import { ITEM_PREFIX, isItemNamespace, STORE_PREFIX } from './constants';
 import { warn } from './diagnostics';
 import { parseDataSourcePath } from './parser';
 import { getNestedVal, getPathParts, setNestedVal } from './path';
-import { renderItem, renderParent } from './render-context';
+import { renderItem, renderMeta, renderParent } from './render-context';
 import type { StoreManager } from './store';
 
 export const EMPTY_SCOPE = {} as Scope;
@@ -19,9 +19,18 @@ export function resolveState<T = unknown>(
 ): T | undefined {
   // Render item
   if (path.startsWith(ITEM_PREFIX)) {
-    const itemPath = path.slice(1);
-    const item = renderItem(scope);
-    return itemPath ? getNestedVal<T>(item, itemPath) : (item as T | undefined);
+    const { source, namespace, nestedPath } = parseDataSourcePath(path);
+
+    // The item has no name, so anything between `%` and the path is unresolvable
+    if (source) return undefined;
+
+    const resolved = namespace
+      ? resolveItemNamespace(namespace, scope)
+      : renderItem(scope);
+
+    return nestedPath
+      ? getNestedVal<T>(resolved, nestedPath)
+      : (resolved as T | undefined);
   }
 
   // Global store
@@ -29,7 +38,7 @@ export function resolveState<T = unknown>(
     const { source: storeName, namespace, nestedPath } = parseDataSourcePath(path);
 
     const resolved = namespace
-      ? resolveNamespace(path, storeName, namespace, storeManager)
+      ? resolveStoreNamespace(storeName, namespace, storeManager)
       : storeManager.get(storeName);
 
     return nestedPath
@@ -42,29 +51,28 @@ export function resolveState<T = unknown>(
 }
 
 /**
- * Resolves the `::` namespace of a store reference. `status` is the only
- * namespace defined; anything else warns and resolves to nothing. The status
- * object is reactive, so nested reads track per field.
+ * Resolves the `::` namespace of a render item reference. `index` is the
+ * instance's zero-based position, `position` starts at one.
  */
-function resolveNamespace(
-  path: string,
+function resolveItemNamespace(namespace: string, scope: Scope) {
+  const meta = renderMeta(scope);
+  if (!meta || !isItemNamespace(namespace)) {
+    return undefined;
+  }
+
+  return namespace === 'index' ? meta.index : meta.index + 1;
+}
+
+/**
+ * Resolves the `::` namespace of a store reference. `status` is the only store
+ * namespace defined. The status object is reactive, so nested reads track per field.
+ */
+function resolveStoreNamespace(
   storeName: string,
   namespace: string,
   storeManager: StoreManager,
 ) {
-  if (namespace !== 'status') {
-    __DEV__ &&
-      warn(`Unknown namespace in '${path}'. Store status is '@${storeName}::status'.`);
-    return undefined;
-  }
-
-  // `status()` is silent on a missing store, unlike the data branch's `get()`
-  const status = storeManager.status(storeName);
-  __DEV__ &&
-    !status &&
-    warn(`Store '@${storeName}' not found. Cannot resolve '${path}'.`);
-
-  return status;
+  return namespace !== 'status' ? undefined : storeManager.status(storeName);
 }
 
 /**
@@ -81,7 +89,18 @@ export function writeState(
 ): void {
   // Render item
   if (path.startsWith(ITEM_PREFIX)) {
-    const itemPath = path.slice(1);
+    const { source, namespace, nestedPath: itemPath } = parseDataSourcePath(path);
+    if (source) return;
+
+    if (namespace) {
+      __DEV__ &&
+        warnWriteOnce(
+          path,
+          `rz-model: cannot write to '${path}'. The '${namespace}' namespace is read-only.`,
+        );
+      return;
+    }
+
     if (!itemPath) {
       __DEV__ &&
         warnWriteOnce(

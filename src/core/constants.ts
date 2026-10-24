@@ -37,6 +37,18 @@ export function isDirectiveSlug(key: string): key is DirectiveSlug {
 
 export const STORE_PREFIX = '@';
 export const ITEM_PREFIX = '%';
+
+/** Render metadata readable through the `::` namespace on the item (`%::index`). */
+export const ITEM_NAMESPACES = ['index', 'position'] as const;
+
+/** A render metadata namespace on the item reference. */
+export type ItemNamespace = (typeof ITEM_NAMESPACES)[number];
+
+/** Type guard to check if a given string is a valid ItemNamespace. */
+export function isItemNamespace(key: string): key is ItemNamespace {
+  return ITEM_NAMESPACES.includes(key as ItemNamespace);
+}
+
 export const KEY_BLOCKLIST = ['__proto__', 'constructor', 'prototype'];
 
 /** Carries the current render item on an `rz-render` instance context. */

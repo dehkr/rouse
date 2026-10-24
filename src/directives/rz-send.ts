@@ -2,7 +2,12 @@ import type { RouseApp } from '../core/app';
 import { getDirectiveValue, queryTargets } from '../core/attributes';
 import { ITEM_PREFIX, STORE_PREFIX } from '../core/constants';
 import { warn } from '../core/diagnostics';
-import { parseDirectiveValue, parseStoreRef, safeJSONParse } from '../core/parser';
+import {
+  parseDataSourcePath,
+  parseDirectiveValue,
+  parseStoreRef,
+  safeJSONParse,
+} from '../core/parser';
 import { resolveState } from '../core/resolve';
 import { clone, isPlainObject } from '../core/state';
 import { resolveOwnerState } from '../dom/binder';
@@ -25,7 +30,7 @@ type Payload = Record<string, unknown>;
  *
  * - `query`: a scope value, sent under its last path segment
  * - `@user`: a store's data. `@user.email` sends one field, as `email`
- * - `%`: the render item's data. `%id` sends one field, as `id`
+ * - `%`: the render item's data. `%.id` sends one field, as `id`
  * - `{"page": 2}`: an inline JSON object
  * - `selector: <css>`: the fields a CSS selector matches. A form or fieldset sends
  *   its fields. Quote a selector list: `selector: '.a, .b'`
@@ -76,7 +81,18 @@ function readSource(
   if (lead === STORE_PREFIX) {
     return parseStoreRef(entry, 'send') ? readState(entry, el, scope, app) : null;
   }
-  if (lead === ITEM_PREFIX || /^[A-Za-z_$]/.test(entry)) {
+  if (lead === ITEM_PREFIX) {
+    if (parseDataSourcePath(entry).namespace) {
+      __DEV__ &&
+        warn(
+          `rz-send: '${entry}' is render metadata, not item data. Use '%' or a field like '%.id'.`,
+          el,
+        );
+      return null;
+    }
+    return readState(entry, el, scope, app);
+  }
+  if (/^[A-Za-z_$]/.test(entry)) {
     return readState(entry, el, scope, app);
   }
 
@@ -119,7 +135,9 @@ function readState(
   // A snapshot keeps getters and methods off the wire
   const data = clone(getRaw(value));
 
-  if (path === ITEM_PREFIX || (path[0] === STORE_PREFIX && !path.includes('.'))) {
+  const isSource = path[0] === STORE_PREFIX || path[0] === ITEM_PREFIX;
+
+  if (isSource && !parseDataSourcePath(path).nestedPath) {
     if (isPlainObject(data)) {
       return data;
     }
@@ -127,9 +145,7 @@ function readState(
     return null;
   }
 
-  // An item path has no dot after its sigil (`%id`), so the sigil is dropped first
-  const bare = path[0] === ITEM_PREFIX ? path.slice(1) : path;
-  return { [bare.slice(bare.lastIndexOf('.') + 1)]: data };
+  return { [path.slice(path.lastIndexOf('.') + 1)]: data };
 }
 
 /**

@@ -11,9 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add `app.stores.dirtyRoots(name)`, which returns a store's root keys holding unsaved changes.
 - Add the `rz-disable` directive to disable elements during active requests from the element. Accepts a CSS selector, or defaults to the host element if no value is provided.
+- Add read-only `%::index` (zero-based) and `%::position` (one-based) namespaces to read a rendered instance's current position, e.g. `data-rz-text="%::position"`.
 
 ### Changed
 
+- **Breaking:** Treat `%` as the render item's own reference, the way `@cart` names a store, so a dot separates it from a field. `%name` is now `%.name`; bare `%` still refers to the whole item.
 - **Breaking:** Rename store status `dirtyKeys` to `dirtyRoots`.
 - **Breaking:** Accept a root key as the second argument of `app.stores.isDirty()` to normalize the programmatic and declarative dirty tracking APIs around root keys. To check a nested path, compare against `app.stores.baseline(name)`.
 - **Breaking:** Stop a deposit from marking a store's unsaved changes as saved. A deposit, from `data-rz-deposit` or `app.stores.deposit()`, now marks only the values in its payload as saved, the way a pull does.
