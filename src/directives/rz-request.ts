@@ -13,7 +13,6 @@ type ConfigValueType = 'string' | 'boolean' | 'duration';
  * can't sit in a config doing nothing.
  */
 const KEYS = {
-  method: 'string',
   timeout: 'duration',
   'abort-key': 'string',
   credentials: 'string',
@@ -26,7 +25,7 @@ const KEYS = {
  * Request options for the element's `rz-fetch`, written as `key: value` pairs.
  *
  * @example
- * <button data-rz-fetch="click: /save" data-rz-request="method: post, timeout: 5s">
+ * <button data-rz-fetch="click: POST /save" data-rz-request="timeout: 5s, keepalive">
  */
 function getConfig(el: Element): Partial<FetchRequest> {
   const value = getDirectiveValue(el, 'request');
@@ -42,7 +41,9 @@ function getConfig(el: Element): Partial<FetchRequest> {
         warn(
           key === 'headers' || key === 'indicator'
             ? `rz-request: '${key}' belongs on data-rz-${key}. Ignoring.`
-            : `rz-request: unknown key '${key}'. Ignoring.`,
+            : key === 'method'
+              ? `rz-request: 'method' belongs in the data-rz-fetch subject, as in 'click: POST /save'. Ignoring.`
+              : `rz-request: unknown key '${key}'. Ignoring.`,
           el,
         );
       continue;
