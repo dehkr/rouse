@@ -4,7 +4,6 @@ import { request } from '../net/request';
 import { fallbackResponse } from '../net/response';
 import { reactive, seedPropagation, trackDirty } from '../reactivity/reactive';
 import type {
-  DirectiveSlug,
   FetchRequest,
   LifecycleEventMap,
   RequestError,
@@ -14,11 +13,8 @@ import type {
   VoidFn,
 } from '../types';
 import type { RouseApp } from './app';
-import { getDirectiveValue } from './attributes';
-import { STORE_PREFIX } from './constants';
 import { err, fail, warn } from './diagnostics';
 import { dispatch } from './dispatch';
-import { parseStoreRef, parseStoreValue } from './parser';
 import { getNestedVal, getPathRoot, setNestedVal } from './path';
 import { clone, deepEqual, hasAccessor, nullPaths, patchState } from './state';
 
@@ -153,63 +149,6 @@ function warnNullFields(storeName: string, state: object) {
       `Store '${storeName}': '${path}' is null. Sync reads null as a delete (RFC 7396), so it cannot rest as a value. Use '' or omit the key.`,
     ),
   );
-}
-
-/**
- * Resolves a push/pull subject into a store name. A `null` subject means
- * self-target, which is valid only on a <script> element with the `rz-store`
- * directive present.
- */
-export function resolveTarget(
-  el: Element,
-  slug: Extract<DirectiveSlug, 'push' | 'pull'>,
-  subject: string | null,
-): string | null {
-  if (subject) {
-    if (!subject.startsWith(STORE_PREFIX)) {
-      __DEV__ &&
-        warn(
-          `rz-${slug}: target '${subject}' must be a store reference (e.g., '@cart').`,
-        );
-      return null;
-    }
-
-    const target = parseStoreRef(subject, slug);
-    if (!target) {
-      return null;
-    }
-
-    const { source: storeName, nestedPath } = target;
-
-    if (!storeName) {
-      __DEV__ && warn(`rz-${slug}: invalid store reference '${subject}'.`);
-      return null;
-    }
-
-    if (nestedPath) {
-      __DEV__ &&
-        warn(
-          `rz-${slug}: '${subject}' names a path, but a store syncs as a whole. Use '@${storeName}'.`,
-          el,
-        );
-      return null;
-    }
-
-    return storeName;
-  }
-
-  // Reference the `rz-store` name if `null`. Specific to <script> elements.
-  const selfName = parseStoreValue(getDirectiveValue(el, 'store'))?.name;
-  if (!selfName) {
-    __DEV__ &&
-      warn(
-        `rz-${slug}: missing store reference. To self-reference a store on a <script> element, add data-rz-store as well.`,
-        el,
-      );
-    return null;
-  }
-
-  return selfName;
 }
 
 /**
