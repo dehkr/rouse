@@ -372,16 +372,8 @@ export class RouseApp {
   interceptor(
     phase: InterceptorPhase,
     fn: any,
-    options: InterceptorOptions = {},
+    { signal }: InterceptorOptions = {},
   ): VoidFn {
-    return this._addInterceptor(phase, fn, options.signal);
-  }
-
-  /**
-   * Registers an interceptor, removed when `signal` aborts. Backs `app.interceptor`.
-   * @internal
-   */
-  _addInterceptor(phase: InterceptorPhase, fn: any, signal?: AbortSignal): VoidFn {
     const set = this._interceptors[phase];
     if (!set) {
       fail(
