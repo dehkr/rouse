@@ -1,8 +1,6 @@
 import { setActiveSub } from 'alien-signals';
 import { handlers } from './handlers';
 
-export type ReactiveProxy<T> = T;
-
 const proxyCache = new WeakMap();
 const rawCache = new WeakMap();
 
@@ -27,7 +25,7 @@ export const objectRootKeys = new WeakMap<object, string>();
  * const state = reactive({ count: 0 });
  * effect(() => console.log(state.count));
  */
-export function reactive<T extends object>(target: T): ReactiveProxy<T> {
+export function reactive<T extends object>(target: T): T {
   if (!proxiable(target)) return target;
   if (rawCache.has(target)) return target;
   if (proxyCache.has(target)) return proxyCache.get(target);
@@ -37,7 +35,7 @@ export function reactive<T extends object>(target: T): ReactiveProxy<T> {
   proxyCache.set(target, proxy);
   rawCache.set(proxy, target);
 
-  return proxy as ReactiveProxy<T>;
+  return proxy as T;
 }
 
 /**

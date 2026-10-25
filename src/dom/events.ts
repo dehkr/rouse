@@ -21,7 +21,7 @@ import type {
 import { isScopeAwake } from './binder';
 import { applyModifiers, resolveListenerTarget } from './modifiers';
 
-export interface TriggerContext {
+interface TriggerContext {
   el: Element;
   app: RouseApp;
   /** The source's argument, resolved from markup or passed by the caller. */
@@ -40,7 +40,7 @@ export interface TriggerContext {
   suppressNavigation?: boolean;
 }
 
-export type TriggerSourceHandler = (ctx: TriggerContext) => VoidFn | null;
+type TriggerSourceHandler = (ctx: TriggerContext) => VoidFn | null;
 
 /**
  * A trigger source in the registry. `fromArg` turns the bracketed argument from HTML
@@ -48,7 +48,7 @@ export type TriggerSourceHandler = (ctx: TriggerContext) => VoidFn | null;
  * the argument was invalid and already reported, so nothing attaches. `undefined` leaves
  * the source to report a missing argument itself.
  */
-export interface TriggerSource {
+interface TriggerSource {
   fromArg?: (arg: string, el: Element) => TriggerArg | undefined | null;
   attach: TriggerSourceHandler;
 }
@@ -353,7 +353,7 @@ export function attachWakeStrategies(
 /**
  * Universal trigger sources available to directives and `app.on`.
  */
-export const triggerSources: Record<string, TriggerSource> = {
+const triggerSources: Record<string, TriggerSource> = {
   /** Fires when the RouseApp instance is fully initialized. */
   ready: {
     attach: ({ app, action }) => {

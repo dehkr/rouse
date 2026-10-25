@@ -65,12 +65,11 @@ function resolvePlacements(
   for (const [key, val] of parsed) {
     const store = key.startsWith(STORE_PREFIX) ? key : val;
     if (store?.startsWith(STORE_PREFIX)) {
-      if (__DEV__) {
+      __DEV__ &&
         warn(
           `${placeLabel(fromOverride)}: '${store}' names a store. Use ${fromOverride ? 'Rouse-Deposit' : 'data-rz-deposit'} for store targets.`,
           hostEl,
         );
-      }
       continue;
     }
 

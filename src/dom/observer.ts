@@ -17,7 +17,7 @@ import {
 } from './scope';
 
 /** Warns for each `data-rz-*` attribute in `root`'s subtree, root included, that isn't a directive. */
-export function warnUnknownDirectives(root: Element, app: RouseApp) {
+function warnUnknownDirectives(root: Element, app: RouseApp) {
   for (const el of queryTargets(root, '*')) {
     if (!getApp(el, app)) continue;
 

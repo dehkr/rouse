@@ -4,7 +4,7 @@ import { warn } from './diagnostics';
 /**
  * Configuration options for timed functions.
  */
-export interface TimingConfig {
+interface TimingConfig {
   /** Delay in milliseconds. */
   wait: number;
   /** Executes at the start of the event sequence. */
@@ -21,7 +21,7 @@ export interface TimingConfig {
 /**
  * Callable function augmented with a method to cancel a pending execution.
  */
-export interface TimedFn<T extends AnyFn> {
+interface TimedFn<T extends AnyFn> {
   /** Invokes the function, scheduling it per the configured debounce/throttle strategy. */
   (...args: Parameters<T>): void;
   /** Cancels a pending execution and discards its stored arguments. */
@@ -37,7 +37,7 @@ const TIME_REGEX = /^(\d*\.?\d+)(ms|s|m)?$/;
 /**
  * Resolves a trigger's timing options into a strategy config.
  */
-export function getTimingConfig(options: TriggerModifiers): TimingConfig {
+function getTimingConfig(options: TriggerModifiers): TimingConfig {
   const { debounce: debounceOpt, throttle: throttleOpt } = options;
 
   const strategy: TimingConfig['strategy'] =

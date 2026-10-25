@@ -1,12 +1,12 @@
 /** A form control that carries a value of its own. */
 export type Field = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
 /** One value a field submits: text, or a file from a file input. */
-export type FieldEntry = string | File;
+type FieldEntry = string | File;
 /**
  * A field's submitted value. A multi-select, a multiple file input, or a name shared
  * by several fields, is a list.
  */
-export type FieldValue = FieldEntry | FieldEntry[];
+type FieldValue = FieldEntry | FieldEntry[];
 
 /** Input types a form submits only as its submitter, never as one of its fields. */
 const BUTTON_TYPES = new Set(['submit', 'button', 'reset', 'image']);
@@ -29,7 +29,7 @@ export function isFieldContainer(
  * Reads the value a field submits on its own, or `null` when it submits nothing.
  * A radio reads its group's checked value.
  */
-export function readField(field: Field): FieldValue | null {
+function readField(field: Field): FieldValue | null {
   if (field.type === 'radio' && field.name) {
     const root = field.closest('form') || document;
     const checked = root.querySelector<HTMLInputElement>(

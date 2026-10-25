@@ -37,9 +37,7 @@ function getConfig(el: Element, overrideValue?: string | null): string[] {
 
   for (const [key] of parseDirectiveValue(value)) {
     if (!key.startsWith(STORE_PREFIX)) {
-      if (__DEV__) {
-        warn(`${label}: '${key}' is not a store reference. Use '@name'.`, el);
-      }
+      __DEV__ && warn(`${label}: '${key}' is not a store reference. Use '@name'.`, el);
       continue;
     }
 
@@ -47,9 +45,8 @@ function getConfig(el: Element, overrideValue?: string | null): string[] {
     if (!ref) continue;
 
     if (ref.nestedPath) {
-      if (__DEV__) {
+      __DEV__ &&
         warn(`${label}: '${key}' targets a slice. A deposit writes a whole store.`, el);
-      }
       continue;
     }
 

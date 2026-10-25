@@ -38,7 +38,7 @@ interface LifecycleBase {
  * Discriminated on `prefix` so each caller's detail objects are checked against
  * the `LifecycleEventMap` entries for the family it dispatches.
  */
-export type RequestLifecycleOptions = LifecycleBase &
+type RequestLifecycleOptions = LifecycleBase &
   (
     | {
         prefix: 'rz:fetch';

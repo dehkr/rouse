@@ -36,8 +36,9 @@ export function placeContent(
     targets = queryPlaceTargets(app.root, target);
   } else if (target instanceof Element) {
     targets = [target];
-  } else if (__DEV__) {
-    warn(`Targets in app.place() must be an element or a selector. Got '${target}'.`);
+  } else {
+    __DEV__ &&
+      warn(`Targets in app.place() must be an element or a selector. Got '${target}'.`);
   }
 
   let placed = false;
