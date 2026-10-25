@@ -1,5 +1,5 @@
 import type { RouseApp } from '../core/app';
-import { hasDirective } from '../core/attributes';
+import { hasDirective, isDisabled } from '../core/attributes';
 import { warn } from '../core/diagnostics';
 import { resolveTarget } from '../core/store';
 import { dispatchTrigger } from '../dom/events';
@@ -67,14 +67,7 @@ function triggerStoreSync(
   storeName: string,
 ): void {
   // A debounced or queued trigger can fire after the element is gone
-  if (!triggerEl.isConnected) return;
-
-  if (
-    triggerEl.hasAttribute('disabled') ||
-    triggerEl.getAttribute('aria-disabled') === 'true'
-  ) {
-    return;
-  }
+  if (!triggerEl.isConnected || isDisabled(triggerEl)) return;
 
   const status = app.stores.status(storeName);
   if (!status) {

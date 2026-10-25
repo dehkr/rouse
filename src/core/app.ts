@@ -79,6 +79,11 @@ function logBuildBanner() {
   info(`v${__VERSION__} development build. Switch to rouse.min.js in production.`);
 }
 
+/** Returns a signal that aborts with the app, or with the caller's own signal if given. */
+function withAppSignal(appSignal: AbortSignal, signal?: AbortSignal): AbortSignal {
+  return signal ? AbortSignal.any([appSignal, signal]) : appSignal;
+}
+
 registerBoundDirectives(
   rzAttr,
   rzClass,
@@ -236,20 +241,14 @@ export class RouseApp {
         );
       }
 
-      const appSignal = this._abortController.signal;
-      const signal = options.signal
-        ? AbortSignal.any([appSignal, options.signal])
-        : appSignal;
+      const signal = withAppSignal(this._abortController.signal, options.signal);
 
       return on(target, event, callback, { ...options, signal }, this);
     };
 
     // Released when the app-lifetime signal or the caller's signal aborts
     this.sse = (resource, options = {}) => {
-      const appSignal = this._abortController.signal;
-      const signal = options.signal
-        ? AbortSignal.any([appSignal, options.signal])
-        : appSignal;
+      const signal = withAppSignal(this._abortController.signal, options.signal);
       return openBoundStream(this, resource, options, signal);
     };
   }

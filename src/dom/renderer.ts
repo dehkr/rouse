@@ -9,6 +9,7 @@ import type { BoundCleanupFn, RenderContext, RenderMeta, Scope, VoidFn } from '.
 import {
   bindDirectives,
   markRenderOwned,
+  runCleanups,
   unmarkRenderOwned,
   walkBoundElements,
 } from './binder';
@@ -218,14 +219,7 @@ export function renderTemplate(
     target?.append(...roots);
 
     const teardown = () => {
-      for (const cleanup of cleanups) {
-        try {
-          cleanup();
-        } catch (error) {
-          __DEV__ && warn('rz-render: instance cleanup failed.', error);
-        }
-      }
-
+      runCleanups(template, cleanups);
       roots.forEach((node) => node.remove());
       elementRoots.forEach(unmarkRenderOwned);
     };

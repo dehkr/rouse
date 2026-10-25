@@ -222,7 +222,7 @@ export function resolveRemovedOwner(el: Element): HTMLElement | null {
  * Runs each cleanup, isolating failures so one throwing cleanup doesn't
  * abort the rest.
  */
-function runCleanups(el: Element, cleanups: BoundCleanupFn[]): void {
+export function runCleanups(el: Element, cleanups: BoundCleanupFn[]): void {
   for (const cleanup of cleanups) {
     try {
       cleanup();

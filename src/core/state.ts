@@ -169,7 +169,7 @@ export function deepEqual(a: any, b: any, seen = new WeakMap<object, any>()): bo
 /**
  * Returns `true` when `obj` has `key` as an accessor or method rather than plain data.
  */
-function hasAccessor(obj: object, key: string): boolean {
+export function hasAccessor(obj: object, key: string): boolean {
   return !isOwnDataProp(obj, key) && !!Object.getOwnPropertyDescriptor(obj, key);
 }
 

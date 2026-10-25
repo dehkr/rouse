@@ -25,6 +25,11 @@ export function hasDirective(el: Element, slug: DirectiveSlug): boolean {
   return el.hasAttribute(`${PREFIX}${slug}`);
 }
 
+/** Checks if a trigger element is disabled, natively or through `aria-disabled`. */
+export function isDisabled(el: Element): boolean {
+  return el.hasAttribute('disabled') || el.getAttribute('aria-disabled') === 'true';
+}
+
 /** Returns the `data-rz-*` attribute names on `el` that don't name a directive. */
 export function unknownDirectiveNames(el: Element): string[] {
   return el

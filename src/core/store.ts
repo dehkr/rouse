@@ -20,7 +20,7 @@ import { err, fail, warn } from './diagnostics';
 import { dispatch } from './dispatch';
 import { parseStoreRef, parseStoreValue } from './parser';
 import { getNestedVal, getPathRoot, setNestedVal } from './path';
-import { clone, deepEqual, isOwnDataProp, nullPaths, patchState } from './state';
+import { clone, deepEqual, hasAccessor, nullPaths, patchState } from './state';
 
 /** Receives the store roots that changed in one batch of user edits. */
 export type EditListener = (roots: ReadonlySet<string>) => void;
@@ -305,9 +305,7 @@ export class StoreManager {
       // Accessors and methods are absent from `lastGood` (clone strips them), so
       // comparing them would mark every getter permanently dirty. A key missing
       // from `data` entirely is a deleted root and must still be compared.
-      if (!isOwnDataProp(data, key) && Object.getOwnPropertyDescriptor(data, key)) {
-        continue;
-      }
+      if (hasAccessor(data, key)) continue;
 
       if (deepEqual(data[key], baseline[key])) {
         delete status.dirtyRoots[key];

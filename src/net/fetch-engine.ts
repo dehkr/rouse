@@ -1,5 +1,5 @@
 import type { RouseApp } from '../core/app';
-import { hasDirective } from '../core/attributes';
+import { hasDirective, isDisabled } from '../core/attributes';
 import { isSafeMethod } from '../core/constants';
 import { err, warn } from '../core/diagnostics';
 import { dispatch } from '../core/dispatch';
@@ -50,11 +50,7 @@ export async function runFetch(
         return fallbackResponse(options, 'Element disconnected from DOM');
       }
 
-      // Bail out if disabled
-      if (
-        triggerEl.hasAttribute('disabled') ||
-        triggerEl.getAttribute('aria-disabled') === 'true'
-      ) {
+      if (isDisabled(triggerEl)) {
         return fallbackResponse(options, 'Element is disabled');
       }
     }
