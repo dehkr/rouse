@@ -184,14 +184,6 @@ export function renderTemplate(
         if (k === RENDER_PARENT) return parentState;
         return Reflect.get(t, k, t);
       },
-      has(t, k) {
-        return (
-          k === ITEM_KEY ||
-          k === ITEM_META_KEY ||
-          k === RENDER_PARENT ||
-          Reflect.has(t, k)
-        );
-      },
     }) as RenderContext;
 
     elementRoots.forEach((root) => markRenderOwned(root, ctx));
