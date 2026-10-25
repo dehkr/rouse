@@ -19,15 +19,13 @@ export interface TimingConfig {
 }
 
 /**
- * Callable function augmented with methods to flush or cancel pending executions.
+ * Callable function augmented with a method to cancel a pending execution.
  */
 export interface TimedFn<T extends AnyFn> {
   /** Invokes the function, scheduling it per the configured debounce/throttle strategy. */
   (...args: Parameters<T>): void;
   /** Cancels a pending execution and discards its stored arguments. */
   cancel: VoidFn;
-  /** Runs a pending execution immediately, if one is queued, and clears the timer. */
-  flush: VoidFn;
 }
 
 const DEFAULT_DEBOUNCE_MS = 300;
@@ -110,14 +108,6 @@ export function debounce<T extends AnyFn>(
     clearTimeout(timer);
     timer = lastArgs = undefined;
   };
-  debounced.flush = () => {
-    clearTimeout(timer);
-    timer = undefined;
-    if (lastArgs) {
-      fn(...lastArgs);
-      lastArgs = undefined;
-    }
-  };
 
   return debounced as TimedFn<T>;
 }
@@ -137,7 +127,7 @@ export function throttle<T extends AnyFn>(
   const run = (args: Parameters<T>) => {
     fn(...args);
     lastRun = Date.now();
-    // Clear any pending trailing call (e.g. when invoked via flush)
+    // Clear any pending trailing call
     clearTimeout(timer);
     timer = lastArgs = undefined;
   };
@@ -160,9 +150,6 @@ export function throttle<T extends AnyFn>(
   throttled.cancel = () => {
     clearTimeout(timer);
     timer = lastArgs = undefined;
-  };
-  throttled.flush = () => {
-    if (lastArgs) run(lastArgs);
   };
 
   return throttled as TimedFn<T>;
@@ -188,7 +175,6 @@ export function applyTiming<T extends AnyFn>(
   // Fallback for immediate execution
   const timed = (...args: Parameters<T>) => fn(...args);
   timed.cancel = () => {};
-  timed.flush = () => {};
 
   return timed as TimedFn<T>;
 }
