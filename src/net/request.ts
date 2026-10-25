@@ -4,7 +4,12 @@ import { rzHeaders } from '../directives/rz-headers';
 import { rzRequest } from '../directives/rz-request';
 import type { FetchRequest, RequestError, RouseResponse } from '../types';
 import { preparePayload } from './payload';
-import { fallbackResponse, mapCatchError, normalizeResponse } from './response';
+import {
+  errorResponse,
+  fallbackResponse,
+  mapCatchError,
+  normalizeResponse,
+} from './response';
 
 interface AbortEntry {
   controller: AbortController;
@@ -43,11 +48,8 @@ export async function request<T = any>(
         Object.assign(config, await fn(config));
       }
     } catch (e: unknown) {
-      let errorPayload = mapCatchError(e, false);
-      for (const fn of app._interceptors.error) {
-        errorPayload = await fn(errorPayload, config);
-      }
-      return wrapErrorResponse(errorPayload, config);
+      const error = await runErrorInterceptors(mapCatchError(e, false), config, app);
+      return errorResponse(config, error);
     }
   }
 
@@ -109,9 +111,7 @@ export async function request<T = any>(
       // Run response/error interceptors
       if (!config.skipInterceptors) {
         if (normalized.error) {
-          for (const fn of app._interceptors.error) {
-            normalized.error = await fn(normalized.error, config);
-          }
+          normalized.error = await runErrorInterceptors(normalized.error, config, app);
         } else {
           for (const fn of app._interceptors.response) {
             normalized.data = await fn(
@@ -141,11 +141,9 @@ export async function request<T = any>(
 
       // Error interceptors run on the final failure or explicit cancellation
       if (!config.skipInterceptors) {
-        for (const fn of app._interceptors.error) {
-          errorPayload = await fn(errorPayload, config);
-        }
+        errorPayload = await runErrorInterceptors(errorPayload, config, app);
       }
-      return wrapErrorResponse(errorPayload, config);
+      return errorResponse(config, errorPayload);
     }
   };
 
@@ -195,15 +193,15 @@ export function resolveRequestConfig(
 }
 
 /**
- * Wrap a `RequestError` into a `RouseResponse`.
+ * Runs the error interceptors in order, each receiving the previous one's result.
  */
-function wrapErrorResponse(error: RequestError, options: FetchRequest) {
-  return {
-    data: null,
-    error,
-    response: null,
-    headers: null,
-    status: null,
-    config: options,
-  };
+async function runErrorInterceptors(
+  error: RequestError,
+  config: FetchRequest,
+  app: RouseApp,
+): Promise<RequestError> {
+  for (const fn of app._interceptors.error) {
+    error = await fn(error, config);
+  }
+  return error;
 }

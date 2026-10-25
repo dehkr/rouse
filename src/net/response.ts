@@ -19,18 +19,6 @@ export async function normalizeResponse(
   const parsedHeaders = Object.fromEntries(response.headers.entries());
 
   try {
-    // Safety check to make sure the body hasn't been consumed.
-    if (response.bodyUsed) {
-      return {
-        data: null,
-        error: { message: 'Stream already consumed', code: 'INTERNAL_ERROR' },
-        response,
-        headers: parsedHeaders,
-        status: response.status,
-        config,
-      };
-    }
-
     const contentType = response.headers.get('Content-Type') || '';
     const contentLength = response.headers.get('Content-Length');
     const isEmpty =
@@ -113,6 +101,21 @@ export function mapCatchError(error: any, isMainAborted: boolean): RequestError 
 }
 
 /**
+ * Builds a response that carries only `error`, for a request that doesn't receive
+ * an HTTP response.
+ */
+export function errorResponse(config: FetchRequest, error: RequestError): RouseResponse {
+  return {
+    data: null,
+    error,
+    response: null,
+    headers: null,
+    status: null,
+    config,
+  };
+}
+
+/**
  * Helper to return a structured response for early bailouts.
  */
 export function fallbackResponse(
@@ -120,14 +123,7 @@ export function fallbackResponse(
   message: string,
   code: ErrorCode = 'CANCELED',
 ): RouseResponse {
-  return {
-    data: null,
-    error: { message, code },
-    response: null,
-    headers: null,
-    status: null,
-    config,
-  };
+  return errorResponse(config, { message, code });
 }
 
 export function isJsonType(val: string) {
