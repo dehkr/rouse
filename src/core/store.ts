@@ -82,7 +82,7 @@ interface StoreEntry {
   /** The push held while a request was in flight. A later one replaces it. */
   pendingPush?: VoidFn;
   /** Settles held `push()` calls once the store has nothing in flight and nothing left to send. */
-  idle?: { promise: Promise<void>; resolve: VoidFn };
+  idle?: PromiseWithResolvers<void>;
   /**
    * The `<script data-rz-store>` the store was declared on. Kept after the script is
    * removed, so a same-name replacement can be told apart from a duplicate. Read it
@@ -1036,13 +1036,7 @@ export class StoreManager {
 
   /** Returns a promise that settles once the store has nothing in flight and nothing left to send. */
   private _whenIdle(entry: StoreEntry): Promise<void> {
-    if (!entry.idle) {
-      let resolve!: VoidFn;
-      const promise = new Promise<void>((r) => {
-        resolve = r;
-      });
-      entry.idle = { promise, resolve };
-    }
+    entry.idle ??= Promise.withResolvers<void>();
     return entry.idle.promise;
   }
 
