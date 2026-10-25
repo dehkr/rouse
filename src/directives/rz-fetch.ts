@@ -1,7 +1,7 @@
 import type { RouseApp } from '../core/app';
 import { warn } from '../core/diagnostics';
 import { parseFetchSubject } from '../core/parser';
-import { dispatchTrigger, isNativeNavigation } from '../dom/events';
+import { dispatchTrigger } from '../dom/events';
 import { runFetch } from '../net/fetch-engine';
 import type { TriggerSubjectPair } from '../types';
 import { defineNetworkOpDirective } from './define-network-op';
@@ -62,9 +62,6 @@ function bindFetchPairs(el: Element, app: RouseApp, pairs: TriggerSubjectPair[])
         el,
         app,
         action: (e?: Event) => {
-          if (e && isNativeNavigation(el, e)) {
-            e.preventDefault();
-          }
           const submitter = e instanceof SubmitEvent ? e.submitter : null;
           // A form can take its URL from the submitter's `formaction` at submit time
           if (!url && !submitter?.getAttribute('formaction')) {

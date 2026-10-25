@@ -54,7 +54,7 @@ export interface TriggerSource {
 }
 
 /** Checks for native anchor or form element navigation events. */
-export function isNativeNavigation(el: Element, e: Event): boolean {
+function isNativeNavigation(el: Element, e: Event): boolean {
   return (
     (e.type === 'submit' && el instanceof HTMLFormElement) ||
     (e.type === 'click' && el instanceof HTMLAnchorElement)
