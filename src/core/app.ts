@@ -49,7 +49,7 @@ export interface RouseConfig {
   baseUrl?: string;
   /** Default headers applied to every request. Merged with per-request and directive-level headers; a `null` value removes the header. */
   headers?: Record<string, string | null>;
-  /** Standard fetch `credentials` value applied to every request. */
+  /** The fetch `credentials` value for every request. Defaults to the browser's `'same-origin'`. */
   credentials?: RequestCredentials;
   /** Abort every request after this many milliseconds. A per-request `timeout` overrides it; `0` (the default) means no deadline. */
   timeout?: number;
@@ -57,11 +57,15 @@ export interface RouseConfig {
   wake?: string;
 }
 
+/**
+ * The options passed to `rouse()`, with defaults filled in, read from `app.config`.
+ * `root` is the resolved element, the same one `app.root` returns.
+ */
 interface ResolvedConfig {
   root: HTMLElement;
   baseUrl: string;
   headers: Record<string, string | null>;
-  // Left undefined when not configured; fetch()'s native default is 'same-origin'.
+  // Left unset rather than defaulted, so fetch applies its own
   credentials?: RequestCredentials;
   timeout: number;
   wake: string;
