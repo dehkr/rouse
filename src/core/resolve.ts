@@ -17,37 +17,28 @@ export function resolveState<T = unknown>(
   scope: Scope,
   storeManager: StoreManager,
 ): T | undefined {
-  // Render item
-  if (path.startsWith(ITEM_PREFIX)) {
-    const { source, namespace, nestedPath } = parseDataSourcePath(path);
-
-    // The item has no name, so anything between `%` and the path is unresolvable
-    if (source) return undefined;
-
-    const resolved = namespace
-      ? resolveItemNamespace(namespace, scope)
-      : renderItem(scope);
-
-    return nestedPath
-      ? getNestedVal<T>(resolved, nestedPath)
-      : (resolved as T | undefined);
-  }
-
-  // Global store
-  if (path.startsWith(STORE_PREFIX)) {
-    const { source: storeName, namespace, nestedPath } = parseDataSourcePath(path);
-
-    const resolved = namespace
-      ? resolveStoreNamespace(storeName, namespace, storeManager)
-      : storeManager.get(storeName);
-
-    return nestedPath
-      ? getNestedVal<T>(resolved, nestedPath)
-      : (resolved as T | undefined);
-  }
+  const isItem = path.startsWith(ITEM_PREFIX);
 
   // Fallback to local scope state
-  return getNestedVal<T>(scope, path);
+  if (!isItem && !path.startsWith(STORE_PREFIX)) {
+    return getNestedVal<T>(scope, path);
+  }
+
+  const { source, namespace, nestedPath } = parseDataSourcePath(path);
+
+  // The item has no name, so anything between `%` and the path is unresolvable
+  if (isItem && source) return undefined;
+
+  let resolved: unknown;
+  if (isItem) {
+    resolved = namespace ? resolveItemNamespace(namespace, scope) : renderItem(scope);
+  } else {
+    resolved = namespace
+      ? resolveStoreNamespace(source, namespace, storeManager)
+      : storeManager.get(source);
+  }
+
+  return nestedPath ? getNestedVal<T>(resolved, nestedPath) : (resolved as T | undefined);
 }
 
 /**
@@ -87,46 +78,12 @@ export function writeState(
   scope: Scope,
   storeManager: StoreManager,
 ): void {
-  // Render item
-  if (path.startsWith(ITEM_PREFIX)) {
-    const { source, namespace, nestedPath: itemPath } = parseDataSourcePath(path);
-    if (source) return;
+  const isItem = path.startsWith(ITEM_PREFIX);
 
-    if (namespace) {
-      __DEV__ &&
-        warnWriteOnce(
-          path,
-          `rz-model: cannot write to '${path}'. The '${namespace}' namespace is read-only.`,
-        );
-      return;
-    }
-
-    if (!itemPath) {
-      __DEV__ &&
-        warnWriteOnce(
-          path,
-          `rz-model: cannot use '${path}' because it overwrites the entire render item. Bind to a field instead.`,
-        );
-      return;
-    }
-
-    const item = renderItem(scope);
-    if (!hasNestedKey(item, itemPath)) {
-      __DEV__ &&
-        warnWriteOnce(
-          path,
-          `rz-model: '${path}' could not be resolved. Field does not exist on the render item.`,
-        );
-      return;
-    }
-
-    setNestedVal(item, itemPath, value);
-    return;
-  }
-
-  // Global store
-  if (path.startsWith(STORE_PREFIX)) {
-    const { source: storeName, namespace, nestedPath } = parseDataSourcePath(path);
+  // Render item or global store
+  if (isItem || path.startsWith(STORE_PREFIX)) {
+    const { source, namespace, nestedPath } = parseDataSourcePath(path);
+    if (isItem && source) return;
 
     if (namespace) {
       __DEV__ &&
@@ -141,24 +98,26 @@ export function writeState(
       __DEV__ &&
         warnWriteOnce(
           path,
-          `rz-model: cannot use '${path}' because it overwrites the entire store. Bind to a field instead.`,
+          `rz-model: cannot use '${path}' because it overwrites the entire ${isItem ? 'render item' : 'store'}. Bind to a field instead.`,
         );
       return;
     }
 
-    const storeData = storeManager.get(storeName);
+    const target = isItem ? renderItem(scope) : storeManager.get(source);
 
-    // Warns if store doesn't exist, or if key doesn't exist on store
-    if (!hasNestedKey(storeData, nestedPath)) {
+    // Warns if the item field, the store, or the store key doesn't exist
+    if (!hasNestedKey(target, nestedPath)) {
       __DEV__ &&
         warnWriteOnce(
           path,
-          `rz-model: cannot resolve '${path}' on '${storeName}'. One or both may be undefined.`,
+          isItem
+            ? `rz-model: '${path}' could not be resolved. Field does not exist on the render item.`
+            : `rz-model: cannot resolve '${path}' on '${source}'. One or both may be undefined.`,
         );
       return;
     }
 
-    setNestedVal(storeData, nestedPath, value);
+    setNestedVal(target, nestedPath, value);
     return;
   }
 
