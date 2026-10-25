@@ -67,44 +67,28 @@ export function preparePayload(options: FetchRequest, baseUrl: string) {
     }
   }
 
-  // Prepare request body
+  // Prepare request body. Its type is a default, so a declared `Content-Type` wins.
   let finalBody: BodyInit | null = null;
+  let contentType: string | null = null;
 
   if (body != null) {
-    // Pass through all native binary/stream BodyInit types
-    if (isNativeBinaryBody(body)) {
+    // Native binary/stream types and strings pass through with no default type
+    if (isNativeBinaryBody(body) || typeof body === 'string') {
       finalBody = body;
-    }
-
-    // URLSearchParams
-    else if (body instanceof URLSearchParams) {
+    } else if (body instanceof URLSearchParams) {
       finalBody = body;
-      if (!reqHeaders.has('Content-Type')) {
-        reqHeaders.set('Content-Type', 'application/x-www-form-urlencoded');
-      }
-    }
-
-    // Plain object or array -> JSON
-    else if (typeof body === 'object') {
+      contentType = 'application/x-www-form-urlencoded';
+    } else if (typeof body === 'object') {
       finalBody = JSON.stringify(body);
-      if (!reqHeaders.has('Content-Type')) {
-        reqHeaders.set('Content-Type', 'application/json');
-      }
-    }
-
-    // String body, pass through
-    else if (typeof body === 'string') {
-      finalBody = body;
-    }
-
-    // Catch primitives like numbers or booleans
-    // Set sensible default content-type so server knows how to parse
-    else {
+      contentType = 'application/json';
+    } else {
       finalBody = String(body);
-      if (!reqHeaders.has('Content-Type')) {
-        reqHeaders.set('Content-Type', 'text/plain');
-      }
+      contentType = 'text/plain';
     }
+  }
+
+  if (contentType && !reqHeaders.has('Content-Type')) {
+    reqHeaders.set('Content-Type', contentType);
   }
 
   return { finalUrl: urlObj.toString(), method, reqHeaders, finalBody, restOptions };

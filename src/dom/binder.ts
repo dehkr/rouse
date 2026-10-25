@@ -13,12 +13,11 @@ const globalBindings = new WeakMap<Element, BoundCleanupFn[]>();
 const scopeBindings = new WeakMap<Element, HTMLElement>();
 /** Registry of `rz-render` instance roots, mapped to the render context they bind against. */
 const renderOwned = new WeakMap<Element, Scope>();
-/** Bound directives the binder scans for. */
-const boundDirectiveList: BoundDirective[] = [];
+/** Bound directives the binder scans for, and a selector matching any of them. */
+let boundDirectiveList: BoundDirective[] = [];
+let boundSelector = '';
 /** Scope elements whose DOM is bound and whose `rz:scope:connect` has fired, mapped to their instance. */
 const awakeScopes = new WeakMap<Element, Scope>();
-/** Cache for the generated selector string. */
-let boundSelectorCache: string | null = null;
 
 /** Returns true if a scope element is currently connected. */
 export function isScopeAwake(el: Element): boolean {
@@ -26,27 +25,12 @@ export function isScopeAwake(el: Element): boolean {
 }
 
 /**
- * Registers the directives the binder scans for and binds.
+ * Sets the directives the binder scans for and binds. `app.ts` calls it once, at
+ * module load.
  */
 export function registerBoundDirectives(...directives: BoundDirective[]): void {
-  for (const directive of directives) {
-    if (!boundDirectiveList.includes(directive)) {
-      boundDirectiveList.push(directive);
-    }
-  }
-  boundSelectorCache = null;
-}
-
-/**
- * Builds a CSS selector matching every registered bound directive,
- * caching the result until the next registration invalidates it.
- */
-function boundDirectivesSelector(): string {
-  boundSelectorCache ??= boundDirectiveList
-    .map((directive) => directive.selector)
-    .join(', ');
-
-  return boundSelectorCache;
+  boundDirectiveList = directives;
+  boundSelector = directives.map((directive) => directive.selector).join(', ');
 }
 
 /**
@@ -143,7 +127,6 @@ export function walkBoundElements(
   // Render-owned subtrees are bound by `rz-render` itself, with item context
   if (renderOwned.has(root)) return;
 
-  const boundSelector = boundDirectivesSelector();
   if (root.matches(boundSelector)) {
     callback(root);
   }

@@ -499,13 +499,12 @@ export class StoreManager {
       }
 
       if (result.error) {
-        if (result.error.code === 'CANCELED') {
-          return done(result);
+        if (result.error.code !== 'CANCELED') {
+          status.error = storeError(result.error);
         }
-
-        status.error = storeError(result.error);
         return done(result);
       }
+
       this._applyServerResponse(entry, operation, result, snapshot);
       succeeded = true;
       return done(result);

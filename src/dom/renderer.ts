@@ -74,10 +74,10 @@ function normalize(value: unknown): NormalizedValue {
 
   if (typeof value === 'number') {
     const n = Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
-    const items: ItemPlan[] = [];
-    for (let i = 0; i < n; i++) {
-      items.push({ item: NO_ITEM, index: i });
-    }
+    const items: ItemPlan[] = Array.from({ length: n }, (_, index) => ({
+      item: NO_ITEM,
+      index,
+    }));
     return { mode: 'number', items };
   }
 
