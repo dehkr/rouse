@@ -16,16 +16,7 @@ import type { ConfigDirective } from '../types';
  * - `data-rz-headers='{ "Tenant": 123 }'`
  */
 function getConfig(el: Element): Record<string, string | null> {
-  return parseHeadersConfig(getDirectiveValue(el, 'headers'), el);
-}
-
-/**
- * Parses a header record from an inline JSON object or static key-value pairs.
- */
-function parseHeadersConfig(
-  value: string | null | undefined,
-  el: Element,
-): Record<string, string | null> {
+  const value = getDirectiveValue(el, 'headers');
   if (!value) return {};
 
   const headers: Record<string, string | null> = {};

@@ -32,17 +32,6 @@ function expectedKeys(key: TriggerModifiers['key']): string[] {
 }
 
 /**
- * Maps trigger options to native AddEventListenerOptions.
- */
-export function getListenerOptions(options: TriggerModifiers): AddEventListenerOptions {
-  return {
-    capture: !!options.capture,
-    once: !!options.once,
-    passive: !!options.passive,
-  };
-}
-
-/**
  * Resolves the target of the event listener.
  */
 export function resolveListenerTarget(

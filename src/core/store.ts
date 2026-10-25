@@ -231,55 +231,6 @@ export class StoreManager {
     entry.config = { url: '', ...entry.config, ...partial };
   }
 
-  private _register(
-    storeName: string,
-    state: object,
-    programmaticConfig?: Partial<SyncPolicy>,
-    el?: Element,
-  ): StoreEntry {
-    __DEV__ && warnNullFields(storeName, state);
-
-    const status: StoreStatus = reactive({
-      syncing: false,
-      error: null,
-      lastSync: 0,
-      dirty: false,
-      dirtyRoots: {},
-    });
-
-    const proxyState = reactive(state);
-
-    const entry: StoreEntry = {
-      name: storeName,
-      data: proxyState,
-      status,
-      initial: clone(state),
-    };
-
-    this._stores.set(storeName, entry);
-
-    // Copies of this callback live on every nested object the store has read, so a
-    // reference kept after `remove()` would still report edits through it
-    trackDirty(proxyState, (rootKey: string) => {
-      if (this._isPatching || !this._isRegistered(entry)) return;
-
-      entry.touched ??= new Set();
-      entry.touched.add(rootKey);
-
-      this._scheduleFlush(entry);
-    });
-
-    if (programmaticConfig) {
-      this._setConfig(entry, programmaticConfig);
-    }
-
-    if (el) {
-      entry.el = el;
-    }
-
-    return entry;
-  }
-
   /**
    * Returns the store's element while it's on the page. Events dispatched on a
    * detached script never reach the app root.
@@ -764,7 +715,46 @@ export class StoreManager {
         `Store name '${storeName}' contains a dot, so '@${storeName}' and { edit: '${storeName}' } read as store '${storeName.slice(0, storeName.indexOf('.'))}'. Use a name without dots.`,
       );
 
-    const entry = this._register(storeName, state, config, el);
+    __DEV__ && warnNullFields(storeName, state);
+
+    const status: StoreStatus = reactive({
+      syncing: false,
+      error: null,
+      lastSync: 0,
+      dirty: false,
+      dirtyRoots: {},
+    });
+
+    const proxyState = reactive(state);
+
+    const entry: StoreEntry = {
+      name: storeName,
+      data: proxyState,
+      status,
+      initial: clone(state),
+    };
+
+    this._stores.set(storeName, entry);
+
+    // Copies of this callback live on every nested object the store has read, so a
+    // reference kept after `remove()` would still report edits through it
+    trackDirty(proxyState, (rootKey: string) => {
+      if (this._isPatching || !this._isRegistered(entry)) return;
+
+      entry.touched ??= new Set();
+      entry.touched.add(rootKey);
+
+      this._scheduleFlush(entry);
+    });
+
+    if (config) {
+      this._setConfig(entry, config);
+    }
+
+    if (el) {
+      entry.el = el;
+    }
+
     this._updateLastGood(entry, state);
 
     return entry.data;

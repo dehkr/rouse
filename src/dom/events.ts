@@ -19,7 +19,7 @@ import type {
   VoidFn,
 } from '../types';
 import { isScopeAwake } from './binder';
-import { applyModifiers, getListenerOptions, resolveListenerTarget } from './modifiers';
+import { applyModifiers, resolveListenerTarget } from './modifiers';
 
 export interface TriggerContext {
   el: Element;
@@ -78,13 +78,13 @@ function attachListener<D = any>(
   triggerOptions: TriggerModifiers,
   app: RouseApp,
 ): VoidFn {
-  const options = getListenerOptions(triggerOptions);
+  const { capture, once, passive } = triggerOptions;
   const listener = (e: Event) => {
     if (!applyModifiers(e, el, triggerOptions)) return;
 
     // Native `once` would consume the listener on filtered-out events,
     // so removal happens here, after the modifiers pass.
-    if (options.once) {
+    if (once) {
       cleanup();
     }
     callback(e as CustomEvent<D>);
@@ -92,13 +92,10 @@ function attachListener<D = any>(
 
   const target = resolveListenerTarget(el, triggerOptions, app);
   const cleanup = () => {
-    target.removeEventListener(name, listener, options.capture);
+    target.removeEventListener(name, listener, capture);
   };
 
-  target.addEventListener(name, listener, {
-    capture: options.capture,
-    passive: options.passive,
-  });
+  target.addEventListener(name, listener, { capture, passive });
 
   return cleanup;
 }
