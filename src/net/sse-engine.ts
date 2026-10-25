@@ -175,7 +175,7 @@ function attachNamed(entry: StreamEntry, name: string) {
 }
 
 function onMessage(entry: StreamEntry, event: string, e: MessageEvent) {
-  const raw = typeof e.data === 'string' ? e.data : String(e.data);
+  const raw: string = e.data;
   const data = parseMessageData(raw);
 
   // Only unnamed messages should route to `rz-place` or `rz-deposit`. Named

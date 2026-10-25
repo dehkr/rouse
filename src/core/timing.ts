@@ -193,7 +193,7 @@ export function applyTiming<T extends AnyFn>(
  */
 export function parseTime(val?: string | number): number {
   // Treat empty or falsy values as valid zero states
-  if (!val && val !== 0 && val !== '0') return 0;
+  if (!val) return 0;
   if (typeof val === 'number') return val;
 
   const normalized = String(val).trim().toLowerCase();

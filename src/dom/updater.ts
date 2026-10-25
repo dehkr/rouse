@@ -114,10 +114,6 @@ export function getModelableValue(el: Element): BindableValue {
     return el.multiple ? Array.from(el.selectedOptions).map((o) => o.value) : el.value;
   }
 
-  if (el instanceof HTMLTextAreaElement) {
-    return el.value;
-  }
-
   // Custom or form elements that expose a `value` property
   return 'value' in el ? (el.value as BindableValue) : undefined;
 }

@@ -44,7 +44,6 @@ function parseHeadersConfig(
 
   // Static key-value pairs
   for (const [key, val] of parseDirectiveValue(value)) {
-    if (!key) continue;
     if (val === null) {
       __DEV__ &&
         warn(

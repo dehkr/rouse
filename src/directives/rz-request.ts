@@ -35,8 +35,6 @@ function getConfig(el: Element): Partial<FetchRequest> {
   const config: Record<string, any> = {};
 
   for (const [key, rawVal] of parseDirectiveValue(value)) {
-    if (!key) continue;
-
     const type = KEYS[key as keyof typeof KEYS];
 
     if (!type) {
