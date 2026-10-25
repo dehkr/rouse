@@ -7,8 +7,6 @@ import type { ScopeCtx, ScopeSetup, VoidFn } from '../types';
 import { bindScope } from './binder';
 import { attachWakeStrategies } from './events';
 
-export const IS_SCOPE: unique symbol = Symbol(__DEV__ ? 'rz.scope' : '');
-
 type ScopeHandle = ReturnType<typeof createScope>;
 const instanceMap = new WeakMap<HTMLElement, ScopeHandle>();
 
@@ -25,7 +23,7 @@ export function initScopeElement(el: HTMLElement, app: RouseApp) {
   if (scopeName === '') {
     setup = () => ({});
   } else {
-    const scope = app.registry.get(scopeName);
+    const scope = app._registry.get(scopeName);
     if (!scope) {
       __DEV__ && warn(`Scope '${scopeName}' is not defined.`);
       return;

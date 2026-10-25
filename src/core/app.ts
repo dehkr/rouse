@@ -18,7 +18,6 @@ import { on } from '../dom/events';
 import { initObserver, mountSubtree, unmountSubtree } from '../dom/observer';
 import { initPayloadRouters } from '../dom/payload-router';
 import { placeContent } from '../dom/placer';
-import { IS_SCOPE } from '../dom/scope';
 import { runFetch } from '../net/fetch-engine';
 import { openBoundStream } from '../net/sse-engine';
 import type {
@@ -119,7 +118,8 @@ export class RouseApp {
   public readonly root: HTMLElement;
   public readonly config: Readonly<ResolvedConfig>;
   public stores: StoreManager;
-  public registry: ScopeRegistry;
+  /** @internal */
+  public _registry: ScopeRegistry;
   public isReady: boolean;
 
   /**
@@ -213,7 +213,7 @@ export class RouseApp {
     };
 
     this.stores = new StoreManager(this);
-    this.registry = new ScopeRegistry();
+    this._registry = new ScopeRegistry();
     this.isReady = false;
 
     // Mark root so children can find parent app
@@ -277,9 +277,7 @@ export class RouseApp {
       fail(`Scope '${name}' must be a setup function.`);
     }
 
-    // Brand as validated; registry.register rejects unbranded setups
-    (setup as any)[IS_SCOPE] = true;
-    this.registry.register(name, setup);
+    this._registry.register(name, setup);
 
     return this;
   }
