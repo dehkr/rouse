@@ -65,10 +65,7 @@ export function trackDirty<T extends object>(
   target: T,
   callback: (rootKey: string) => void,
 ) {
-  const raw = getRaw(target);
-  if (raw) {
-    dirtyTrackers.set(raw, callback);
-  }
+  dirtyTrackers.set(getRaw(target), callback);
 }
 
 /**

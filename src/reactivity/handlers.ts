@@ -34,12 +34,9 @@ export const handlers: ProxyHandler<object> = {
 
     // Lazy deep reactivity
     if (proxiable(value)) {
-      const rawChild = getRaw(value);
       const parentTracker = dirtyTrackers.get(target);
-
-      if (parentTracker && !dirtyTrackers.has(rawChild) && desc?.enumerable !== false) {
-        dirtyTrackers.set(rawChild, parentTracker);
-        objectRootKeys.set(rawChild, getRootKey(target, key));
+      if (parentTracker) {
+        propagateTracker(target, key, value, parentTracker, desc);
       }
       return reactive(value);
     }
@@ -79,11 +76,7 @@ export const handlers: ProxyHandler<object> = {
         tracker(getRootKey(target, key));
         // Propagate the tracker to the newly-assigned object
         if (proxiable(value)) {
-          const rawNew = getRaw(value);
-          if (!dirtyTrackers.has(rawNew) && desc?.enumerable !== false) {
-            dirtyTrackers.set(rawNew, tracker);
-            objectRootKeys.set(rawNew, getRootKey(target, key));
-          }
+          propagateTracker(target, key, value, tracker, desc);
         }
       }
 
@@ -130,11 +123,7 @@ export const handlers: ProxyHandler<object> = {
  * If the signal doesn't exist in the cache, it's created lazily.
  */
 export function getSignal(target: object, key: string | symbol) {
-  let props = signalCache.get(target);
-  if (!props) {
-    props = new Map();
-    signalCache.set(target, props);
-  }
+  const props = propsOf(signalCache, target);
   let sig = props.get(key);
   if (!sig) {
     sig = signal(Reflect.get(target, key));
@@ -154,19 +143,46 @@ function getComputed(
   getter: () => any,
   receiver: object,
 ) {
-  let cache = computedCache.get(target);
-  if (!cache) {
-    cache = new Map();
-    computedCache.set(target, cache);
-  }
-  let comp = cache.get(key);
+  const props = propsOf(computedCache, target);
+  let comp = props.get(key);
   if (!comp) {
     comp = computed(() => getter.call(receiver));
-    cache.set(key, comp);
+    props.set(key, comp);
   }
   return comp;
 }
 
+/** Returns `target`'s per-key map in `cache`, creating it on first use. */
+function propsOf<V>(
+  cache: WeakMap<object, Map<string | symbol, V>>,
+  target: object,
+): Map<string | symbol, V> {
+  let props = cache.get(target);
+  if (!props) {
+    props = new Map();
+    cache.set(target, props);
+  }
+  return props;
+}
+
+/**
+ * Hands `tracker` to the object stored at `key`, so edits inside it report the same
+ * root. Skips an object that already has one, and a non-enumerable key.
+ */
+function propagateTracker(
+  target: object,
+  key: string | symbol,
+  child: object,
+  tracker: (rootKey: string) => void,
+  desc: PropertyDescriptor | undefined,
+) {
+  const rawChild = getRaw(child);
+  if (!dirtyTrackers.has(rawChild) && desc?.enumerable !== false) {
+    dirtyTrackers.set(rawChild, tracker);
+    objectRootKeys.set(rawChild, getRootKey(target, key));
+  }
+}
+
 function getRootKey(target: object, key: string | symbol) {
-  return objectRootKeys.get(target) ?? (typeof key === 'string' ? key : String(key));
+  return objectRootKeys.get(target) ?? String(key);
 }
