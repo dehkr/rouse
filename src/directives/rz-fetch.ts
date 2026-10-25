@@ -3,7 +3,7 @@ import { warn } from '../core/diagnostics';
 import { parseFetchSubject } from '../core/parser';
 import { dispatchTrigger, isNativeNavigation } from '../dom/events';
 import { runFetch } from '../net/fetch-engine';
-import type { TriggerSubjectPair, VoidFn } from '../types';
+import type { TriggerSubjectPair } from '../types';
 import { defineNetworkOpDirective } from './define-network-op';
 
 /**
@@ -32,7 +32,6 @@ function warnMissingUrl(el: Element) {
  * and shares it across the element's triggers. Returns the pairs' cleanups.
  */
 function bindFetchPairs(el: Element, app: RouseApp, pairs: TriggerSubjectPair[]) {
-  const cleanups: VoidFn[] = [];
   const elementUrl = nativeUrl(el);
 
   // A form without a URL at init can still get one at submit time from the
@@ -42,7 +41,7 @@ function bindFetchPairs(el: Element, app: RouseApp, pairs: TriggerSubjectPair[])
   // The URL is shared by every trigger, so resolve and validate it once
   let warnedMissingUrl = false;
 
-  for (const { trigger, subject } of pairs) {
+  return pairs.flatMap(({ trigger, subject }) => {
     const parsed = subject ? parseFetchSubject(subject) : {};
 
     // URL value from `rz-fetch` takes precedence
@@ -55,32 +54,28 @@ function bindFetchPairs(el: Element, app: RouseApp, pairs: TriggerSubjectPair[])
         warnMissingUrl(el);
         warnedMissingUrl = true;
       }
-      continue;
+      return [];
     }
 
-    const cleanup = dispatchTrigger(trigger, {
-      el,
-      app,
-      action: (e?: Event) => {
-        if (e && isNativeNavigation(el, e)) {
-          e.preventDefault();
-        }
-        const submitter = e instanceof SubmitEvent ? e.submitter : null;
-        // A form can take its URL from the submitter's `formaction` at submit time
-        if (!url && !submitter?.getAttribute('formaction')) {
-          __DEV__ && warnMissingUrl(el);
-          return;
-        }
-        runFetch(app, { ...parsed, url, triggerEl: el, submitter });
-      },
-    });
-
-    if (cleanup) {
-      cleanups.push(cleanup);
-    }
-  }
-
-  return cleanups;
+    return [
+      dispatchTrigger(trigger, {
+        el,
+        app,
+        action: (e?: Event) => {
+          if (e && isNativeNavigation(el, e)) {
+            e.preventDefault();
+          }
+          const submitter = e instanceof SubmitEvent ? e.submitter : null;
+          // A form can take its URL from the submitter's `formaction` at submit time
+          if (!url && !submitter?.getAttribute('formaction')) {
+            __DEV__ && warnMissingUrl(el);
+            return;
+          }
+          runFetch(app, { ...parsed, url, triggerEl: el, submitter });
+        },
+      }),
+    ];
+  });
 }
 
 export const rzFetch = defineNetworkOpDirective('fetch', bindFetchPairs);

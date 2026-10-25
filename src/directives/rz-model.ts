@@ -65,22 +65,16 @@ function bind(
     triggers = [def];
   }
 
+  // DOM -> State
+  const action = () => writeState(subject, getModelableValue(el), scope, app.stores);
+
   const cleanups = [
     effect(() => {
       // State -> DOM
       setModelableValue(el, resolveState<BindableValue>(subject, scope, app.stores));
     }),
+    ...triggers.map((trigger) => dispatchTrigger(trigger, { el, app, action })),
   ];
-
-  // DOM -> State
-  const action = () => writeState(subject, getModelableValue(el), scope, app.stores);
-
-  for (const trigger of triggers) {
-    const cleanup = dispatchTrigger(trigger, { el, app, action });
-    if (cleanup) {
-      cleanups.push(cleanup);
-    }
-  }
 
   return (() => cleanups.forEach((fn) => fn())) as BoundCleanupFn;
 }

@@ -6,7 +6,7 @@ import { invokeHandler } from '../core/invoke';
 import { parseStoreRef, parseTriggers } from '../core/parser';
 import { getNestedVal } from '../core/path';
 import { dispatchTrigger } from '../dom/events';
-import type { AnyFn, BoundCleanupFn, BoundDirective, Scope, VoidFn } from '../types';
+import type { AnyFn, BoundCleanupFn, BoundDirective, Scope } from '../types';
 
 function bind(
   el: Element,
@@ -64,11 +64,8 @@ function bind(
     return;
   }
 
-  const triggers = parseTriggers(key);
-  const cleanups: VoidFn[] = [];
-
-  for (const trigger of triggers) {
-    const cleanup = dispatchTrigger(trigger, {
+  const cleanups = parseTriggers(key).map((trigger) =>
+    dispatchTrigger(trigger, {
       el,
       app,
       action: (e?: Event) =>
@@ -80,11 +77,8 @@ function bind(
           el,
           e ?? new CustomEvent(trigger.event),
         ),
-    });
-    if (cleanup) {
-      cleanups.push(cleanup);
-    }
-  }
+    }),
+  );
 
   return (() => cleanups.forEach((fn) => fn())) as BoundCleanupFn;
 }

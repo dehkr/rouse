@@ -15,9 +15,7 @@ export function bindStorePairs(
   el: Element,
   app: RouseApp,
   pairs: TriggerSubjectPair[],
-) {
-  const cleanups: VoidFn[] = [];
-
+): VoidFn[] {
   // Sync requests are shaped by the store, so these are inert here and otherwise silent
   if (__DEV__ && !hasDirective(el, 'fetch') && !hasDirective(el, 'store')) {
     if (hasDirective(el, 'headers')) {
@@ -34,9 +32,9 @@ export function bindStorePairs(
     }
   }
 
-  for (const { trigger, subject } of pairs) {
+  return pairs.flatMap(({ trigger, subject }) => {
     const storeName = resolveTarget(el, op, subject);
-    if (!storeName) continue;
+    if (!storeName) return [];
 
     const isEdit = trigger.event === 'edit';
 
@@ -52,13 +50,8 @@ export function bindStorePairs(
         }
       : sync;
 
-    const cleanup = dispatchTrigger(trigger, { el, app, action: fire });
-    if (cleanup) {
-      cleanups.push(cleanup);
-    }
-  }
-
-  return cleanups;
+    return [dispatchTrigger(trigger, { el, app, action: fire })];
+  });
 }
 
 /**

@@ -171,11 +171,10 @@ export function on(
       ? (e?: Event) => callback(e ?? new CustomEvent(name))
       : (e?: Event) => callback.handleEvent(e ?? new CustomEvent(name));
 
-  const cleanup =
-    dispatchTrigger(
-      { event: name, options: modifiers },
-      { el: target as Element, app, arg, action, suppressNavigation: false },
-    ) ?? (() => {});
+  const cleanup = dispatchTrigger(
+    { event: name, options: modifiers },
+    { el: target as Element, app, arg, action, suppressNavigation: false },
+  );
 
   signal?.addEventListener('abort', cleanup, { once: true });
 
@@ -197,12 +196,12 @@ export function on(
  * A source's argument comes from the trigger's own bracketed text when it has one,
  * otherwise from `base.arg`, which callers pass already typed.
  *
- * @returns Cleanup function, or `null` if the trigger has no teardown.
+ * @returns Cleanup function. A no-op when the trigger's argument was invalid.
  */
 export function dispatchTrigger(
   trigger: TriggerDef,
   base: Omit<TriggerContext, 'options'>,
-): VoidFn | null {
+): VoidFn {
   const timed = applyTiming(base.action, trigger.options);
   const suppressNavigation = base.suppressNavigation ?? true;
 
@@ -221,7 +220,7 @@ export function dispatchTrigger(
       const resolved = source.fromArg
         ? source.fromArg(trigger.arg, base.el)
         : trigger.arg;
-      if (resolved === null) return null;
+      if (resolved === null) return () => {};
       arg = resolved;
     }
 
@@ -309,7 +308,8 @@ export function attachWakeStrategies(
   }
 
   let isAwake = false;
-  const cleanups: VoidFn[] = [];
+  let cleanups: VoidFn[] = [];
+  const teardown = () => cleanups.forEach((cleanup) => cleanup());
 
   // Wake triggers only when all conditions are satisfied (AND logic)
   const satisfy = () => {
@@ -318,37 +318,37 @@ export function attachWakeStrategies(
 
     if (pending === 0) {
       isAwake = true;
-      cleanups.forEach((cleanup) => cleanup());
+      teardown();
       onWake();
     }
   };
 
-  for (const trigger of triggers) {
+  cleanups = triggers.map((trigger) => {
     let satisfied = false;
-
-    const action = () => {
-      if (satisfied) return;
-      satisfied = true;
-      satisfy();
-    };
 
     // A wake gate observes the element to decide when to activate; it doesn't take
     // ownership of it, so a `submit` or `click` gate must not swallow the navigation.
-    const cleanup = dispatchTrigger(trigger, {
+    return dispatchTrigger(trigger, {
       el,
-      action,
       app,
       suppressNavigation: false,
+      action: () => {
+        if (satisfied) return;
+        satisfied = true;
+        satisfy();
+      },
     });
-    if (cleanup) {
-      cleanups.push(cleanup);
-    }
+  });
+
+  // A gate can be satisfied while it's still attaching, before its cleanup exists
+  if (isAwake) {
+    teardown();
   }
 
   // Return a master cleanup in case the element is destroyed before waking
   return () => {
     if (!isAwake) {
-      cleanups.forEach((cleanup) => cleanup());
+      teardown();
     }
   };
 }

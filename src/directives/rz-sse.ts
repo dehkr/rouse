@@ -31,9 +31,7 @@ function closeFor(el: Element, reason: SseCloseReason) {
  * Binds one stream: every trigger sharing the first pair's URL opens it, and the
  * `rz-close` triggers end it. Returns the pairs' cleanups.
  */
-function bindSsePairs(el: Element, app: RouseApp, pairs: TriggerSubjectPair[]) {
-  const cleanups: VoidFn[] = [];
-
+function bindSsePairs(el: Element, app: RouseApp, pairs: TriggerSubjectPair[]): VoidFn[] {
   const url = pairs[0]?.subject;
 
   if (!url) {
@@ -42,7 +40,7 @@ function bindSsePairs(el: Element, app: RouseApp, pairs: TriggerSubjectPair[]) {
         `rz-sse: no URL found. Configure it using data-rz-sse with at least one leading trigger (e.g. data-rz-sse="ready: /events").`,
         el,
       );
-    return cleanups;
+    return [];
   }
 
   // One stream per element: rz-close and rz-place each have one home here, and
@@ -53,34 +51,18 @@ function bindSsePairs(el: Element, app: RouseApp, pairs: TriggerSubjectPair[]) {
     shared.length !== pairs.length &&
     warn(`rz-sse: a single element can only carry one stream.`, el);
 
-  for (const { trigger } of shared) {
-    const cleanup = dispatchTrigger(trigger, {
-      el,
-      app,
-      action: () => openFor(el, app, url),
-    });
-
-    if (cleanup) {
-      cleanups.push(cleanup);
-    }
-  }
-
-  for (const trigger of rzClose.getConfig(el)) {
-    const cleanup = dispatchTrigger(trigger, {
-      el,
-      app,
-      action: () => closeFor(el, 'released'),
-    });
-
-    if (cleanup) {
-      cleanups.push(cleanup);
-    }
-  }
-
-  // The connection outlives the triggers that opened it, so teardown ends it
-  cleanups.push(() => closeFor(el, 'teardown'));
-
-  return cleanups;
+  return [
+    ...shared.map(({ trigger }) =>
+      dispatchTrigger(trigger, { el, app, action: () => openFor(el, app, url) }),
+    ),
+    ...rzClose
+      .getConfig(el)
+      .map((trigger) =>
+        dispatchTrigger(trigger, { el, app, action: () => closeFor(el, 'released') }),
+      ),
+    // The connection outlives the triggers that opened it, so teardown ends it
+    () => closeFor(el, 'teardown'),
+  ];
 }
 
 export const rzSse = defineNetworkOpDirective('sse', bindSsePairs);
