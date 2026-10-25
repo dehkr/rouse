@@ -3,7 +3,7 @@ import { ITEM_PREFIX, isItemNamespace, STORE_PREFIX } from './constants';
 import { warn } from './diagnostics';
 import { parseDataSourcePath } from './parser';
 import { getNestedVal, getPathParts, setNestedVal } from './path';
-import { renderItem, renderMeta, renderParent } from './render-context';
+import { renderFrame, renderItem, renderParent } from './render-context';
 import type { StoreManager } from './store';
 
 export const EMPTY_SCOPE = {} as Scope;
@@ -46,12 +46,12 @@ export function resolveState<T = unknown>(
  * instance's zero-based position, `position` starts at one.
  */
 function resolveItemNamespace(namespace: string, scope: Scope) {
-  const meta = renderMeta(scope);
-  if (!meta || !isItemNamespace(namespace)) {
+  const frame = renderFrame(scope);
+  if (!frame || !isItemNamespace(namespace)) {
     return undefined;
   }
 
-  return namespace === 'index' ? meta.index : meta.index + 1;
+  return namespace === 'index' ? frame.index : frame.index + 1;
 }
 
 /**

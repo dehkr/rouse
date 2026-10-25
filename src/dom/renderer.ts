@@ -1,11 +1,11 @@
 import { effect, signal } from 'alien-signals';
 import type { RouseApp } from '../core/app';
-import { ITEM_KEY, ITEM_META_KEY, RENDER_PARENT } from '../core/constants';
+import { RENDER_FRAME } from '../core/constants';
 import { warn } from '../core/diagnostics';
 import { getNestedVal } from '../core/path';
 import { isPlainObject } from '../core/state';
 import { getRaw, reactive, untracked } from '../reactivity/reactive';
-import type { BoundCleanupFn, RenderContext, RenderMeta, Scope, VoidFn } from '../types';
+import type { BoundCleanupFn, RenderContext, RenderFrame, Scope, VoidFn } from '../types';
 import {
   bindDirectives,
   markRenderOwned,
@@ -169,21 +169,19 @@ export function renderTemplate(
     const itemSig: ItemSignal = signal(reactive(plan.item as object));
     const indexSig: IndexSignal = signal(plan.index);
     const hasItem = plan.item !== NO_ITEM;
-    const meta: RenderMeta = {
-      get index() {
-        return indexSig();
-      },
+    const frame: RenderFrame = {
       get item() {
         return hasItem ? itemSig() : undefined;
       },
+      get index() {
+        return indexSig();
+      },
+      parent: parentState,
     };
 
     const ctx = new Proxy(parentState, {
       get(t, k) {
-        if (k === ITEM_KEY) return itemSig();
-        if (k === ITEM_META_KEY) return meta;
-        if (k === RENDER_PARENT) return parentState;
-        return Reflect.get(t, k, t);
+        return k === RENDER_FRAME ? frame : Reflect.get(t, k, t);
       },
     }) as RenderContext;
 

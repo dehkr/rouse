@@ -51,12 +51,8 @@ export function isItemNamespace(key: string): key is ItemNamespace {
 
 export const KEY_BLOCKLIST = ['__proto__', 'constructor', 'prototype'];
 
-/** Carries the current render item on an `rz-render` instance context. */
-export const ITEM_KEY: unique symbol = Symbol(__DEV__ ? 'rz.item' : '');
-/** Carries per-instance render metadata (`index`, `key`). */
-export const ITEM_META_KEY: unique symbol = Symbol(__DEV__ ? 'rz.itemMeta' : '');
-/** Points an instance context back at the scope/store state it layers over. */
-export const RENDER_PARENT: unique symbol = Symbol(__DEV__ ? 'rz.renderParent' : '');
+/** Carries the `RenderFrame` of an `rz-render` instance context. */
+export const RENDER_FRAME: unique symbol = Symbol(__DEV__ ? 'rz.renderFrame' : '');
 
 /** List of valid DOM placement positions. */
 export const PLACE_POSITIONS = [

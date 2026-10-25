@@ -1,11 +1,9 @@
 import type { RouseApp } from './core/app';
 import type {
   DirectiveSlug,
-  ITEM_KEY,
-  ITEM_META_KEY,
   ListenTarget,
   PlacePosition,
-  RENDER_PARENT,
+  RENDER_FRAME,
 } from './core/constants';
 
 export type { DirectiveSlug };
@@ -338,28 +336,27 @@ export type Scope = Record<string, any> & {
   disconnect?: () => void;
 };
 
-/** Per-instance render metadata. Internal to the engine and surfaced to handlers via `HandlerCtx.render`. Not resolvable from templates. */
-export interface RenderMeta {
+/**
+ * One `rz-render` instance's own state: its item, its position, and the state it
+ * layers over. Read by `%`, and snapshotted for handlers as `HandlerCtx.render`.
+ */
+export interface RenderFrame {
   /** The current loop item. Absent for item-less (boolean/number) render modes. */
   item: unknown;
   /** Zero-based position of this instance within the render. */
   index: number;
+  /** The parent state this instance's context layers over. */
+  parent: Scope;
 }
 
 /**
  * The per-instance binding context an `rz-render` template instance is bound with.
  *
- * Structurally it's a `Scope` (so it threads through `bindDirectives` and the resolution chain unchanged) plus three
- * reserved symbol slots: the current item, its render metadata, and the parent state it layers over. Not a real
- * `rz-scope`: no lifecycle, no `ScopeCtx`.
+ * Structurally it's a `Scope` (so it threads through `bindDirectives` and the resolution chain unchanged) plus one
+ * reserved symbol slot holding the instance's `RenderFrame`. Not a real `rz-scope`: no lifecycle, no `ScopeCtx`.
  */
 export type RenderContext = Scope & {
-  /** The current render item. */
-  [ITEM_KEY]?: unknown;
-  /** Per-instance render metadata. */
-  [ITEM_META_KEY]?: RenderMeta;
-  /** The parent state this context layers over. */
-  [RENDER_PARENT]?: Scope;
+  [RENDER_FRAME]?: RenderFrame;
 };
 
 /**
