@@ -7,52 +7,8 @@ import {
 } from '../core/constants';
 import { warn } from '../core/diagnostics';
 import { dispatch } from '../core/dispatch';
-import { queryPlaceTargets, rzPlace } from '../directives/rz-place';
-import type { PlaceOptions, RoutablePayload } from '../types';
-
-/**
- * Listens to the app root for HTML fetch responses and stream messages, and routes
- * the payloads into DOM targets named by `rz-place` on the originating element, or
- * a server `Rouse-Place` header.
- *
- * A programmatic fetch doesn't have an element, so it doesn't place by default. A server-
- * named target can place the payload, or the caller can place it using `app.place()`. The
- * `triggerEl` option is configurable, however, so a pre-configured element can be
- * triggered remotely.
- *
- * Error responses route only when the server names a target, since `rz-place` is
- * success-only output.
- */
-export function initDomRouter(app: RouseApp, signal: AbortSignal) {
-  const route = (e: Event, source: 'fetch' | 'sse') => {
-    const { detail } = e as CustomEvent<RoutablePayload>;
-    const { config, data, placeOverride } = detail;
-    const triggerEl = config?.triggerEl;
-
-    // An empty fetch response arrives as `null`. It places only under `Rouse-Place`,
-    // where the header itself is the instruction, so a plain 204 leaves the page alone.
-    const content = data == null && placeOverride ? '' : data;
-    if (typeof content !== 'string') return;
-    // Don't route an error response unless the server provides an override
-    if (e.type.includes('error') && !placeOverride) return;
-    // No originating element means no destination or host for the declarative path
-    if (!triggerEl && !placeOverride) return;
-
-    const placements = rzPlace.getConfig(triggerEl ?? app.root, app.root, placeOverride);
-
-    for (const { targets, position } of placements) {
-      for (const targetEl of targets) {
-        placeInto(targetEl, content, position, source);
-      }
-    }
-  };
-
-  ['rz:fetch:success:html', 'rz:fetch:error:html'].forEach((name) => {
-    app.root.addEventListener(name, (e) => route(e, 'fetch'), { signal });
-  });
-
-  app.root.addEventListener('rz:sse:message:html', (e) => route(e, 'sse'), { signal });
-}
+import { queryPlaceTargets } from '../directives/rz-place';
+import type { PlaceOptions } from '../types';
 
 /**
  * Places `content` into `target`, backing `app.place()`. A selector resolves the way
@@ -97,11 +53,12 @@ export function placeContent(
 /**
  * Writes `content` at `position` relative to `target`, between a cancelable
  * `rz:dom:place:before` and `rz:dom:place`. Both fire from the parent for `outerHTML`
- * and `delete`, since the target itself is replaced or removed.
+ * and `delete`, since the target itself is replaced or removed. Every placement goes
+ * through here, routed or programmatic.
  *
  * @returns `false` if a listener canceled the placement.
  */
-function placeInto(
+export function placeInto(
   target: Element,
   content: string,
   position: PlacePosition,

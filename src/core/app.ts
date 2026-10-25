@@ -14,11 +14,11 @@ import {
   rzText,
 } from '../directives';
 import { registerBoundDirectives, teardownGlobalBindings } from '../dom/binder';
-import { initDomRouter, placeContent } from '../dom/dom-router';
 import { on } from '../dom/events';
 import { initObserver, mountSubtree, unmountSubtree } from '../dom/observer';
+import { initPayloadRouters } from '../dom/payload-router';
+import { placeContent } from '../dom/placer';
 import { IS_SCOPE } from '../dom/scope';
-import { initStoreRouter } from '../dom/store-router';
 import { runFetch } from '../net/fetch-engine';
 import { openBoundStream } from '../net/sse-engine';
 import type {
@@ -445,8 +445,7 @@ export class RouseApp {
 
     dispatch(this.root, 'rz:app:start', { app: this });
 
-    initDomRouter(this, this._abortController.signal);
-    initStoreRouter(this, this._abortController.signal);
+    initPayloadRouters(this, this._abortController.signal);
 
     // Observing first means DOM that a scope adds while mounting is still scanned
     this._observer = initObserver(this);
