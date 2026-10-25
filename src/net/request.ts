@@ -11,12 +11,7 @@ import {
   normalizeResponse,
 } from './response';
 
-interface AbortEntry {
-  controller: AbortController;
-  ownerId: symbol;
-}
-
-const abortRegistry = new Map<string | symbol, AbortEntry>();
+const abortRegistry = new Map<string | symbol, AbortController>();
 
 /**
  * Issues a network request and normalizes the outcome.
@@ -68,19 +63,16 @@ export async function request<T = any>(
     ...fetchOptions
   } = restOptions;
 
-  let mainSignal: AbortSignal | null = null;
-  let ownerId: symbol | null = null;
+  let controller: AbortController | null = null;
 
   // Handle concurrency and establish the primary abort signal
   if (abortKey) {
-    abortRegistry.get(abortKey)?.controller.abort('Replacement request started');
-    const controller = new AbortController();
-    ownerId = Symbol(__DEV__ ? 'rz.abortOwner' : '');
-    abortRegistry.set(abortKey, { controller, ownerId });
-    mainSignal = controller.signal;
-  } else if (externalSignal) {
-    mainSignal = externalSignal;
+    abortRegistry.get(abortKey)?.abort('Replacement request started');
+    controller = new AbortController();
+    abortRegistry.set(abortKey, controller);
   }
+
+  const mainSignal = controller?.signal ?? externalSignal ?? null;
 
   const signals = [mainSignal, timeout > 0 ? AbortSignal.timeout(timeout) : null].filter(
     (s): s is AbortSignal => s !== null,
@@ -151,11 +143,8 @@ export async function request<T = any>(
     return await execute();
   } finally {
     // Cleanup abort key mapping only if this request owns it
-    if (abortKey && ownerId) {
-      const entry = abortRegistry.get(abortKey);
-      if (entry?.ownerId === ownerId) {
-        abortRegistry.delete(abortKey);
-      }
+    if (abortKey && abortRegistry.get(abortKey) === controller) {
+      abortRegistry.delete(abortKey);
     }
   }
 }

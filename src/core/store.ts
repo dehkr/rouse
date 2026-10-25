@@ -77,8 +77,7 @@ interface StoreEntry {
   initial: any;
   config?: SyncPolicy;
   lastGood?: any;
-  activeReq?: symbol;
-  /** The owning request, while it's in flight. */
+  /** The owning request, while it's in flight. A newer request replaces it. */
   inFlight?: InFlight;
   /** The push held while a request was in flight. A later one replaces it. */
   pendingPush?: VoidFn;
@@ -523,10 +522,10 @@ export class StoreManager {
   ): Promise<SendOutcome> {
     const { status } = entry;
 
-    const reqToken = Symbol(__DEV__ ? 'rz.request' : '');
-    entry.activeReq = reqToken;
-
-    entry.inFlight = { snapshot };
+    // A newer request replaces this object, so this one checks it to see whether it
+    // still owns the store
+    const flight: InFlight = { snapshot };
+    entry.inFlight = flight;
     status.syncing = operation;
     status.error = null;
 
@@ -546,7 +545,7 @@ export class StoreManager {
       // already leaves `syncing` to the winner. A removed store is checked here
       // rather than in `remove()`, so a removal from a `:config` or `:start`
       // listener is caught too.
-      if (entry.activeReq !== reqToken || !this._isRegistered(entry)) {
+      if (entry.inFlight !== flight || !this._isRegistered(entry)) {
         return done(result);
       }
 
@@ -573,16 +572,15 @@ export class StoreManager {
         'INTERNAL_ERROR',
       );
 
-      if (entry.activeReq === reqToken) {
+      if (entry.inFlight === flight) {
         status.error = storeError(fallback.error);
       }
 
       handle.settle(fallback);
       return done(fallback);
     } finally {
-      if (entry.activeReq === reqToken) {
+      if (entry.inFlight === flight) {
         status.syncing = false;
-        entry.activeReq = undefined;
         entry.inFlight = undefined;
 
         // The pending push is taken on any outcome, so a failure discards it rather
