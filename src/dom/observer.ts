@@ -30,112 +30,105 @@ export function warnUnknownDirectives(root: Element, app: RouseApp) {
   }
 }
 
+/** Runs `fn` on each match of `selector` in `root`'s subtree, root included, that belongs to `app`. */
+function forEachOwned<T extends Element>(
+  root: Element,
+  selector: string,
+  app: RouseApp,
+  fn: (el: T) => void,
+) {
+  for (const el of queryTargets<T>(root, selector)) {
+    if (getApp(el, app)) {
+      fn(el);
+    }
+  }
+}
+
 /**
- * Creates a `MutationObserver` scoped to the provided app instance. Initializes
- * stores, scopes, network directives, and bound directives on added subtrees,
- * and runs the matching teardown on removed ones.
+ * Sets up everything in `root`'s subtree, root included, that belongs to `app`. Stores
+ * come first so `@store` references resolve for the rest. Shared by `app.start()` and
+ * the observer, so a directive registered here is scanned on both paths.
+ */
+export function mountSubtree(root: Element, app: RouseApp) {
+  __DEV__ && warnUnknownDirectives(root, app);
+
+  forEachOwned<HTMLScriptElement>(root, rzStore.selector, app, (el) =>
+    rzStore.initialize(el, app),
+  );
+
+  forEachOwned<HTMLElement>(root, SCOPE_SELECTOR, app, (el) => initScopeElement(el, app));
+
+  const ownerScope = root.closest<HTMLElement>(SCOPE_SELECTOR);
+
+  // Scan elements that belong to a scope, but make sure the element itself
+  // isn't a scope. `closest` matches self, so a scope element would scan itself
+  // and double-bind (`initScopeElement` already handled it above).
+  if (ownerScope && !hasDirective(root, 'scope') && getApp(ownerScope, app)) {
+    scanScopeNode(ownerScope, root);
+  }
+
+  for (const directive of NETWORK_DIRECTIVES) {
+    forEachOwned(root, directive.selector, app, (el) => directive.initialize(el, app));
+  }
+
+  // Outside any scope, bound directives mount globally
+  if (!ownerScope) {
+    walkBoundElements(root, (el) => {
+      if (getApp(el, app)) {
+        mountGlobalBinding(el, app);
+      }
+    });
+  }
+}
+
+/**
+ * Tears down the stores, scopes, and network directives in `root`'s subtree, root
+ * included. Bound directives are left to the caller, which knows who owns them.
+ */
+export function unmountSubtree(root: Element) {
+  queryTargets<HTMLScriptElement>(root, rzStore.selector).forEach((el) =>
+    rzStore.teardown(el),
+  );
+
+  queryTargets<HTMLElement>(root, SCOPE_SELECTOR).forEach(destroyInstance);
+
+  for (const directive of NETWORK_DIRECTIVES) {
+    queryTargets(root, directive.selector).forEach((el) => directive.teardown(el));
+  }
+}
+
+/**
+ * Creates a `MutationObserver` scoped to the provided app instance. Sets up added
+ * subtrees and tears down removed ones.
  *
  * @returns A configured, unstarted MutationObserver instance.
  */
 export function initObserver(app: RouseApp) {
-  const networkDirectives = NETWORK_DIRECTIVES.map(
-    (directive) => [directive, directive.selector] as const,
-  );
-
   return new MutationObserver((mutations) => {
     for (const mutation of mutations) {
       for (const node of mutation.addedNodes) {
-        if (node.nodeType === Node.ELEMENT_NODE) {
-          const addedEl = node as Element;
-
-          // If a subtree is added then removed before the current task finishes,
-          // the add will be reported, but the node will be detached when the observer
-          // runs. So skip it to avoid errant ownership warnings.
-          if (!addedEl.isConnected) continue;
-
-          __DEV__ && warnUnknownDirectives(addedEl, app);
-
-          const storeScriptEls = queryTargets<HTMLScriptElement>(
-            addedEl,
-            rzStore.selector,
-          );
-          for (const el of storeScriptEls) {
-            if (getApp(el, app)) {
-              rzStore.initialize(el, app);
-            }
-          }
-
-          const scopeEls = queryTargets<HTMLElement>(addedEl, SCOPE_SELECTOR);
-          for (const el of scopeEls) {
-            if (getApp(el, app)) {
-              initScopeElement(el, app);
-            }
-          }
-
-          const ownerScope = addedEl.closest<HTMLElement>(SCOPE_SELECTOR);
-
-          // Scan elements that belong to a scope, but make sure the element itself
-          // isn't a scope. `closest` matches self, so a scope element would scan itself
-          // and double-bind (`initScopeElement` already handled it above).
-          if (ownerScope && !hasDirective(addedEl, 'scope') && getApp(ownerScope, app)) {
-            scanScopeNode(ownerScope, addedEl);
-          }
-
-          for (const [directive, selector] of networkDirectives) {
-            const networkEls = queryTargets(addedEl, selector);
-            for (const el of networkEls) {
-              if (getApp(el, app)) {
-                directive.initialize(el, app);
-              }
-            }
-          }
-
-          // If the newly added element doesn't belong to a scope, walk its
-          // tree and auto-mount any bound directives globally.
-          if (!ownerScope) {
-            walkBoundElements(addedEl, (boundEl) => {
-              if (!getApp(boundEl, app)) return;
-              mountGlobalBinding(boundEl, app);
-            });
-          }
+        // If a subtree is added then removed before the current task finishes,
+        // the add will be reported, but the node will be detached when the observer
+        // runs. So skip it to avoid errant ownership warnings.
+        if (node.nodeType === Node.ELEMENT_NODE && node.isConnected) {
+          mountSubtree(node as Element, app);
         }
       }
 
       for (const node of mutation.removedNodes) {
-        if (node.nodeType === Node.ELEMENT_NODE) {
-          const removedEl = node as Element;
+        if (node.nodeType !== Node.ELEMENT_NODE) continue;
 
-          const storeScriptEls = queryTargets<HTMLScriptElement>(
-            removedEl,
-            rzStore.selector,
-          );
-          for (const el of storeScriptEls) {
-            rzStore.teardown(el);
-          }
+        const removedEl = node as Element;
+        unmountSubtree(removedEl);
 
-          const scopeEls = queryTargets<HTMLElement>(removedEl, SCOPE_SELECTOR);
-          for (const el of scopeEls) {
-            destroyInstance(el);
-          }
-
-          // Ownership resolved against the `scopeBindings` WeakMap, not DOM
-          // ancestry. Survives detached parents, cross-boundary moves, and
-          // sync-detachment edge cases.
-          const ownerScope = resolveRemovedOwner(removedEl);
-          if (ownerScope && !hasDirective(removedEl, 'scope')) {
-            teardownScopeNode(ownerScope, removedEl);
-          }
-
-          for (const [directive, selector] of networkDirectives) {
-            const networkEls = queryTargets(removedEl, selector);
-            for (const el of networkEls) {
-              directive.teardown(el);
-            }
-          }
-
-          if (!ownerScope) {
-            teardownGlobalBindings(removedEl);
-          }
+        // Ownership resolved against the `scopeBindings` WeakMap, not DOM
+        // ancestry. Survives detached parents, cross-boundary moves, and
+        // sync-detachment edge cases.
+        const ownerScope = resolveRemovedOwner(removedEl);
+        if (!ownerScope) {
+          teardownGlobalBindings(removedEl);
+        } else if (!hasDirective(removedEl, 'scope')) {
+          teardownScopeNode(ownerScope, removedEl);
         }
       }
     }

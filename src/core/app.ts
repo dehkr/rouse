@@ -10,21 +10,14 @@ import {
   rzPush,
   rzRender,
   rzSse,
-  rzStore,
   rzStyle,
   rzText,
 } from '../directives';
-import { SCOPE_SELECTOR } from '../directives/rz-scope';
-import {
-  mountGlobalBinding,
-  registerBoundDirectives,
-  teardownGlobalBindings,
-  walkBoundElements,
-} from '../dom/binder';
+import { registerBoundDirectives, teardownGlobalBindings } from '../dom/binder';
 import { initDomRouter, placeContent } from '../dom/dom-router';
 import { on } from '../dom/events';
-import { initObserver, warnUnknownDirectives } from '../dom/observer';
-import { destroyInstance, IS_SCOPE, initScopeElement } from '../dom/scope';
+import { initObserver, mountSubtree, unmountSubtree } from '../dom/observer';
+import { IS_SCOPE } from '../dom/scope';
 import { initStoreRouter } from '../dom/store-router';
 import { runFetch } from '../net/fetch-engine';
 import { openBoundStream } from '../net/sse-engine';
@@ -43,7 +36,6 @@ import type {
   ScopeSetup,
   VoidFn,
 } from '../types';
-import { queryTargets } from './attributes';
 import { fail, info, warn } from './diagnostics';
 import { dispatch } from './dispatch';
 import { ScopeRegistry } from './scope-registry';
@@ -464,41 +456,11 @@ export class RouseApp {
     initDomRouter(this, this._abortController.signal);
     initStoreRouter(this, this._abortController.signal);
 
-    __DEV__ && warnUnknownDirectives(this.root, this);
-
-    // Scan for store <script> elements first to ensure state exists for bindings
-    const storeScriptEls = queryTargets<HTMLScriptElement>(this.root, rzStore.selector);
-    for (const el of storeScriptEls) {
-      if (getApp(el, this)) {
-        rzStore.initialize(el, this);
-      }
-    }
-
+    // Observing first means DOM that a scope adds while mounting is still scanned
     this._observer = initObserver(this);
     this._observer.observe(this.root, { childList: true, subtree: true });
 
-    const scopeEls = queryTargets<HTMLElement>(this.root, SCOPE_SELECTOR);
-    for (const el of scopeEls) {
-      if (getApp(el, this)) {
-        initScopeElement(el, this);
-      }
-    }
-
-    for (const directive of NETWORK_DIRECTIVES) {
-      const networkEls = queryTargets(this.root, directive.selector);
-      for (const el of networkEls) {
-        if (getApp(el, this)) {
-          directive.initialize(el, this);
-        }
-      }
-    }
-
-    if (!this.root.closest(SCOPE_SELECTOR)) {
-      walkBoundElements(this.root, (el) => {
-        if (!getApp(el, this)) return;
-        mountGlobalBinding(el, this);
-      });
-    }
+    mountSubtree(this.root, this);
 
     requestAnimationFrame(() => {
       if (this._destroyed) return;
@@ -521,18 +483,7 @@ export class RouseApp {
 
     this._observer?.disconnect();
 
-    const scopeEls = queryTargets<HTMLElement>(this.root, SCOPE_SELECTOR);
-    scopeEls.forEach(destroyInstance);
-
-    for (const directive of NETWORK_DIRECTIVES) {
-      const networkEls = queryTargets(this.root, directive.selector);
-      networkEls.forEach((el) => directive.teardown(el));
-    }
-
-    for (const el of this.stores._elements()) {
-      rzStore.teardown(el as HTMLScriptElement);
-    }
-
+    unmountSubtree(this.root);
     teardownGlobalBindings(this.root);
 
     dispatch(this.root, 'rz:app:destroy', { app: this });
