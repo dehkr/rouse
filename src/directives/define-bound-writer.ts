@@ -11,11 +11,11 @@ import type {
 } from '../types';
 
 /**
- * Factory for the bound-writer directives (rz-attr, rz-text, rz-html, rz-prop).
+ * Factory for the bound-writer directives (rz-text, rz-html, rz-prop).
  * Resolves a bound value inside an effect and writes it to the element.
  *
- * `rz-attr` and `rz-prop` take multiple comma-separated values, since `key` names the attribute
- * or property. `rz-text` and `rz-html` take a bare value and ignore `key`, so pass
+ * `rz-prop` takes multiple comma-separated values, since `key` names the property.
+ * `rz-text` and `rz-html` take a bare value and ignore `key`, so pass
  * `{ singleValue: true }` for them. Multiple values would write the same element from
  * competing effects.
  */
