@@ -166,10 +166,15 @@ export function mountGlobalBinding(el: Element, app: RouseApp): void {
 
 /**
  * Traverses a removed DOM subtree and executes cleanup functions for
- * any globally mounted directives.
+ * any globally mounted directives. `owns` limits it to the elements it accepts.
  */
-export function teardownGlobalBindings(root: Element): void {
+export function teardownGlobalBindings(
+  root: Element,
+  owns?: (el: Element) => boolean,
+): void {
   walkBoundElements(root, (el) => {
+    if (owns && !owns(el)) return;
+
     const cleanups = globalBindings.get(el);
     if (!cleanups) return;
 

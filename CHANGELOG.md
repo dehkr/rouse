@@ -61,6 +61,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Resolve a relative `baseUrl`, such as `rouse({ baseUrl: '/api' })`, against the document URL to prevent requests from failing.
 - Stop removed stores from notifying `onEdit` listeners, triggering `edit` pushes, or applying an in-flight sync response.
 - Prevent an inner app's response event bubbling up to an outer app's router where it would be routed a second time.
+- Release an outer app's bindings when an app mounts inside it after it started. Both apps previously wrote the same elements, and whichever ran last won.
 
 ## [0.15.0] - 2026-10-15
 

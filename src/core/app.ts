@@ -15,7 +15,12 @@ import {
 } from '../directives';
 import { registerBoundDirectives, teardownGlobalBindings } from '../dom/binder';
 import { on } from '../dom/events';
-import { initObserver, mountSubtree, unmountSubtree } from '../dom/observer';
+import {
+  initObserver,
+  mountSubtree,
+  releaseSubtree,
+  unmountSubtree,
+} from '../dom/observer';
 import { initPayloadRouters } from '../dom/payload-router';
 import { placeContent } from '../dom/placer';
 import { runFetch } from '../net/fetch-engine';
@@ -215,6 +220,14 @@ export class RouseApp {
     this.stores = new StoreManager(this);
     this._registry = new ScopeRegistry();
     this.isReady = false;
+
+    // An enclosing app that already scanned this markup still owns its bindings, so it
+    // needs to release them first to prevent both apps writing the same elements.
+    const parentRoot = rootEl.parentElement?.closest<HTMLElement>('[data-rouse-app]');
+    const parent = parentRoot ? appInstances.get(parentRoot) : undefined;
+    if (parent?._hasStarted) {
+      releaseSubtree(rootEl, parent);
+    }
 
     // Mark root so children can find parent app
     this.root.setAttribute('data-rouse-app', '');

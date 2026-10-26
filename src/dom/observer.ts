@@ -98,6 +98,33 @@ export function unmountSubtree(root: Element) {
 }
 
 /**
+ * Tears down what `app` set up in `root`'s subtree, root included, so a nested app can
+ * mount there. Runs before the nested root is marked, while its elements still
+ * resolve to `app`. Mirrors `mountSubtree`, which bound them.
+ */
+export function releaseSubtree(root: Element, app: RouseApp) {
+  forEachOwned<HTMLScriptElement>(root, rzStore.selector, app, (el) =>
+    rzStore.teardown(el),
+  );
+
+  forEachOwned<HTMLElement>(root, SCOPE_SELECTOR, app, (el) => destroyInstance(el));
+
+  for (const directive of NETWORK_DIRECTIVES) {
+    forEachOwned(root, directive.selector, app, (el) => directive.teardown(el));
+  }
+
+  const ownerScope = root.closest<HTMLElement>(SCOPE_SELECTOR);
+
+  if (ownerScope && !hasDirective(root, 'scope') && getApp(ownerScope, app)) {
+    teardownScopeNode(ownerScope, root);
+  }
+
+  if (!ownerScope) {
+    teardownGlobalBindings(root, (el) => !!getApp(el, app));
+  }
+}
+
+/**
  * Creates a `MutationObserver` scoped to the provided app instance. Sets up added
  * subtrees and tears down removed ones.
  *
