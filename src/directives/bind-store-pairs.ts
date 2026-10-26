@@ -1,8 +1,8 @@
 import type { RouseApp } from '../core/app';
-import { getDirectiveValue, hasDirective, isDisabled } from '../core/attributes';
+import { hasDirective, isDisabled } from '../core/attributes';
 import { STORE_PREFIX } from '../core/constants';
 import { warn } from '../core/diagnostics';
-import { parseStoreRef, parseStoreValue } from '../core/parser';
+import { parseStoreRef } from '../core/parser';
 import { dispatchTrigger } from '../dom/events';
 import type { TriggerSubjectPair, VoidFn } from '../types';
 
@@ -56,58 +56,50 @@ export function bindStorePairs(
 }
 
 /**
- * Resolves a push/pull subject into a store name. A `null` subject means
- * self-target, which is valid only on a <script> element with the `rz-store`
- * directive present.
+ * Resolves a push/pull subject into a store name. Every subject names its store.
  */
 function resolveTarget(
   el: Element,
   op: 'push' | 'pull',
   subject: string | null,
 ): string | null {
-  if (subject) {
-    if (!subject.startsWith(STORE_PREFIX)) {
-      __DEV__ &&
-        warn(`rz-${op}: target '${subject}' must be a store reference (e.g., '@cart').`);
-      return null;
-    }
-
-    const target = parseStoreRef(subject, op);
-    if (!target) {
-      return null;
-    }
-
-    const { source: storeName, nestedPath } = target;
-
-    if (!storeName) {
-      __DEV__ && warn(`rz-${op}: invalid store reference '${subject}'.`);
-      return null;
-    }
-
-    if (nestedPath) {
-      __DEV__ &&
-        warn(
-          `rz-${op}: '${subject}' names a path, but a store syncs as a whole. Use '@${storeName}'.`,
-          el,
-        );
-      return null;
-    }
-
-    return storeName;
-  }
-
-  // Reference the `rz-store` name if `null`. Specific to <script> elements.
-  const selfName = parseStoreValue(getDirectiveValue(el, 'store'))?.name;
-  if (!selfName) {
+  if (!subject) {
     __DEV__ &&
       warn(
-        `rz-${op}: missing store reference. To self-reference a store on a <script> element, add data-rz-store as well.`,
+        `rz-${op}: missing store reference. Name the store, as in 'click: @cart'.`,
         el,
       );
     return null;
   }
 
-  return selfName;
+  if (!subject.startsWith(STORE_PREFIX)) {
+    __DEV__ &&
+      warn(`rz-${op}: target '${subject}' must be a store reference (e.g., '@cart').`);
+    return null;
+  }
+
+  const target = parseStoreRef(subject, op);
+  if (!target) {
+    return null;
+  }
+
+  const { source: storeName, nestedPath } = target;
+
+  if (!storeName) {
+    __DEV__ && warn(`rz-${op}: invalid store reference '${subject}'.`);
+    return null;
+  }
+
+  if (nestedPath) {
+    __DEV__ &&
+      warn(
+        `rz-${op}: '${subject}' names a path, but a store syncs as a whole. Use '@${storeName}'.`,
+        el,
+      );
+    return null;
+  }
+
+  return storeName;
 }
 
 /**

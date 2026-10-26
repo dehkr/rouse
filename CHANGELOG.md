@@ -35,6 +35,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Omit `@` from JS `edit` targets: use `app.on({ edit: 'cart.items' }, fn)`.
   - `edit` now requires an explicit store target; directives no longer infer the store from the subject. Use `data-rz-push="edit-[@cart]: @cart"` instead of `data-rz-push="edit: @cart"`.
   - Make `app.stores.onEdit` internal. Migrate to `app.on({ edit: 'cart' }, fn)`.
+- **Breaking:** Require store-writing directives on a `<script data-rz-store>` to name their store.
+  - Give `rz-push` and `rz-pull` a store subject. Use `data-rz-pull="ready: @cart"` instead of `data-rz-pull="ready"`.
+  - Add `data-rz-deposit="@cart"` to deposit into the script's own store. `rz-deposit` no longer defaults to it.
+  - Remove `data-rz-deposit="null"`. With no default, there's nothing to opt out of.
 
 ### Removed
 
