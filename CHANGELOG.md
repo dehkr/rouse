@@ -60,6 +60,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Stop a programmatic push or pull on a store created in JS from adding the `rouse-request` class to the app root. Set the `indicator` option to mark an element during a sync.
 - Resolve a relative `baseUrl`, such as `rouse({ baseUrl: '/api' })`, against the document URL to prevent requests from failing.
 - Stop removed stores from notifying `onEdit` listeners, triggering `edit` pushes, or applying an in-flight sync response.
+- Prevent an inner app's response event bubbling up to an outer app's router where it would be routed a second time.
 
 ## [0.15.0] - 2026-10-15
 

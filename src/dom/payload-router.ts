@@ -1,4 +1,4 @@
-import type { RouseApp } from '../core/app';
+import { getApp, type RouseApp } from '../core/app';
 import { warn } from '../core/diagnostics';
 import { isPlainObject } from '../core/state';
 import { rzDeposit } from '../directives';
@@ -80,6 +80,9 @@ function listenForPayloads(
     app.root.addEventListener(
       name,
       (e) => {
+        // Skip payloads from nested apps, whose own routers would have already handled them
+        if (!getApp(e.target as Element, app)) return;
+
         const { detail } = e as CustomEvent<RoutablePayload>;
         const triggerEl = detail.config?.triggerEl;
 
