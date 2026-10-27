@@ -83,6 +83,8 @@ export const DEFAULT_PLACE_POSITION: PlacePosition = 'innerHTML';
 
 /** Type guard to check if a given string is a valid PlacePosition. */
 export function isPlacePosition(key: string): key is PlacePosition {
+  // Exact match, deliberately: the members are native DOM spellings in mixed case
+  // (`innerHTML`, `beforeend`), so no one case transform canonicalizes them
   return PLACE_POSITIONS.includes(key as PlacePosition);
 }
 

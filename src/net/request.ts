@@ -1,3 +1,19 @@
+/*
+ * `config.url` is the URL that's sent, and the config is one object, with each request
+ * interceptor's return merged into it. Don't add `url` or `method` copies to event
+ * details, or a URL parameter here: a second copy is a value a listener can change to
+ * no effect. `url` stays a string, since a `URL`'s `searchParams` would be a second
+ * query string beside `params`.
+ *
+ * `FetchRequest` is the one transport type for fetch, push, and pull. The authoring
+ * types split above this line; never parameterize `request()` or the interceptors by
+ * operation.
+ *
+ * The retry has no option and never covers HTTP errors: a retried 5xx turns a brownout
+ * into an outage, and `Retry-After` policy belongs in an error interceptor.
+ * `skipInterceptors` stays programmatic, since a bypass written in markup silently
+ * drops what the chain adds, such as auth headers.
+ */
 import type { RouseApp } from '../core/app';
 import { isSafeMethod } from '../core/constants';
 import { rzHeaders } from '../directives/rz-headers';

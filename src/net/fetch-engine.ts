@@ -1,3 +1,13 @@
+/*
+ * A request never aborts a write. Under one abort key a new request replaces a read in
+ * flight, and is dropped while a write is: the server has usually acted on the write,
+ * so aborting it only discards its response. An explicit abort key is not an opt-out.
+ * Don't disable the trigger by default while it's in flight; the guard already covers
+ * it, and `rz-disable` is the opt-in.
+ *
+ * A body's encoding is declared, never inferred from its sources. Rouse doesn't own a
+ * fetch endpoint, so unlike push it can't prescribe one.
+ */
 import type { RouseApp } from '../core/app';
 import { hasDirective, isDisabled } from '../core/attributes';
 import { isSafeMethod } from '../core/constants';
@@ -97,6 +107,8 @@ export async function runFetch(
 
     // The server may have already acted on a write, so aborting it can't undo anything
     // and only discards the response. Requests under its key wait for it to settle instead.
+    // Checked after the method is resolved, since a `formmethod` can make a form's GET a
+    // write, and before `:config`, so a dropped request never reaches the abort registry.
     if (abortKey && writesInFlight.has(abortKey)) {
       return fallbackResponse(options, 'A write is in flight for this abort key');
     }
@@ -299,7 +311,9 @@ function resolvePayload(
 
 /**
  * Resolves the body encoding from its declaration: a Content-Type header, then the
- * submitter's `formenctype` and the form's `enctype`, then the native default.
+ * submitter's `formenctype` and the form's `enctype`, then the native default. The
+ * submitter travels in the config rather than as a header, so `formenctype` stays
+ * below `rz-headers`.
  */
 function resolveEncoding(
   el: Element,

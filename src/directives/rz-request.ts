@@ -11,6 +11,11 @@ type ConfigValueType = 'string' | 'boolean' | 'duration';
  * Keys `rz-request` accepts, and how each value is coerced. A key outside this
  * table warns and is dropped, so a typo or a key belonging to another directive
  * can't sit in a config doing nothing.
+ *
+ * Deliberately narrower than `RequestInit`: adding a key later is non-breaking,
+ * removing one isn't. `method` belongs in the `rz-fetch` subject, `body` and `params`
+ * in `rz-send` and the URL, and `skip-interceptors` in JS, where a bypass can't
+ * silently drop auth from markup.
  */
 const KEYS = {
   timeout: 'duration',

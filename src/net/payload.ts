@@ -31,6 +31,8 @@ export function preparePayload(options: FetchRequest, baseUrl: string) {
   const { url, headers = {}, body, params, ...restOptions } = options;
   const method = (options.method || 'GET').toUpperCase();
 
+  // Failing beats dropping the body, which would send a different request than the one
+  // written, and beats fetch's own throw, which reads as a network error and is retried
   if (body != null && (method === 'GET' || method === 'HEAD')) {
     fail(
       `A ${method} request can't have a body. Pass query values as 'params', or use a method that takes a body.`,

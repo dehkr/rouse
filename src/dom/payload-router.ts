@@ -83,6 +83,9 @@ function listenForPayloads(
         // Skip payloads from nested apps, whose own routers would have already handled them
         if (!getApp(e.target as Element, app)) return;
 
+        // The destination is read off the trigger, never the event target. Without a
+        // trigger the target is the app root, where `rz-place`'s host default would
+        // replace the whole app.
         const { detail } = e as CustomEvent<RoutablePayload>;
         const triggerEl = detail.config?.triggerEl;
 

@@ -8,7 +8,8 @@ import type { ConfigDirective } from '../types';
  * Resolves `rz-deposit` into store names for JSON payload routing via a fetch response
  * or an unnamed stream message.
  *
- * Whole stores only, comma separated. Without it, a payload deposits nothing.
+ * Whole stores only, comma separated. Without it, a payload deposits nothing, a store
+ * script included: there's no fallback to the script's own store.
  *
  * - `data-rz-deposit="@cart"`
  * - `data-rz-deposit="@cart, @status"`
