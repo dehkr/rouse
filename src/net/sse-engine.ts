@@ -1,3 +1,20 @@
+/*
+ * An unnamed message is a payload, routed by `rz-place` and `rz-deposit`. A named
+ * message is an event, heard only by `sse-[name]` triggers: `EventSource` has no
+ * wildcard, so a name arrives only once a trigger subscribes it.
+ *
+ * Gate routing in `onMessage`, not in the routers. `subscribedNames` is shared by every
+ * connection, so a name one trigger subscribes arrives on every stream, and routers
+ * gating on payload type alone would make one element depend on unrelated markup.
+ *
+ * A stream never reaches `request()`. `EventSource` sends no headers, so request config,
+ * timeouts, interceptors, and `rz-indicator` don't apply. Don't add warnings for them.
+ *
+ * `rz:sse:error` is the only reconnect switch, so there's no `reconnect` option, and
+ * `rz:sse:config` fires once per open, since the browser retries with no hook in
+ * between. A closed entry stays registered while holders remain, so the refcount stays
+ * sound. A mounting element joins it without reviving it; `app.sse()` revives it.
+ */
 import type { RouseApp } from '../core/app';
 import { dispatch } from '../core/dispatch';
 import { safeJSONParse } from '../core/parser';
@@ -137,7 +154,7 @@ export function openBoundStream(
 /**
  * Subscribes every current and future connection to a named server event. Called
  * by the `sse` trigger source, so a directive declares nothing about which names
- * a stream carries.
+ * a stream carries. There's no unsubscribe: the set is bounded by the app's names.
  */
 export function subscribeNamed(name: string): void {
   if (!name || name === DEFAULT_EVENT || subscribedNames.has(name)) return;

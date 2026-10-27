@@ -32,6 +32,8 @@ function closeFor(el: Element, reason: SseCloseReason) {
  * `rz-close` triggers end it. Returns the pairs' cleanups.
  */
 function bindSsePairs(el: Element, app: RouseApp, pairs: TriggerSubjectPair[]): VoidFn[] {
+  // The URL comes from the subject only, never a store's endpoint or `href`: an
+  // `<a href>` to a stream would navigate to it without JS
   const url = pairs[0]?.subject;
 
   if (!url) {

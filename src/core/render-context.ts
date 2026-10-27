@@ -1,3 +1,7 @@
+/*
+ * Render-context readers live here, not in `dom/renderer.ts`, so `core/` can read a
+ * render context without importing from `dom/`. The renderer only creates contexts.
+ */
 import { getRaw } from '../reactivity/reactive';
 import type { HandlerCtx, RenderContext, RenderFrame, Scope } from '../types';
 import { RENDER_FRAME } from './constants';

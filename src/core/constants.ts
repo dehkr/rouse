@@ -38,7 +38,11 @@ export function isDirectiveSlug(key: string): key is DirectiveSlug {
 export const STORE_PREFIX = '@';
 export const ITEM_PREFIX = '%';
 
-/** Render metadata readable through the `::` namespace on the item (`%::index`). */
+/**
+ * Render metadata readable through the `::` namespace on the item (`%::index`).
+ * Kept small: the source value, CSS, or a key field covers the rest, and `last`
+ * would subscribe every instance to the list's length.
+ */
 export const ITEM_NAMESPACES = ['index', 'position'] as const;
 
 /** A render metadata namespace on the item reference. */

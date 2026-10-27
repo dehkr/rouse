@@ -1,3 +1,9 @@
+/*
+ * `%` resolves against the nearest instance only; there's no walk to an outer item.
+ *
+ * Keys are positional unless `rz-key` names a field. Don't add an identity or
+ * automatic key: an explicit key is the opt-in for lists that refetch or reorder.
+ */
 import { effect, signal } from 'alien-signals';
 import type { RouseApp } from '../core/app';
 import { RENDER_FRAME } from '../core/constants';
@@ -63,8 +69,9 @@ const NO_ITEM: Record<string, unknown> = {};
  * - Object: renders once with the object as the item
  * - Array: renders one instance per element
  *
- * Iterates arrays through the reactive interceptor so structural changes
- * (including in-place reorders) re-run the render.
+ * Iterates arrays with `map`, not an index loop, so the read goes through the
+ * reactive interceptor and structural changes (including in-place reorders)
+ * re-run the render.
  */
 function normalize(value: unknown): NormalizedValue {
   if (Array.isArray(value)) {
@@ -146,6 +153,8 @@ export function renderTemplate(
 
   const records = new Map<string | number, InstanceRecord>();
   let currentMode: RenderMode | null = null;
+  // Key warnings fire once per template, summarized per pass, so a typo in `rz-key`
+  // over thousands of rows doesn't flood the console
   let keyWarned = false;
   let dupWarned = false;
 
@@ -179,6 +188,7 @@ export function renderTemplate(
       parent: parentState,
     };
 
+    // The parent as receiver keeps `this` correct in the parent's getters
     const ctx = new Proxy(parentState, {
       get(t, k) {
         return k === RENDER_FRAME ? frame : Reflect.get(t, k, t);
@@ -206,6 +216,8 @@ export function renderTemplate(
       target = app.root.querySelector(rt);
       __DEV__ && !target && warn(`rz-render: render target '${rt}' not found.`);
     } else if (rt instanceof Element) {
+      // Kept inside the app root, as `rz-place` is, so the instance stays in the
+      // observed subtree
       if (app.root.contains(rt)) {
         target = rt;
       } else {

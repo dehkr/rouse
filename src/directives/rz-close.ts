@@ -4,6 +4,8 @@ import type { ConfigDirective, TriggerDef } from '../types';
 
 /**
  * Returns the triggers that close the stream `rz-sse` opened on the same element.
+ * The first to fire closes it, unlike `rz-wake`'s AND. Closing releases the element's
+ * reference, so the open trigger firing again reopens it.
  *
  * Read on demand by `rz-sse`. Inert if used alone.
  */

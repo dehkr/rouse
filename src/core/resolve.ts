@@ -10,7 +10,9 @@ export const EMPTY_SCOPE = {} as Scope;
 const warnedWrites = new Set<string>();
 
 /**
- * Resolves a path against a global store, a local scope, or a render item.
+ * Resolves a path against a global store, a local scope, or a render item. Never
+ * warns on a miss: it runs inside effects, where a warning would repeat on every
+ * evaluation.
  */
 export function resolveState<T = unknown>(
   path: string,

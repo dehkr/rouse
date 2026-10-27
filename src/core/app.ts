@@ -1,3 +1,16 @@
+/*
+ * Every scan or bind site must resolve its element through `getApp(el, this)`. It's
+ * the only thing keeping a parent app from binding a nested app's elements.
+ *
+ * A listener on `app.root` hears a nested app's events too, since they bubble. A new
+ * root-level listener that acts on Rouse events must skip any event whose target
+ * `getApp` doesn't resolve to its app, as the payload routers do, or it handles a
+ * nested app's payload twice.
+ *
+ * Don't make `start()` automatic. There's no moment when registration is known to be
+ * finished, and an interceptor registered after the first scan would miss requests
+ * that scan fires, such as `data-rz-fetch="ready"`.
+ */
 import {
   rzAttr,
   rzClass,
@@ -49,7 +62,7 @@ import { StoreManager, type SyncPolicy } from './store';
 export interface RouseConfig {
   /** Element or selector where the app mounts. Defaults to `document.body`. */
   root?: string | HTMLElement;
-  /** Prepended to relative URLs in `rz-fetch`, `rz-push`, `rz-pull`, and `app.fetch()`. */
+  /** Prepended to relative URLs in `rz-fetch`, `rz-push`, `rz-pull`, `rz-sse`, `app.fetch()`, and `app.sse()`. */
   baseUrl?: string;
   /** Default headers applied to every request. Merged with per-request and directive-level headers; a `null` value removes the header. */
   headers?: Record<string, string | null>;
@@ -222,7 +235,9 @@ export class RouseApp {
     this.isReady = false;
 
     // An enclosing app that already scanned this markup still owns its bindings, so it
-    // needs to release them first to prevent both apps writing the same elements.
+    // needs to release them first to prevent both apps writing the same elements. It
+    // must happen before the root is marked: the release finds the parent's bindings
+    // through `getApp`, which stops resolving them to the parent once it is.
     const parentRoot = rootEl.parentElement?.closest<HTMLElement>('[data-rouse-app]');
     const parent = parentRoot ? appInstances.get(parentRoot) : undefined;
     if (parent?._hasStarted) {

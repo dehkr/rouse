@@ -66,6 +66,7 @@ function initialize(el: HTMLScriptElement, app: RouseApp) {
   initialized.add(el);
 }
 
+// Removing the script leaves its store registered. Only `stores.remove()` removes a store.
 function teardown(el: HTMLScriptElement) {
   initialized.delete(el);
 }

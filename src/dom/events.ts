@@ -508,6 +508,10 @@ const triggerSources: Record<string, TriggerSource> = {
 
       subscribeNamed(name);
 
+      // Listens on the element unless given `|root`, so a stream's `done` can't close
+      // another stream's `rz-close`. Don't move the default to the root. The name is
+      // filtered from the detail rather than spelled into an `rz:sse:${name}` event,
+      // which would collide with the connection events and lose its modifiers.
       const target = resolveListenerTarget(el, options, app);
 
       const handler = (e: Event) => {
