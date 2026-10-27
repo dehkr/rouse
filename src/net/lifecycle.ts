@@ -1,3 +1,19 @@
+/*
+ * The request-axis contract: `:config` (cancelable), `:start`, exactly one of `:abort`,
+ * `:success`, or `:error`, then `:end`. The terminal event depends on `run` calling
+ * `settle`; `:end` doesn't. A new family's `run` must catch, settle with an
+ * `INTERNAL_ERROR` fallback, and return it, or a throw leaves `:start` then `:end` with
+ * no terminal between them.
+ *
+ * `RequestLifecycleOptions` is what checks a family's details, not `dispatch`. A new
+ * family needs a member there and `LifecycleEventMap` entries for all its events, or
+ * the union collapses to `any` and nothing is checked, with no error. Making the options
+ * generic over the prefix doesn't work: TypeScript can't reduce `dispatch`'s
+ * conditional return against a type parameter.
+ *
+ * Indicators are counted per element rather than owned by one request. An owner token
+ * would fix one element firing twice and break two triggers sharing one indicator.
+ */
 import { queryTargets } from '../core/attributes';
 import { warn } from '../core/diagnostics';
 import { dispatch } from '../core/dispatch';
@@ -12,6 +28,8 @@ import type {
 
 export const PREVENTED = Symbol(__DEV__ ? 'rz.prevented' : '');
 
+// `rouse-`, not `rz-`, which reads as a directive attribute. "Request", not "loading",
+// since a push uploads.
 const REQUEST_CLASS = 'rouse-request';
 
 /** In-flight request count per indicator element. */
