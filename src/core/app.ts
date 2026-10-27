@@ -257,7 +257,10 @@ export class RouseApp {
 
     // A lifecycle-safe listener bound to the app-lifetime signal, auto-removed on `destroy`
     this.on = (...args: any[]): VoidFn => {
-      // A string or trigger descriptor as the first argument means the target was omitted
+      // A string or trigger descriptor as the first argument means the target was
+      // omitted. Testing for a plain object rather than "not an EventTarget" keeps a
+      // missed `querySelector`'s `null` reaching the TypeError below. One event per
+      // call: a shared options bag can't serve several triggers' arguments.
       const implied = typeof args[0] === 'string' || isPlainObject(args[0]);
       const target = implied ? this.root : args[0];
       const event = implied ? args[0] : args[1];
@@ -266,6 +269,7 @@ export class RouseApp {
 
       // A querySelector returns `null` if there's no match, and passing that through
       // throws a TypeError from inside Rouse that doesn't point back to this call.
+      // Duck-typed, since `instanceof EventTarget` rejects another realm's `window`.
       if (typeof target?.addEventListener !== 'function') {
         fail(
           `app.on expected an EventTarget, but got ${target === null ? 'null' : typeof target}.`,

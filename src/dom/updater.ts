@@ -22,7 +22,7 @@ const WS = /\s+/;
  * Writes text content, skipping the write when it already matches.
  *
  * Unlike `updateHtml` this compares the live DOM rather than a cache, since the
- * user may write here too.
+ * user may write here too. Don't unify the two: a cache here breaks the caret guard.
  */
 export function updateText(el: Element, value: BindableValue) {
   setStringValue(el, 'textContent', value);
@@ -186,6 +186,7 @@ export function setStyleProperty(el: Element, prop: string, value: BindableValue
  *
  * Clears properties the previous call wrote first so keys dropped between updates don't
  * linger. Both forms route through `setProperty`, so custom properties work in each.
+ * Assigning `el.style[prop] = ''` silently fails for kebab-case and custom properties.
  */
 export function updateStyle(el: Element, value: BindableValue) {
   if (!canBeStyled(el)) return;
@@ -251,7 +252,8 @@ function warnPropOnce(el: Element, name: string): void {
 }
 
 /**
- * Checks if an element exposes an inline style declaration.
+ * Checks if an element exposes an inline style declaration. Duck-typed, so HTML, SVG,
+ * and MathML all qualify, and only a foreign-namespace element is skipped.
  */
 function canBeStyled(el: Element): el is Element & ElementCSSInlineStyle {
   return 'style' in el;

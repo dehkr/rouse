@@ -16,7 +16,11 @@ import {
   teardownScopeNode,
 } from './scope';
 
-/** Warns for each `data-rz-*` attribute in `root`'s subtree, root included, that isn't a directive. */
+/**
+ * Warns for each `data-rz-*` attribute in `root`'s subtree, root included, that isn't a
+ * directive. An attribute set on an element already in the page, and `<template>`
+ * content before it's inserted, go unchecked.
+ */
 function warnUnknownDirectives(root: Element, app: RouseApp) {
   for (const el of queryTargets(root, '*')) {
     if (!getApp(el, app)) continue;
@@ -48,6 +52,10 @@ function forEachOwned<T extends Element>(
  * Sets up everything in `root`'s subtree, root included, that belongs to `app`. Stores
  * come first so `@store` references resolve for the rest. Shared by `app.start()` and
  * the observer, so a directive registered here is scanned on both paths.
+ *
+ * A new standalone directive needs its own selector pass here, in `unmountSubtree`, and
+ * in `releaseSubtree`. Sharing another directive's pass misses elements carrying only
+ * the new one, without a warning.
  */
 export function mountSubtree(root: Element, app: RouseApp) {
   __DEV__ && warnUnknownDirectives(root, app);

@@ -1,3 +1,16 @@
+/*
+ * A trigger source is a name `addEventListener(name)` on the element can't attach: it
+ * needs another event, a timer, an observer, or app state. A different target isn't
+ * enough, since `|window`, `|document`, and `|root` spell that, and an entry named after
+ * a native event shadows it on every element. A source that only fans out to DOM events
+ * earns a place only when the grammar can't say it, as `interact` does under `rz-wake`'s
+ * AND.
+ *
+ * A source taking an argument needs its type in `TriggerSourceArgs` (plus the
+ * `RequiredArgSource` exclusion if it's optional), a `fromArg` if the HTML text isn't
+ * the value, and a check in `attach` that warns with both spellings. Every source lives
+ * in `triggerSources`; don't register them from other modules.
+ */
 import { getApp, type RouseApp } from '../core/app';
 import { getDirectiveValue } from '../core/attributes';
 import { STORE_PREFIX } from '../core/constants';
@@ -162,7 +175,8 @@ export function on(
   // An object with a `handleEvent` method can be used as the listener, mirroring
   // `addEventListener`. Resolved per call so it can be swapped after binding. Also,
   // provide a custom event when Rouse trigger sources don't fire one (which is most of
-  // them). This is consistent with `rz-on`.
+  // them). This is consistent with `rz-on`. It's never dispatched, so its `target` is
+  // null. The fallback stays here, since network actions read whether an event exists.
   const action: ActionFn =
     typeof callback === 'function'
       ? (e?: Event) => callback(e ?? new CustomEvent(name))
@@ -469,6 +483,8 @@ const triggerSources: Record<string, TriggerSource> = {
       const observer = new IntersectionObserver(
         (entries) => {
           for (const entry of entries) {
+            // A threshold fires on both crossings, and the way out still reports
+            // `isIntersecting`, so the ratio is checked too
             if (!entry.isIntersecting || entry.intersectionRatio < threshold) continue;
             action();
             break;
@@ -542,7 +558,7 @@ const triggerSources: Record<string, TriggerSource> = {
         return () => window.cancelIdleCallback(id);
       }
 
-      // Safari fallback
+      // Fallback for Safari which lacks support for `requestIdleCallback`
       const id = window.setTimeout(action, 1);
       return () => window.clearTimeout(id);
     },

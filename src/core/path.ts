@@ -66,6 +66,7 @@ export function getPathRoot(path: string | undefined): string | undefined {
 /**
  * Splits a path string into individual parts and returns an array of the parts. Also
  * manages the path cache, deleting the oldest entries when cache is full (FIFO).
+ * Splits on `.` only; there's no bracket form, so `list[0]` is one part.
  */
 export function getPathParts(path: string): string[] {
   let parts = pathCache.get(path);

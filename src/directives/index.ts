@@ -1,3 +1,17 @@
+/*
+ * One directive per `rz-<slug>.ts`, holding everything specific to it. Shared code gets
+ * a module named for what it is: a factory (`define-<what-it-makes>.ts`) or a helper
+ * belonging to no single directive (`bind-store-pairs.ts`). A shared module needs more
+ * than one consumer; with one left, fold it back. A shared grammar alone is never a
+ * reason to extract. Keep `as const satisfies …Directive` on each directive object, or
+ * the slug widens to `string`.
+ *
+ * Adding a directive: its file here, its slug in `DIRECTIVE_SLUGS`, an export below,
+ * and a `selector` if it's scanned. Then register it, or it's exported and never
+ * scanned: bound directives in `registerBoundDirectives` (`core/app.ts`); a network op
+ * in `NETWORK_DIRECTIVES`; any other standalone directive in its own pass in
+ * `dom/observer.ts`. Config directives need nothing.
+ */
 export { rzAttr } from './rz-attr';
 export { rzClass } from './rz-class';
 export { rzClose } from './rz-close';

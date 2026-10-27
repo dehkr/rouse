@@ -1,3 +1,16 @@
+/*
+ * A bound element is owned by its nearest `rz-scope`, or mounts globally against
+ * `EMPTY_SCOPE`. Ownership is found with `closest()` when nodes are added and read from
+ * `scopeBindings` when they're removed, since by then a removed node's parent is gone
+ * or is already its new one. Keep that asymmetry. A leak here is a cleanup that never
+ * ran, so weak-keying `elementCleanups` wouldn't fix one; resolving the owner does.
+ *
+ * `resolveOwnerState` restates the ownership rule for standalone directives, so a new
+ * ownership boundary must be taught to it as well as to `walkBoundElements`.
+ *
+ * A bound directive whose key is its subject needs `singleValue: true`. Without it,
+ * `a, b` binds twice on one element and the last effect to run wins, with no warning.
+ */
 import type { RouseApp } from '../core/app';
 import { getDirectiveValue } from '../core/attributes';
 import { err, warn } from '../core/diagnostics';

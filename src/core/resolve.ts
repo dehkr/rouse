@@ -6,6 +6,8 @@ import { getNestedVal, getPathParts, setNestedVal } from './path';
 import { renderFrame, renderItem, renderParent } from './render-context';
 import type { StoreManager } from './store';
 
+// Compared by identity, and not frozen: `writeState` refuses a bare local write against
+// it, which freezing would turn into a throw
 export const EMPTY_SCOPE = {} as Scope;
 const warnedWrites = new Set<string>();
 
