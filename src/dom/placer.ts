@@ -13,6 +13,8 @@ import type { PlaceOptions } from '../types';
 /**
  * Places `content` into `target`, backing `app.place()`. A selector resolves the way
  * `rz-place` resolves it; an unknown position warns and falls back to `innerHTML`.
+ * Never resolve against `document`: on a page with nested apps, the same selector would
+ * match different elements here and in `rz-place`.
  *
  * @returns `true` if at least one target received the content.
  */

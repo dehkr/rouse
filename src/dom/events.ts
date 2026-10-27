@@ -115,7 +115,8 @@ function attachListener<D = any>(
 
 /**
  * Attaches a listener for one event name, or one trigger source with its argument,
- * and returns its cleanup.
+ * and returns its cleanup. A source's argument travels with its name, never in the
+ * options, which hold modifiers only.
  *
  * Backs `app.on`, which binds it to the app-lifetime abort signal. `app` is
  * threaded to the trigger engine so trigger sources and the `root` listen target

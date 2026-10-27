@@ -11,6 +11,13 @@
  * generic over the prefix doesn't work: TypeScript can't reduce `dispatch`'s
  * conditional return against a type parameter.
  *
+ * Across the three event axes (request, destination, connection): a destination event
+ * fires only when a destination changed, so failures belong to the request axis and
+ * there's no patch or place `:error`. The request's terminal event fires before any
+ * destination event. Request events fire for network operations only; a write that
+ * sends nothing (`update()`, a guard-dropped trigger) emits none. SSE is not a request
+ * family and must not be fitted to this contract: it has no terminal.
+ *
  * Indicators are counted per element rather than owned by one request. An owner token
  * would fix one element firing twice and break two triggers sharing one indicator.
  */
