@@ -308,7 +308,10 @@ export function attachWakeStrategies(
   let cleanups: VoidFn[] = [];
   const teardown = () => cleanups.forEach((cleanup) => cleanup());
 
-  // Wake triggers only when all conditions are satisfied (AND logic)
+  // Wake triggers only when all conditions are satisfied (AND logic). It's the one
+  // directive where whitespace means AND, and it isn't configurable: a gate that wakes
+  // on any of several signals needs a source that fans out behind one trigger, like
+  // `interact` does.
   const satisfy = () => {
     if (isAwake) return;
     pending--;
@@ -357,6 +360,8 @@ const triggerSources: Record<string, TriggerSource> = {
   /** Fires when the RouseApp instance is fully initialized. */
   ready: {
     attach: ({ app, action }) => {
+      // Fires immediately for anything bound after the app is up, which is why there
+      // isn't a separate source for "this element was just mounted".
       if (app.isReady) {
         action();
         return null;
@@ -380,6 +385,8 @@ const triggerSources: Record<string, TriggerSource> = {
         return null;
       }
 
+      // `closest` includes the element, so a scope gated on `wake` waits for itself.
+      // The rule stays uniform rather than meaning the parent scope here alone.
       if (__DEV__ && scopeEl === el && gatesOnWake(el)) {
         warn(`The 'wake' trigger can't be used to wake its own scope element.`, el);
       }

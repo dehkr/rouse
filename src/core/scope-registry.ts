@@ -17,6 +17,8 @@ function warnDuplicateOnce(name: string): void {
   );
 }
 
+// `app.scope()` is the only way in and holds the setup check. The duplicate warning
+// is also the only check on `app.scope()` called inside a setup.
 export class ScopeRegistry {
   private scopes = new Map<string, ScopeSetup<any>>();
 

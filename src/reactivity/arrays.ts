@@ -9,6 +9,8 @@ export const methodIntercepts: Record<string | symbol, AnyFn> = {};
 /**
  * Methods that take stored values, not callbacks, in their argument list. A
  * function passed to one of these is data to keep, not a callback to decorate.
+ * A new consumer or producer of this kind must be listed, or a function passed
+ * as data is stored as its wrapper.
  */
 const DATA_ARG_METHODS = new Set(['concat', 'with', 'toSpliced']);
 
@@ -27,7 +29,8 @@ function runOnRaw(proxy: any[], method: string, args: any[], wrapResult = false)
   const raw = trackedRaw(proxy);
   const isReduce = method === 'reduce' || method === 'reduceRight';
   const isData = DATA_ARG_METHODS.has(method);
-  // `reduce` has no thisArg parameter; its second argument is the initial value
+  // `reduce` has no thisArg parameter; its second argument is the initial value.
+  // Without a thisArg the callback gets the proxy, where native passes `undefined`.
   const thisArg = isReduce ? proxy : (args[1] ?? proxy);
 
   const wrappedArgs = args.map((arg) => {
@@ -163,7 +166,9 @@ const PRODUCERS = [
   'with',
 ] as const;
 
-// Run on raw with proxied callback args, then wrap the resulting array items in proxies
+// Run on raw with proxied callback args, then wrap the resulting array items in proxies.
+// `toSorted`'s comparator is decorated like an iteration callback, so only its first
+// argument is a proxy, where `sort` gets both raw.
 for (const key of PRODUCERS) {
   methodIntercepts[key] = function (this: any[], ...args: any[]) {
     return runOnRaw(this, key, args, true);

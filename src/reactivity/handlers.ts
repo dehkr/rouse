@@ -51,6 +51,8 @@ export const handlers: ProxyHandler<object> = {
   ): boolean {
     // Accessor: delegate to the setter if defined. Otherwise `Reflect.set`
     // returns `false` which would cause the write to throw in JS strict mode.
+    // The data path below must not run for an accessor: reading `target[key]`
+    // would call the getter on every write, with `target` as `this`, untracked.
     const desc = Object.getOwnPropertyDescriptor(target, key);
     if (desc?.get || desc?.set) {
       return Reflect.set(target, key, value, receiver);
@@ -167,7 +169,8 @@ function propsOf<V>(
 
 /**
  * Hands `tracker` to the object stored at `key`, so edits inside it report the same
- * root. Skips an object that already has one, and a non-enumerable key.
+ * root. Skips an object that already has one, and a non-enumerable key: `clone`
+ * leaves those out of the baseline, so an edit there would read dirty forever.
  */
 function propagateTracker(
   target: object,

@@ -4,7 +4,8 @@ import { warn } from './diagnostics';
  * Returns true if `obj[key]` is a serializable own data property. Excludes
  * accessors (get/set) and function-valued properties. Used by `clone`,
  * `deepEqual`, and `patchState` so all three agree on what counts as state
- * worth snapshotting, diffing, or writing back.
+ * worth snapshotting, diffing, or writing back. Change what counts here, never at
+ * a call site.
  */
 function isOwnDataProp(obj: object, key: string): boolean {
   const desc = Object.getOwnPropertyDescriptor(obj, key);

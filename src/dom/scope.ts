@@ -1,3 +1,11 @@
+/*
+ * A scope's returned object is a plain API. Don't wrap it in `reactive()`: a scope
+ * composes reactivity from the primitives its setup creates, and may have none.
+ *
+ * `ScopeCtx` holds only what a scope has and the app doesn't: `host`, `term`, and
+ * `scan`, with `app` for everything else. A new app method that registers something
+ * takes a `signal`, so `signal: term` ends it with the scope.
+ */
 import { effectScope } from 'alien-signals';
 import type { RouseApp } from '../core/app';
 import { err, fail, warn } from '../core/diagnostics';
