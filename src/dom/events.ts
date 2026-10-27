@@ -574,7 +574,8 @@ const triggerSources: Record<string, TriggerSource> = {
 
       // Filter here, before the timed action. `debounce` forwards only the last
       // batch's roots, so filtering downstream would drop a real edit whenever a
-      // different root was touched later in the same window.
+      // different root was touched later in the same window. Only the path's root
+      // filters, and an empty batch passes only an untargeted trigger.
       return app.stores._onEdit(ref.source, (roots) => {
         if (!rootKey || roots.has(rootKey)) {
           action();

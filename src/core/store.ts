@@ -1,3 +1,23 @@
+/*
+ * `lastGood` is what Rouse believes the server holds, so `commit()` and `update()` may
+ * set it without a round trip. On the sync path it moves only by what reached the
+ * server: a push's snapshot, then the response as applied to the data. Never copy
+ * `data` into it there. On a 204 that saves a mid-flight edit and cancels its
+ * follow-up, and after a pull it marks unsaved edits in omitted keys as saved. A
+ * deposit follows the same rule. `reset()` leaving the belief wrong is accepted.
+ *
+ * Every dirty read, in HTML or JS, comes from `status.dirtyRoots` and `status.dirty`.
+ * Don't give a JS read its own live comparison against `lastGood`.
+ *
+ * A failed push changes no data. Don't reintroduce an automatic rollback: rolling
+ * back is the author's `revert()` from an `rz:push:error` listener.
+ *
+ * A new path that writes a response into an entry must check `_isRegistered`, and
+ * every `rz:store:patch:*` dispatch goes through this manager.
+ *
+ * Conflict handling beyond the mid-flight guard is application policy, through
+ * `rz:store:patch:before`. Don't add it here.
+ */
 import { type LifecycleHandle, runRequestLifecycle } from '../net/lifecycle';
 import { resolveUrl } from '../net/payload';
 import { request } from '../net/request';
@@ -96,7 +116,7 @@ function sliceAt(obj: any, path?: string) {
   return path ? getNestedVal(obj, path) : obj;
 }
 
-/** Copies the fields a store's status exposes from a request error. */
+/** Copies the fields a store's status exposes from a request error. Replaced whole, never mutated. */
 function storeError(error: RequestError | null): StoreStatus['error'] {
   return error && { code: error.code, message: error.message };
 }
@@ -166,6 +186,7 @@ export class StoreManager {
     this.app = app;
   }
 
+  /** Replaces the policy object. Nothing in it is reactive, so there's no `@name::config`. */
   private _setConfig(entry: StoreEntry, partial?: Partial<SyncPolicy>) {
     entry.config = { url: '', ...entry.config, ...partial };
   }
@@ -223,8 +244,10 @@ export class StoreManager {
    * and reconciles the dirty flags that move with it.
    */
   private _patchBaseline(entry: StoreEntry, payload: any) {
-    // Cloned so the baseline never shares an object or array with the store. The
-    // live data is the shape, so a key that's a getter on the store isn't stored.
+    // Cloned so the baseline never shares an object or array with the store, where an
+    // edit through the proxy would change both and never read dirty. The live data is
+    // the shape, so a key that's a getter on the store isn't stored as data, where a
+    // nested one would read dirty forever.
     entry.lastGood ??= {};
     patchState(entry.lastGood, clone(payload), 'merge', entry.data);
     this._reconcileDirty(entry);
@@ -338,7 +361,9 @@ export class StoreManager {
     };
 
     // The body is the snapshot, not the live store. Serializing the live store later
-    // would send edits made after the snapshot, and the values of its getters.
+    // would send edits made after the snapshot, and the values of its getters. Listeners
+    // and interceptors see it as a JSON string; editing it sends something other than
+    // what the baseline advances to.
     const snapshot = clone(data);
 
     if (operation === 'push') {
@@ -381,7 +406,8 @@ export class StoreManager {
     if (!outcome) return;
 
     // Sent after `:end`, so listeners never see a follow-up start inside this request.
-    // A store that matches the baseline again has nothing left to send.
+    // A store that matches the baseline again has nothing left to send. Compared live,
+    // since the dirty status lags a microtask.
     if (outcome.followUp && this._isSliceDirty(entry)) {
       outcome.followUp();
     }
@@ -579,11 +605,15 @@ export class StoreManager {
     this._pendingFlush.add(entry);
     if (!wasEmpty) return;
 
+    // Runs whether or not anyone listens, since the dirty status depends on it
     queueMicrotask(() => {
+      // Cleared before iterating, so a throwing listener can't stall later flushes
       const flushing = [...this._pendingFlush];
       this._pendingFlush.clear();
 
       for (const pending of flushing) {
+        // Cleared before notifying, so a listener that writes starts a fresh batch. A
+        // store re-queued by another store's listener arrives here with an empty set.
         const touched = pending.touched ?? new Set<string>();
         pending.touched = undefined;
 
@@ -598,7 +628,9 @@ export class StoreManager {
 
   /**
    * Subscribes to user edits of a store, passing each batch's edited roots.
-   * Returns an unsubscribe. Backs the `edit` trigger source.
+   * Returns an unsubscribe. Backs the `edit` trigger source. A missing store warns
+   * and gets a no-op, which is how `app.on({ edit })` reports a script store
+   * listened to before `start()` declared it.
    *
    * @internal
    */
@@ -716,6 +748,9 @@ export class StoreManager {
       return;
     }
 
+    // The same element coming back counts as a replacement, so a moved script re-seeds
+    // its store. A second owner warns where `app.store()` throws, so one bad partial
+    // can't break the observer's scan.
     if (!entry.el || (entry.el !== el && entry.el.isConnected)) {
       __DEV__ &&
         warn(
@@ -768,6 +803,8 @@ export class StoreManager {
   private _reseed(entry: StoreEntry, state: object) {
     __DEV__ && warnNullFields(entry.name, state);
 
+    // Both targets are cloned from the patched data rather than `state`, so they match
+    // what the store holds after the write
     this._withPatchGuard(entry, () => patchState(entry.data, state, 'replace'));
     entry.initial = clone(entry.data);
     this._updateLastGood(entry, entry.data);
@@ -812,6 +849,8 @@ export class StoreManager {
 
     const applied = beforeEvent.detail.payload as object;
 
+    // Unlike a pull, there's no mid-flight guard, and no null-field warning: a
+    // deposit's `null` is its delete.
     this._patchPayload(entry, applied);
     this._patchBaseline(entry, applied);
     entry.status.lastSync = Date.now();
@@ -886,6 +925,8 @@ export class StoreManager {
       return entry.status.dirty;
     }
 
+    // A path is checked as its root, which can only over-report. That's safer than a
+    // `false` that reads as no unsaved changes.
     const key = getPathRoot(root) as string;
     __DEV__ &&
       key !== root &&
@@ -966,6 +1007,7 @@ export class StoreManager {
     const flight = entry?.inFlight;
     if (!entry || !flight) return;
 
+    // Without this check, a remembered second click would send an edit made after it
     if (deepEqual(entry.data, this._expectedBaseline(entry, flight))) {
       return;
     }
@@ -987,7 +1029,8 @@ export class StoreManager {
 
   /** Returns what the server will hold if the request in flight succeeds. */
   private _expectedBaseline(entry: StoreEntry, flight: InFlight) {
-    // A pull saves nothing, so the server keeps what it had
+    // A pull saves nothing, so the server keeps what it had. Its snapshot would be
+    // wrong here: an edit made before the pull is in it but not on the server.
     return entry.status.syncing === 'push' ? flight.snapshot : entry.lastGood;
   }
 
@@ -1083,5 +1126,10 @@ export class StoreManager {
     entry.touched = undefined;
     this._pendingFlush.delete(entry);
     this._stores.delete(entry.name);
+
+    // Left as they are: an object moved from this store into a new one keeps this
+    // store's tracker, `edit` triggers bound now never fire for a store re-created under
+    // the name, and a removal from the store's own `:before` listener still gets that
+    // response applied.
   }
 }

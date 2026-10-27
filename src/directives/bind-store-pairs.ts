@@ -43,6 +43,8 @@ export function bindStorePairs(
 
     // A debounced edit can settle after the value was pushed, reset, or retyped
     // back to the baseline, so the check runs when the timer fires, not when armed.
+    // It tests the store being synced, which an `edit` argument naming another
+    // store doesn't change.
     const fire = isEdit
       ? () => {
           if (app.stores.isDirty(storeName)) {
@@ -90,6 +92,8 @@ function resolveTarget(
     return null;
   }
 
+  // A server changes one field by nesting it in its payload, so sync needs no path.
+  // Don't add one.
   if (nestedPath) {
     __DEV__ &&
       warn(
@@ -123,7 +127,9 @@ function triggerStoreSync(
     return;
   }
   if (status.syncing) {
-    // A push that brings something new is sent once the current request succeeds
+    // A push that brings something new is sent once the current request succeeds.
+    // The follow-up re-enters here, so a trigger gone or disabled by then is still
+    // dropped, and its events fire from the element the user acted on.
     if (op === 'push') {
       app.stores._deferPush(storeName, () =>
         triggerStoreSync(op, triggerEl, app, storeName),
