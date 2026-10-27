@@ -1,3 +1,10 @@
+/*
+ * Timing is applied once, in `dispatchTrigger`, before a trigger is routed. A trigger
+ * source that timed its own action would apply the strategy twice.
+ *
+ * `leading` and `trailing` are independent flags, and naming either opts out of the
+ * strategy's default edges.
+ */
 import type { AnyFn, TriggerModifiers, VoidFn } from '../types';
 import { warn } from './diagnostics';
 

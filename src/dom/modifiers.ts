@@ -1,3 +1,16 @@
+/*
+ * `key-[…]` takes any `KeyboardEvent.key` value. The name, not an allow-list, keeps the
+ * vocabulary open, so there's no alias table to add; `key-[space]` is the one escape.
+ * Don't let `key-` accept `e.code` values. A separate `code-` argument is the additive
+ * route, and would also reach the `[ ( { " '` keys the grammar can't carry.
+ *
+ * System modifiers are held-flag preconditions, never keys. Alone on a keyboard event
+ * they match nothing; alone on a mouse event they filter. Matching is exact only when
+ * the trigger states a filter, and `loose` tolerates extra held modifiers.
+ *
+ * Filters are inert on trigger sources; only `sse` honors a listen target. Don't
+ * synthesize key repeat for modifier keys, which don't repeat on macOS.
+ */
 import type { RouseApp } from '../core/app';
 import type { TriggerModifiers } from '../types';
 

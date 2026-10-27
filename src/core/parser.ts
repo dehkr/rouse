@@ -1,3 +1,21 @@
+/*
+ * The trigger grammar is HTML-only, and this is the only module that sees a token.
+ * `parseTriggers` resolves each trigger into a `TriggerDef`: the event, its raw
+ * argument, and a `TriggerModifiers` object, which is what everything downstream reads.
+ *
+ * `name-[argument]` is the only way to bind a value. The `-[` digraph keeps a hyphenated
+ * name whole without matching a vocabulary first. There's no argument list; a comma
+ * inside brackets is data. A trigger's argument stays raw on `TriggerDef.arg`, resolved
+ * by its source's `fromArg` at dispatch, never among the modifiers.
+ *
+ * Triggers are explicit on the network directives and `rz-on`. A colon-less value is
+ * triggers only, with no subject, default trigger, or argument inferred. Only `rz-model`
+ * resolves a trigger, from its element, which decides when its value changes. Don't add
+ * a shared default-trigger table.
+ *
+ * A directive with its own subject vocabulary gets a `parseXSubject` here: split on the
+ * first whitespace, vocabulary token first, typed result. Nothing detects subjects.
+ */
 import type {
   DirectiveSlug,
   TriggerDef,
@@ -373,7 +391,8 @@ export function parseDataSourcePath(value: string): {
 
 /**
  * Parses a store reference at a site where only store data is valid. Warns and
- * returns `null` when the reference names a namespace (`@cart::status`).
+ * returns `null` when the reference names a namespace (`@cart::status`). The
+ * rejection runs in every build, so never gate a call site with `__DEV__`.
  */
 export function parseStoreRef(
   ref: string,
