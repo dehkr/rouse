@@ -34,6 +34,7 @@
     "url": "git+https://github.com/dehkr/rouse.git"
   },
   "type": "module",
+  "packageManager": "pnpm@12.15.0",
   "main": "./dist/rouse.min.js",
   "types": "./dist/rouse.d.ts",
   "exports": {
