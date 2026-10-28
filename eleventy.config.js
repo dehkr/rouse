@@ -12,6 +12,9 @@ export default function (eleventyConfig) {
   // Serve the raw source for agents
   eleventyConfig.addPassthroughCopy({ 'docs/index.md': 'llms.txt' });
   eleventyConfig.addPassthroughCopy('docs/assets');
+
+  // Cloudflare Pages response headers; without a charset, llms.txt can garble `→`
+  eleventyConfig.addPassthroughCopy({ 'docs/_headers': '_headers' });
 }
 
 export const config = {
