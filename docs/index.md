@@ -1,6 +1,6 @@
 # Rouse
 
-> Rouse (`rousejs` on npm) is a directive-driven reactivity and state-sync layer for server-rendered HTML. The server sends the markup; `data-rz-*` attributes bind it to reactive state, events, and network requests. Logic lives in plain JavaScript scopes and stores, never in attribute expressions. Rouse is pre-release and not HTMX or Alpine: don't guess their syntax (`hx-*`, `x-data`, `@click`, `{{ }}`, inline JS expressions all do nothing here).
+> Rouse (`rousejs` on npm) is a directive-driven reactivity and state-sync layer for server-rendered HTML. The server sends the markup; `data-rz-*` attributes bind it to reactive state, events, and network requests. Logic lives in plain JavaScript scopes and stores, never in attribute expressions. Rouse is pre-release.
 
 ## Setup
 
@@ -24,28 +24,6 @@ app.start(); // scans the page; register before this
 - Values are literal text: no expressions, no interpolation, no call arguments (`save(1)`, `greet{"name": "Ada"}` and `data-rz-scope='probe{...}'` are not defined names). Put logic in a getter or method and name it; per-element parameters go in ordinary `data-*` attributes, read as `el.dataset` in a handler or `host.dataset` in a setup.
 - Paths are dot paths and may index arrays: `user.name`, `@names.list.0`.
 - Pairs are separated by a comma **plus whitespace** (`, `); key and value by a colon **plus whitespace** (`: `). Quote a value containing `, ` or `: ` (`'color: red'`).
-
-## Trigger grammar
-
-`rz-on`, `rz-fetch`, `rz-push`, `rz-pull`, `rz-sse`, and `rz-model` take `[trigger]: [subject]`.
-
-- `data-rz-on="click: save"`: comma-space separates pairs, space separates triggers sharing a subject (`data-rz-on="pointerover focusin: preload"` fires on either).
-- One `|` separates the event from dot-separated modifiers: `click|once.prevent`, `input|debounce-[300ms]: search`.
-- A bracketed argument follows `-[`: `debounce-[300ms]`, `key-[enter]`, `timeout-[5s]`, `media-[(min-width: 640px)]`. One argument only; commas inside brackets are data.
-- A trigger is any DOM or custom event name, including Rouse's own (`data-rz-on="rz:fetch:success: stamp"`) and an event a server sends with `Rouse-Trigger`. Colons inside a name are fine, because only colon plus whitespace ends the trigger. Any trigger works on any of these directives: `data-rz-fetch="edit-[@filters]|debounce-[400ms]: /search"`.
-- Triggers are always explicit, except on `rz-model`. A colon-less value on the network directives and `rz-on` is triggers only (`data-rz-fetch="click"` takes its URL from `href`/`action`).
-- A second `|` (`click|a|b`), an empty segment (`click||once`), or a leading `|` warns and skips the trigger. An unknown modifier warns. An argument on an event that takes none is ignored.
-- `rz-wake` and `rz-close` take a trigger list: the whole value is space-separated triggers, no subject. A comma there warns.
-
-**Modifiers:** `once`, `capture`, `passive`, `self`, `outside` (events from outside the element; listens on `document`), `prevent`, `stop`, `stop-immediate`, `window` / `document` / `root` (listen there instead; filters still apply to the element), `debounce` / `throttle` (optional wait: `-[300]` = ms, `-[300ms]`, `-[5s]`, `-[1m]`; defaults 300 / 150 ms), `leading`, `trailing`, `key-[…]` (repeatable), `ctrl` / `alt` / `shift` / `meta` (held-key flags), `loose` (tolerate extra held keys).
-
-- Edges: debounce fires trailing, throttle both. Naming `leading` or `trailing` replaces the defaults: `click|throttle.leading` is leading only, `click|debounce.leading.trailing` both.
-- `key-[…]` takes any `KeyboardEvent.key` in lowercase (`key-[enter]`, `key-[arrowup]`, `key-[/]`); `key-[space]` for the spacebar. `[ ( { " '` can't be written; an unbalanced one swallows the rest of the value.
-- Key matching is exact once a key or held flag is named: `keydown|key-[enter]` ignores Shift+Enter; write `keydown|shift.key-[enter]` for that. A bare `keydown` sees every key.
-- A held flag alone matches nothing on a keyboard event (`keydown|meta`) and filters a mouse event (`click|ctrl`).
-- Modifier keys don't auto-repeat on macOS. For "while held", pair `keydown|key-[alt]` with `keyup|key-[alt]`.
-
-**Trigger sources** (beyond DOM events): `ready` (app is up, or immediately when bound later), `wake` (enclosing scope activated), `none`, `timeout-[5s]`, `interval-[30s]`, `media-[query]`, `intersect` / `intersect-[0.5]`, `interact` (first pointerover or focusin), `idle`, `edit-[@store]` / `edit-[@store.root]` (user edited the store), `sse-[name]` (named server-sent event; `sse-[message]` for unnamed ones). On a source only `once`, timing, and its argument apply (`sse` also takes `root`); other modifiers are ignored without a warning.
 
 ## Directives
 
@@ -80,44 +58,75 @@ app.start(); // scans the page; register before this
 Method is only ever in the `rz-fetch` subject (or a form's `method` / a button's `formmethod`), never in `rz-request`. `rz-headers`, `rz-request`, and `rz-send` apply to fetch triggers only.
 
 ```html
+<!-- On submit, POST the form's fields to its action (/todos) and append the
+     returned HTML to #todo-list. The fieldset is disabled while the request runs. -->
 <form data-rz-fetch="submit" action="/todos" method="post" data-rz-place="beforeend: #todo-list" data-rz-disable="#todo-fields">
   <fieldset id="todo-fields"><input name="title"><button>Add</button></fieldset>
 </form>
 <ul id="todo-list"></ul>
 ```
 
-## Stores
+## Trigger grammar
 
-A store is one flat object: data, getters (cached computeds; keep them pure), and methods (`this` is the store). Only plain data syncs. The root must be an object.
+`rz-on`, `rz-fetch`, `rz-push`, `rz-pull`, `rz-sse`, and `rz-model` take `[trigger]: [subject]`.
 
-```js
-const cart = app.store('cart', {
-  items: [],
-  get total() { return this.items.reduce((s, i) => s + i.price, 0); },
-  clear() { this.items = []; },
-}, { url: '/api/cart' });
+- `data-rz-on="click: save"`: comma-space separates pairs, space separates triggers sharing a subject (`data-rz-on="pointerover focusin: preload"` fires on either).
+- One `|` separates the event from dot-separated modifiers: `click|once.prevent`, `input|debounce-[300ms]: search`.
+- A bracketed argument follows `-[`: `debounce-[300ms]`, `key-[enter]`, `timeout-[5s]`, `media-[(min-width: 640px)]`. One argument only; commas inside brackets are data.
+- A trigger is any DOM or custom event name, including Rouse's own (`data-rz-on="rz:fetch:success: stamp"`) and an event a server sends with `Rouse-Trigger`. Colons inside a name are fine, because only colon plus whitespace ends the trigger. Any trigger works on any of these directives: `data-rz-fetch="edit-[@filters]|debounce-[400ms]: /search"`.
+- Triggers are always explicit, except on `rz-model`. A colon-less value on the network directives and `rz-on` is triggers only (`data-rz-fetch="click"` takes its URL from `href`/`action`).
+- A second `|` (`click|a|b`), an empty segment (`click||once`), or a leading `|` warns and skips the trigger. An unknown modifier warns. An argument on an event that takes none is ignored.
+- `rz-wake` and `rz-close` take a trigger list: the whole value is space-separated triggers, no subject. A comma there warns.
 
-cart.items.push({ id: 1, price: 5 }); // local only; the store now reads dirty
-await app.stores.push('cart');        // PATCH /api/cart with the whole store
+### Modifiers
 
-// or save on every edit instead of calling push yourself:
-app.on({ edit: 'cart' }, () => app.stores.push('cart'), { debounce: 500 });
-```
+| Modifier | Effect | Example |
+| --- | --- | --- |
+| `once` | Remove after the first fire that passes the filters | `click\|once` |
+| `prevent` | `preventDefault()` | `submit\|prevent` |
+| `stop` | `stopPropagation()` | `click\|stop` |
+| `stop-immediate` | `stopImmediatePropagation()` | `click\|stop-immediate` |
+| `capture` | Listen in the capture phase | `focus\|capture` |
+| `passive` | Passive listener | `scroll\|passive` |
+| `self` | Only when the element itself is the target | `click\|self` |
+| `outside` | Only for events from outside the element (listens on `document`) | `click\|outside` |
+| `window` | Listen on `window`; filters still apply to the element | `resize\|window` |
+| `document` | Listen on `document` | `visibilitychange\|document` |
+| `root` | Listen on `app.root` | `rz:fetch:success\|root` |
+| `debounce`, `debounce-[wait]` | Fire after events stop for `wait` (default 300 ms) | `input\|debounce-[300ms]` |
+| `throttle`, `throttle-[wait]` | Fire at most once per `wait` (default 150 ms) | `scroll\|throttle-[100]` |
+| `leading` | Fire on the leading edge | `click\|throttle.leading` |
+| `trailing` | Fire on the trailing edge | `click\|debounce.leading.trailing` |
+| `key-[key]` | Match a `KeyboardEvent.key`, lowercase; repeatable | `keydown\|key-[enter]` |
+| `ctrl`, `alt`, `shift`, `meta` | Require the key held | `keydown\|ctrl.key-[s]` |
+| `loose` | Allow held keys the trigger didn't name | `keydown\|key-[enter].loose` |
 
-```html
-<script type="application/json" data-rz-store="user: /api/user">{ "name": "Ada" }</script>
-<input data-rz-model="@user.name">
-<button data-rz-push="click: @user" data-rz-attr="disabled: @user::status.syncing">Save</button>
-<span data-rz-class="unsaved: @user::status.dirty">Unsaved changes</span>
-<div data-rz-push="edit-[@user]|debounce-[500ms]: @user"></div> <!-- autosave -->
-```
+- Waits: `-[300]` is ms; units `ms`, `s`, `m`.
+- Edges: debounce fires trailing, throttle both. Naming `leading` or `trailing` replaces the defaults: `click|throttle.leading` is leading only, `click|debounce.leading.trailing` both.
+- `key-[…]` takes any `KeyboardEvent.key` in lowercase (`key-[enter]`, `key-[arrowup]`, `key-[/]`); `key-[space]` for the spacebar. `[ ( { " '` can't be written; an unbalanced one swallows the rest of the value.
+- Key matching is exact once a key or held flag is named: `keydown|key-[enter]` ignores Shift+Enter; write `keydown|shift.key-[enter]` for that. A bare `keydown` sees every key.
+- A held flag alone matches nothing on a keyboard event (`keydown|meta`) and filters a mouse event (`click|ctrl`).
+- Modifier keys don't auto-repeat on macOS. For "while held", pair `keydown|key-[alt]` with `keyup|key-[alt]`.
 
-- `rz-push`, `rz-pull`, and `rz-deposit` always name their store, including on the store's own script (`<script data-rz-store="feed" data-rz-sse="ready: /feed" data-rz-deposit="@feed">`). A path (`@user.profile`) is rejected: stores sync whole.
-- `@name::status` is `{ syncing: false | 'push' | 'pull', error: { code, message } | null, lastSync, dirty, dirtyRoots }`.
-- Server responses are applied as JSON Merge Patch (RFC 7396): absent keys stay, objects merge, arrays and primitives replace, `null` deletes the key.
-- A push in progress holds later pushes and sends one follow-up when it succeeds. A failed push changes no data: the store stays dirty and `status.error` is set. Roll back yourself: `app.on('rz:push:error', () => app.stores.revert('cart'))`.
-- JS (`app.stores`, not a record): `get(name)`, `has`, `status`, `isDirty(name, root?)`, `dirtyRoots`, `snapshot`, `baseline`, `push(name)` / `pull(name)` (never reject), `revert(name, path?)` (to last synced), `reset` (to page-load state), `commit` (mark current data synced, sends nothing), `update(name, state)` (replace and re-baseline), `deposit(name, payload)`, `config(name, partial)`, `remove`.
-- Sync requests carry `Rouse-Sync` and `Rouse-Store` headers and push sends `Content-Type: application/merge-patch+json`.
+### Trigger sources
+
+Triggers that aren't DOM events:
+
+| Source | Fires | Example |
+| --- | --- | --- |
+| `ready` | Once the app is up; immediately for anything bound later | `ready: @cart` |
+| `wake` | When the enclosing scope activates (see `rz-wake`), and on each reconnect | `wake: /panel` |
+| `none` | Never; binds nothing | `none` |
+| `timeout-[delay]` | Once, after `delay` | `timeout-[5s]` |
+| `interval-[delay]` | Every `delay` | `interval-[30s]` |
+| `media-[query]` | When the media query matches, now or later | `media-[(min-width: 640px)]` |
+| `intersect`, `intersect-[ratio]` | Each time the element enters the viewport, at least `ratio` visible (0–1, default 0) | `intersect-[0.5]\|once` |
+| `interact` | On each `pointerover` or `focusin` on the element; add `once` for the first only | `interact\|once` |
+| `idle` | Once, when the browser is idle | `idle` |
+| `edit-[@store]`, `edit-[@store.key]` | When the user edits the store, or that top-level key; framework writes don't count | `edit-[@cart]\|debounce-[500ms]` |
+| `sse-[name]` | On a server-sent event named `name` from this element's stream or its descendants'; `sse-[message]` for unnamed messages | `sse-[done]`, `sse-[tick]\|root` |
+
+On a source only `once`, timing, and its argument apply (`sse` also takes `root`); other modifiers are ignored without a warning.
 
 ## Scopes
 
@@ -169,6 +178,65 @@ app.scope('search', ({ host, app, term }) => {
 
 `rz-render` lives on a `<template>`. Each instance binds against its item: `%.field`, nested `%.user.name`, metadata `%::index` / `%::position` (readable anywhere in the instance, but read-only, and not item data: `rz-model` can't write them and `rz-send` doesn't send them). Names that aren't `%` fall through to the enclosing scope. Bare `%` is the item in array and object modes and `undefined` in boolean and number modes. `%` is the nearest item only; outer items aren't reachable. Without `rz-key`, instances are reused by position.
 
+## Stores
+
+A store is one flat reactive object: data, getters (cached computeds; keep them pure), and methods (`this` is the store). Only plain data syncs. The root must be an object.
+
+```js
+const cart = app.store('cart', {
+  items: [],
+  get total() { return this.items.reduce((s, i) => s + i.price, 0); },
+  clear() { this.items = []; },
+}, { url: '/api/cart' });
+
+cart.items.push({ id: 1, price: 5 }); // local only; the store now reads dirty
+await app.stores.push('cart');        // PATCH /api/cart with the whole store
+
+// or save on every edit instead of calling push yourself:
+app.on({ edit: 'cart' }, () => app.stores.push('cart'), { debounce: 500 });
+```
+
+```html
+<script type="application/json" data-rz-store="user: /api/user">{ "name": "Ada" }</script>
+<input data-rz-model="@user.name">
+<button data-rz-push="click: @user" data-rz-attr="disabled: @user::status.syncing">Save</button>
+<span data-rz-class="unsaved: @user::status.dirty">Unsaved changes</span>
+<div data-rz-push="edit-[@user]|debounce-[500ms]: @user"></div> <!-- autosave -->
+```
+
+- `rz-push`, `rz-pull`, and `rz-deposit` always name their store, including on the store's own script (`<script data-rz-store="feed" data-rz-sse="ready: /feed" data-rz-deposit="@feed">`). A path (`@user.profile`) is rejected: stores sync whole.
+- `@name::status` is `{ syncing: false | 'push' | 'pull', error: { code, message } | null, lastSync, dirty, dirtyRoots }`.
+- Server responses are applied as JSON Merge Patch (RFC 7396): absent keys stay, objects merge, arrays and primitives replace, `null` deletes the key.
+- A push in progress holds later pushes and sends one follow-up when it succeeds. A failed push changes no data: the store stays dirty and `status.error` is set. Roll back yourself: `app.on('rz:push:error', () => app.stores.revert('cart'))`.
+- JS (`app.stores`, not a record): `get(name)`, `has`, `status`, `isDirty(name, root?)`, `dirtyRoots`, `snapshot`, `baseline`, `push(name)` / `pull(name)` (never reject), `revert(name, path?)` (to last synced), `reset` (to page-load state), `commit` (mark current data synced, sends nothing), `update(name, state)` (replace and re-baseline), `deposit(name, payload)`, `config(name, partial)`, `remove`.
+- Push sends `Content-Type: application/merge-patch+json`.
+
+## Server responses
+
+Requests identify themselves: a fetch sends `Rouse-Request: true`; a push or pull sends `Rouse-Sync: push | pull` and `Rouse-Store: <name>`. A `null` header value in `rz-headers` drops any of them.
+
+A fetch response is routed by content type:
+
+- **HTML** goes to the `rz-place` targets (default: the trigger's `innerHTML`; `data-rz-place="null"` for none).
+- **JSON** merges into the `rz-deposit` stores, as JSON Merge Patch. Without `rz-deposit` it goes nowhere.
+- **Files** only fire `rz:fetch:success:file`.
+- **Not routed:** error responses, an empty body, and an `app.fetch` without `triggerEl`, unless the server sends `Rouse-Place` or `Rouse-Deposit`. An empty body with `Rouse-Place` places `''`, so a `204` with `Rouse-Place: delete` removes the trigger.
+
+Unnamed `rz-sse` messages route the same way, without headers.
+
+The server can override the client with response headers. The header wins over the markup:
+
+| Header | Effect | Applies to |
+| --- | --- | --- |
+| `Rouse-Place` | Replaces `rz-place` for this response, same grammar (`beforeend: #log`, `delete`). Beats `rz-place="null"` | fetch |
+| `Rouse-Deposit` | Replaces `rz-deposit` for this response (`@results`) | fetch |
+| `Rouse-Trigger` | Dispatches the named event from the trigger element after `:success`; `detail` is the response | fetch, push, pull |
+| `Rouse-Redirect` | Navigates the page to the URL; the rest of the response is ignored | fetch |
+| `Rouse-Push-Url` | `history.pushState` to the URL; same origin only | fetch |
+| `Rouse-Replace-Url` | `history.replaceState` to the URL; same origin only. `Rouse-Push-Url` wins if both are sent | fetch |
+
+A redirect the browser follows (`3xx`) navigates the page to the final URL when it's same-origin, and fails with `REDIRECTED` when it isn't.
+
 ## Programmatic API
 
 - `app.fetch(url, { method, body, headers, params, timeout, signal, indicator, triggerEl, skipInterceptors, ...RequestInit })` → `Promise<{ data, error, status, headers, response, config }>`; never rejects. Without `triggerEl` it reads nothing from the DOM and routes nothing (unless the server sends `Rouse-Place` / `Rouse-Deposit`).
@@ -176,15 +244,49 @@ app.scope('search', ({ host, app, term }) => {
 - `app.place(target, html, { position })`: target is an element or a selector within the app root (every match). Positions, case-sensitive: `innerHTML` (default), `outerHTML`, `beforebegin`, `afterbegin`, `beforeend`, `afterend`, `delete`.
 - `app.sse(url, { triggerEl, withCredentials, signal })` returns a closer.
 - `app.interceptor('request' | 'response' | 'error', fn, { signal })`; a request interceptor returns the config.
-- Server response headers: `Rouse-Place`, `Rouse-Deposit` (override routing), `Rouse-Trigger` (dispatch an event), `Rouse-Redirect`, `Rouse-Push-Url`, `Rouse-Replace-Url`. `Rouse-Trigger` is honored on success by fetch, push, and pull; the rest are fetch-only.
 
 ## Events
 
-All bubble to `app.root`. App and scope: `rz:app:{start,ready,destroy}`, `rz:scope:{init,connect,disconnect,destroy}`. The rest fall on three axes, each fired from the element it describes:
+Every event bubbles to `app.root`. Each fires from the element it describes:
 
-- **Request**, from the triggering element (`app.root` without one): `rz:{fetch,push,pull}:{config,start,abort,success,error,end}`, always `:config` → `:start` → one of `:abort` / `:success` / `:error` → `:end`. `:config` is cancelable (prevented = nothing else fires, `:end` included); its `detail.config` is the object sent (absolute `url`, `method`, `headers`), editable there, and the same object is on every request event and `response.config`. Fetch's `:success` / `:error` detail is the response (`e.detail.data`, `e.detail.error`); push and pull wrap it as `{ storeName, result }`. Fetch also fires `rz:fetch:{success,error}:{html,json,file}` by content type. Only real network operations fire these: `update()`, `reset()`, and triggers a guard drops (disconnected, disabled, sync already running, write in flight) emit nothing.
-- **Destination**, from what changed: `rz:store:patch:before` → `rz:store:patch` or `rz:store:patch:skipped`, from the store's script (else `app.root`), `detail.operation` ∈ `push` / `pull` / `fetch` / `sse`; `rz:dom:place:before` → `rz:dom:place`, from the target (its parent for `outerHTML` / `delete`), `detail.source` ∈ `fetch` / `sse` / `programmatic`. `:before` is cancelable and `detail.payload` can be rewritten; prevented = nothing after it. `:skipped`: an edit made during the request kept the response from applying (a deposit never skips). These fire only when a destination changed, so there's no error event here; failures are on the request axis, whose terminal event fires first (`rz:push:success` before `rz:store:patch:before`).
-- **Connection**, from the stream element: `rz:sse:config` (cancelable, once; reconnects don't repeat it), `:open`, `:message` (unnamed messages fire `rz:sse:message:{html,json}` first, already placed or deposited), `:error`, `:close`. One open, many messages, no terminal: not the request contract. `:error` is cancelable; preventing it stops reconnecting.
+- **App** from `app.root`; **scope** from the scope's host.
+- **Request** (a network operation) from the triggering element, or `app.root` without one. `rz:push:*` and `rz:pull:*` have the same events as `rz:fetch:*`.
+- **Destination** (what a response changed) from the store's script (else `app.root`) or the placement target (its parent for `outerHTML` / `delete`). `operation` or `source` names the cause.
+- **Connection** (a stream) from the `rz-sse` element.
+
+| Event | When | Detail |
+| --- | --- | --- |
+| `rz:app:start` | `start()` begins, before the scan | `{ app }` |
+| `rz:app:ready` | The frame after the first scan | `{ app }` |
+| `rz:app:destroy` | `destroy()` | `{ app }` |
+| `rz:scope:init` | Setup returned | `{ context, instance }` |
+| `rz:scope:connect` | Bindings attached, after `rz-wake` | `{ instance }` |
+| `rz:scope:disconnect` | Bindings detached | `{ instance }` |
+| `rz:scope:destroy` | Torn down; fires last. `instance` is for recognizing the scope, not calling it | `{ instance }` |
+| `rz:fetch:config` | Before sending. **Cancelable**: prevented, nothing else fires. Edit `config` in place (absolute `url`, `method`, `headers`); it's the object sent | `{ config }`; push/pull add `storeName` |
+| `rz:fetch:start` | Sent | as `:config` |
+| `rz:fetch:success` | 2xx response. Exactly one of `:success`, `:error`, `:abort` fires | Fetch: the response `{ data, error, status, headers, response, config }`. Push/pull: `{ storeName, result }` |
+| `rz:fetch:error` | Error status, network failure, or timeout | as `:success` |
+| `rz:fetch:abort` | Aborted by a newer request or a signal | as `:config` |
+| `rz:fetch:end` | Always last | as `:config` |
+| `rz:fetch:success:{html,json,file}` | Per content type; what `rz-place` and `rz-deposit` route | the response |
+| `rz:fetch:error:{html,json,file}` | Per content type | the response |
+| `rz:store:patch:before` | Before a payload is applied. **Cancelable**; `payload` can be rewritten | `{ storeName, operation, data, payload }` |
+| `rz:store:patch` | Payload applied | `{ storeName, operation, data, payload, response }` |
+| `rz:store:patch:skipped` | An edit made during the request kept the response from applying. A deposit never skips | `{ storeName, operation, localData, serverData, response }` |
+| `rz:dom:place:before` | Before placing. **Cancelable**; `payload` can be rewritten | `{ target, position, payload, source }` |
+| `rz:dom:place` | Placed | `{ target, position, payload, source }` |
+| `rz:sse:config` | Before the first connection, once. **Cancelable**; edit `config` in place | `{ config }` |
+| `rz:sse:open` | Each successful (re)connection | `{ config }` |
+| `rz:sse:message:{html,json}` | Unnamed messages, before `:message`; what `rz-place` and `rz-deposit` route | as `:message` |
+| `rz:sse:message` | Every message | `{ config, event, data, raw, lastEventId }` |
+| `rz:sse:error` | Connection lost. **Cancelable**: prevented, no reconnect | `{ config, attempt }` |
+| `rz:sse:close` | Stream closed | `{ config, reason }` |
+
+- Request order is always `:config` → `:start` → one of `:success` / `:error` / `:abort` → `:end`, and the request's outcome fires before any destination event (`rz:push:success` before `rz:store:patch:before`).
+- Destination events fire only when something changed, so failures appear only on the request events.
+- Only real network operations fire request events. `update()`, `reset()`, and triggers dropped by a guard (disconnected, disabled, a sync already running, a write in flight) fire nothing.
+- A stream has no final event per message and no `:end`: it opens once and receives many messages.
 
 ## Multiple apps
 

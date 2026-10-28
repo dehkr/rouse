@@ -1,0 +1,227 @@
+:root {
+  --fg: #1f2328;
+  --muted: #59636e;
+  --bg: #ffffff;
+  --subtle: #f6f7f9;
+  --code: #EDEEF4;
+  --border: #DEE1E8;
+  --link: #0969da;
+  --tok-comment: #6e7781;
+  --tok-keyword: #cf222e;
+  --tok-string: #0a3069;
+  --tok-name: #8250df;
+  --tok-number: #0550ae;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fg: #e6edf3;
+    --muted: #9198a1;
+    --bg: #0d1117;
+    --subtle: #161b22;
+    --border: #30363d;
+    --link: #4493f8;
+    --tok-comment: #8b949e;
+    --tok-keyword: #ff7b72;
+    --tok-string: #a5d6ff;
+    --tok-name: #d2a8ff;
+    --tok-number: #79c0ff;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 14px/1.5 system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+strong {
+  font-weight: 700;
+}
+
+main {
+  max-width: 1024px;
+  margin: 0 auto;
+  padding: 32px 24px 64px;
+}
+
+h1,
+h2,
+h3 {
+  line-height: 1.25;
+  margin: 1.6em 0 0.5em;
+  /* color: blue; */
+}
+
+h1 {
+  font-size: 2.25em;
+  font-weight: normal;
+  margin-top: 0;
+  margin-bottom: 1em;
+}
+
+h2 {
+  font-size: 1.4em;
+  font-weight: 700;
+  padding-bottom: 0.1em;
+  margin-bottom: 1.25em;
+  margin-top: 1.75em;
+  border-bottom: 1px solid var(--fg);
+}
+
+h3 {
+  font-size: 1.1em;
+}
+
+p,
+ul,
+ol,
+blockquote,
+pre,
+table {
+  margin: 0 0 1em;
+}
+
+p:last-child {
+  margin-bottom: 0;
+}
+
+ul,
+ol {
+  padding-left: 2.5em;
+}
+
+li + li {
+  margin-top: 0.4em;
+}
+
+a {
+  color: var(--link);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+blockquote {
+  margin-left: 0;
+  margin-bottom: 3rem;
+  /* padding: 0 1em; */
+  /* border-left: 3px solid var(--border); */
+  /* border: 1px solid var(--border); */
+  /* border-radius: 20px; */
+  /* padding: 2em 2.25em; */
+  font-size: 1.4em;
+  line-height: 1.75;
+  color: var(--muted);
+}
+
+code,
+pre {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  background: var(--code);
+  font-size: 0.88em;
+}
+
+/* :not(pre) > code { */
+code {
+  padding: 0.1em 0.2em;
+  border-radius: 2px;
+  background: var(--code);
+  overflow-wrap: anywhere;
+}
+
+pre > code {
+  background: none;
+  padding: 0;
+  line-height: 1.6;
+}
+
+pre {
+  padding: 1.5em 1.75em;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--subtle);
+  /* line-height: 1.45; */
+  overflow-x: auto;
+  margin-block: 2rem;
+}
+
+pre code {
+  font-size: inherit;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.93em;
+  border-radius: 4px;
+}
+
+/* The directive table: names on one line, Example about half the width of Purpose */
+td:first-child {
+  white-space: nowrap;
+}
+
+th:nth-child(2) {
+  width: 54%;
+}
+
+th:nth-child(3) {
+  width: 33%;
+}
+
+th,
+td {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  background: var(--subtle);
+}
+
+/* Prism tokens from @11ty/eleventy-plugin-syntaxhighlight */
+.token.comment,
+.token.prolog,
+.token.doctype {
+  color: var(--tok-comment);
+}
+
+.token.keyword,
+.token.tag,
+.token.operator {
+  color: var(--tok-keyword);
+}
+
+.token.string,
+.token.attr-value,
+.token.template-string {
+  color: var(--tok-string);
+}
+
+.token.function,
+.token.attr-name,
+.token.class-name {
+  color: var(--tok-name);
+}
+
+.token.number,
+.token.boolean,
+.token.property {
+  color: var(--tok-number);
+}
+
+.token.punctuation {
+  color: var(--muted);
+}
