@@ -1,6 +1,6 @@
 # Rouse
 
-> Rouse (`rousejs` on npm) is a directive-driven reactivity and state-sync layer for server-rendered HTML. The server sends the markup; `data-rz-*` attributes bind it to reactive state, events, and network requests. Logic lives in plain JavaScript scopes and stores, never in attribute expressions. Rouse is pre-release.
+> Rouse (`rousejs` on npm) is a directive-driven reactivity and state-sync layer for server-rendered HTML. The server sends the markup; `data-rz-*` attributes bind it to reactive state, events, and network requests. Logic lives in plain JavaScript scopes and stores, never in attribute expressions. Rouse is pre-release. Source: [github.com/dehkr/rouse](https://github.com/dehkr/rouse).
 
 ## Setup
 
@@ -58,10 +58,20 @@ app.start(); // scans the page; register before this
 Method is only ever in the `rz-fetch` subject (or a form's `method` / a button's `formmethod`), never in `rz-request`. `rz-headers`, `rz-request`, and `rz-send` apply to fetch triggers only.
 
 ```html
-<!-- On submit, POST the form's fields to its action (/todos) and append the
-     returned HTML to #todo-list. The fieldset is disabled while the request runs. -->
-<form data-rz-fetch="submit" action="/todos" method="post" data-rz-place="beforeend: #todo-list" data-rz-disable="#todo-fields">
-  <fieldset id="todo-fields"><input name="title"><button>Add</button></fieldset>
+<!--
+On submit, POST the form's fields to its action (/todos) and append the returned
+HTML to #todo-list. The fieldset is disabled while the request runs.
+-->
+<form
+  action="/todos"
+  method="post"
+  data-rz-fetch="submit"
+  data-rz-place="beforeend: #todo-list"
+  data-rz-disable="#todo-fields"
+>
+  <fieldset id="todo-fields">
+    <input name="title"><button>Add</button>
+  </fieldset>
 </form>
 <ul id="todo-list"></ul>
 ```
@@ -139,7 +149,9 @@ app.scope('search', ({ host, app, term }) => {
 
   async function run() {
     const { data, error } = await app.fetch(`/search?q=${encodeURIComponent(query())}`, { signal: term });
-    if (!error) results.splice(0, results.length, ...data.items);
+    if (!error) {
+      results.splice(0, results.length, ...data.items);
+    }
   }
 
   app.on(host, { intersect: 0.5 }, run, { once: true, signal: term });
@@ -151,7 +163,9 @@ app.scope('search', ({ host, app, term }) => {
     run,
     clear() { query(''); },
     remove({ render }) { results.splice(render.index, 1); },
-    connect() {}, disconnect() {}, // optional lifecycle hooks
+    // optional lifecycle hooks
+    connect() {},
+    disconnect() {},
   };
 });
 ```
@@ -161,8 +175,10 @@ app.scope('search', ({ host, app, term }) => {
   <input data-rz-model="query" data-rz-on="input|debounce-[300ms]: run, keydown|window.key-[escape]: clear">
   <ul>
     <template data-rz-render="results" data-rz-key="id">
-      <li><span data-rz-text="%::position"></span>. <span data-rz-text="%.title"></span>
-        <button data-rz-on="click: remove">x</button></li>
+      <li>
+        <span data-rz-text="%::position"></span>. <span data-rz-text="%.title"></span>
+        <button data-rz-on="click: remove">x</button>
+      </li>
     </template>
   </ul>
 </div>
@@ -197,11 +213,15 @@ app.on({ edit: 'cart' }, () => app.stores.push('cart'), { debounce: 500 });
 ```
 
 ```html
-<script type="application/json" data-rz-store="user: /api/user">{ "name": "Ada" }</script>
+<!-- Autosaves 500 ms after the last edit; the button saves on demand -->
+<script
+  type="application/json"
+  data-rz-store="user: /api/user"
+  data-rz-push="edit-[@user]|debounce-[500ms]: @user"
+>{ "name": "Ada" }</script>
 <input data-rz-model="@user.name">
 <button data-rz-push="click: @user" data-rz-attr="disabled: @user::status.syncing">Save</button>
 <span data-rz-class="unsaved: @user::status.dirty">Unsaved changes</span>
-<div data-rz-push="edit-[@user]|debounce-[500ms]: @user"></div> <!-- autosave -->
 ```
 
 - `rz-push`, `rz-pull`, and `rz-deposit` always name their store, including on the store's own script (`<script data-rz-store="feed" data-rz-sse="ready: /feed" data-rz-deposit="@feed">`). A path (`@user.profile`) is rejected: stores sync whole.

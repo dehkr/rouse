@@ -1,32 +1,72 @@
 :root {
-  --fg: #1f2328;
-  --muted: #59636e;
-  --bg: #ffffff;
-  --subtle: #f6f7f9;
-  --code: #EDEEF4;
-  --border: #DEE1E8;
-  --link: #0969da;
-  --tok-comment: #6e7781;
-  --tok-keyword: #cf222e;
-  --tok-string: #0a3069;
-  --tok-name: #8250df;
-  --tok-number: #0550ae;
+  color-scheme: light dark;
+  --fg: light-dark(#1f2328, #CED7E2);
+  --muted: light-dark(#59636e, #94A5B8);
+  --bg: light-dark(#ffffff, #1F242B);
+  --subtle: light-dark(#f6f7f9, #242B33);
+  --code: light-dark(#EDEEF4, #313B46);
+  --highlight: light-dark(#ffffff, #465464);
+  --border: light-dark(#DEE1E8, #363E47);
+  --link: light-dark(#0969da, #4493f8);
+  --tok-comment: light-dark(#637080, #8296aa);
+  --tok-keyword: light-dark(#cf222e, #ff7b72);
+  --tok-string: light-dark(#0a3069, #a5d6ff);
+  --tok-name: light-dark(#8250df, #d2a8ff);
+  --tok-number: light-dark(#0550ae, #79c0ff);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --fg: #e6edf3;
-    --muted: #9198a1;
-    --bg: #0d1117;
-    --subtle: #161b22;
-    --border: #30363d;
-    --link: #4493f8;
-    --tok-comment: #8b949e;
-    --tok-keyword: #ff7b72;
-    --tok-string: #a5d6ff;
-    --tok-name: #d2a8ff;
-    --tok-number: #79c0ff;
-  }
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+}
+
+.theme-toggle {
+  position: fixed;
+  top: 14px;
+  right: 12px;
+  display: flex;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 999px;
+  background: var(--code);
+}
+
+.theme-toggle button {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.theme-toggle button[aria-pressed='true'] {
+  background: var(--highlight);
+  color: var(--fg);
+}
+
+/* The icons draw with currentColor, which an <img> can't inherit, so they're masks */
+.theme-toggle button::before {
+  content: '';
+  width: 16px;
+  height: 16px;
+  background: currentColor;
+  mask: var(--icon) center / contain no-repeat;
+}
+
+.theme-toggle [data-theme-value='light'] {
+  --icon: url('/assets/sun.svg');
+}
+
+.theme-toggle [data-theme-value='dark'] {
+  --icon: url('/assets/moon.svg');
 }
 
 *,
@@ -49,7 +89,7 @@ strong {
 main {
   max-width: 1024px;
   margin: 0 auto;
-  padding: 32px 24px 64px;
+  padding: 48px 24px 64px;
 }
 
 h1,
@@ -57,7 +97,6 @@ h2,
 h3 {
   line-height: 1.25;
   margin: 1.6em 0 0.5em;
-  /* color: blue; */
 }
 
 h1 {
@@ -114,11 +153,6 @@ a:hover {
 blockquote {
   margin-left: 0;
   margin-bottom: 3rem;
-  /* padding: 0 1em; */
-  /* border-left: 3px solid var(--border); */
-  /* border: 1px solid var(--border); */
-  /* border-radius: 20px; */
-  /* padding: 2em 2.25em; */
   font-size: 1.4em;
   line-height: 1.75;
   color: var(--muted);
@@ -131,7 +165,6 @@ pre {
   font-size: 0.88em;
 }
 
-/* :not(pre) > code { */
 code {
   padding: 0.1em 0.2em;
   border-radius: 2px;
@@ -145,12 +178,15 @@ pre > code {
   line-height: 1.6;
 }
 
+:not(pre) > code {
+  white-space: break-spaces;
+}
+
 pre {
   padding: 1.5em 1.75em;
   border: 1px solid var(--border);
   border-radius: 3px;
   background: var(--subtle);
-  /* line-height: 1.45; */
   overflow-x: auto;
   margin-block: 2rem;
 }
@@ -166,8 +202,7 @@ table {
   border-radius: 4px;
 }
 
-/* The directive table: names on one line, Example about half the width of Purpose */
-td:first-child {
+td:first-child code {
   white-space: nowrap;
 }
 
@@ -188,6 +223,10 @@ td {
 }
 
 th {
+  background: var(--subtle);
+}
+
+th:first-child {
   background: var(--subtle);
 }
 

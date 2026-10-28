@@ -6,8 +6,49 @@
   <title>{{ title }}</title>
   <link rel="alternate" type="text/markdown" href="/llms.txt">
   <link rel="stylesheet" href="/assets/style.css">
+  <script>
+    // Runs before paint, so a saved theme doesn't flash the system one first
+    try {
+      const saved = localStorage.getItem('theme');
+      if (saved) document.documentElement.dataset.theme = saved;
+    } catch {}
+  </script>
 </head>
 <body>
+  <div class="theme-toggle" role="group" aria-label="Color theme">
+    <button type="button" data-theme-value="light" aria-label="Light mode" title="Light mode"></button>
+    <button type="button" data-theme-value="dark" aria-label="Dark mode" title="Dark mode"></button>
+  </div>
   <main>{{ content | safe }}</main>
+  <script>
+    const root = document.documentElement;
+    const buttons = document.querySelectorAll('.theme-toggle button');
+    const systemDark = matchMedia('(prefers-color-scheme: dark)');
+
+    function current() {
+      return root.dataset.theme ?? (systemDark.matches ? 'dark' : 'light');
+    }
+
+    function render() {
+      const theme = current();
+      buttons.forEach((b) => {
+        b.setAttribute('aria-pressed', b.dataset.themeValue === theme);
+      });
+    }
+
+    buttons.forEach((b) => {
+      b.addEventListener('click', () => {
+        root.dataset.theme = b.dataset.themeValue;
+        try {
+          localStorage.setItem('theme', root.dataset.theme);
+        } catch {}
+        render();
+      });
+    });
+
+    // Until a theme is picked, the selection follows the system setting
+    systemDark.addEventListener('change', render);
+    render();
+  </script>
 </body>
 </html>
