@@ -40,6 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Add `data-rz-deposit="@cart"` to deposit into the script's own store. `rz-deposit` no longer defaults to it.
   - Remove `data-rz-deposit="null"`. With no default, there's nothing to opt out of.
 - **Breaking:** Stop accepting `class` and `style` in `rz-attr`. Use `rz-class` and `rz-style` instead.
+- Pass the scope instance in `rz:scope:destroy`, as the other scope events do.
 
 ### Removed
 

@@ -61,7 +61,7 @@ export function destroyInstance(el: HTMLElement) {
   const inst = instanceMap.get(el);
   if (inst) {
     inst._destroy();
-    dispatch(el, 'rz:scope:destroy');
+    dispatch(el, 'rz:scope:destroy', { instance: inst.instance });
     instanceMap.delete(el);
   }
 }

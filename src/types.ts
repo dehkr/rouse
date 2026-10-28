@@ -25,9 +25,12 @@ export interface ScopeInitDetail {
   instance: Scope;
 }
 
-/** Detail for `rz:scope:connect` and `rz:scope:disconnect`. */
+/** Detail for `rz:scope:connect`, `rz:scope:disconnect`, and `rz:scope:destroy`. */
 export interface ScopeLifecycleDetail {
-  /** The scope whose bindings were attached (connect) or detached (disconnect). */
+  /**
+   * The scope object its setup function returned. On `rz:scope:destroy` it is
+   * already torn down, so use it to recognize the scope rather than to call it.
+   */
   instance: Scope;
 }
 
@@ -220,7 +223,7 @@ export interface LifecycleEventMap {
   /** Fires when scope bindings are detached. */
   'rz:scope:disconnect': ScopeLifecycleDetail;
   /** Fires when the scope is torn down. */
-  'rz:scope:destroy': undefined;
+  'rz:scope:destroy': ScopeLifecycleDetail;
   /** Fires before the request is sent; cancelable. Listeners can mutate `config`. */
   'rz:fetch:config': FetchConfigDetail;
   /** Fires when the fetch starts, after config. */
