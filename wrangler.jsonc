@@ -1,0 +1,10 @@
+{
+  "name": "rouse-docs",
+  "compatibility_date": "2026-10-28",
+  "assets": {
+    "directory": "./_site"
+  },
+  "routes": [
+    { "pattern": "rousejs.com", "custom_domain": true }
+  ]
+}
