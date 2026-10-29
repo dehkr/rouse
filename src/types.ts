@@ -344,7 +344,7 @@ export type Scope = Record<string, any> & {
  * layers over. Read by `%`, and snapshotted for handlers as `HandlerCtx.render`.
  */
 export interface RenderFrame {
-  /** The current loop item. Absent for item-less (boolean/number) render modes. */
+  /** The current item: the element in array mode, otherwise the rendered value itself. */
   item: unknown;
   /** Zero-based position of this instance within the render. */
   index: number;
@@ -802,7 +802,7 @@ export type HandlerCtx<E extends Element = HTMLElement> = {
   el: E;
   /** The triggering DOM event, or a synthetic `CustomEvent` when the handler runs without one (e.g. a function used to compute a one-way binding value). */
   e: Event;
-  /** Current `rz-render` loop context. Both fields are `null` outside a render instance, and `item` is `null` for item-less (boolean/number) modes. */
+  /** Current `rz-render` loop context. Both fields are `null` outside a render instance. */
   render: { item: unknown; index: number | null };
 };
 

@@ -58,16 +58,13 @@ interface RenderOptions {
   keyPath?: string | null;
 }
 
-/** Placeholder item for render modes with no per-item data (boolean/number). */
-const NO_ITEM: Record<string, unknown> = {};
-
 /**
  * Classifies the resolved render value and lays out the instances to render.
  *
- * - Boolean: render the contents once or not at all
- * - Number: renders them that many times
+ * - Boolean: renders the contents once or not at all, with the value as the item
+ * - Number: renders them that many times, with the number as every instance's item
  * - Object: renders once with the object as the item
- * - Array: renders one instance per element
+ * - Array: renders one instance per element, with the element as the item
  *
  * Iterates arrays with `map`, not an index loop, so the read goes through the
  * reactive interceptor and structural changes (including in-place reorders)
@@ -82,7 +79,7 @@ function normalize(value: unknown): NormalizedValue {
   if (typeof value === 'number') {
     const n = Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
     const items: ItemPlan[] = Array.from({ length: n }, (_, index) => ({
-      item: NO_ITEM,
+      item: value,
       index,
     }));
     return { mode: 'number', items };
@@ -95,7 +92,7 @@ function normalize(value: unknown): NormalizedValue {
   // `boolean` and anything else: truthy renders once, falsy renders nothing
   return {
     mode: 'boolean',
-    items: value ? [{ item: NO_ITEM, index: 0 }] : [],
+    items: value ? [{ item: value, index: 0 }] : [],
   };
 }
 
@@ -177,10 +174,9 @@ export function renderTemplate(
 
     const itemSig: ItemSignal = signal(reactive(plan.item as object));
     const indexSig: IndexSignal = signal(plan.index);
-    const hasItem = plan.item !== NO_ITEM;
     const frame: RenderFrame = {
       get item() {
-        return hasItem ? itemSig() : undefined;
+        return itemSig();
       },
       get index() {
         return indexSig();
