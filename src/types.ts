@@ -230,7 +230,7 @@ export interface LifecycleEventMap {
   'rz:fetch:start': FetchConfigDetail;
   /** Fires if the fetch is aborted. */
   'rz:fetch:abort': FetchConfigDetail;
-  /** Fires when the request settles, after success or error. */
+  /** Fires when the request settles, after success, error, or abort. */
   'rz:fetch:end': FetchConfigDetail;
   /** Fires when the request completes with an OK status. */
   'rz:fetch:success': FetchSuccessDetail;
@@ -240,7 +240,7 @@ export interface LifecycleEventMap {
   'rz:fetch:success:html': FetchSuccessHtmlDetail;
   /** Fires after `rz:fetch:success` when the body is a Blob/ArrayBuffer. */
   'rz:fetch:success:file': FetchSuccessFileDetail;
-  /** Fires when the request fails (non-OK status, network error, or cancellation). */
+  /** Fires when the request fails (non-OK status, network error, or timeout). */
   'rz:fetch:error': FetchErrorDetail;
   /** Fires after `rz:fetch:error` when the body is parsed JSON (object/array). */
   'rz:fetch:error:json': FetchErrorJsonDetail;

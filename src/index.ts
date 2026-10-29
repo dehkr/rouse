@@ -7,6 +7,7 @@ export type {
   BindableValue,
   HandlerCtx,
   LifecycleEvent,
+  LifecycleEventMap,
   RenderHandlerCtx,
   ScopeCtx,
   ScopeSetup,
