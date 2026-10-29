@@ -36,11 +36,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `edit` now requires an explicit store target; directives no longer infer the store from the subject. Use `data-rz-push="edit-[@cart]: @cart"` instead of `data-rz-push="edit: @cart"`.
   - Make `app.stores.onEdit` internal. Migrate to `app.on({ edit: 'cart' }, fn)`.
 - **Breaking:** Require store-writing directives on a `<script data-rz-store>` to name their store.
-  - Give `rz-push` and `rz-pull` a store subject. Use `data-rz-pull="ready: @cart"` instead of `data-rz-pull="ready"`.
-  - Add `data-rz-deposit="@cart"` to deposit into the script's own store. `rz-deposit` no longer defaults to it.
-  - Remove `data-rz-deposit="null"`. With no default, there's nothing to opt out of.
+  - `rz-push` and `rz-pull` require a store subject: use `data-rz-pull="ready: @cart"` instead of `data-rz-pull="ready"`.
+  - `rz-deposit` no longer falls back to the script's own store when it's missing or empty. Add `data-rz-deposit="@cart"` to keep depositing into it.
+  - `data-rz-deposit="null"` no longer opts out of anything, since there's no default.
 - **Breaking:** Stop accepting `class` and `style` in `rz-attr`. Use `rz-class` and `rz-style` instead.
 - Pass the scope instance in `rz:scope:destroy`, as the other scope events do.
+- Export `LifecycleEventMap` to type lifecycle event details.
 
 ### Removed
 
