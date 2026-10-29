@@ -1,0 +1,17 @@
+# Rouse
+
+> Rouse (`rousejs` on npm) is a directive-driven reactivity and state-sync layer for server-rendered HTML. The server sends the markup; `data-rz-*` attributes bind it to reactive state, events, and network requests. Logic lives in plain JavaScript scopes and stores, never in attribute expressions. Rouse is pre-release.
+
+Things to remember when writing Rouse apps:
+
+- Directive values are literal names, never expressions: `data-rz-on="click: save"`, not `save()` or `count + 1`. Put logic in a scope or store method or getter and name it.
+- A scope is a setup function returning a plain object, not a component. Its return isn't made reactive: expose `signal` or `reactive` state through getters, with a setter for `rz-model`.
+- `@name` addresses a store, `%` the current `rz-render` item, and a bare path the nearest scope.
+- Triggers are always written out, as `trigger: subject`, with modifiers after one `|`: `input|debounce-[300ms]: search`.
+- Responses route by content type: HTML into the `rz-place` target, JSON into `rz-deposit` stores. `Rouse-*` response headers override the markup.
+- Register scopes, stores, interceptors, and listeners before `app.start()`.
+- Rouse ships as ES modules only, from npm or a CDN; no build step is needed.
+
+## Docs
+
+- [Rouse reference](https://rousejs.com/index.md): The complete reference on one page: setup, syntax, every directive, the trigger grammar, scopes, stores, requests, server response headers, the JavaScript API, TypeScript, lifecycle events, and silent pitfalls

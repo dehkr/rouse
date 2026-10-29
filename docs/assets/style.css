@@ -87,7 +87,7 @@ strong {
 }
 
 main {
-  max-width: 1024px;
+  max-width: 960px;
   margin: 0 auto;
   padding: 48px 24px 64px;
 }
@@ -97,26 +97,42 @@ h2,
 h3 {
   line-height: 1.25;
   margin: 1.6em 0 0.5em;
+  font-weight: 600;
 }
 
 h1 {
-  font-size: 2.25em;
+  font-size: 2.8em;
   font-weight: normal;
   margin-top: 0;
   margin-bottom: 1em;
 }
 
 h2 {
-  font-size: 1.4em;
-  font-weight: 700;
-  padding-bottom: 0.1em;
-  margin-bottom: 1.25em;
-  margin-top: 1.75em;
-  border-bottom: 1px solid var(--fg);
+  font-size: 1.75em;
+  margin-bottom: 0.8em;
+  margin-top: 2.2em;
+  counter-increment: count;
+  display: flex;
+  align-items: center;
+}
+
+h2::before {
+  display: block;
+  width: 30px;
+  height: 21px;
+  text-align: center;
+  content: counter(count);
+  font-size: 0.45em;
+  line-height: 21px;
+  font-weight: 600;
+  border-radius: 4px;
+  background: var(--fg);
+  color: var(--bg);
+  margin-right: 8px;
 }
 
 h3 {
-  font-size: 1.1em;
+  font-size: 1.4em;
 }
 
 p,
@@ -125,7 +141,7 @@ ol,
 blockquote,
 pre,
 table {
-  margin: 0 0 1em;
+  margin: 1.25em 0 1.75em;
 }
 
 p:last-child {
@@ -134,7 +150,11 @@ p:last-child {
 
 ul,
 ol {
-  padding-left: 2.5em;
+  padding-left: 1em;
+}
+
+li {
+  padding-left: 0.4em;
 }
 
 li + li {
@@ -188,7 +208,6 @@ pre {
   border-radius: 3px;
   background: var(--subtle);
   overflow-x: auto;
-  margin-block: 2rem;
 }
 
 pre code {
@@ -198,20 +217,22 @@ pre code {
 table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.93em;
   border-radius: 4px;
 }
 
 td:first-child code {
   white-space: nowrap;
+  color: var(--tok-keyword);
+  background: none;
+  padding: 0;
 }
 
 th:nth-child(2) {
-  width: 54%;
+  min-width: 200px;
 }
 
 th:nth-child(3) {
-  width: 33%;
+  min-width: 200px;
 }
 
 th,
@@ -224,10 +245,8 @@ td {
 
 th {
   background: var(--subtle);
-}
-
-th:first-child {
-  background: var(--subtle);
+  font-weight: 600;
+  font-size: 0.88em;
 }
 
 /* Prism tokens from @11ty/eleventy-plugin-syntaxhighlight */
