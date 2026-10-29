@@ -9,15 +9,19 @@ Create an app, register its scopes, stores, interceptors, and listeners, then st
 ```js
 import { rouse } from 'rousejs';
 
-// Config object can be passed when creating app
-const app = rouse({ baseUrl: '/api', headers: { 'X-Tenant': '42' } });
+// Config is read-only after creation; root defaults to document.body
+const app = rouse({
+  root: '#app',
+  baseUrl: '/api',
+  headers: { 'X-Tenant': '42' },
+});
 
-app.scope('counter', () => { /* ... */ }); // props and methods for data-rz-scope="counter"
-app.store('prefs', { theme: 'dark' });     // app-wide state accessed using @prefs from html
+app.scope('counter', () => { /* ... */ }); // defines the API inside data-rz-scope="counter"
+app.store('prefs', { theme: 'dark' });     // app-wide state, addressed as @prefs in HTML
 app.interceptor('request', addAuth);       // edits every request before it's sent
 app.on('rz:fetch:error', showToast);       // hears lifecycle events from the whole app
 
-app.start(); // scan the page and bind directives
+app.start(); // scans the root and binds directives
 ```
 
 | Config key | Default | Meaning |
@@ -58,9 +62,9 @@ Directives are `data-rz-*` attributes whose values name state, methods, and trig
 - `@name` is a store, `@name.path` a field in it, `@name::status` its read-only status.
 - A bare path (`count`, `user.name`) resolves against the nearest enclosing `data-rz-scope`.
 - `%` is the current `rz-render` item, `%.field` a field on it, `%::index` / `%::position` its zero- and one-based position.
-- Values are literal text: no expressions, no interpolation, no call arguments (`save(1)`, `greet{"name": "Ada"}` and `data-rz-scope='probe{...}'` are looked up as literal keys and match nothing). Put logic in a getter or method and name it; per-element parameters go in ordinary `data-*` attributes, read as `el.dataset` in a handler or `host.dataset` in a setup.
+- Values are literal text: no expressions, no interpolation, no call arguments (`save(1)` is looked up as a literal key and matches nothing). Put logic in a getter or method and name it; per-element parameters go in ordinary `data-*` attributes, read as `el.dataset` in a handler or `host.dataset` in a setup.
 - Paths are dot paths and may index arrays: `user.name`, `@names.list.0`.
-- Pairs are separated by a comma **plus whitespace** (`, `); key and value by a colon **plus whitespace** (`: `). Quote a value containing `, ` or `: ` (`'color: red'`).
+- Pairs are separated by a comma **plus whitespace** (`, `); key and value by a colon **plus whitespace** (`: `). Quote a value containing `, ` or `: ` (`'color: red'`). `rz-disable` and `rz-indicator` are the exceptions: each takes its whole value as one selector list, so `data-rz-disable="#e1, #e2"` needs no quotes.
 
 ## Directives
 
@@ -117,7 +121,7 @@ Method is only ever in the `rz-fetch` subject (or a form's `method` / a button's
 
 ## Trigger grammar
 
-Event-driven directives pair a trigger (when) with a subject (what): `[trigger]: [subject]`. `rz-on`, `rz-fetch`, `rz-push`, `rz-pull`, `rz-sse`, and `rz-model` take it.
+Event-driven directives pair a **trigger** (when) with a **subject** (what): `[trigger]: [subject]`. `rz-on`, `rz-fetch`, `rz-push`, `rz-pull`, `rz-sse`, and `rz-model` take it.
 
 ```html
 <!-- Call save on click -->
@@ -190,14 +194,15 @@ On a source only `once`, timing, and its argument apply (`sse` also takes `root`
 
 ## Scopes
 
-A scope is a synchronous setup function that returns a plain object: the keys that bare paths in its region resolve against. It is not a component (no template, props, or re-render) and its return is **not** made reactive. Expose reactive state through getters, with a setter for `rz-model`.
+A scope is a synchronous setup function that returns a plain object: the keys that bare paths in its region resolve against. It is not a component (no template, props, or re-render) and its return is **not** made reactive: reactivity comes from the `signal` and `reactive` state the setup creates. Expose a signal through a getter, with a setter if `rz-model` writes it. A `reactive` object or array can be returned as-is.
 
 ```js
 import { reactive, signal } from 'rousejs';
 
 app.scope('search', ({ host, app, term }) => {
-  // Reactive state; a plain `let` would render once and never update
+  // A signal is read through a getter; add a setter if rz-model writes it
   const query = signal('');
+  // Reactive objects and arrays track themselves; return them as-is
   const results = reactive([]);
 
   async function run() {
@@ -215,7 +220,7 @@ app.scope('search', ({ host, app, term }) => {
     // Getter for reading, setter so rz-model can write
     get query() { return query(); },
     set query(v) { query(v); },
-    get results() { return results; },
+    results,
     run,
     clear() { query(''); },
     // Handlers get { el, e, render }; render.index is the clicked row
@@ -243,6 +248,7 @@ app.scope('search', ({ host, app, term }) => {
 </div>
 ```
 
+- A returned `reactive` object or array is the same proxy for the scope's lifetime. Mutate it in place (`results.splice(…)`, `rz-model="form.name"`); assigning a new value to the key isn't reactive.
 - `ScopeCtx` is `{ host, app, term, scan }`. `term` is an `AbortSignal` aborted on teardown: pass `signal: term` to `app.on`, `app.fetch`, `app.sse`, and `app.interceptor` to end them with the scope. `scan(node)` binds DOM you add by hand.
 - Handlers and formatters receive `{ el, e, render: { item, index } }`. A scope or store function named in `rz-text`/`rz-attr`/etc. is called and its return value written.
 - Give client-created list items a stable key once, at creation: `items.push({ id: createKey(), text })` with `data-rz-key="id"`. Never call it in a getter.
@@ -316,7 +322,7 @@ app.on({ edit: 'cart' }, () => app.stores.push('cart'), { debounce: 500 });
 <template data-rz-render="@todos.items" data-rz-key="id">
   <li>
     <span data-rz-text="%::position"></span>. <span data-rz-text="%.title"></span>
-    <!-- Not %: falls through to the enclosing scope or a store -->
+    <!-- Stores are reachable and bare paths fall through to the enclosing scope -->
     <span data-rz-text="@todos.owner"></span>
   </li>
 </template>
@@ -333,7 +339,7 @@ app.on({ edit: 'cart' }, () => app.stores.push('cart'), { debounce: 500 });
 | Anything else (boolean mode) | One instance while truthy, none while falsy | The value |
 
 - `%` is the item in array mode and the rendered value in every other mode. `%.field` needs an object; on a primitive it's `undefined`. `%::index` / `%::position` work in every mode.
-- Each instance binds against its item: `%.field`, nested `%.user.name`, metadata `%::index` / `%::position` (readable anywhere in the instance, but read-only, and not item data: `rz-model` can't write them and `rz-send` doesn't send them).
+- Each instance binds against its item: `%.field`, nested `%.user.name`. Metadata (`%::index`, `%::position`) is readable anywhere in the instance but read-only and not item data: `rz-model` can't write it and `rz-send` doesn't send it.
 - Bare paths fall through to the enclosing scope. `%` is the nearest item only; outer items aren't reachable.
 - Without `rz-key`, instances are reused by position.
 
@@ -633,7 +639,7 @@ These bind without error and do the wrong thing, usually nothing.
 - **Modifiers need a pipe.** `click.debounce-[300ms]` is one event named `click.debounce` and never fires. Write `click|debounce-[300ms]`.
 - **Render fields need a dot.** `%name` is not `%.name`. The dot-less form reads `undefined` and writes nothing.
 - **Key names are exact.** `key-[entr]` never fires, and `keydown|enter` (no `key-[]`) fires on every key, with only a dev warning. `key-[ctrl]` is wrong: the key name is `control`, the held flag is `ctrl`.
-- **Scope state isn't reactive by default.** A plain field or `let` returned from setup renders once and never updates; use `signal`/`reactive` behind a getter.
+- **Scope state isn't reactive by default.** A plain field or `let` returned from setup renders once and never updates; use a `signal` behind a getter, or return a `reactive` object directly.
 - **Scope listeners and requests are app-wide.** `app.on` in a scope listens on the whole app unless you pass `host` first, and lasts as long as the app without `signal: term`. `app.fetch` likewise keeps running after teardown without `signal: term`.
 - **Register before scanning.** A store registered after the markup reading it was scanned stays `undefined` in those bindings for good.
 - **Stream events stay local.** `sse-[name]` hears only its own element's stream and descendants. A listener beside the stream needs `sse-[name]|root`.

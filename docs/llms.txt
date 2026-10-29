@@ -5,7 +5,7 @@
 Things to remember when writing Rouse apps:
 
 - Directive values are literal names, never expressions: `data-rz-on="click: save"`, not `save()` or `count + 1`. Put logic in a scope or store method or getter and name it.
-- A scope is a setup function returning a plain object, not a component. Its return isn't made reactive: expose `signal` or `reactive` state through getters, with a setter for `rz-model`.
+- A scope is a setup function returning a plain object, not a component. Its return isn't made reactive: expose a `signal` through a getter (with a setter for `rz-model`); return `reactive` state directly.
 - `@name` addresses a store, `%` the current `rz-render` item, and a bare path the nearest scope.
 - Triggers are always written out, as `trigger: subject`, with modifiers after one `|`: `input|debounce-[300ms]: search`.
 - Responses route by content type: HTML into the `rz-place` target, JSON into `rz-deposit` stores. `Rouse-*` response headers override the markup.
