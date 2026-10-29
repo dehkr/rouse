@@ -9,15 +9,15 @@ Create an app, register its scopes, stores, interceptors, and listeners, then st
 ```js
 import { rouse } from 'rousejs';
 
-// Defaults for every request the app makes; root defaults to document.body
+// Config object can be passed when creating app
 const app = rouse({ baseUrl: '/api', headers: { 'X-Tenant': '42' } });
 
-app.scope('counter', () => { /* ... */ }); // names for data-rz-scope="counter"
-app.store('prefs', { theme: 'dark' });     // state for @prefs anywhere on the page
+app.scope('counter', () => { /* ... */ }); // props and methods for data-rz-scope="counter"
+app.store('prefs', { theme: 'dark' });     // app-wide state accessed using @prefs from html
 app.interceptor('request', addAuth);       // edits every request before it's sent
 app.on('rz:fetch:error', showToast);       // hears lifecycle events from the whole app
 
-app.start(); // register everything before this
+app.start(); // scan the page and bind directives
 ```
 
 | Config key | Default | Meaning |
@@ -39,7 +39,7 @@ Directives are `data-rz-*` attributes whose values name state, methods, and trig
 
 ```html
 <div data-rz-scope="profile">
-  <!-- Bare path: a name from the nearest scope -->
+  <!-- Bare path: a key on the nearest scope -->
   <h2 data-rz-text="user.name"></h2>
   <!-- @store.path: a field in a store; @store::status: its read-only sync status -->
   <span data-rz-text="@cart.count" data-rz-class="busy: @cart::status.syncing"></span>
@@ -58,7 +58,7 @@ Directives are `data-rz-*` attributes whose values name state, methods, and trig
 - `@name` is a store, `@name.path` a field in it, `@name::status` its read-only status.
 - A bare path (`count`, `user.name`) resolves against the nearest enclosing `data-rz-scope`.
 - `%` is the current `rz-render` item, `%.field` a field on it, `%::index` / `%::position` its zero- and one-based position.
-- Values are literal text: no expressions, no interpolation, no call arguments (`save(1)`, `greet{"name": "Ada"}` and `data-rz-scope='probe{...}'` are not defined names). Put logic in a getter or method and name it; per-element parameters go in ordinary `data-*` attributes, read as `el.dataset` in a handler or `host.dataset` in a setup.
+- Values are literal text: no expressions, no interpolation, no call arguments (`save(1)`, `greet{"name": "Ada"}` and `data-rz-scope='probe{...}'` are looked up as literal keys and match nothing). Put logic in a getter or method and name it; per-element parameters go in ordinary `data-*` attributes, read as `el.dataset` in a handler or `host.dataset` in a setup.
 - Paths are dot paths and may index arrays: `user.name`, `@names.list.0`.
 - Pairs are separated by a comma **plus whitespace** (`, `); key and value by a colon **plus whitespace** (`: `). Quote a value containing `, ` or `: ` (`'color: red'`).
 
@@ -190,7 +190,7 @@ On a source only `once`, timing, and its argument apply (`sse` also takes `root`
 
 ## Scopes
 
-A scope is a synchronous setup function that returns a plain object: the names its region's directives resolve. It is not a component (no template, props, or re-render) and its return is **not** made reactive. Expose reactive state through getters, with a setter for `rz-model`.
+A scope is a synchronous setup function that returns a plain object: the keys that bare paths in its region resolve against. It is not a component (no template, props, or re-render) and its return is **not** made reactive. Expose reactive state through getters, with a setter for `rz-model`.
 
 ```js
 import { reactive, signal } from 'rousejs';
@@ -274,6 +274,7 @@ app.on({ edit: 'cart' }, () => app.stores.push('cart'), { debounce: 500 });
   data-rz-store="user: /api/user"
   data-rz-push="edit-[@user]|debounce-[500ms]: @user"
 >{ "name": "Ada" }</script>
+
 <input data-rz-model="@user.name">
 <button data-rz-push="click: @user" data-rz-attr="disabled: @user::status.syncing">Save</button>
 <span data-rz-class="unsaved: @user::status.dirty">Unsaved changes</span>
@@ -308,7 +309,7 @@ app.on({ edit: 'cart' }, () => app.stores.push('cart'), { debounce: 500 });
 
 ## Render
 
-`rz-render` repeats a `<template>` over a value: once per array item, n times for a number, once for an object, or once if true. Each instance resolves `%` against its item.
+`rz-render` repeats a `<template>` over a value. In each instance, `%` is that instance's item; bare paths and `@store` paths resolve as they do outside the template.
 
 ```html
 <!-- A keyed list from a store; each row reads its item through % -->
@@ -324,7 +325,38 @@ app.on({ edit: 'cart' }, () => app.stores.push('cart'), { debounce: 500 });
 <template data-rz-render="@todos.isEmpty"><p>Nothing to do.</p></template>
 ```
 
-Each instance binds against its item: `%.field`, nested `%.user.name`, metadata `%::index` / `%::position` (readable anywhere in the instance, but read-only, and not item data: `rz-model` can't write them and `rz-send` doesn't send them). Names that aren't `%` fall through to the enclosing scope. Bare `%` is the item in array and object modes and `undefined` in boolean and number modes. `%` is the nearest item only; outer items aren't reachable. Without `rz-key`, instances are reused by position.
+| Value | Renders | `%` |
+| --- | --- | --- |
+| Array | One instance per item | The item, of any type |
+| Plain object | One instance | The object |
+| Number | `n` instances, floored; negative or non-finite renders none | The number, in every instance |
+| Anything else (boolean mode) | One instance while truthy, none while falsy | The value |
+
+- `%` is the item in array mode and the rendered value in every other mode. `%.field` needs an object; on a primitive it's `undefined`. `%::index` / `%::position` work in every mode.
+- Each instance binds against its item: `%.field`, nested `%.user.name`, metadata `%::index` / `%::position` (readable anywhere in the instance, but read-only, and not item data: `rz-model` can't write them and `rz-send` doesn't send them).
+- Bare paths fall through to the enclosing scope. `%` is the nearest item only; outer items aren't reachable.
+- Without `rz-key`, instances are reused by position.
+
+### Render targets
+
+An item with a `renderTarget` field renders its instance there instead of beside the template.
+
+```html
+<!-- Each card renders into the column its renderTarget names -->
+<template data-rz-render="@board.cards" data-rz-key="id">
+  <article data-rz-text="%.title"></article>
+</template>
+<section id="todo"></section>
+<section id="done"></section>
+
+<!-- @board.cards: [{ "id": 1, "title": "Write docs", "renderTarget": "#done" }] -->
+```
+
+- A string is a selector, matched within the app root (first match). An element is used only if it's inside the app root. Otherwise the instance renders in place, with a dev warning.
+- It's read once, when the instance is built. Changing `renderTarget` later doesn't move a reused instance; it moves only when the instance is rebuilt under a new key.
+- Instances are appended to the target in the order they're built, and reordering the list doesn't reorder them there.
+- A moved instance still binds against its item and the template's scope.
+- `renderTarget` is ordinary item data, so a synced store pushes it with the item. Use a selector there; an element can't be serialized.
 
 ## Requests
 
@@ -611,7 +643,7 @@ These bind without error and do the wrong thing, usually nothing.
 - **Wake and close need a host directive.** `rz-wake` does nothing without `rz-scope`, and `rz-close` nothing without `rz-sse`.
 - **Null deletes synced fields.** In a synced store `null` deletes the key, so leave a field absent instead of `null`. A server serializer that omits empty values (Go `omitempty`) can never clear a field.
 - **Placement defaults to the host.** `rz-place` defaults to the host's `innerHTML`, so a stream element without it writes every unnamed HTML message into itself. Use `data-rz-place="null"` to opt out.
-- **Edit triggers watch data fields.** `edit-[@store.key]` filters on data fields. A setter writes its underlying field, so watching the accessor's name never fires.
+- **Edit triggers watch data fields.** `edit-[@store.key]` filters on data fields. A setter writes its underlying field, so watching the accessor's key never fires.
 - **CORS must allow Rouse headers.** A cross-origin server must list the `Rouse-*` headers in `Access-Control-Allow-Headers` (or sync requests fail as `Failed to fetch`) and `Access-Control-Expose-Headers` (or response headers are ignored).
 - **Push isn't plain JSON.** Push bodies are `application/merge-patch+json`. A server parsing only `application/json` (Express `express.json()`) sees an empty body.
 - **Streams send no headers.** `EventSource` can't set headers, so `rz-headers`, `rz-request`, and interceptors don't apply to `rz-sse`.
