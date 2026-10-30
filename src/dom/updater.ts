@@ -219,9 +219,14 @@ export function updateStyle(el: Element, value: BindableValue) {
 /**
  * Writes an attribute. `false` and nullish remove it; `true` sets the empty string,
  * matching how boolean HTML attributes are spelled.
+ *
+ * `aria-*` attributes are enumerated, not boolean: an empty or missing value reads as
+ * unset (or `false`), so booleans are written as `'true'` / `'false'`.
  */
 export function updateAttr(el: Element, attr: string, value: BindableValue) {
-  if (value === false || value == null) {
+  if (typeof value === 'boolean' && attr.toLowerCase().startsWith('aria-')) {
+    el.setAttribute(attr, String(value));
+  } else if (value === false || value == null) {
     el.removeAttribute(attr);
   } else {
     el.setAttribute(attr, value === true ? '' : String(value));

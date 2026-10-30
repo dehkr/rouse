@@ -58,6 +58,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Breaking:** Produce valid ARIA by writing booleans on `aria-*` attributes in `rz-attr` as `"true"` or `"false"`, instead of an empty value or removing the attribute.
 - Reject stores seeded with anything other than an object (via `app.store()`, `app.stores.update()`, or `<script data-rz-store>`). Arrays at the root break dirty tracking and store sync, so wrap a list in an object.
 - Fix store events and sync config when a `<script data-rz-store>` is replaced or removed in the DOM.
 - Stop a programmatic push or pull on a store created in JS from adding the `rouse-request` class to the app root. Set the `indicator` option to mark an element during a sync.
