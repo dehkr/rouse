@@ -60,7 +60,7 @@ import { isPlainObject } from './state';
 import { StoreManager, type SyncPolicy } from './store';
 
 export interface RouseConfig {
-  /** Element or selector where the app mounts. Defaults to `document.body`. */
+  /** Element or selector where the app mounts. Defaults to `document.documentElement`. */
   root?: string | HTMLElement;
   /** Prepended to relative URLs in `rz-fetch`, `rz-push`, `rz-pull`, `rz-sse`, `app.fetch()`, and `app.sse()`. */
   baseUrl?: string;
@@ -203,7 +203,7 @@ export class RouseApp {
     const rootEl =
       typeof config.root === 'string'
         ? (document.querySelector(config.root) as HTMLElement)
-        : (config.root ?? document.body);
+        : (config.root ?? document.documentElement);
 
     if (!rootEl) {
       fail('Root element not found.');

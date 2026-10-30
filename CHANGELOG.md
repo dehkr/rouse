@@ -41,6 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `rz-deposit` no longer falls back to the script's own store when it's missing or empty. Add `data-rz-deposit="@cart"` to keep depositing into it.
   - `data-rz-deposit="null"` no longer opts out of anything, since there's no default.
 - **Breaking:** Stop accepting `class` and `style` in `rz-attr`. Use `rz-class` and `rz-style` instead.
+- **Breaking:** Mount the app on `document.documentElement` by default instead of `document.body`, so a `<script data-rz-store>` in `<head>` declares its store. Pass `root: document.body` to keep the old boundary.
 - Pass the scope instance in `rz:scope:destroy`, as the other scope events do.
 - Export `LifecycleEventMap` to type lifecycle event details.
 
