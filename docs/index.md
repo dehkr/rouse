@@ -9,7 +9,7 @@ Create an app, register its scopes, stores, interceptors, and listeners, then st
 ```js
 import { rouse } from 'rousejs';
 
-// Config is read-only after creation; root defaults to document.body
+// Config is read-only after creation; root defaults to document.documentElement
 const app = rouse({
   root: '#app',
   baseUrl: '/api',
@@ -26,7 +26,7 @@ app.start(); // scans the root and binds directives
 
 | Config key | Default | Meaning |
 | --- | --- | --- |
-| `root` | `document.body` | Element or selector the app owns |
+| `root` | `document.documentElement` | Element or selector the app owns |
 | `baseUrl` | `''` | Prefixed to relative URLs in `rz-fetch`, `rz-push`, `rz-pull`, `rz-sse`, `app.fetch`, `app.sse` |
 | `headers` | `{}` | Sent with every request; a `null` value removes a header |
 | `credentials` | browser's (`same-origin`) | `fetch` `credentials` for every request |
@@ -95,7 +95,7 @@ HTML to #todo-list. The fieldset is disabled while the request runs.
 | `rz-wake` | Defer scope activation until **all** listed triggers fire (AND) | `data-rz-wake="intersect timeout-[2s]"` |
 | `rz-text` | Write state as text | `data-rz-text="@user.name"` |
 | `rz-html` | Write state as HTML (unsanitized) | `data-rz-html="previewHtml"` |
-| `rz-attr` | Set attributes; `false`/null removes, `true` sets empty. Not `class` or `style`: use `rz-class` / `rz-style` | `data-rz-attr="href: profileUrl, aria-expanded: open"` |
+| `rz-attr` | Set attributes; `false`/null removes, `true` sets empty; on `aria-*`, booleans write `"true"`/`"false"`. Not `class` or `style`: use `rz-class` / `rz-style` | `data-rz-attr="href: profileUrl, aria-expanded: open"` |
 | `rz-prop` | Set DOM properties, type preserved | `data-rz-prop="checked: done, items: @cart.items"` |
 | `rz-class` | Toggle the classes on the left by the state on the right, or write a class string or `{ class: bool }` object from a bare path | `data-rz-class="active selected: isChosen"`, `data-rz-class="themeClass"` |
 | `rz-style` | Toggle a quoted declaration, set one property, or write a declaration string or object from a bare path | `data-rz-style="'color: red; font-weight: bold': hasError, background: @theme.color"` |
@@ -126,10 +126,13 @@ Event-driven directives pair a **trigger** (when) with a **subject** (what): `[t
 ```html
 <!-- Call save on click -->
 <button data-rz-on="click: save">Save</button>
+
 <!-- Call search 300 ms after typing stops; a | starts the modifiers -->
 <input data-rz-on="input|debounce-[300ms]: search">
+
 <!-- Two pairs: Escape anywhere clears; Ctrl+Enter submits -->
 <input data-rz-on="keydown|window.key-[escape]: clear, keydown|ctrl.key-[enter]: submit">
+
 <!-- Two triggers sharing one subject: either fires it -->
 <a href="/panel" data-rz-on="pointerover focusin: preload">Panel</a>
 ```
@@ -207,7 +210,9 @@ app.scope('search', ({ host, app, term }) => {
 
   async function run() {
     // signal: term aborts the request if the scope is torn down mid-flight
-    const { data, error } = await app.fetch(`/search?q=${encodeURIComponent(query())}`, { signal: term });
+    const { data, error } = await app.fetch(`/search?q=${encodeURIComponent(query())}`, {
+      signal: term,
+    });
     if (!error) {
       results.splice(0, results.length, ...data.items);
     }
@@ -235,7 +240,10 @@ app.scope('search', ({ host, app, term }) => {
 ```html
 <div data-rz-scope="search">
   <!-- Typing writes query; run fires 300 ms after typing stops; Escape anywhere clears -->
-  <input data-rz-model="query" data-rz-on="input|debounce-[300ms]: run, keydown|window.key-[escape]: clear">
+  <input 
+    data-rz-model="query"
+    data-rz-on="input|debounce-[300ms]: run, keydown|window.key-[escape]: clear"
+  >
   <ul>
     <!-- One <li> per result, matched by id across re-renders -->
     <template data-rz-render="results" data-rz-key="id">
@@ -615,7 +623,7 @@ Every event bubbles to `app.root`. Each fires from the element it describes:
 Each `rouse({ root })` is self-contained: its own stores, scopes, interceptors, listeners, and config, so `@cart` in one app never reaches another app's `cart`. Use separate apps for micro-frontends or widgets that must stay isolated. One app per root; after `destroy()`, a new app can mount on the same element.
 
 ```js
-// The page app owns document.body
+// The page app owns the whole document
 const page = rouse();
 page.start();
 
@@ -628,7 +636,7 @@ document.querySelector('#sidebar').append(root);
 widget.start();
 ```
 
-- Apps can nest. A page app on the default `document.body` with an embedded widget is nested. The outer app skips the inner app's markup, and a nested app mounted after the outer one started takes its markup over.
+- Apps can nest. A page app on the default `document.documentElement` with an embedded widget is nested. The outer app skips the inner app's markup, and a nested app mounted after the outer one started takes its markup over.
 - Construct a nested app before inserting its root element, or the outer app binds that markup until the nested app exists.
 - Events bubble across roots: an outer `app.on('rz:fetch:success', …)` or `sse-[name]|root` also hears the inner app's. To handle only your own app's events, check `e.target.closest('[data-rouse-app]') === app.root`.
 

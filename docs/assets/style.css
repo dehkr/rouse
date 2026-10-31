@@ -1,14 +1,24 @@
+@font-face {
+  font-family: 'IBM Plex Mono';
+  src: url('/assets/IBMPlexMono-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   color-scheme: light dark;
   --fg: light-dark(#1f2328, #CED7E2);
   --muted: light-dark(#59636e, #94A5B8);
   --bg: light-dark(#ffffff, #1F242B);
-  --subtle: light-dark(#f6f7f9, #242B33);
-  --code: light-dark(#EDEEF4, #313B46);
+  --bg-keyword: light-dark(#cf222e1f, #ff7b721f);
+  --subtle: light-dark(#f8f8f8, #262D35);
+  --code: light-dark(#eeeeee, #313B46);
   --highlight: light-dark(#ffffff, #465464);
-  --border: light-dark(#DEE1E8, #363E47);
+  --border: light-dark(#ebebeb, #363E47);
   --link: light-dark(#0969da, #4493f8);
   --tok-comment: light-dark(#637080, #8296aa);
+  /* --tok-comment: light-dark(#888, #8296aa); */
   --tok-keyword: light-dark(#cf222e, #ff7b72);
   --tok-string: light-dark(#0a3069, #a5d6ff);
   --tok-name: light-dark(#8250df, #d2a8ff);
@@ -23,10 +33,17 @@
   color-scheme: dark;
 }
 
-.theme-toggle {
+.controls {
   position: fixed;
   top: 14px;
   right: 12px;
+  z-index: 1;
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.theme-toggle {
   display: flex;
   gap: 2px;
   padding: 4px;
@@ -79,7 +96,7 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--fg);
-  font: 14px/1.5 system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font: 15px/1.6 system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 
 strong {
@@ -87,7 +104,7 @@ strong {
 }
 
 main {
-  max-width: 960px;
+  max-width: 880px;
   margin: 0 auto;
   padding: 48px 24px 64px;
 }
@@ -96,7 +113,7 @@ h1,
 h2,
 h3 {
   line-height: 1.25;
-  margin: 1.6em 0 0.5em;
+  margin: 1.75em 0 0.5em;
   font-weight: 600;
 }
 
@@ -116,23 +133,8 @@ h2 {
   align-items: center;
 }
 
-h2::before {
-  display: block;
-  width: 30px;
-  height: 21px;
-  text-align: center;
-  content: counter(count);
-  font-size: 0.45em;
-  line-height: 21px;
-  font-weight: 600;
-  border-radius: 4px;
-  background: var(--fg);
-  color: var(--bg);
-  margin-right: 8px;
-}
-
 h3 {
-  font-size: 1.4em;
+  font-size: 1.3em;
 }
 
 p,
@@ -141,7 +143,7 @@ ol,
 blockquote,
 pre,
 table {
-  margin: 1.25em 0 1.75em;
+  margin: 0.5em 0 1.75em;
 }
 
 h2 + p {
@@ -180,15 +182,16 @@ blockquote {
 
 code,
 pre {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  background: var(--code);
-  font-size: 0.88em;
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  background: var(--subtle);
+  font-size: 0.9em;
+  border: 1px solid var(--border);
 }
 
 code {
-  padding: 0.1em 0.2em;
-  border-radius: 2px;
-  background: var(--code);
+  padding: 0.12em 0.25em;
+  border-radius: 4px;
+  /* background: var(--code); */
   overflow-wrap: anywhere;
 }
 
@@ -196,6 +199,7 @@ pre > code {
   background: none;
   padding: 0;
   line-height: 1.6;
+  border: none;
 }
 
 :not(pre) > code {
@@ -204,9 +208,9 @@ pre > code {
 
 pre {
   padding: 1.5em 1.75em;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  background: var(--subtle);
+  /* border: 1px solid var(--border); */
+  border-radius: 16px;
+  /* background: var(--subtle); */
   overflow-x: auto;
 }
 
@@ -216,43 +220,56 @@ pre code {
 
 table {
   width: 100%;
-  border-collapse: collapse;
-  border-radius: 4px;
-}
-
-td:first-child code {
-  white-space: nowrap;
-  color: var(--tok-keyword);
-  background: none;
-  padding: 0;
-}
-
-th:nth-child(2) {
-  min-width: 200px;
-}
-
-th:nth-child(3) {
-  min-width: 200px;
+  /* border-collapse: collapse; */
+  border-radius: 16px;
+  border: 1px solid var(--border);
 }
 
 th,
 td {
   padding: 8px 12px;
-  border: 1px solid var(--border);
   text-align: left;
   vertical-align: top;
 }
 
 th {
-  background: var(--subtle);
+  /* background: var(--subtle); */
   font-weight: 600;
-  font-size: 0.88em;
+  font-size: 0.95em;
+  padding-block: 12px;
   code {
     background: none;
     padding: 0;
     font-size: 1em;
   }
 }
+
+td {
+  border-top: 1px solid var(--border);
+}
+
+td:first-child code {
+  /* white-space: nowrap; */
+  color: var(--tok-keyword);
+  /* background: var(--bg-keyword); */
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+th:nth-child(1) {
+  min-width: 200px;
+}
+
+th:nth-child(2) {
+  min-width: 180px;
+}
+
+th:nth-child(3) {
+  min-width: 180px;
+}
+
+
 
 /* Prism tokens from @11ty/eleventy-plugin-syntaxhighlight */
 .token.comment,
@@ -287,4 +304,146 @@ th {
 
 .token.punctuation {
   color: var(--muted);
+}
+
+:is(h2, h3)[id] {
+  scroll-margin-top: 32px;
+}
+
+/* Focus moves to the heading only so Tab continues from it, so no ring */
+:is(h2, h3)[tabindex='-1']:focus {
+  outline: none;
+}
+
+/* A spread shadow, so the flash reaches past the text without shifting layout */
+.toc-target {
+  animation: toc-flash 1.2s ease-out;
+}
+
+@keyframes toc-flash {
+  from {
+    background: var(--code);
+    box-shadow: 0 0 0 6px var(--code);
+  }
+}
+
+.toc {
+  --toc-open-width: min(240px, calc(100vw - 118px));
+  position: relative;
+}
+
+/* Inputs can't hold pseudo-elements, so the icon sits on the wrapper, over the input */
+.toc::before {
+  content: '';
+  position: absolute;
+  top: 9px;
+  left: 12px;
+  width: 16px;
+  height: 16px;
+  background: var(--muted);
+  mask: url('/assets/list.svg') center / contain no-repeat;
+  pointer-events: none;
+}
+
+.toc-input {
+  width: 92px;
+  height: 34px;
+  padding: 0 14px 0 36px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--code);
+  color: var(--fg);
+  font: inherit;
+  font-size: 0.9em;
+  cursor: pointer;
+  transition: width 0.2s ease;
+}
+
+.toc-input::placeholder {
+  color: var(--muted);
+}
+
+.toc-input:focus {
+  width: var(--toc-open-width);
+  outline: 2px solid var(--link);
+  outline-offset: -2px;
+  cursor: text;
+}
+
+.toc-popup {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: var(--toc-open-width);
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.06);
+  transform-origin: top;
+  opacity: 0;
+  scale: 0.96;
+  visibility: hidden;
+  transition: opacity 0.1s, scale 0.1s, visibility 0s 0.1s;
+}
+
+/* Waits out the input's 0.2s widening, then fades and scales in */
+.toc-input[aria-expanded='true'] + .toc-popup {
+  opacity: 1;
+  scale: 1;
+  visibility: visible;
+  transition: opacity 0.15s ease-out 0.2s, scale 0.15s ease-out 0.2s, visibility 0s 0.2s;
+}
+
+.toc-list li[hidden] {
+  display: none;
+}
+
+/* The list scrolls, not the popup, so the scrollbar sits inside the popup's padding,
+   clear of its rounded corners */
+.toc-list {
+  max-height: min(70vh, 520px);
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  list-style: none;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.toc-list li {
+  margin: 0;
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9em;
+}
+
+.toc-list .toc-sub {
+  padding-left: 22px;
+  color: var(--muted);
+}
+
+.toc-list li:hover {
+  background: var(--subtle);
+}
+
+.toc-list li[aria-selected='true'] {
+  background: var(--code);
+  color: var(--fg);
+}
+
+.toc-empty {
+  margin: 0;
+  padding: 4px 8px;
+  color: var(--muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toc-input,
+  .toc-popup,
+  .toc-input[aria-expanded='true'] + .toc-popup {
+    transition: none;
+  }
 }
