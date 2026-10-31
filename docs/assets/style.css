@@ -96,7 +96,7 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--fg);
-  font: 15px/1.6 system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font: 15px/1.5 system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 
 strong {
@@ -190,7 +190,7 @@ pre {
 }
 
 code {
-  padding: 0.12em 0.25em;
+  padding: 0.05em 0.25em 0.1em;
   border-radius: 4px;
   /* background: var(--code); */
   overflow-wrap: anywhere;

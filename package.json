@@ -60,8 +60,9 @@
     "build": "tsup",
     "check": "biome check",
     "format": "biome format --write",
-    "types": "tsc --noEmit",
+    "types": "tsc",
     "docs:dev": "eleventy --serve",
+    "docs:types": "tsc -p docs/scopes",
     "docs:build": "eleventy"
   },
   "devDependencies": {
@@ -69,6 +70,7 @@
     "@11ty/eleventy-plugin-syntaxhighlight": "^5.0.2",
     "@biomejs/biome": "2.4.4",
     "alien-signals": "^3.1.2",
+    "esbuild": "^0.28.2",
     "tsup": "^8.5.1",
     "typescript": "~5.9.3"
   }
