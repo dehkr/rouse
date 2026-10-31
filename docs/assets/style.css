@@ -17,8 +17,8 @@
   --highlight: light-dark(#ffffff, #465464);
   --border: light-dark(#ebebeb, #363E47);
   --link: light-dark(#0969da, #4493f8);
+  --flash: light-dark(#F8EFE2, #4B443B);
   --tok-comment: light-dark(#637080, #8296aa);
-  /* --tok-comment: light-dark(#888, #8296aa); */
   --tok-keyword: light-dark(#cf222e, #ff7b72);
   --tok-string: light-dark(#0a3069, #a5d6ff);
   --tok-name: light-dark(#8250df, #d2a8ff);
@@ -115,6 +115,7 @@ h3 {
   line-height: 1.25;
   margin: 1.75em 0 0.5em;
   font-weight: 600;
+  border-radius: 0.05em;
 }
 
 h1 {
@@ -322,8 +323,8 @@ th:nth-child(3) {
 
 @keyframes toc-flash {
   from {
-    background: var(--code);
-    box-shadow: 0 0 0 6px var(--code);
+    background: var(--flash);
+    box-shadow: 0 0 0 6px var(--flash);
   }
 }
 

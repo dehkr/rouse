@@ -2468,6 +2468,9 @@ function attachTriggerSource(handler, ctx) {
   }
   return cleanup;
 }
+function isTriggerSource(name) {
+  return Object.hasOwn(triggerSources, name);
+}
 function attachWakeStrategies(el, app, triggers, onWake) {
   let pending = triggers.length;
   if (pending === 0) {
@@ -3740,11 +3743,7 @@ var rzModel = {
 // src/directives/rz-on.ts
 function bind4(el, scope, app, key, value) {
   if (!value) {
-    warn(
-      `rz-on: value '${key}' is incomplete; at least one trigger and a handler are required.`,
-      el
-    );
-    return void 0;
+    return bindModifiersOnly(el, app, key);
   }
   const methodName = value.trim();
   let method;
@@ -3786,6 +3785,26 @@ function bind4(el, scope, app, key, value) {
       )
     })
   );
+  return (() => cleanups.forEach((fn) => fn()));
+}
+function bindModifiersOnly(el, app, key) {
+  const cleanups = parseTriggers(key).flatMap((trigger2) => {
+    const { prevent, stop, stopImmediate } = trigger2.options;
+    if (isTriggerSource(trigger2.event) || !(prevent || stop || stopImmediate)) {
+      warn(
+        `rz-on: '${trigger2.event}' has no handler and no prevent, stop, or stop-immediate, so it does nothing. Ignoring.`,
+        el
+      );
+      return [];
+    }
+    return dispatchTrigger(trigger2, {
+      el,
+      app,
+      action: () => {
+      },
+      suppressNavigation: false
+    });
+  });
   return (() => cleanups.forEach((fn) => fn()));
 }
 var rzOn = {
