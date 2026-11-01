@@ -57,7 +57,6 @@ Where they meet: rule 2 goes before rule 4 (check whether a question needs an au
 
 The header of `src/core/diagnostics.ts` has the bare `err` sites and the message style.
 
-
 - **Every `warn()` / `err()` is written `__DEV__ && warn(...)`**, and diagnostic-only state (latches, counters, message values) is gated with it. `if (__DEV__) { … }` is the one alternative, for stranded bookkeeping; `__DEV__ ? x : y` for a value in expression position. A bare call ships its message in the min build.
 - **Gate authoring diagnostics; never gate a failure that can first occur in production.** If the same markup could fail for one user and not another, the report ships.
 - **Throws are never gated or labeled.** Route them through `fail()` (`core/diagnostics.ts`).
@@ -68,7 +67,12 @@ The header of `src/core/diagnostics.ts` has the bare `err` sites and the message
 - **Local comments only for a non-obvious *why*.** Never narrate the code or record history; that goes in the commit message.
 - **Module headers are plain `/* */` blocks before the imports**, at most ~30 lines, holding only rules the code can't show. Never `/** */`, which ships in `rouse.d.ts`.
 - **Tag `@internal`** on a non-`private` member of a public class that exists only for other modules; the underscore alone doesn't strip it from `rouse.d.ts`. A tagged member must not appear in a public signature.
-- **Public-API JSDoc** (`RouseApp`, `rouse`, exported reactivity helpers) is written for a reader in an editor tooltip: no internal vocabulary, no em dashes. Internal JSDoc is one to three lines, verb-first.
+- **Public-API JSDoc** (`RouseApp`, `rouse`, exported reactivity helpers) is written for a reader in an editor tooltip: avoid Rouse-internal vocabulary if possible (standard engineering terms are fine), no em dashes. Internal JSDoc is one to three lines, verb-first.
+
+### Changelog
+
+- **Top-level entries start with an imperative verb** ("Add…", "Stop…", "Wait for…"), including after the **Breaking:** label. Sub-bullets carry details and migration code.
+- **Skip diagnostic-only changes** (error wording, suppressed cascading warnings). List behavior and API changes only.
 
 ### Naming and layout
 
