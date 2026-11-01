@@ -9,7 +9,7 @@ Create an app, register its scopes, stores, interceptors, and listeners, then st
 ```js
 import { rouse } from 'rousejs';
 
-// Config is read-only after creation; root defaults to document.documentElement
+// Creates the app with config; config is read-only after creation
 const app = rouse({
   root: '#app',
   baseUrl: '/api',
@@ -72,21 +72,27 @@ Each directive does one job: bind state to the DOM, handle an event, make a requ
 
 ```html
 <!--
+The todos scope activates on the first hover or focus inside the section.
+Until then, its bindings (rz-model, rz-attr) wait; rz-fetch is already live.
 On submit, POST the form's fields to its action (/todos) and append the returned
 HTML to #todo-list. The fieldset is disabled while the request runs.
 -->
-<form
-  action="/todos"
-  method="post"
-  data-rz-fetch="submit"
-  data-rz-place="beforeend: #todo-list"
-  data-rz-disable="#todo-fields"
->
-  <fieldset id="todo-fields">
-    <input name="title"><button>Add</button>
-  </fieldset>
-</form>
-<ul id="todo-list"></ul>
+<section data-rz-scope="todos" data-rz-wake="interact">
+  <form
+    action="/todos"
+    method="post"
+    data-rz-fetch="submit"
+    data-rz-place="beforeend: #todo-list"
+    data-rz-disable="#todo-fields"
+  >
+    <fieldset id="todo-fields">
+      <!-- todos exposes title and isEmpty -->
+      <input name="title" data-rz-model="title">
+      <button data-rz-attr="disabled: isEmpty">Add</button>
+    </fieldset>
+  </form>
+  <ul id="todo-list"></ul>
+</section>
 ```
 
 | Directive | Purpose | Example |
@@ -263,6 +269,21 @@ app.scope('search', ({ host, app, term }) => {
 - Nested scopes are independent; share state through a store, signal through DOM events (`dispatch(el, 'name', detail)` from `rousejs`).
 - Register scopes at app level with `app.scope(name, setup)`, never inside another setup.
 
+### Lifecycle hooks
+
+`connect()` and `disconnect()` are optional methods on the returned object. Both are called with `this` as that object and no arguments.
+
+| Hook | Runs | Order |
+| --- | --- | --- |
+| `connect()` | Once per instance, after the region's directives bind | setup -> `rz:scope:init` -> bind -> `connect()` -> `rz:scope:connect` |
+| `disconnect()` | On teardown: the host leaves the DOM, or `app.destroy()` | `term` aborts -> bindings detach -> `disconnect()` -> `rz:scope:disconnect` -> `rz:scope:destroy` |
+
+- Use `connect()` for work that needs bound DOM: measuring, focusing, or mounting a third-party widget. Setup runs before any directive binds.
+- With `rz-wake`, `connect()` waits for activation. Setup waits too.
+- Prefer `signal: term` for cleanup. It also covers a setup that throws partway, which runs neither hook. Keep `disconnect()` for undo work `term` can't reach, such as a widget's own `destroy()`.
+- Moving the host is a removal and an insertion: the instance tears down and setup runs again. State that must survive a move belongs in a store.
+- A throwing hook is logged; the mount or teardown still completes.
+
 ## Stores
 
 A store is one flat reactive object: data, getters (cached computeds; keep them pure), and methods (`this` is the store). Only plain data syncs. The root must be an object.
@@ -301,6 +322,25 @@ app.on({ edit: 'cart' }, () => app.stores.push('cart'), { debounce: 500 });
 - Push sends `Content-Type: application/merge-patch+json`.
 - `app.store(name, data, config?)` takes the endpoint as `config.url`, plus request options (`headers`, `timeout`, `credentials`, …). It returns the store itself, the same object `app.stores.get(name)` returns.
 
+### Declarative stores
+
+A `<script type="application/json" data-rz-store="name: /endpoint">` declares a store when it's scanned: at `start()`, or when inserted later. The body is the initial data and must be a JSON object; an empty body starts the store as `{}`. Invalid JSON logs an error, in production too, and creates no store.
+
+The script element is the store's declaration. Replacing it with a new script of the same name re-declares the store:
+
+- **Data.** The new body replaces the data and becomes the new `reset()` and `revert()` target. Unsaved edits are discarded, and the store reads clean.
+- **Config.** The endpoint and headers come from the new script. A missing endpoint or `rz-headers` clears that setting, including headers set in JS. Other options (`timeout`, `credentials`, …) are kept.
+- **Empty body.** The data is kept; only the config is replaced.
+
+```html
+<!-- A server re-render swaps the script; the store re-seeds from the new body -->
+<script type="application/json" data-rz-store="cart: /api/cart">{ "items": [] }</script>
+```
+
+- Removing the script leaves the store registered. Only `app.stores.remove(name)` deletes a store.
+- A second script with the same name, while the first is still in the page, is ignored with a dev warning. So is a script for a store created with `app.store()`.
+- Bindings follow the store, not the script: the same `@cart` paths keep updating across a re-declaration.
+
 `app.stores` manages every store by name (it's a manager, not a record of stores):
 
 | Method | Does |
@@ -314,9 +354,9 @@ app.on({ edit: 'cart' }, () => app.stores.push('cart'), { debounce: 500 });
 | `baseline(name)` | Plain copy of the last synced data |
 | `push(name)` / `pull(name)` | Sync now; never reject, check `status` |
 | `revert(name, path?)` | Back to the last synced data |
-| `reset(name)` | Back to the page-load data |
+| `reset(name)` | Back to the initial data: from creation, the last `update()`, or the last re-declared script |
 | `commit(name)` | Mark the current data synced; sends nothing |
-| `update(name, state)` | Replace the data and re-baseline |
+| `update(name, state)` | Replace the data; it becomes the new `reset()` and `revert()` target |
 | `deposit(name, payload)` | Merge a payload as JSON Merge Patch |
 | `config(name, partial)` | Change the sync config |
 | `remove(name)` | Delete the store |
@@ -406,20 +446,6 @@ Every request has an abort key: the trigger element's own by default, or a share
 - While a **write** (any method but `GET`, `HEAD`, `OPTIONS`, `QUERY`) is in flight, new requests under its key are dropped, with no events. The server may already have acted on the write, so aborting it would only discard its response.
 - A read that fails before any response arrives (a dropped connection) is retried once, immediately. Timeouts, cancellations, HTTP errors, and writes are never retried.
 
-### Errors
-
-A response's `error` is `null` on success, else `{ code, message, body?, parseError?, original? }`:
-
-| `code` | Means |
-| --- | --- |
-| HTTP status (number) | Non-2xx response. `body` is the parsed error body; `parseError` is set if it didn't parse |
-| `TIMEOUT` | The `timeout` elapsed |
-| `CANCELED` | Aborted by a newer request or a signal (fires `:abort`, not `:error`), prevented in `:config`, or dropped by a guard |
-| `NETWORK_ERROR` | No response, after the retry for reads; `original` is the thrown error |
-| `PARSE_ERROR` | A 2xx body that couldn't be parsed: malformed JSON, or an event stream (open it with `rz-sse`) |
-| `REDIRECTED` | The browser followed a redirect to another origin |
-| `INTERNAL_ERROR` | Rouse threw unexpectedly |
-
 ## Server responses
 
 The server answers a Rouse request with HTML or JSON, and can steer where it goes with `Rouse-*` response headers.
@@ -442,7 +468,7 @@ A fetch response is routed by content type:
 - **HTML** goes to the `rz-place` targets (default: the trigger's `innerHTML`; `data-rz-place="null"` for none).
 - **JSON** merges into the `rz-deposit` stores, as JSON Merge Patch. Without `rz-deposit` it goes nowhere.
 - **Files** only fire `rz:fetch:success:file`.
-- **Not routed:** error responses, an empty body, and an `app.fetch` without `triggerEl`, unless the server sends `Rouse-Place` or `Rouse-Deposit`. An empty body with `Rouse-Place` places `''`, so a `204` with `Rouse-Place: delete` removes the trigger.
+- **Not routed:** error responses, an empty body, and an `app.fetch` without `triggerEl`, unless the server sends `Rouse-Place` or `Rouse-Deposit`. An empty body with `Rouse-Place` places `''`, so a `204` with `Rouse-Place: delete` removes the trigger. See Errors for routing error responses.
 
 Unnamed `rz-sse` messages route the same way, without headers.
 
@@ -458,6 +484,75 @@ The server can override the client with response headers. The header wins over t
 | `Rouse-Replace-Url` | `history.replaceState` to the URL; same origin only. `Rouse-Push-Url` wins if both are sent | fetch |
 
 A redirect the browser follows (`3xx`) navigates the page to the final URL when it's same-origin, and fails with `REDIRECTED` when it isn't.
+
+## Errors
+
+A failed request never rejects. It resolves with `error` set and fires `rz:fetch:error` (`rz:push:error`, `rz:pull:error` for sync). Error responses skip `rz-place` and `rz-deposit`: a 4xx/5xx body reaches the page only if the server routes it with a header or your code renders it.
+
+`error` is `null` on success, else `{ code, message, body?, parseError?, original? }`:
+
+| `code` | Means |
+| --- | --- |
+| HTTP status (number) | Non-2xx response. `body` is the parsed error body; `parseError` is set if it didn't parse |
+| `TIMEOUT` | The `timeout` elapsed |
+| `CANCELED` | Aborted by a newer request or a signal (fires `:abort`, not `:error`), prevented in `:config`, or dropped by a guard |
+| `NETWORK_ERROR` | No response, after the retry for reads; `original` is the thrown error |
+| `PARSE_ERROR` | A 2xx body that couldn't be parsed: malformed JSON, or an event stream (open it with `rz-sse`) |
+| `REDIRECTED` | The browser followed a redirect to another origin |
+| `INTERNAL_ERROR` | Rouse threw unexpectedly |
+
+### Handling strategies
+
+Pick by who owns the error UI. Strategies combine: a server-routed form error and an app-wide toast can handle the same response.
+
+| Strategy | Mechanism | Fits |
+| --- | --- | --- |
+| Server-routed | `Rouse-Place` or `Rouse-Deposit` on the error response | Server-rendered error HTML, field validation; no client code |
+| Trigger-local | `data-rz-on="rz:fetch:error: showError"` on the trigger or an ancestor | One form or widget |
+| App-wide | `app.on('rz:fetch:error', fn)` | Toasts, logging, redirect to login on `401` |
+| Interceptor | `app.interceptor('error', fn)` | Normalize or rewrite `error` for every fetch, push, and pull |
+| Inline | `const { error } = await app.fetch(…)` | Code that calls `app.fetch` |
+| Store sync | `@name::status.error`, `rz:push:error`, `rz:pull:error` | Failed push or pull |
+
+```html
+<!-- Field validation: a 422 JSON body deposits per-field messages -->
+<script type="application/json" data-rz-store="form-errors">{}</script>
+
+<form action="/signup" method="post" data-rz-fetch="submit">
+  <input name="email" data-rz-class="invalid: @form-errors.email">
+  <p data-rz-text="@form-errors.email"></p>
+  <button>Sign up</button>
+</form>
+```
+
+```http
+HTTP/1.1 422 Unprocessable Content
+Content-Type: application/json
+Rouse-Deposit: @form-errors
+
+{ "email": "Enter a valid email address." }
+```
+
+```js
+// App-wide: e.detail is the full response; data is the parsed error body
+app.on('rz:fetch:error', (e) => {
+  const { error, data } = e.detail;
+  if (error.code === 401) location.assign('/login');
+  else toast(error.message);
+});
+
+// Interceptor: listeners and app.fetch callers see the returned error
+app.interceptor('error', (error) => {
+  if (error.code === 'TIMEOUT') error.message = 'The server took too long to respond.';
+  return error;
+});
+```
+
+- **Clear field errors.** Send every field on each response, with `""` for valid ones, and send `Rouse-Deposit` on the success response too. A field left out keeps its old message.
+- **Typed sub-events.** `rz:fetch:error:html` and `rz:fetch:error:json` fire right after `rz:fetch:error`, filtered by the error body's content type.
+- **Bubbling.** Error events bubble to `app.root`, so one listener on a container handles every trigger inside it.
+- **Order.** Error interceptors run before any error event, after the read retry.
+- **Cancellations aren't errors.** `CANCELED` from a newer request or a signal fires `:abort`, not `:error`, so it needs no error UI.
 
 ## Programmatic API
 
@@ -642,7 +737,7 @@ widget.start();
 
 ## Silent pitfalls
 
-These bind without error and do the wrong thing, usually nothing.
+These fail without an error, at most a dev warning. Most do nothing; some do the wrong thing.
 
 - **Modifiers need a pipe.** `click.debounce-[300ms]` is one event named `click.debounce` and never fires. Write `click|debounce-[300ms]`.
 - **Render fields need a dot.** `%name` is not `%.name`. The dot-less form reads `undefined` and writes nothing.
