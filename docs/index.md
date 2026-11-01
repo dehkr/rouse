@@ -35,7 +35,11 @@ app.start(); // scans the root and binds directives
 
 `start()` scans the DOM once and then watches for added nodes. Registration applies to DOM scanned afterward and never retroactively. `<script data-rz-store>` stores don't exist until `start()`. `destroy()` is terminal.
 
-Install with `npm install rousejs`, or skip the install and import from a CDN in a `<script type="module">`: `https://cdn.jsdelivr.net/npm/rousejs@0.15.0/dist/rouse.js` (development) or `https://cdn.jsdelivr.net/npm/rousejs@0.15.0/dist/rouse.min.js` (production). Rouse ships as ES modules only. From npm, `rousejs` resolves to the minified build, or to the development build under a bundler's `development` condition; import `rousejs/dev` or `rousejs/min` to pick one. Only the development build reports authoring mistakes (`[Rouse]` console warnings).
+Install with `npm install rousejs`, or skip the install and import from a CDN in a `<script type="module">`: `https://cdn.jsdelivr.net/npm/rousejs@0.15.0/dist/rouse.js` (development) or `https://cdn.jsdelivr.net/npm/rousejs@0.15.0/dist/rouse.min.js` (production). Rouse ships as ES modules only.
+
+- npm `rousejs` -> minified build; under a bundler's `development` condition -> development build.
+- `rousejs/dev` and `rousejs/min` pick one explicitly.
+- Only the development build logs `[Rouse]` authoring warnings.
 
 ## Syntax
 
@@ -62,7 +66,8 @@ Directives are `data-rz-*` attributes whose values name state, methods, and trig
 - `@name` is a store, `@name.path` a field in it, `@name::status` its read-only status.
 - A bare path (`count`, `user.name`) resolves against the nearest enclosing `data-rz-scope`.
 - `%` is the current `rz-render` item, `%.field` a field on it, `%::index` / `%::position` its zero- and one-based position.
-- Values are literal text: no expressions, no interpolation, no call arguments (`save(1)` is looked up as a literal key and matches nothing). Put logic in a getter or method and name it; per-element parameters go in ordinary `data-*` attributes, read as `el.dataset` in a handler or `host.dataset` in a setup.
+- Values are literal text: no expressions, interpolation, or call arguments. `save(1)` is looked up as a literal key and matches nothing. Put logic in a getter or method and name it.
+- Per-element parameters go in ordinary `data-*` attributes, read as `el.dataset` in a handler or `host.dataset` in a setup.
 - Paths are dot paths and may index arrays: `user.name`, `@names.list.0`.
 - Pairs are separated by a comma **plus whitespace** (`, `); key and value by a colon **plus whitespace** (`: `). Quote a value containing `, ` or `: ` (`'color: red'`). `rz-disable` and `rz-indicator` are the exceptions: each takes its whole value as one selector list, so `data-rz-disable="#e1, #e2"` needs no quotes.
 
@@ -105,7 +110,7 @@ HTML to #todo-list. The fieldset is disabled while the request runs.
 | `rz-prop` | Set DOM properties, type preserved | `data-rz-prop="checked: done, items: @cart.items"` |
 | `rz-class` | Toggle the classes on the left by the state on the right, or write a class string or `{ class: bool }` object from a bare path | `data-rz-class="active selected: isChosen"`, `data-rz-class="themeClass"` |
 | `rz-style` | Toggle a quoted declaration, set one property, or write a declaration string or object from a bare path | `data-rz-style="'color: red; font-weight: bold': hasError, background: @theme.color"` |
-| `rz-model` | Two-way bind an input, textarea, select (`multiple` gives an array), checkbox, radio, or `contenteditable`; default trigger, resolved once at bind, `input` (text, textarea, `contenteditable`) or `change` (select, checkbox, radio). Custom elements bind `.value` and need an explicit trigger | `data-rz-model="query"`, `data-rz-model="value-changed: @names.list.0"` |
+| `rz-model` | Two-way bind an input, textarea, select (`multiple` gives an array), checkbox, radio, or `contenteditable`. Default trigger, resolved at bind: `input` for text, textarea, and `contenteditable`; `change` for select, checkbox, and radio. Custom elements bind `.value` and need an explicit trigger | `data-rz-model="query"`, `data-rz-model="value-changed: @names.list.0"` |
 | `rz-on` | Call a scope or store method on a trigger | `data-rz-on="click: save, submit: send"` |
 | `rz-render` | On a `<template>`: render an array (per item), number (n copies), object (once), or boolean (if) | `<template data-rz-render="@todos.items">` |
 | `rz-key` | Stable key for `rz-render` lists that reorder or refetch | `data-rz-key="id"` |
@@ -203,7 +208,7 @@ On a source only `once`, timing, and its argument apply (`sse` also takes `root`
 
 ## Scopes
 
-A scope is a synchronous setup function that returns a plain object: the keys that bare paths in its region resolve against. It is not a component (no template, props, or re-render) and its return is **not** made reactive: reactivity comes from the `signal` and `reactive` state the setup creates. Expose a signal through a getter, with a setter if `rz-model` writes it. A `reactive` object or array can be returned as-is.
+A scope is a synchronous setup function that returns a plain object: the keys that bare paths in its region resolve against. A scope is not a component: no template, props, or re-render. Its return value is **not** made reactive; reactivity comes from the `signal` and `reactive` state the setup creates. Expose a signal through a getter, with a setter if `rz-model` writes it. A `reactive` object or array can be returned as-is.
 
 ```js
 import { reactive, signal } from 'rousejs';
@@ -414,7 +419,7 @@ An item with a `renderTarget` field renders its instance there instead of beside
 
 ## Requests
 
-An `rz-fetch` sends its element's data: the `rz-send` payload, else the element's own field, or the fields of a form or fieldset. GET and HEAD send it as query parameters; other methods send a body in the encoding you declare.
+An `rz-fetch` sends its element's data. Payload precedence: `rz-send` -> the element's own field -> a form's or fieldset's enabled fields. GET and HEAD send it as query parameters; other methods send a body in the encoding you declare.
 
 ```html
 <!-- GET /search?q=…: a field sends its own name and value -->
@@ -434,7 +439,7 @@ An `rz-fetch` sends its element's data: the `rz-send` payload, else the element'
 ```
 
 - **Payload.** `rz-send` replaces the element's own data. A field sends `{ name: value }`; a nameless field sends nothing. A form or fieldset sends its enabled fields plus the submitter's name and value, and a submitter's `formaction`, `formmethod`, and `formenctype` beat the form's. Any other element sends nothing without `rz-send`.
-- **Encoding**, for methods with a body: a declared `Content-Type` (app `headers` or `rz-headers`), then `formenctype`, then `enctype`, else `application/x-www-form-urlencoded`. It's never inferred from the payload. A `Content-Type` that isn't JSON, urlencoded, or multipart sends form data under that type, with a dev warning.
+- **Encoding**, for methods with a body. Precedence: `Content-Type` header (app `headers` or `rz-headers`) -> button `formenctype` -> form `enctype` -> `application/x-www-form-urlencoded`. Never inferred from the payload. A `Content-Type` that isn't JSON, urlencoded, or multipart sends form data under that type, with a dev warning.
 - **Shape.** JSON keeps nesting and types. Form encodings flatten: arrays become repeated keys, numbers and booleans become strings, nested objects are dropped. A file needs multipart: urlencoded sends its name and JSON drops it. Each loss warns in dev.
 - **`app.fetch` body.** An object is sent as JSON, `URLSearchParams` as urlencoded, and strings and native bodies (`FormData`, `Blob`, …) as is; a declared `Content-Type` wins. A body on GET or HEAD throws: pass `params`. A `body` replaces the trigger element's data, and `rz-send` is ignored with a warning.
 
@@ -459,7 +464,7 @@ Rouse-Trigger: entry-added
 <li>Saved at 10:42</li>
 ```
 
-Here the HTML is appended to `#log` whatever the trigger's `rz-place` says, and an `entry-added` event is dispatched from the trigger after `rz:fetch:success`, so `data-rz-on="entry-added: refresh"` on the trigger or an ancestor hears it.
+`Rouse-Place` appends the HTML to `#log`, overriding the trigger's `rz-place`. `Rouse-Trigger` dispatches `entry-added` from the trigger after `rz:fetch:success`. A `data-rz-on="entry-added: refresh"` on the trigger or an ancestor hears it.
 
 Requests identify themselves: a fetch sends `Rouse-Request: true`; a push or pull sends `Rouse-Sync: push | pull` and `Rouse-Store: <name>`. A `null` header value in `rz-headers` drops any of them.
 
@@ -747,7 +752,7 @@ These fail without an error, at most a dev warning. Most do nothing; some do the
 - **Register before scanning.** A store registered after the markup reading it was scanned stays `undefined` in those bindings for good.
 - **Stream events stay local.** `sse-[name]` hears only its own element's stream and descendants. A listener beside the stream needs `sse-[name]|root`.
 - **Some events fire off the element.** `visibilitychange` fires on `document`: write `visibilitychange|document`. `load|window` never fires if the app starts after load; use `ready`.
-- **Streams don't wait for a lazy scope.** A stream inside a lazily woken scope opens at page load. Use `data-rz-sse="wake: /events"`.
+- **Network directives don't wait for a lazy scope.** `rz-fetch`, `rz-pull`, `rz-push`, and `rz-sse` inside a scope with `rz-wake` start at page load. Use the `wake` trigger: `data-rz-sse="wake: /events"`.
 - **Wake waits for every trigger.** `rz-wake` is AND: `interact timeout-[5s]` waits for both.
 - **Wake and close need a host directive.** `rz-wake` does nothing without `rz-scope`, and `rz-close` nothing without `rz-sse`.
 - **Null deletes synced fields.** In a synced store `null` deletes the key, so leave a field absent instead of `null`. A server serializer that omits empty values (Go `omitempty`) can never clear a field.
