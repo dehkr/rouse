@@ -8,20 +8,20 @@ export default function (eleventyConfig) {
   eleventyConfig.addPlugin(syntaxHighlight);
   eleventyConfig.addPlugin(IdAttributePlugin);
 
-  // Keep index.md free of front matter: it's also served raw for agents
+  // Provide defaults via global data so index.md stays clean Markdown for LLM/agent consumption
   eleventyConfig.addGlobalData('layout', 'base.njk');
   eleventyConfig.addGlobalData('title', 'Rouse reference');
 
-  // Serve the raw source for agents, and llms.txt as its index
+  // Serve the raw source for agents
   eleventyConfig.addPassthroughCopy({ 'docs/index.md': 'index.md' });
   eleventyConfig.addPassthroughCopy('docs/llms.txt');
   eleventyConfig.addPassthroughCopy('docs/assets');
 
-  // Cloudflare Pages response headers; without a charset, the raw files can garble `→`
+  // Enforce UTF-8 headers to prevent character corruption (e.g., arrow symbols) on raw text responses
   eleventyConfig.addPassthroughCopy({ 'docs/_headers': '_headers' });
 
-  // Scopes are TypeScript. Each compiles to /scopes/<name>.js with its imports as written,
-  // so a path like '../assets/rouse/rouse.js' resolves the same for tsc and the browser
+  // Transpile TypeScript scopes to ESM without bundling, preserving import specifiers so
+  // paths resolve identically in tsc and the browser.
   eleventyConfig.addWatchTarget('docs/scopes/');
   eleventyConfig.on('eleventy.before', async ({ directories }) => {
     const outDir = join(directories.output, 'scopes');

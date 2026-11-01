@@ -63,7 +63,8 @@
     "types": "tsc",
     "docs:dev": "eleventy --serve",
     "docs:types": "tsc -p docs/scopes",
-    "docs:build": "eleventy"
+    "docs:build": "eleventy",
+    "docs:vendor": "tsup && cp dist/* docs/assets/rouse/"
   },
   "devDependencies": {
     "@11ty/eleventy": "^3.1.7",

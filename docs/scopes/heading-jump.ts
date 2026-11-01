@@ -96,7 +96,7 @@ export const headingJump: ScopeSetup = ({ host }) => {
   /**
    * Preserves document order in the list while highlighting the highest-ranked
    * match for Enter key selection.
-   */ 
+   */
   function filter() {
     const query = norm(list.query);
     const ranked = items.map((item) => ({
@@ -172,6 +172,8 @@ export const headingJump: ScopeSetup = ({ host }) => {
     prev: () => step(-1),
     next: () => step(1),
     dismiss: ({ el }: HandlerCtx) => el.blur(),
+    // No-op paired with `mousedown|prevent`, which stops the popup from blurring the combobox
+    keepFocus: () => {},
     hasResults: () => list.shown.length > 0,
     selected: ({ render }: RenderHandlerCtx<Item>) => render.item.id === list.activeId,
     pick: ({ render }: RenderHandlerCtx<Item>) => go(render.item),

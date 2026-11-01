@@ -100,7 +100,7 @@ HTML to #todo-list. The fieldset is disabled while the request runs.
 | `rz-class` | Toggle the classes on the left by the state on the right, or write a class string or `{ class: bool }` object from a bare path | `data-rz-class="active selected: isChosen"`, `data-rz-class="themeClass"` |
 | `rz-style` | Toggle a quoted declaration, set one property, or write a declaration string or object from a bare path | `data-rz-style="'color: red; font-weight: bold': hasError, background: @theme.color"` |
 | `rz-model` | Two-way bind an input, textarea, select (`multiple` gives an array), checkbox, radio, or `contenteditable`; default trigger, resolved once at bind, `input` (text, textarea, `contenteditable`) or `change` (select, checkbox, radio). Custom elements bind `.value` and need an explicit trigger | `data-rz-model="query"`, `data-rz-model="value-changed: @names.list.0"` |
-| `rz-on` | Call a scope or store method on a trigger; with no handler, apply only `prevent`/`stop`/`stop-immediate` | `data-rz-on="click: save, mousedown\|prevent"` |
+| `rz-on` | Call a scope or store method on a trigger | `data-rz-on="click: save, submit: send"` |
 | `rz-render` | On a `<template>`: render an array (per item), number (n copies), object (once), or boolean (if) | `<template data-rz-render="@todos.items">` |
 | `rz-key` | Stable key for `rz-render` lists that reorder or refetch | `data-rz-key="id"` |
 | `rz-fetch` | Request on a trigger; subject is `[METHOD] URL` (default GET), either part optional (`submit: PUT` keeps the form's `action`) | `data-rz-fetch="click: POST /todos"` |
@@ -141,7 +141,7 @@ Event-driven directives pair a **trigger** (when) with a **subject** (what): `[t
 - One `|` separates the event from dot-separated modifiers: `click|once.prevent`, `input|debounce-[300ms]: search`.
 - A bracketed argument follows `-[`: `debounce-[300ms]`, `key-[enter]`, `timeout-[5s]`, `media-[(min-width: 640px)]`. One argument only; commas inside brackets are data.
 - A trigger is any DOM or custom event name, including Rouse's lifecycle events (`data-rz-on="rz:fetch:success: stamp"`) and an event a server sends with `Rouse-Trigger`. Colons inside a name are fine, because only colon plus whitespace ends the trigger. Any trigger works on any of these directives: `data-rz-fetch="edit-[@filters]|debounce-[400ms]: /search"`.
-- Triggers are always explicit, except on `rz-model`. A colon-less value on the network directives and `rz-on` is triggers only: `data-rz-fetch="click"` takes its URL from `href`/`action`, and `data-rz-on="mousedown|prevent"` only applies its modifiers. A handler-less `rz-on` trigger needs `prevent`, `stop`, or `stop-immediate` and can't be a trigger source, or it warns and is skipped. It doesn't block a link's navigation.
+- Triggers are always explicit, except on `rz-model`. A colon-less value on the network directives and `rz-on` is triggers only (`data-rz-fetch="click"` takes its URL from `href`/`action`).
 - A second `|` (`click|a|b`), an empty segment (`click||once`), or a leading `|` warns and skips the trigger. An unknown modifier warns. An argument on an event that takes none is ignored.
 - `rz-wake` and `rz-close` take a trigger list: the whole value is space-separated triggers, no subject. A comma there warns.
 
