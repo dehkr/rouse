@@ -8,10 +8,11 @@
   <link rel="alternate" type="text/markdown" href="/index.md">
   <link rel="stylesheet" href="/assets/style.css">
   <script>
-    // Runs before paint, so a saved theme doesn't flash the system one first
     try {
       const saved = localStorage.getItem('theme');
-      if (saved) document.documentElement.dataset.theme = saved;
+      if (saved) {
+        document.documentElement.dataset.theme = saved;
+      }
     } catch {}
   </script>
   <script type="module">
@@ -19,14 +20,15 @@
     import { headingJump } from '/scopes/heading-jump.js';
 
     const app = rouse();
-    
-    // Manages the theme picker buttons. Saves selection to local storage.
-    // Respects the system setting until a theme is picked.
+
+    // Inline scope definition
+    // Manages the theme picker buttons. Saves the selection to localStorage and
+    // respects the system setting until a theme is picked.
     app.scope('theme-toggle', ({ app }) => {
       const systemDark = matchMedia('(prefers-color-scheme: dark)');
       const system = signal(systemDark.matches ? 'dark' : 'light');
       const picked = signal(app.root.dataset.theme);
-      
+
       systemDark.addEventListener('change', (e) => system(e.matches ? 'dark' : 'light'));
 
       return {
@@ -44,6 +46,8 @@
       };
     });
 
+    // Imported scope definition, compiled from TypeScript
+    // Source: https://github.com/dehkr/rouse/blob/main/docs/scopes/heading-jump.ts
     app.scope('heading-jump', headingJump);
 
     app.start();
@@ -59,7 +63,8 @@
         role="combobox"
         data-rz-model="list.query"
         data-rz-on="
-          focus: open, input: filter,
+          focus: open,
+          input: filter,
           keydown|key-[/].window: shortcut,
           keydown|key-[arrowdown].prevent: next,
           keydown|key-[arrowup].prevent: prev,

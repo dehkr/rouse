@@ -2,32 +2,37 @@ import type { HandlerCtx, RenderHandlerCtx, ScopeSetup } from '../assets/rouse/r
 import { reactive } from '../assets/rouse/rouse.js';
 
 /**
- * Scope for a "jump to section" combobox that lists the page's headings.
+ * Scope for a "jump to section" combobox populated from page headings.
  *
- * Inside the scope host, it needs an input with `role="combobox"` and an element with
- * `role="listbox"` and an `id`. The input's `placeholder` shows while the list is closed,
- * and its `aria-label` while it's open. The listbox's `id` prefixes each option's `id`.
+ * **Required DOM structure:**
+ * - An input with `[role="combobox"]`. Uses `placeholder` when closed and `aria-label` when open.
+ * - A container with `[role="listbox"]` and an `id`. Prefixes each option's generated ID.
  *
- * Set `data-headings` on the host to choose the headings to list. The default is
- * `main :is(h2, h3)[id]`, and headings without an `id` are skipped. Choosing a section
- * scrolls to it, updates the URL hash, focuses the heading, and adds the `toc-target`
- * class so the stylesheet can highlight it.
- * 
+ * **Configuration:**
+ * - Set `data-headings` on the host to customize heading queries. Defaults to `main :is(h2, h3)[id]`.
+ *   Headings lacking an `id` attribute are skipped.
+ *
+ * **Navigation side effects:**
+ * - Scrolls to the target heading.
+ * - Updates the URL hash via `history.pushState`.
+ * - Moves keyboard focus to the target heading (`tabIndex = -1`).
+ * - Applies and replays the `.heading-jump-target` animation class.
  */
 export const headingJump: ScopeSetup = ({ host }) => {
   const required = (role: string) => {
     const el = host.querySelector<HTMLElement>(`[role="${role}"]`);
     if (!el) {
-      // Throwing leaves the region unbound with a single error, rather than one for
-      // each directive that lives within it.
-      throw new Error(`heading-jump: no [role="${role}"] inside the host`);
+      // Fail fast to leave the region unbound and prevent cascading directive errors
+      throw new Error(
+        `The 'heading-jump' scope requires [role="${role}"] inside the scope.`,
+      );
     }
     return el;
   };
   const combobox = required('combobox');
   const listbox = required('listbox');
 
-  // Read before rz-attr binds the placeholder, so this is the markup's value
+  // Cache initial static markup values prior to reactive rz-attr binding
   const placeholderClosed = combobox.getAttribute('placeholder') ?? '';
   const placeholderOpen = combobox.getAttribute('aria-label') ?? placeholderClosed;
   const selector = host.dataset.headings ?? 'main :is(h2, h3)[id]';
@@ -68,13 +73,18 @@ export const headingJump: ScopeSetup = ({ host }) => {
     },
   });
 
-  // 0: title prefix, 1: word prefix, 2: letters in order, -1: no match
+  /**
+   * Match scoring tiers:
+   *  0 = Exact prefix match
+   *  1 = Word-boundary match
+   *  2 = In-order fuzzy character subsequence
+   * -1 = No match
+   */
   function rank(text: string, query: string) {
     if (text.startsWith(query)) return 0;
     if (` ${text}`.includes(` ${query}`)) return 1;
 
     const letters = query.replaceAll(' ', '');
-
     let i = 0;
     for (const c of text) {
       if (c === letters[i]) i++;
@@ -83,8 +93,10 @@ export const headingJump: ScopeSetup = ({ host }) => {
     return i === letters.length ? 2 : -1;
   }
 
-  // The list keeps page order so its structure stays readable; the highlight
-  // goes to the best match, so `Enter` picks it
+  /**
+   * Preserves document order in the list while highlighting the highest-ranked
+   * match for Enter key selection.
+   */ 
   function filter() {
     const query = norm(list.query);
     const ranked = items.map((item) => ({
@@ -143,13 +155,13 @@ export const headingJump: ScopeSetup = ({ host }) => {
     if (location.hash !== `#${heading.id}`) {
       history.pushState(null, '', `#${heading.id}`);
     }
-    // Focus follows, so `Tab` continues from the section; `preventScroll` keeps the smooth scroll
+    // Shift keyboard focus to target heading so Tab navigation continues from there
     heading.tabIndex = -1;
     heading.focus({ preventScroll: true });
-    heading.classList.remove('toc-target');
-    // Reflow, so landing on the same heading restarts the flash
+    heading.classList.remove('heading-jump-target');
+    // Force reflow so the flash animation replays on repeat jumps to the same heading
     void heading.offsetWidth;
-    heading.classList.add('toc-target');
+    heading.classList.add('heading-jump-target');
   }
 
   return {

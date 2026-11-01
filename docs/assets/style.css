@@ -317,11 +317,11 @@ th:nth-child(3) {
 }
 
 /* A spread shadow, so the flash reaches past the text without shifting layout */
-.toc-target {
-  animation: toc-flash 1.2s ease-out;
+.heading-jump-target {
+  animation: heading-jump-flash 1.2s ease-out;
 }
 
-@keyframes toc-flash {
+@keyframes heading-jump-flash {
   from {
     background: var(--flash);
     box-shadow: 0 0 0 6px var(--flash);
@@ -400,8 +400,10 @@ th:nth-child(3) {
   display: none;
 }
 
-/* The list scrolls, not the popup, so the scrollbar sits inside the popup's padding,
-   clear of its rounded corners */
+/*
+The list scrolls, not the popup, so the scrollbar sits inside the popup's padding,
+clear of its rounded corners.
+*/
 .toc-list {
   max-height: min(70vh, 520px);
   margin: 0;
