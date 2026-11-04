@@ -326,7 +326,7 @@ export class StoreManager {
     try {
       url = resolveUrl(endpoint, this.app.config.baseUrl).href;
     } catch (error: any) {
-      __DEV__ && err(`Store '${name}' ${operation} failed.`, error);
+      err(`Store '${name}' ${operation} failed.`, error);
       entry.status.error = storeError({
         code: 'INTERNAL_ERROR',
         message: error.message || 'Internal error',

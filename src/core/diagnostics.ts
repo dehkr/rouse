@@ -9,7 +9,8 @@
  * on purpose: `invokeHandler`, a scope's `setup`/`connect`/`disconnect`, `rz-store`'s
  * JSON parse and seed check, and the catches in `runFetch`, `sendAndRoute`, and
  * `_sendAndApply`, which settle a thrown request as `INTERNAL_ERROR` and leave the
- * report as the only trace of what threw.
+ * report as the only trace of what threw. The URL catch in `StoreManager._request` is
+ * bare for the same reason: it records `INTERNAL_ERROR` without firing request events.
  *
  * Messages: never write `[Rouse]`. Lead with an `rz-<slug>:` label and a lowercase word
  * only when one directive is clearly the entry point; shared internals (parsers,
