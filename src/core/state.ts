@@ -36,11 +36,10 @@ export function clone<T>(obj: T, seen = new WeakMap(), path = 'root'): T {
     seen.set(obj as any, arr);
     for (let i = 0; i < obj.length; i++) {
       const val = obj[i];
-      // Pass path + index for array debugging
       arr[i] =
         typeof val === 'function' || val === undefined
           ? null
-          : clone(val, seen, `${path}[${i}]`);
+          : clone(val, seen, __DEV__ ? `${path}[${i}]` : '');
     }
     return arr as unknown as T;
   }
@@ -62,7 +61,7 @@ export function clone<T>(obj: T, seen = new WeakMap(), path = 'root'): T {
     if (!isOwnDataProp(obj as object, key)) continue;
     const val = (obj as Record<string, any>)[key];
     if (val !== undefined) {
-      result[key] = clone(val, seen, `${path}.${key}`);
+      result[key] = clone(val, seen, __DEV__ ? `${path}.${key}` : '');
     }
   }
 
