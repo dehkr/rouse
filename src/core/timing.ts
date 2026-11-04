@@ -83,7 +83,7 @@ function getTimingConfig(options: TriggerModifiers): TimingConfig {
  * Creates a debounced function that delays execution until `wait` ms have
  * elapsed since the last call. Fires on the leading and/or trailing edge.
  */
-export function debounce<T extends AnyFn>(
+function debounce<T extends AnyFn>(
   fn: T,
   { wait, leading = false, trailing = true }: TimingConfig,
 ): TimedFn<T> {
@@ -123,7 +123,7 @@ export function debounce<T extends AnyFn>(
  * Creates a throttled function that runs at most once per `wait` ms.
  * Fires on the leading and/or trailing edge.
  */
-export function throttle<T extends AnyFn>(
+function throttle<T extends AnyFn>(
   fn: T,
   { wait, leading = true, trailing = true }: TimingConfig,
 ): TimedFn<T> {
