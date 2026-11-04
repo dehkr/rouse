@@ -763,6 +763,7 @@ export class StoreManager {
     }
 
     if (state) {
+      __DEV__ && warnNullFields(storeName, state);
       this._reseed(entry, state);
     }
 
@@ -790,6 +791,7 @@ export class StoreManager {
       fail(storeName ? `Store '${storeName}' does not exist.` : 'Store name is missing.');
     }
     assertStoreState(entry.name, state);
+    __DEV__ && warnNullFields(entry.name, state);
 
     this._reseed(entry, state);
 
@@ -797,12 +799,10 @@ export class StoreManager {
   }
 
   /**
-   * Replaces the store's data and makes it both restore targets. Shared by `update()`
-   * and a re-declared script.
+   * Replaces the store's data and makes it both restore targets. Shared by `update()`,
+   * `reset()`, and a re-declared script. Callers passing new state warn on null fields.
    */
   private _reseed(entry: StoreEntry, state: object) {
-    __DEV__ && warnNullFields(entry.name, state);
-
     // Both targets are cloned from the patched data rather than `state`, so they match
     // what the store holds after the write
     this._withPatchGuard(entry, () => patchState(entry.data, state, 'replace'));
@@ -1056,10 +1056,7 @@ export class StoreManager {
     const entry = this._getStore(storeName, 'reset');
     if (!entry) return;
 
-    const { data, initial } = entry;
-
-    this._withPatchGuard(entry, () => patchState(data, clone(initial), 'replace'));
-    this._updateLastGood(entry, data);
+    this._reseed(entry, clone(entry.initial));
   }
 
   /**
