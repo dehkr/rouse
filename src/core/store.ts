@@ -975,7 +975,7 @@ export class StoreManager {
     __DEV__ &&
       options?.abortKey &&
       warn(
-        `Store '${storeName}': abortKey is ignored on a push. A store sends one push at a time, so there is nothing to abort.`,
+        `Store '${storeName}': abortKey is ignored on a push. A store sends one push at a time, so nothing can replace it. Cancel a push with 'signal'.`,
       );
 
     return this._push(storeName, options);
