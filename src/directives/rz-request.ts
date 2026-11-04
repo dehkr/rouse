@@ -56,13 +56,12 @@ function getConfig(el: Element): Partial<FetchRequest> {
 
     const val = rawVal ?? '';
 
-    if (type === 'boolean') {
-      config[kebabToCamel(key)] = val === 'true' || val === '';
-    } else if (type === 'duration') {
-      config[kebabToCamel(key)] = parseTime(val);
-    } else {
-      config[kebabToCamel(key)] = val;
-    }
+    config[kebabToCamel(key)] =
+      type === 'boolean'
+        ? val === 'true' || val === ''
+        : type === 'duration'
+          ? parseTime(val)
+          : val;
   }
 
   return config as Partial<FetchRequest>;
