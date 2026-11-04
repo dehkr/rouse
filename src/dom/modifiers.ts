@@ -26,14 +26,6 @@ type SystemModifierKey = keyof typeof sysModifierMap;
 const SYS_MODIFIERS = Object.keys(sysModifierMap) as SystemModifierKey[];
 const SYS_MODIFIER_FLAGS = Object.values(sysModifierMap);
 
-// The `KeyboardEvent.key` name behind each system modifier flag
-const modifierKeyFlags = new Map<string, (typeof SYS_MODIFIER_FLAGS)[number]>([
-  ['control', 'ctrlKey'],
-  ['alt', 'altKey'],
-  ['shift', 'shiftKey'],
-  ['meta', 'metaKey'],
-]);
-
 /**
  * Normalizes the `key` option into lowercased `KeyboardEvent.key` values. The
  * parser already lowercases what it parses; this covers the programmatic surface,
@@ -123,10 +115,10 @@ export function applyModifiers(
     if (exact) {
       // Pressing a modifier key sets its own flag, so it isn't an extra modifier
       // unless the trigger asked for it. Allows `keydown|key-[shift]` to work.
+      // A modifier's `KeyboardEvent.key` is its option name, except `Control`
+      const pressed = e instanceof KeyboardEvent ? e.key.toLowerCase() : '';
       const selfFlag =
-        e instanceof KeyboardEvent
-          ? modifierKeyFlags.get(e.key.toLowerCase())
-          : undefined;
+        sysModifierMap[(pressed === 'control' ? 'ctrl' : pressed) as SystemModifierKey];
 
       const expectedFlags = expectedSysModifiers.map((m) => sysModifierMap[m]);
 
