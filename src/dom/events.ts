@@ -328,7 +328,6 @@ export function attachWakeStrategies(
   // on any of several signals needs a source that fans out behind one trigger, like
   // `interact` does.
   const satisfy = () => {
-    if (isAwake) return;
     pending--;
 
     if (pending === 0) {
