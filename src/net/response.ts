@@ -72,30 +72,21 @@ export async function normalizeResponse(
 }
 
 /**
- * Maps native DOM exceptions into standardized `RequestError` objects.
- *
- * **Note:** If a global timeout and a manual abort happen simultaneously, the
- * manual abort (`isMainAborted`) wins out and the code is set to 'CANCELED'.
+ * Maps a thrown value to a `RequestError`. `abortCode` comes from the caller's
+ * signal state; without one, the failure is a `NETWORK_ERROR`.
  */
-export function mapCatchError(error: any, isMainAborted: boolean): RequestError {
-  const isAbort = error.name === 'AbortError';
-  const isTimeout = error.name === 'TimeoutError';
-
-  // Distinguish between timeout and explicit cancel
-  const code: CustomErrorCode = isTimeout
-    ? 'TIMEOUT'
-    : isAbort
-      ? isMainAborted
-        ? 'CANCELED'
-        : 'TIMEOUT'
-      : 'NETWORK_ERROR';
+export function mapCatchError(
+  error: unknown,
+  abortCode: 'CANCELED' | 'TIMEOUT' | null = null,
+): RequestError {
+  const code: CustomErrorCode = abortCode ?? 'NETWORK_ERROR';
 
   const message =
     code === 'TIMEOUT'
       ? 'Request timed out'
       : code === 'CANCELED'
         ? 'Request canceled'
-        : error.message || 'Network error';
+        : (error instanceof Error && error.message) || 'Network error';
 
   return { message, code, original: error };
 }

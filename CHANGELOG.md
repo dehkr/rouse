@@ -56,6 +56,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - A server can target a store slice with a response that nests the change. E.g. `{"profile":{"name":"Bob"}}` updates `profile.name` and leaves the rest untouched.
 - **Breaking:** Remove the `overrides` option from `app.stores.push()` and `app.stores.pull()`. Pass request options directly, consistent with `app.fetch()`. E.g.: `app.stores.push('user', { indicator: '#save', timeout: 5000 })`.
 - **Breaking:** Remove `method` from `rz-request`. Put the method in the `rz-fetch` subject, as in `click: POST /save`.
+- Remove the automatic retry of `GET`, `HEAD`, `OPTIONS`, and `QUERY` requests that fail before a response arrives.
 
 ### Fixed
 
@@ -67,6 +68,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Stop removed stores from notifying `onEdit` listeners, triggering `edit` pushes, or applying an in-flight sync response.
 - Prevent an inner app's response event bubbling up to an outer app's router where it would be routed a second time.
 - Honor a caller-provided `signal` option on requests with an `abortKey` or `triggerEl` (and every `pull`), ensuring scope teardown (`signal: term`) cancels in-flight requests.
+- Report a read replaced by a newer request as `CANCELED` (firing `:abort`) when the replacement starts while its response body is still downloading, instead of `NETWORK_ERROR`.
 - Release an outer app's bindings when an app mounts inside it after it started. Both apps previously wrote the same elements, and whichever ran last won.
 
 ## [0.15.0] - 2026-10-15

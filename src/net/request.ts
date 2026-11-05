@@ -9,23 +9,15 @@
  * types split above this line; never parameterize `request()` or the interceptors by
  * operation.
  *
- * The retry has no option and never covers HTTP errors: a retried 5xx turns a brownout
- * into an outage, and `Retry-After` policy belongs in an error interceptor.
  * `skipInterceptors` stays programmatic, since a bypass written in markup silently
  * drops what the chain adds, such as auth headers.
  */
 import type { RouseApp } from '../core/app';
-import { isSafeMethod } from '../core/constants';
 import { rzHeaders } from '../directives/rz-headers';
 import { rzRequest } from '../directives/rz-request';
 import type { FetchRequest, RequestError, RouseResponse } from '../types';
 import { preparePayload } from './payload';
-import {
-  errorResponse,
-  fallbackResponse,
-  mapCatchError,
-  normalizeResponse,
-} from './response';
+import { errorResponse, mapCatchError, normalizeResponse } from './response';
 
 const abortRegistry = new Map<string | symbol, AbortController>();
 
@@ -40,13 +32,6 @@ const abortRegistry = new Map<string | symbol, AbortController>();
  * The URL is read from `config.url` after the request interceptors run, so a `:config`
  * listener or an interceptor can retarget the request. `config` is the caller's object,
  * mutated in place and carried on `response.config`.
- *
- * A safe request (`GET`, `HEAD`, `OPTIONS`, `QUERY`) that fails before any HTTP
- * response arrives is retried once, immediately. That covers a dropped keep-alive
- * socket or a network handoff, where nothing reached the server and so nothing can
- * be duplicated. The retry happens below the lifecycle and above the error chain, so
- * one failure still produces one terminal event and one interceptor pass. `TIMEOUT`
- * and `CANCELED` are never retried, and neither is any other method.
  */
 export async function request<T = any>(
   config: FetchRequest,
@@ -59,7 +44,7 @@ export async function request<T = any>(
         Object.assign(config, await fn(config));
       }
     } catch (e: unknown) {
-      const error = await runErrorInterceptors(mapCatchError(e, false), config, app);
+      const error = await runErrorInterceptors(mapCatchError(e), config, app);
       return errorResponse(config, error);
     }
   }
@@ -99,67 +84,45 @@ export async function request<T = any>(
     timeout > 0 ? [...cancelSignals, AbortSignal.timeout(timeout)] : cancelSignals,
   );
 
-  const execute = async (attempt = 0): Promise<RouseResponse<T>> => {
-    if (combinedSignal.aborted) {
-      const status = isCanceled() ? 'CANCELED' : 'TIMEOUT';
-      return fallbackResponse(config, 'Request canceled or timed out', status);
-    }
+  try {
+    const response = await fetch(finalUrl, {
+      method,
+      headers: reqHeaders,
+      signal: combinedSignal,
+      ...fetchOptions,
+      ...(finalBody != null ? { body: finalBody } : {}),
+    });
 
-    let responded = false;
+    const normalized = await normalizeResponse(response, config);
 
-    try {
-      const response = await fetch(finalUrl, {
-        method,
-        headers: reqHeaders,
-        signal: combinedSignal,
-        ...fetchOptions,
-        ...(finalBody != null ? { body: finalBody } : {}),
-      });
-      responded = true;
-
-      const normalized = await normalizeResponse(response, config);
-
-      // Run response/error interceptors
-      if (!config.skipInterceptors) {
-        if (normalized.error) {
-          normalized.error = await runErrorInterceptors(normalized.error, config, app);
-        } else {
-          for (const fn of app._interceptors.response) {
-            normalized.data = await fn(
-              normalized.data,
-              normalized.response as Response,
-              config,
-            );
-          }
+    if (!config.skipInterceptors) {
+      if (normalized.error) {
+        normalized.error = await runErrorInterceptors(normalized.error, config, app);
+      } else {
+        for (const fn of app._interceptors.response) {
+          normalized.data = await fn(
+            normalized.data,
+            normalized.response as Response,
+            config,
+          );
         }
       }
-      return normalized;
-    } catch (err: any) {
-      let errorPayload = mapCatchError(err, isCanceled());
-
-      // One immediate retry for safe methods. `!responded` is what makes this a
-      // transport check: NETWORK_ERROR is `mapCatchError`'s fallback for any non-abort
-      // throw, including one from a response interceptor, which must not re-send.
-      // TIMEOUT and CANCELED are excluded since both are deadlines someone set on purpose.
-      if (
-        !responded &&
-        attempt === 0 &&
-        errorPayload.code === 'NETWORK_ERROR' &&
-        isSafeMethod(method)
-      ) {
-        return execute(attempt + 1);
-      }
-
-      // Error interceptors run on the final failure or explicit cancellation
-      if (!config.skipInterceptors) {
-        errorPayload = await runErrorInterceptors(errorPayload, config, app);
-      }
-      return errorResponse(config, errorPayload);
     }
-  };
+    return normalized;
+  } catch (err: unknown) {
+    // Classified by signal state, not the thrown value: `fetch` rejects with the
+    // signal's abort reason, which is a plain string for a replaced request
+    const abortCode = isCanceled()
+      ? 'CANCELED'
+      : combinedSignal.aborted
+        ? 'TIMEOUT'
+        : null;
+    let errorPayload = mapCatchError(err, abortCode);
 
-  try {
-    return await execute();
+    if (!config.skipInterceptors) {
+      errorPayload = await runErrorInterceptors(errorPayload, config, app);
+    }
+    return errorResponse(config, errorPayload);
   } finally {
     // Cleanup abort key mapping only if this request owns it
     if (abortKey && abortRegistry.get(abortKey) === controller) {
