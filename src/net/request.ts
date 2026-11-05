@@ -88,17 +88,20 @@ export async function request<T = any>(
     abortRegistry.set(abortKey, controller);
   }
 
-  const mainSignal = controller?.signal ?? externalSignal ?? null;
-
-  const signals = [mainSignal, timeout > 0 ? AbortSignal.timeout(timeout) : null].filter(
-    (s): s is AbortSignal => s !== null,
+  // Both cancel: a replacement request aborts through the key, and the caller's
+  // `signal` (a scope's `term`) must still end a keyed request
+  const cancelSignals = [controller?.signal, externalSignal].filter(
+    (s): s is AbortSignal => s != null,
   );
+  const isCanceled = () => cancelSignals.some((s) => s.aborted);
 
-  const combinedSignal = AbortSignal.any(signals);
+  const combinedSignal = AbortSignal.any(
+    timeout > 0 ? [...cancelSignals, AbortSignal.timeout(timeout)] : cancelSignals,
+  );
 
   const execute = async (attempt = 0): Promise<RouseResponse<T>> => {
     if (combinedSignal.aborted) {
-      const status = mainSignal?.aborted ? 'CANCELED' : 'TIMEOUT';
+      const status = isCanceled() ? 'CANCELED' : 'TIMEOUT';
       return fallbackResponse(config, 'Request canceled or timed out', status);
     }
 
@@ -132,7 +135,7 @@ export async function request<T = any>(
       }
       return normalized;
     } catch (err: any) {
-      let errorPayload = mapCatchError(err, !!mainSignal?.aborted);
+      let errorPayload = mapCatchError(err, isCanceled());
 
       // One immediate retry for safe methods. `!responded` is what makes this a
       // transport check: NETWORK_ERROR is `mapCatchError`'s fallback for any non-abort
