@@ -1,5 +1,5 @@
-import type { HandlerCtx, RenderHandlerCtx, ScopeSetup } from '../assets/rouse/rouse.js';
-import { reactive } from '../assets/rouse/rouse.js';
+import type { HandlerCtx, RenderHandlerCtx, ScopeSetup } from 'rousejs';
+import { reactive } from 'rousejs';
 
 /**
  * Scope for a "jump to section" combobox populated from page headings.

@@ -3,8 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{{ title }}</title>
-  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+  <title>Rouse: JavaScript reactivity and state sync for server-rendered HTML</title>
+  <meta name="description" content="Rouse is for applications that render HTML on the server but need rich client-side state without adopting a full SPA architecture.">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="alternate" type="text/markdown" href="/index.md">
   <link rel="stylesheet" href="/assets/style.css">
   <script>
@@ -15,8 +16,11 @@
       }
     } catch {}
   </script>
+  <script type="importmap">
+    { "imports": { "rousejs": "/assets/rouse/rouse.min.js" } }
+  </script>
   <script type="module">
-    import { rouse, signal } from '/assets/rouse/rouse.js';
+    import { rouse, signal } from 'rousejs';
     import { headingJump } from '/scopes/heading-jump.js';
 
     const app = rouse();

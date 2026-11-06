@@ -10,18 +10,19 @@ export default function (eleventyConfig) {
 
   // Provide defaults via global data so index.md stays clean Markdown for LLM/agent consumption
   eleventyConfig.addGlobalData('layout', 'base.njk');
-  eleventyConfig.addGlobalData('title', 'Rouse reference');
 
   // Serve the raw source for agents
   eleventyConfig.addPassthroughCopy({ 'docs/index.md': 'index.md' });
   eleventyConfig.addPassthroughCopy('docs/llms.txt');
   eleventyConfig.addPassthroughCopy('docs/assets');
+  eleventyConfig.addPassthroughCopy('docs/favicon.svg');
 
   // Enforce UTF-8 headers to prevent character corruption (e.g., arrow symbols) on raw text responses
   eleventyConfig.addPassthroughCopy({ 'docs/_headers': '_headers' });
 
-  // Transpile TypeScript scopes to ESM without bundling, preserving import specifiers so
-  // paths resolve identically in tsc and the browser.
+  // Transpile TypeScript scopes to ESM without bundling, preserving import specifiers.
+  // `rousejs` resolves through the package's own exports in tsc and through the import
+  // map in base.njk in the browser, so every module shares one copy of Rouse.
   eleventyConfig.addWatchTarget('docs/scopes/');
   eleventyConfig.on('eleventy.before', async ({ directories }) => {
     const outDir = join(directories.output, 'scopes');

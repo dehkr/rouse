@@ -221,11 +221,7 @@ interface LifecycleEventMap {
     'rz:push:config': PushPullConfigDetail;
     /** Fires when the push starts, after config. */
     'rz:push:start': PushPullConfigDetail;
-    /**
-     * Fires if the push is canceled. A store sends one push at a time and a push
-     * carries no abort key, so this doesn't happen in practice. It exists because
-     * every request event family has the same set of events.
-     */
+    /** Fires if the push is canceled through the `signal` option. */
     'rz:push:abort': PushPullConfigDetail;
     /** Fires when the push completes with an OK status. */
     'rz:push:success': PushPullResultDetail;
@@ -700,8 +696,8 @@ declare class StoreManager {
      */
     update<T extends object = any>(storeName: string | null | undefined, state: object): T;
     /**
-     * Replaces the store's data and makes it both restore targets. Shared by `update()`
-     * and a re-declared script.
+     * Replaces the store's data and makes it both restore targets. Shared by `update()`,
+     * `reset()`, and a re-declared script. Callers passing new state warn on null fields.
      */
     private _reseed;
     /**

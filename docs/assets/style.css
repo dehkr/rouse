@@ -1,6 +1,6 @@
 @font-face {
   font-family: 'IBM Plex Mono';
-  src: url('/assets/IBMPlexMono-Regular.woff2') format('woff2');
+  src: url('/assets/fonts/IBMPlexMono-Regular.woff2') format('woff2');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -11,7 +11,6 @@
   --fg: light-dark(#1f2328, #CED7E2);
   --muted: light-dark(#59636e, #94A5B8);
   --bg: light-dark(#ffffff, #1F242B);
-  --bg-keyword: light-dark(#cf222e1f, #ff7b721f);
   --subtle: light-dark(#f8f8f8, #262D35);
   --code: light-dark(#eeeeee, #313B46);
   --highlight: light-dark(#ffffff, #465464);
@@ -79,11 +78,11 @@
 }
 
 .theme-toggle [data-theme-value='light'] {
-  --icon: url('/assets/sun.svg');
+  --icon: url('/assets/icons/sun.svg');
 }
 
 .theme-toggle [data-theme-value='dark'] {
-  --icon: url('/assets/moon.svg');
+  --icon: url('/assets/icons/moon.svg');
 }
 
 *,
@@ -129,9 +128,6 @@ h2 {
   font-size: 1.9em;
   margin-bottom: 0.8em;
   margin-top: 2.2em;
-  counter-increment: count;
-  display: flex;
-  align-items: center;
 }
 
 h3 {
@@ -198,6 +194,7 @@ code {
 pre > code {
   background: none;
   padding: 0;
+  font-size: inherit;
   line-height: 1.6;
   border: none;
 }
@@ -210,10 +207,7 @@ pre {
   padding: 2em;
   border-radius: 24px;
   overflow-x: auto;
-}
-
-pre code {
-  font-size: inherit;
+  scrollbar-color: var(--border) transparent;
 }
 
 table {
@@ -246,7 +240,6 @@ td {
 }
 
 td:first-child code {
-  /* white-space: nowrap; */
   color: var(--tok-keyword);
   background: none;
   border: none;
@@ -258,10 +251,7 @@ th:nth-child(1) {
   min-width: 200px;
 }
 
-th:nth-child(2) {
-  min-width: 180px;
-}
-
+th:nth-child(2),
 th:nth-child(3) {
   min-width: 180px;
 }
@@ -336,7 +326,7 @@ th:nth-child(3) {
   width: 16px;
   height: 16px;
   background: var(--muted);
-  mask: url('/assets/list.svg') center / contain no-repeat;
+  mask: url('/assets/icons/list.svg') center / contain no-repeat;
   pointer-events: none;
 }
 
@@ -390,10 +380,6 @@ th:nth-child(3) {
   transition: opacity 0.15s ease-out 0.2s, scale 0.15s ease-out 0.2s, visibility 0s 0.2s;
 }
 
-.toc-list li[hidden] {
-  display: none;
-}
-
 /*
 The list scrolls, not the popup, so the scrollbar sits inside the popup's padding,
 clear of its rounded corners.
@@ -415,6 +401,10 @@ clear of its rounded corners.
   border-radius: 6px;
   cursor: pointer;
   font-size: 0.9em;
+}
+
+.toc-list li:not(.toc-sub) {
+  font-weight: 500;
 }
 
 .toc-list .toc-sub {

@@ -1719,7 +1719,7 @@ function clone(obj, seen = /* @__PURE__ */ new WeakMap(), path = "root") {
     seen.set(obj, arr);
     for (let i = 0; i < obj.length; i++) {
       const val = obj[i];
-      arr[i] = typeof val === "function" || val === void 0 ? null : clone(val, seen, `${path}[${i}]`);
+      arr[i] = typeof val === "function" || val === void 0 ? null : clone(val, seen, true ? `${path}[${i}]` : "");
     }
     return arr;
   }
@@ -1735,7 +1735,7 @@ function clone(obj, seen = /* @__PURE__ */ new WeakMap(), path = "root") {
     if (!isOwnDataProp(obj, key)) continue;
     const val = obj[key];
     if (val !== void 0) {
-      result[key] = clone(val, seen, `${path}.${key}`);
+      result[key] = clone(val, seen, true ? `${path}.${key}` : "");
     }
   }
   return result;
@@ -2268,12 +2268,6 @@ var sysModifierMap = {
 };
 var SYS_MODIFIERS = Object.keys(sysModifierMap);
 var SYS_MODIFIER_FLAGS = Object.values(sysModifierMap);
-var modifierKeyFlags = /* @__PURE__ */ new Map([
-  ["control", "ctrlKey"],
-  ["alt", "altKey"],
-  ["shift", "shiftKey"],
-  ["meta", "metaKey"]
-]);
 function expectedKeys(key) {
   if (key === void 0) return [];
   return (Array.isArray(key) ? key : [key]).map((k) => k.toLowerCase());
@@ -2315,7 +2309,8 @@ function applyModifiers(e, el, options) {
     }
     const exact = !options.loose && (expectedSysModifiers.length > 0 || keys.length > 0);
     if (exact) {
-      const selfFlag = e instanceof KeyboardEvent ? modifierKeyFlags.get(e.key.toLowerCase()) : void 0;
+      const pressed = e instanceof KeyboardEvent ? e.key.toLowerCase() : "";
+      const selfFlag = sysModifierMap[pressed === "control" ? "ctrl" : pressed];
       const expectedFlags = expectedSysModifiers.map((m) => sysModifierMap[m]);
       const pressedModifiers = SYS_MODIFIER_FLAGS.filter(
         (key) => e[key] && (key !== selfFlag || expectedFlags.includes(key))
@@ -2479,7 +2474,6 @@ function attachWakeStrategies(el, app, triggers, onWake) {
   let cleanups = [];
   const teardown2 = () => cleanups.forEach((cleanup) => cleanup());
   const satisfy = () => {
-    if (isAwake) return;
     pending--;
     if (pending === 0) {
       isAwake = true;
@@ -3069,13 +3063,7 @@ function getConfig8(el) {
       continue;
     }
     const val = rawVal ?? "";
-    if (type === "boolean") {
-      config[kebabToCamel(key)] = val === "true" || val === "";
-    } else if (type === "duration") {
-      config[kebabToCamel(key)] = parseTime(val);
-    } else {
-      config[kebabToCamel(key)] = val;
-    }
+    config[kebabToCamel(key)] = type === "boolean" ? val === "true" || val === "" : type === "duration" ? parseTime(val) : val;
   }
   return config;
 }
@@ -3133,11 +3121,9 @@ async function normalizeResponse(response, config) {
     config
   };
 }
-function mapCatchError(error, isMainAborted) {
-  const isAbort = error.name === "AbortError";
-  const isTimeout = error.name === "TimeoutError";
-  const code = isTimeout ? "TIMEOUT" : isAbort ? isMainAborted ? "CANCELED" : "TIMEOUT" : "NETWORK_ERROR";
-  const message = code === "TIMEOUT" ? "Request timed out" : code === "CANCELED" ? "Request canceled" : error.message || "Network error";
+function mapCatchError(error, abortCode = null) {
+  const code = abortCode ?? "NETWORK_ERROR";
+  const message = code === "TIMEOUT" ? "Request timed out" : code === "CANCELED" ? "Request canceled" : error instanceof Error && error.message || "Network error";
   return { message, code, original: error };
 }
 function errorResponse(config, error) {
@@ -3169,7 +3155,7 @@ async function request(config, app) {
         Object.assign(config, await fn(config));
       }
     } catch (e) {
-      const error = await runErrorInterceptors(mapCatchError(e, false), config, app);
+      const error = await runErrorInterceptors(mapCatchError(e), config, app);
       return errorResponse(config, error);
     }
   }
@@ -3191,54 +3177,43 @@ async function request(config, app) {
     controller = new AbortController();
     abortRegistry.set(abortKey, controller);
   }
-  const mainSignal = controller?.signal ?? externalSignal ?? null;
-  const signals = [mainSignal, timeout > 0 ? AbortSignal.timeout(timeout) : null].filter(
-    (s) => s !== null
+  const cancelSignals = [controller?.signal, externalSignal].filter(
+    (s) => s != null
   );
-  const combinedSignal = AbortSignal.any(signals);
-  const execute = async (attempt = 0) => {
-    if (combinedSignal.aborted) {
-      const status = mainSignal?.aborted ? "CANCELED" : "TIMEOUT";
-      return fallbackResponse(config, "Request canceled or timed out", status);
-    }
-    let responded = false;
-    try {
-      const response = await fetch(finalUrl, {
-        method,
-        headers: reqHeaders,
-        signal: combinedSignal,
-        ...fetchOptions,
-        ...finalBody != null ? { body: finalBody } : {}
-      });
-      responded = true;
-      const normalized = await normalizeResponse(response, config);
-      if (!config.skipInterceptors) {
-        if (normalized.error) {
-          normalized.error = await runErrorInterceptors(normalized.error, config, app);
-        } else {
-          for (const fn of app._interceptors.response) {
-            normalized.data = await fn(
-              normalized.data,
-              normalized.response,
-              config
-            );
-          }
+  const isCanceled = () => cancelSignals.some((s) => s.aborted);
+  const combinedSignal = AbortSignal.any(
+    timeout > 0 ? [...cancelSignals, AbortSignal.timeout(timeout)] : cancelSignals
+  );
+  try {
+    const response = await fetch(finalUrl, {
+      method,
+      headers: reqHeaders,
+      signal: combinedSignal,
+      ...fetchOptions,
+      ...finalBody != null ? { body: finalBody } : {}
+    });
+    const normalized = await normalizeResponse(response, config);
+    if (!config.skipInterceptors) {
+      if (normalized.error) {
+        normalized.error = await runErrorInterceptors(normalized.error, config, app);
+      } else {
+        for (const fn of app._interceptors.response) {
+          normalized.data = await fn(
+            normalized.data,
+            normalized.response,
+            config
+          );
         }
       }
-      return normalized;
-    } catch (err2) {
-      let errorPayload = mapCatchError(err2, !!mainSignal?.aborted);
-      if (!responded && attempt === 0 && errorPayload.code === "NETWORK_ERROR" && isSafeMethod(method)) {
-        return execute(attempt + 1);
-      }
-      if (!config.skipInterceptors) {
-        errorPayload = await runErrorInterceptors(errorPayload, config, app);
-      }
-      return errorResponse(config, errorPayload);
     }
-  };
-  try {
-    return await execute();
+    return normalized;
+  } catch (err2) {
+    const abortCode = isCanceled() ? "CANCELED" : combinedSignal.aborted ? "TIMEOUT" : null;
+    let errorPayload = mapCatchError(err2, abortCode);
+    if (!config.skipInterceptors) {
+      errorPayload = await runErrorInterceptors(errorPayload, config, app);
+    }
+    return errorResponse(config, errorPayload);
   } finally {
     if (abortKey && abortRegistry.get(abortKey) === controller) {
       abortRegistry.delete(abortKey);
@@ -5028,6 +5003,7 @@ var StoreManager = class {
       return;
     }
     if (state) {
+      warnNullFields(storeName, state);
       this._reseed(entry, state);
     }
     entry.el = el;
@@ -5050,15 +5026,15 @@ var StoreManager = class {
       fail(storeName ? `Store '${storeName}' does not exist.` : "Store name is missing.");
     }
     assertStoreState(entry.name, state);
+    warnNullFields(entry.name, state);
     this._reseed(entry, state);
     return entry.data;
   }
   /**
-   * Replaces the store's data and makes it both restore targets. Shared by `update()`
-   * and a re-declared script.
+   * Replaces the store's data and makes it both restore targets. Shared by `update()`,
+   * `reset()`, and a re-declared script. Callers passing new state warn on null fields.
    */
   _reseed(entry, state) {
-    warnNullFields(entry.name, state);
     this._withPatchGuard(entry, () => patchState(entry.data, state, "replace"));
     entry.initial = clone(entry.data);
     this._updateLastGood(entry, entry.data);
@@ -5196,7 +5172,7 @@ var StoreManager = class {
    */
   async push(storeName, options) {
     options?.abortKey && warn(
-      `Store '${storeName}': abortKey is ignored on a push. A store sends one push at a time, so there is nothing to abort.`
+      `Store '${storeName}': abortKey is ignored on a push. A store sends one push at a time, so nothing can replace it. Cancel a push with 'signal'.`
     );
     return this._push(storeName, options);
   }
@@ -5259,9 +5235,7 @@ var StoreManager = class {
   reset(storeName) {
     const entry = this._getStore(storeName, "reset");
     if (!entry) return;
-    const { data, initial } = entry;
-    this._withPatchGuard(entry, () => patchState(data, clone(initial), "replace"));
-    this._updateLastGood(entry, data);
+    this._reseed(entry, clone(entry.initial));
   }
   /**
    * Discards unsaved changes, restoring the store to the last synced state, which
@@ -5328,7 +5302,7 @@ var bannerLogged = false;
 function logBuildBanner() {
   if (bannerLogged) return;
   bannerLogged = true;
-  info(`v${"0.15.0"} development build. Switch to rouse.min.js in production.`);
+  info(`v${"0.16.0"} development build. Switch to rouse.min.js in production.`);
 }
 function withAppSignal(appSignal, signal2) {
   return signal2 ? AbortSignal.any([appSignal, signal2]) : appSignal;
