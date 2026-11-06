@@ -1,34 +1,36 @@
 {
   "name": "rousejs",
-  "version": "0.15.0",
-  "description": "A JavaScript reactivity and state-sync layer for server-rendered HTML",
+  "version": "0.16.0",
+  "description": "JavaScript reactivity and state sync for server-rendered HTML",
   "author": "dehkr <dehkr25@gmail.com>",
   "license": "MIT",
   "keywords": [
     "hypermedia",
-    "ssr",
     "server-rendered",
-    "progressive-enhancement",
     "mpa",
     "multi-page-app",
     "html-first",
-    "no-build",
-    "buildless",
-    "declarative",
-    "directives",
-    "reactive",
     "reactivity",
+    "reactive",
     "signals",
     "state-management",
     "state-sync",
     "sse",
-    "server-sent events",
+    "server-sent-events",
     "two-way-binding",
-    "optimistic-ui",
+    "directives",
+    "declarative",
+    "csp",
+    "buildless",
+    "no-build",
+    "progressive-enhancement",
+    "micro-frontends",
     "typescript",
-    "web-components"
+    "htmx",
+    "alpinejs",
+    "stimulus"
   ],
-  "homepage": "https://github.com/dehkr/rouse#readme",
+  "homepage": "https://rousejs.com",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/dehkr/rouse.git"
@@ -57,14 +59,14 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsup",
+    "build": "pnpm run types && pnpm run check && tsup",
     "check": "biome check",
     "format": "biome format --write",
     "types": "tsc",
     "docs:dev": "eleventy --serve",
     "docs:types": "tsc -p docs/scopes",
     "docs:build": "eleventy",
-    "docs:vendor": "tsup && cp dist/* docs/assets/rouse/"
+    "docs:vendor": "cp dist/* docs/assets/rouse/"
   },
   "devDependencies": {
     "@11ty/eleventy": "^3.1.7",

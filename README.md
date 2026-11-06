@@ -2,54 +2,60 @@
 
 [![npm](https://img.shields.io/npm/v/rousejs)](https://www.npmjs.com/package/rousejs)
 
-**A JavaScript reactivity and state-synchronization layer for server-rendered HTML.**
+**JavaScript reactivity and state sync for server-rendered HTML.**
 
 > [!WARNING]
-> **Pre-release software:** Rouse is currently in active development, unstable, and not intended for production use. Breaking changes will occur without notice.
+> **Pre-release software:** Rouse is currently in active development, unstable, and not intended for production use. Breaking changes will occur without a deprecation cycle.
 
 ## Introduction
 
-Rouse coordinates server-rendered HTML and client-side reactivity within a single, cohesive system. While SPAs put the frontend in charge and hypermedia anchors to the backend, Rouse combines the strengths of each. It's designed for applications that already render HTML on the server but need rich client-side state without adopting a full SPA architecture. Whether the server or the client drives an interaction is a per-feature decision rather than an architectural commitment.
+Rouse is for applications that render HTML on the server but need rich client-side state without adopting a full SPA architecture. It brings server-driven updates and client-side reactivity into one system: requests, events, and state share the same syntax, and a response can place markup, update a store, or both. Whether the server or the client drives an interaction is a per-feature decision, not an architectural commitment.
 
-- **Backend agnostic** – pairs with anything that returns HTML or JSON
-- **Strict CSP compliance** – no `unsafe-eval` or expression evaluation in markup
-- **Web standards** – no virtual DOM, built on native browser APIs
-- **Buildless or bundled** – load from a CDN or install from npm, fully typed
-- **Lightweight** – 22 KB gzipped with no external dependencies
+- **No backend contract** – Pairs with any language or framework via standard HTTP and HTML/JSON responses.
+- **Direct DOM binding** – Works with server-rendered HTML. No virtual DOM, hydration step, or client-side copy of the page.
+- **Strict CSP compliance** – Directive values are names, never evaluated code. No `unsafe-eval` required.
+- **Buildless or bundled** – Load directly from a CDN or install from npm with bundled TypeScript definitions.
+- **Zero runtime dependencies** – 21.6 KB gzipped with reactivity, networking, SSE, stores, and sync built in.
 
 ## Features
 
 ### Reactive state
 
-Model UI state in local scopes and global stores backed by [alien-signals](https://github.com/stackblitz/alien-signals), with a proxy layer for ergonomic object and array mutations.
+Model UI state in local scopes and app-wide stores. Stores are reactive out of the box. Scopes opt in with [alien-signals](https://github.com/stackblitz/alien-signals) primitives and a reactive proxy for ergonomic object and array mutations. Updates are fine-grained: only the bindings that read a changed value re-run.
 
 ### Native client rendering
 
 Render dynamic lists and conditional views from reactive state with `<template>` elements. Keyed reconciliation reuses and reorders DOM instead of rebuilding it.
 
-### Hypermedia interactions
+### Networking
 
-Fetch HTML fragments – or JSON – on any event, straight from attributes. The server can steer targeting, issue redirects, and trigger client-side events through response headers.
+Fetch HTML fragments or JSON on any event, straight from attributes. Response headers let the server steer targeting, issue redirects, update stores, and trigger client-side events, error responses included. Server-sent event streams work the same way: each message places HTML, updates a store, or fires a named event.
 
 ### State synchronization
 
 Give a store an endpoint and keep it in sync with your server over plain HTTP, with built-in dirty tracking and protection for edits made mid-request.
 
-### Server-sent events
+### Local scopes, deferred activation
 
-Stream updates from the server declaratively. Messages place HTML, update stores, or fire named events the rest of your app can react to.
+Turn any element into a scope using a setup function that returns the API for the directives inside. Defer activation until the scope is needed: on visibility, user interaction, browser idle time, a media query match, or any DOM or custom event. Lifecycle hooks and built-in teardown give your code and third-party libraries a clean mount and unmount.
 
-### Progressive activation
+### Isolated apps
 
-Gate any scope's activation on visibility, idle time, media queries, or custom events. Third-party scripts get an isolated mount point with lifecycle hooks and automatic cleanup.
-
-### Declarative and programmatic
-
-Attributes and the JavaScript API share the same engine. They mix freely. Start in markup and drop into code where you need it.
+Create multiple apps on one page, side by side or nested. Each has its own stores, scopes, interceptors, and listeners, so micro-frontends and embedded widgets can't reach each other's state.
 
 ### Wiring in HTML, logic in JavaScript
 
-Directive values are declarative: they describe paths, triggers, and targets. Logic stays in plain JavaScript, where it can be organized, typed, tested, and reused.
+Directive values are declarative: they describe paths, triggers, and targets. Logic stays in plain JavaScript, where it can be organized, typed, tested, and reused. Attributes and the JavaScript API share the same engine: start in markup and drop into code where you need it.
+
+## Why Rouse?
+
+Rouse is inspired by several tools but makes different tradeoffs.
+
+- **[htmx](https://htmx.org)** showed that the server can drive the UI over plain HTTP and HTML. Rouse keeps that model and adds client-side state for interactions where it helps.
+- **[Stimulus](https://stimulus.hotwired.dev)** showed that markup can wire behavior to organized, testable JavaScript. Rouse takes the same approach with scopes, and adds stores and server sync so state doesn't need a separate library.
+- **[Alpine](https://alpinejs.dev)** showed how natural reactivity can feel when declared in markup. Rouse keeps reactive bindings in HTML and moves the logic to JavaScript, so strict CSP works out of the box.
+
+The goal is a single, compact library that covers the common needs of server-rendered apps in the browser, plus a structured foundation for everything else.
 
 ## Installation
 
@@ -57,19 +63,14 @@ Rouse ships as ES modules only, in two builds: a development build with diagnost
 
 ### From a CDN
 
-```html
-<script type="module">
-  import { rouse } from 'https://cdn.jsdelivr.net/npm/rousejs@0.15.0/dist/rouse.js';
-
-  const app = rouse();
-  app.start();
-</script>
+```js
+import { rouse } from 'https://cdn.jsdelivr.net/npm/rousejs@0.16.0/dist/rouse.js';
 ```
 
 Swap in `rouse.min.js` for production:
 
-```text
-https://cdn.jsdelivr.net/npm/rousejs@0.15.0/dist/rouse.min.js
+```js
+import { rouse } from 'https://cdn.jsdelivr.net/npm/rousejs@0.16.0/dist/rouse.min.js';
 ```
 
 ### From npm
@@ -86,69 +87,51 @@ Types are bundled. No additional setup for TypeScript necessary.
 
 ### Build selection
 
-The development build (`dist/rouse.js`) warns about misused directives, missing targets, and invalid values; the production build (`dist/rouse.min.js`) strips them.
+The development build (`dist/rouse.js`) warns about misused directives, missing targets, and invalid values. The production build (`dist/rouse.min.js`) strips the warnings.
 
-Bundlers that set the standard `development`/`production` export conditions (Vite, webpack) get the right build automatically. Tools that don't (esbuild, Rollup) resolve to the minified build by default. Import `rousejs/dev` if you want diagnostics during development. `rousejs/min` always resolves to the minified build regardless of tool.
+Bundlers with `development`/`production` conditions pick the right build, otherwise you get the minified build. Import `rousejs/dev` for diagnostics during development. `rousejs/min` resolves to the minified build regardless of tool.
 
 ## Getting started
 
-Register your **scopes**, **stores**, **interceptors**, and **listeners**, then call `app.start()`.
+Register your scopes, then call `app.start()` to scan the page and bind its directives.
 
 ```js
 import { rouse, signal } from 'rousejs';
 
 const app = rouse();
 
-// Scopes: data and actions bound to a region of the page
-app.scope('counter', () => {
-  const count = signal(0);
+// A scope's setup returns the API for the directives inside it
+app.scope('counter', ({ host }) => {
+  const initial = Number(host.dataset.initial) || 0;
+  const count = signal(initial);
   return {
-    get count() {
-      return count();
-    },
-    increment() {
-      count(count() + 1);
-    },
+    get count() { return count(); },
+    increment: () => count(count() + 1),
   };
 });
-
-// Stores: shared state, optionally synced with the server
-app.store('prefs', { theme: 'dark' });
-
-// Interceptors: hooks into every request, response, and error
-app.interceptor('request', (config) => {
-  const token = localStorage.getItem('auth-token');
-  config.headers = { ...config.headers, Authorization: `Bearer ${token}` };
-  return config;
-});
-
-// Listeners: automatic cleanup, plus built-in Rouse events
-app.on('ready', () => console.log('wired up'));
 
 app.start();
 ```
 
-Add Rouse directives to your markup using standard `data-*` attributes with the `rz-` prefix:
+Directives are standard `data-*` attributes with the `rz-` prefix:
 
 ```html
-<!-- Bind the counter scope -->
-<div data-rz-scope="counter">
+<!-- Server-rendered; the scope takes over on start -->
+<div data-rz-scope="counter" data-initial="5">
   <button data-rz-on="click: increment">Add one</button>
-  <span data-rz-text="count"></span>
+  <span data-rz-text="count">5</span>
 </div>
 
-<!-- Declare a global store that syncs with /api/user -->
+<!-- A store declared in markup, synced with /api/user -->
 <script data-rz-store="user: /api/user" type="application/json">
   { "name": "Ada" }
 </script>
 
-<!-- Access stores anywhere in markup with the @ sigil -->
+<!-- @ addresses a store from HTML anywhere in the app -->
 <input data-rz-model="@user.name">
 <button data-rz-push="click: @user">Save</button>
 ```
 
-### More about `start()`
+## Documentation
 
-`start()` is not an initialization step that switches Rouse on. **It scans the page.** Directives are read from the DOM at that moment and wired to whatever is registered by then. Rouse keeps watching the page and scans new elements as they're added, so registering after `start()` works for elements scanned later.
-
-**Note:** A store declared in the initial HTML is created by the scan, so `app.stores.get('user')` returns `undefined` before `start()`.
+The full reference is one dense page, easy for humans to scan and for coding agents to read: [rousejs.com](https://rousejs.com). Agents can fetch the Markdown source directly from [rousejs.com/index.md](https://rousejs.com/index.md).

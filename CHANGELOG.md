@@ -7,10 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+No unreleased changes.
+
+## [0.16.0] - 2026-11-05
+
 ### Added
 
 - Add `app.stores.dirtyRoots(name)`, which returns a store's root keys holding unsaved changes.
-- Add the `rz-disable` directive to disable elements during active requests from the element. Accepts a CSS selector, or defaults to the host element if no value is provided.
+- Add the `rz-disable` directive to disable elements while a request from the host element is in flight. Takes a CSS selector, or targets the host element when empty.
 - Add read-only `%::index` (zero-based) and `%::position` (one-based) namespaces to read a rendered instance's current position, e.g. `data-rz-text="%::position"`.
 
 ### Changed
@@ -18,7 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Breaking:** Treat `%` as the render item's own reference, the way `@cart` names a store, so a dot separates it from a field. `%name` is now `%.name`; bare `%` still refers to the whole item.
 - **Breaking:** Set `%` to the rendered value in `rz-render`'s number and boolean modes, instead of `undefined`.
 - **Breaking:** Rename store status `dirtyKeys` to `dirtyRoots`.
-- **Breaking:** Accept a root key as the second argument of `app.stores.isDirty()` to normalize the programmatic and declarative dirty tracking APIs around root keys. To check a nested path, compare against `app.stores.baseline(name)`.
+- **Breaking:** Change the second argument of `app.stores.isDirty()` from a path to a root key, matching `status.dirtyRoots`. To check a nested path, compare against `app.stores.baseline(name)`.
 - **Breaking:** Stop a deposit from marking a store's unsaved changes as saved. A deposit, from `data-rz-deposit` or `app.stores.deposit()`, now marks only the values in its payload as saved, the way a pull does.
   - `reset()` no longer restores deposited data. It restores the state the store started with.
   - To mark the whole store as saved after a deposit, call `app.stores.commit(name)`.
@@ -32,10 +36,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - To roll back on failure, use `revert()` on `rz:push:error`: `app.on('rz:push:error', (e) => app.stores.revert(e.detail.storeName))`.
 - **Breaking:** Move trigger source arguments into `app.on` event descriptors:
   - Update `app.on('interval', fn, { arg: '10s' })` to `app.on({ interval: '10s' }, fn)`.
-  - `intersect` accepts numeric thresholds, e.g. `{ intersect: 0.5 }`.
   - Omit `@` from JS `edit` targets: use `app.on({ edit: 'cart.items' }, fn)`.
-  - `edit` now requires an explicit store target; directives no longer infer the store from the subject. Use `data-rz-push="edit-[@cart]: @cart"` instead of `data-rz-push="edit: @cart"`.
-  - Make `app.stores.onEdit` internal. Migrate to `app.on({ edit: 'cart' }, fn)`.
+- **Breaking:** Require an explicit store target on the `edit` trigger source. Directives no longer infer the store from the subject, so use `data-rz-push="edit-[@cart]: @cart"` instead of `data-rz-push="edit: @cart"`.
+- **Breaking:** Make `app.stores.onEdit` internal. Migrate to `app.on({ edit: 'cart' }, fn)`.
 - **Breaking:** Require store-writing directives on a `<script data-rz-store>` to name their store.
   - `rz-push` and `rz-pull` require a store subject: use `data-rz-pull="ready: @cart"` instead of `data-rz-pull="ready"`.
   - `rz-deposit` no longer falls back to the script's own store when it's missing or empty. Add `data-rz-deposit="@cart"` to keep depositing into it.
@@ -53,23 +56,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - The `Rouse-Path` header is no longer sent.
   - `rz:store:patch:*` event details no longer carry `nestedPath`.
   - A store path can still be used with an `edit` trigger to push only when that part changes: `data-rz-push="edit-[@user.profile]: @user"`.
-  - A server can target a store slice with a response that nests the change. E.g. `{"profile":{"name":"Bob"}}` updates `profile.name` and leaves the rest untouched.
-- **Breaking:** Remove the `overrides` option from `app.stores.push()` and `app.stores.pull()`. Pass request options directly, consistent with `app.fetch()`. E.g.: `app.stores.push('user', { indicator: '#save', timeout: 5000 })`.
+  - A server can target a store slice with a response that nests the change, e.g. `{"profile":{"name":"Bob"}}` updates `profile.name` and leaves the rest untouched.
+- **Breaking:** Remove the `overrides` option from `app.stores.push()` and `app.stores.pull()`. Pass request options directly, consistent with `app.fetch()`, e.g. `app.stores.push('user', { indicator: '#save', timeout: 5000 })`.
 - **Breaking:** Remove `method` from `rz-request`. Put the method in the `rz-fetch` subject, as in `click: POST /save`.
 - Remove the automatic retry of `GET`, `HEAD`, `OPTIONS`, and `QUERY` requests that fail before a response arrives.
 
 ### Fixed
 
-- **Breaking:** Produce valid ARIA by writing booleans on `aria-*` attributes in `rz-attr` as `"true"` or `"false"`, instead of an empty value or removing the attribute.
+- **Breaking:** Write booleans on `aria-*` attributes in `rz-attr` as `"true"` or `"false"` instead of an empty value or removing the attribute, producing valid ARIA.
 - Reject stores seeded with anything other than an object (via `app.store()`, `app.stores.update()`, or `<script data-rz-store>`). Arrays at the root break dirty tracking and store sync, so wrap a list in an object.
 - Fix store events and sync config when a `<script data-rz-store>` is replaced or removed in the DOM.
 - Stop a programmatic push or pull on a store created in JS from adding the `rouse-request` class to the app root. Set the `indicator` option to mark an element during a sync.
 - Resolve a relative `baseUrl`, such as `rouse({ baseUrl: '/api' })`, against the document URL to prevent requests from failing.
-- Stop removed stores from notifying `onEdit` listeners, triggering `edit` pushes, or applying an in-flight sync response.
-- Prevent an inner app's response event bubbling up to an outer app's router where it would be routed a second time.
+- Stop removed stores from notifying `edit` listeners, triggering `edit` pushes, or applying an in-flight sync response.
+- Prevent an inner app's response event from bubbling up to an outer app's router where it would be routed a second time.
 - Honor a caller-provided `signal` option on requests with an `abortKey` or `triggerEl` (and every `pull`), ensuring scope teardown (`signal: term`) cancels in-flight requests.
-- Report a read replaced by a newer request as `CANCELED` (firing `:abort`) when the replacement starts while its response body is still downloading, instead of `NETWORK_ERROR`.
-- Release an outer app's bindings when an app mounts inside it after it started. Both apps previously wrote the same elements, and whichever ran last won.
+- Report a read replaced by a newer request as `CANCELED` (firing `rz:*:abort`) when the replacement starts while its response body is still downloading, instead of `NETWORK_ERROR`.
+- Release an outer app's bindings on elements inside an app mounted after the outer app started, preventing a race condition where both apps write the same DOM nodes.
 
 ## [0.15.0] - 2026-10-15
 
