@@ -16,11 +16,24 @@ const base: PackUserConfig = {
 };
 
 export default defineConfig({
-  fmt: {},
+  fmt: {
+    singleQuote: true,
+    printWidth: 90,
+    ignorePatterns: ['/*', '!/src/', '!/docs/', '/docs/*', '!/docs/scopes/'],
+  },
   lint: {
     jsPlugins: [{ name: 'vite-plus', specifier: 'vite-plus/oxlint-plugin' }],
-    rules: { 'vite-plus/prefer-vite-plus-imports': 'error' },
-    options: { typeAware: true, typeCheck: true },
+    categories: { correctness: 'error' },
+    rules: {
+      'vite-plus/prefer-vite-plus-imports': 'error',
+      'no-unused-expressions': ['error', { allowShortCircuit: true, allowTernary: true }],
+      'typescript/no-base-to-string': 'off',
+      'typescript/restrict-template-expressions': 'off',
+      'typescript/unbound-method': 'off',
+      'typescript/no-redundant-type-constituents': 'off',
+    },
+    ignorePatterns: ['/*', '!/src/', '!/docs/', '/docs/*', '!/docs/scopes/'],
+    options: { typeAware: true, typeCheck: false },
   },
   pack: [
     {

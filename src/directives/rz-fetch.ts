@@ -68,7 +68,7 @@ function bindFetchPairs(el: Element, app: RouseApp, pairs: TriggerSubjectPair[])
             __DEV__ && warnMissingUrl(el);
             return;
           }
-          runFetch(app, { ...parsed, url, triggerEl: el, submitter });
+          void runFetch(app, { ...parsed, url, triggerEl: el, submitter });
         },
       }),
     ];

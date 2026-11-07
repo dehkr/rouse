@@ -138,5 +138,5 @@ function triggerStoreSync(
     return;
   }
 
-  app.stores[op](storeName, { triggerEl });
+  void app.stores[op](storeName, { triggerEl });
 }

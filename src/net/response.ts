@@ -27,7 +27,7 @@ export async function normalizeResponse(
     if (!isEmpty) {
       // Bail on streams to avoid the request getting hung up forever
       if (contentType.includes('text/event-stream')) {
-        response.body?.cancel();
+        void response.body?.cancel();
         error = {
           message: 'Cannot read an event stream as a response. Open it with rz-sse.',
           code: 'PARSE_ERROR',
