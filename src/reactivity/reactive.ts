@@ -12,7 +12,8 @@ export const objectRootKeys = new WeakMap<object, string>();
  *
  * - If passed a raw object, it returns its reactive proxy (creating one if needed).
  * - If passed an existing proxy, it returns it as-is.
- * - If passed a non-proxiable value (primitive, DOM node), it returns it as-is.
+ * - If passed anything but a plain object or array (primitive, class instance,
+ *   built-in such as `Map` or `Date`), it returns it as-is.
  *
  * The returned proxy is deeply reactive but lazy: nested properties are converted to
  * proxies only when accessed.
@@ -39,13 +40,15 @@ export function reactive<T extends object>(target: T): T {
 }
 
 /**
- * Makes sure the target is eligible to be a proxy.
+ * Accepts arrays and plain objects only. Matches `isPlainObject` in `core/state`.
  */
 export function proxiable(target: unknown): target is object {
   if (target === null || typeof target !== 'object') return false;
   if (Array.isArray(target)) return true;
 
-  return Object.prototype.toString.call(target) === '[object Object]';
+  // Class instances keep their own prototype; proxying them breaks private fields.
+  const proto = Object.getPrototypeOf(target);
+  return proto === Object.prototype || proto === null;
 }
 
 /**

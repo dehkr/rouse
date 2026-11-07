@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Ensure reactive array index reads (`arr[i]`, `i in arr`) re-run on reordering mutators and `length` truncation. Index accessors now track all array mutations, matching iterator behavior and preventing stale values.
+- Return class instances in reactive state unproxied, matching the documented behavior and fixing `TypeError`s from methods that read private fields. Changes inside a class instance no longer update bindings.
 
 ## [0.16.0] - 2026-11-05
 

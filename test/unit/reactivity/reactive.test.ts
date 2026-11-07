@@ -41,9 +41,7 @@ describe('reactive', () => {
     }
   });
 
-  // Known bug: `proxiable()` accepts class instances, so a method reading a private
-  // field throws through the proxy. Drop `.fails` once it uses `isPlainObject`.
-  it.fails('returns class instances unproxied', () => {
+  it('returns class instances unproxied', () => {
     class Counter {
       #n = 0;
       inc() {
@@ -52,6 +50,25 @@ describe('reactive', () => {
     }
     const state = reactive({ counter: new Counter() });
     expect(state.counter.inc()).toBe(1);
+  });
+
+  it('returns a nested class instance as the same raw instance', () => {
+    class Thing {}
+    const thing = new Thing();
+    const state = reactive({ nested: { thing } });
+    expect(state.nested.thing).toBe(thing);
+    expect(reactive(thing)).toBe(thing);
+  });
+
+  it('proxies objects with a null prototype', () => {
+    const raw = Object.create(null) as { a?: number };
+    raw.a = 1;
+    const proxy = reactive(raw);
+    expect(proxy).not.toBe(raw);
+    expect(getRaw(proxy)).toBe(raw);
+    const runs = track(() => proxy.a);
+    proxy.a = 2;
+    expect(runs).toHaveBeenCalledTimes(2);
   });
 
   it('proxies nested objects lazily, on read', () => {
