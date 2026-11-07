@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Breaking:** Upgrade alien-signals to 3.2.1, introducing automatic cleanup execution for functions returned from `effect` callbacks. Returned functions now run prior to re-runs and on scope teardown.
   - Update accidental returns in concise arrow functions to use a block body: change `effect(() => state.onSave)` to `effect(() => { state.onSave; })`.
 
+### Fixed
+
+- Ensure reactive array index reads (`arr[i]`, `i in arr`) re-run on reordering mutators and `length` truncation. Index accessors now track all array mutations, matching iterator behavior and preventing stale values.
+
 ## [0.16.0] - 2026-11-05
 
 ### Added

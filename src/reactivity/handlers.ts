@@ -18,7 +18,8 @@ export const handlers: ProxyHandler<object> = {
   get(target: object, key: string | symbol, receiver: object): any {
     if (key === '__proto__') return target;
 
-    if (Array.isArray(target) && Object.hasOwn(methodIntercepts, key)) {
+    const isArray = Array.isArray(target);
+    if (isArray && Object.hasOwn(methodIntercepts, key)) {
       return Reflect.get(methodIntercepts, key, receiver);
     }
 
@@ -30,7 +31,15 @@ export const handlers: ProxyHandler<object> = {
       return reactive(comp);
     }
 
-    const value = getSignal(target, key)();
+    // Array indices are positions, not identities, and mutators bypass per-index
+    // signals. Track the iteration signal and read the slot directly.
+    let value;
+    if (isArray && isIndex(key)) {
+      getSignal(target, ITERATION_KEY)();
+      value = Reflect.get(target, key);
+    } else {
+      value = getSignal(target, key)();
+    }
 
     // Lazy deep reactivity
     if (proxiable(value)) {
@@ -115,10 +124,15 @@ export const handlers: ProxyHandler<object> = {
   has(target, key) {
     // Register dependency. Even if the key doesn't exist, we track
     // the signal so we get notified when added later.
-    getSignal(target, key)();
+    getSignal(target, Array.isArray(target) && isIndex(key) ? ITERATION_KEY : key)();
     return Reflect.has(target, key);
   },
 };
+
+/** Returns whether `key` is a canonical array index (`'0'` to `'4294967294'`). */
+function isIndex(key: string | symbol): boolean {
+  return typeof key === 'string' && key !== '4294967295' && String(+key >>> 0) === key;
+}
 
 /**
  * Returns the signal associated with a specific property on a target object.
