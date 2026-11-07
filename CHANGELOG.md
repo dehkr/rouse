@@ -7,7 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-No unreleased changes.
+### Changed
+
+- **Breaking:** Upgrade alien-signals to 3.2.1, introducing automatic cleanup execution for functions returned from `effect` callbacks. Returned functions now run prior to re-runs and on scope teardown.
+  - Update accidental returns in concise arrow functions to use a block body: change `effect(() => state.onSave)` to `effect(() => { state.onSave; })`.
 
 ## [0.16.0] - 2026-11-05
 

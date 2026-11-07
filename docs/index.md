@@ -248,6 +248,7 @@ const stop  = effect(() => console.log(label()));          // runs now and after
 - Array mutators (`push`, `splice`, `sort`, …) notify once per call. Callbacks of `map`, `find`, `forEach`, … receive reactive items.
 - Reactivity lives in the proxy and the signal, not in values read out of them. `const { name } = form`, or a returned field set to `count()`, is a snapshot. Expose a getter instead.
 - An `effect` created during setup or in `connect()` stops with the scope. One created later (in a handler, a timer, or after an `await`) runs until stopped: `term.addEventListener('abort', effect(fn))`.
+- A function returned from an `effect` callback is its cleanup. It runs before each re-run and on stop, and reads inside it aren't tracked: `effect(() => { const id = setInterval(tick, state.delay); return () => clearInterval(id); })`.
 
 ### Reactivity API
 
@@ -258,7 +259,7 @@ The reactivity functions exported from `rousejs`.
 | `signal(value)` | A signal: `s()` reads, `s(v)` writes | A single value, exposed through a scope getter (plus a setter if `rz-model` writes it) |
 | `reactive(object)` | A deep proxy of a plain object or array | Objects and lists, returned from a scope as-is and mutated in place |
 | `computed(fn)` | A cached derived value, read as `c()` | Derived values. Recomputes only after a value `fn` read changes. Keep `fn` pure |
-| `effect(fn)` | A stop function | Side effects that follow state. Runs `fn` now and whenever what it read changes |
+| `effect(fn)` | A stop function | Side effects that follow state. Runs `fn` now and whenever what it read changes. A function `fn` returns runs as cleanup before each re-run and on stop |
 
 ## Scopes
 
@@ -955,6 +956,7 @@ These fail without an error, at most a dev warning. Most do nothing; some do the
 - **Scope state isn't reactive by default.** A plain field or `let` returned from setup renders once and never updates; use a `signal` behind a getter, or return a `reactive` object directly.
 - **Only plain objects and arrays are reactive.** `reactive()` returns `Map`, `Set`, `Date`, and class instances unproxied, so changes inside them never update bindings.
 - **Late effects outlive the scope.** An `effect` created in a handler, a timer, or after an `await` isn't stopped on teardown. Stop it when `term` aborts.
+- **A returned function is a cleanup.** A concise arrow that evaluates to a function, such as `effect(() => state.onSave)`, calls it before every re-run and on stop. Use a block body.
 - **Duplicate keys drop items.** An item whose `rz-key` value repeats an earlier item's isn't rendered, with only a dev warning.
 - **Interceptors must return.** A `response` or `error` interceptor's return replaces `data` or `error`, so returning nothing sets it to `undefined`.
 - **Scope listeners and requests are app-wide.** `app.on` in a scope listens on the whole app unless you pass `host` first, and lasts as long as the app without `signal: term`. `app.fetch` likewise keeps running after teardown without `signal: term`.
