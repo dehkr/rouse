@@ -4,6 +4,9 @@ import pkg from './package.json';
 
 const VERSION = JSON.stringify(pkg.version);
 
+// Limits fmt and lint to authored TypeScript: src/, test/, and docs/scopes/
+const SOURCE_ONLY = ['/*', '!/src/', '!/test/', '!/docs/', '/docs/*', '!/docs/scopes/'];
+
 const base: PackUserConfig = {
   entry: { rouse: 'src/index.ts' },
   format: ['esm'],
@@ -19,7 +22,7 @@ export default defineConfig({
   fmt: {
     singleQuote: true,
     printWidth: 90,
-    ignorePatterns: ['/*', '!/src/', '!/docs/', '/docs/*', '!/docs/scopes/'],
+    ignorePatterns: SOURCE_ONLY,
   },
   lint: {
     jsPlugins: [{ name: 'vite-plus', specifier: 'vite-plus/oxlint-plugin' }],
@@ -32,8 +35,17 @@ export default defineConfig({
       'typescript/unbound-method': 'off',
       'typescript/no-redundant-type-constituents': 'off',
     },
-    ignorePatterns: ['/*', '!/src/', '!/docs/', '/docs/*', '!/docs/scopes/'],
+    ignorePatterns: SOURCE_ONLY,
     options: { typeAware: true, typeCheck: false },
+  },
+  test: {
+    projects: [
+      {
+        extends: true,
+        define: { __DEV__: 'true', __VERSION__: VERSION },
+        test: { name: 'unit', include: ['test/unit/**/*.test.ts'], environment: 'node' },
+      },
+    ],
   },
   pack: [
     {
