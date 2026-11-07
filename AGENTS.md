@@ -5,9 +5,10 @@ Guidance for coding agents working in this repository.
 ## Commands
 
 ```bash
-npm run build    # Build dist/ with tsup (ESM, standard + minified)
-npm run check    # biome check
-npm run types    # Type-check with tsc --noEmit
+pnpm run build    # Type-check, check, then build dist/ with vp pack (ESM, standard + minified)
+pnpm run check    # vp check: oxfmt + oxlint (type-aware), config in vite.config.ts
+pnpm run format   # vp fmt
+pnpm run types    # Type-check with tsc --noEmit
 ```
 
 **No test runner is configured.** Verification is type-check + manual smoke (scratch HTML in a browser). Don't claim "tests pass" — say what you actually verified.
