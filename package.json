@@ -2,41 +2,43 @@
   "name": "rousejs",
   "version": "0.16.0",
   "description": "JavaScript reactivity and state sync for server-rendered HTML",
-  "author": "dehkr <dehkr25@gmail.com>",
-  "license": "MIT",
   "keywords": [
+    "alpinejs",
+    "buildless",
+    "csp",
+    "declarative",
+    "directives",
+    "html-first",
+    "htmx",
     "hypermedia",
-    "server-rendered",
+    "micro-frontends",
     "mpa",
     "multi-page-app",
-    "html-first",
-    "reactivity",
-    "reactive",
-    "signals",
-    "state-management",
-    "state-sync",
-    "sse",
-    "server-sent-events",
-    "two-way-binding",
-    "directives",
-    "declarative",
-    "csp",
-    "buildless",
     "no-build",
     "progressive-enhancement",
-    "micro-frontends",
-    "typescript",
-    "htmx",
-    "alpinejs",
-    "stimulus"
+    "reactive",
+    "reactivity",
+    "server-rendered",
+    "server-sent-events",
+    "signals",
+    "sse",
+    "state-management",
+    "state-sync",
+    "stimulus",
+    "two-way-binding",
+    "typescript"
   ],
   "homepage": "https://rousejs.com",
+  "license": "MIT",
+  "author": "dehkr <dehkr25@gmail.com>",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/dehkr/rouse.git"
   },
+  "files": [
+    "dist"
+  ],
   "type": "module",
-  "packageManager": "pnpm@12.15.0",
   "main": "./dist/rouse.min.js",
   "types": "./dist/rouse.d.ts",
   "exports": {
@@ -55,11 +57,8 @@
       "import": "./dist/rouse.min.js"
     }
   },
-  "files": [
-    "dist"
-  ],
   "scripts": {
-    "build": "pnpm run types && pnpm run check && tsup",
+    "build": "pnpm run types && pnpm run check && vp pack",
     "check": "biome check",
     "format": "biome format --write",
     "types": "tsc",
@@ -74,7 +73,8 @@
     "@biomejs/biome": "2.4.4",
     "alien-signals": "^3.1.2",
     "esbuild": "^0.28.2",
-    "tsup": "^8.5.1",
-    "typescript": "~5.9.3"
-  }
+    "typescript": "~5.9.3",
+    "vite-plus": "catalog:"
+  },
+  "packageManager": "pnpm@12.15.0"
 }
