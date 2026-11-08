@@ -359,7 +359,7 @@ Scope and store methods called from directives receive `{ el, e, render }` (`Han
 | `disconnect()` | On teardown: the host leaves the DOM, or `app.destroy()` | `term` aborts -> bindings detach -> `disconnect()` -> `rz:scope:disconnect` -> `rz:scope:destroy` |
 
 - Use `connect()` for work that needs bound DOM: measuring, focusing, or mounting a third-party widget. Setup runs before any directive binds.
-- With `rz-wake`, `connect()` waits for activation. Setup waits too.
+- With `rz-wake`, `connect()` waits for activation. Setup waits too, and never runs if the host leaves the DOM first.
 - Prefer `signal: term` for cleanup. It also covers a setup that throws partway, which runs neither hook. Keep `disconnect()` for undo work `term` can't reach, such as a widget's own `destroy()`.
 - Moving the host is a removal and an insertion: the instance tears down and setup runs again. State that must survive a move belongs in a store.
 - A throwing hook is logged; the mount or teardown still completes.
