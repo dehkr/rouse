@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vite-plus/test';
 import { delay, HttpResponse, http, worker } from '../helpers/network';
+import type { ScopeSetup } from '../../../src/types';
 import { mount } from '../helpers/mount';
 
 describe('rz-wake', () => {
@@ -64,10 +65,7 @@ describe('rz-wake', () => {
     expect(requested).toHaveBeenCalledOnce();
   });
 
-  // Known bug: `initScopeElement` discards the cleanup `attachWakeStrategies` returns,
-  // so a pending gate outlives its host. Setup then runs on the detached element, and
-  // nothing ever tears that instance down. Switch to `it` once fixed.
-  it.fails('never runs setup when the host leaves before waking', async () => {
+  it('never runs setup when the host leaves before waking', async () => {
     const setup = vi.fn(() => ({}));
     const { $ } = await mount(
       `<section data-rz-scope="lazy" data-rz-wake="timeout-[30ms]"></section>`,
@@ -76,5 +74,29 @@ describe('rz-wake', () => {
     $('section').remove();
     await delay(60);
     expect(setup).not.toHaveBeenCalled();
+  });
+
+  it('never runs setup when the app is destroyed before waking', async () => {
+    const setup = vi.fn(() => ({}));
+    const { app } = await mount(
+      `<section data-rz-scope="lazy" data-rz-wake="timeout-[30ms]"></section>`,
+      { scopes: { lazy: setup } },
+    );
+    app.destroy();
+    await delay(60);
+    expect(setup).not.toHaveBeenCalled();
+  });
+
+  it('runs setup once for a host moved before waking', async () => {
+    const setup = vi.fn<ScopeSetup>(() => ({}));
+    const { root, $ } = await mount(
+      `<section data-rz-scope="lazy" data-rz-wake="timeout-[30ms]"></section><div></div>`,
+      { scopes: { lazy: setup } },
+    );
+    $('div').append($('section'));
+    await delay(80);
+    expect(setup).toHaveBeenCalledOnce();
+    expect(setup.mock.calls[0]![0].host.isConnected).toBe(true);
+    expect(root.querySelector('div > section')).not.toBeNull();
   });
 });

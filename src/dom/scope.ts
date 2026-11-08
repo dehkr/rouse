@@ -17,6 +17,8 @@ import { attachWakeStrategies } from './events';
 
 type ScopeHandle = ReturnType<typeof createScope>;
 const instanceMap = new WeakMap<HTMLElement, ScopeHandle>();
+/** Cancels the `rz-wake` gate of a scope that hasn't activated yet. */
+const pendingWakes = new WeakMap<HTMLElement, VoidFn>();
 
 /**
  * Initializes a scope element by parsing its directive, resolving its
@@ -41,7 +43,17 @@ export function initScopeElement(el: HTMLElement, app: RouseApp) {
 
   const strategies = rzWake.getConfig(el, app);
 
-  attachWakeStrategies(el, app, strategies, () => initScopeInstance(el, app, setup));
+  let waked = false;
+  const cancel = attachWakeStrategies(el, app, strategies, () => {
+    waked = true;
+    pendingWakes.delete(el);
+    initScopeInstance(el, app, setup);
+  });
+
+  // A gate satisfied while attaching has nothing left to cancel
+  if (!waked) {
+    pendingWakes.set(el, cancel);
+  }
 }
 
 /**
@@ -53,11 +65,15 @@ function initScopeInstance(el: HTMLElement, app: RouseApp, setup: ScopeSetup) {
 }
 
 /**
- * Tears down the instance on `el`. `_destroy()` fires `rz:scope:disconnect`
- * while unbinding. `rz:scope:destroy` is the final "instance gone" signal,
- * so it dispatches last.
+ * Tears down the instance on `el`, or cancels its pending `rz-wake` gate so setup
+ * never runs on a detached host. `_destroy()` fires `rz:scope:disconnect` while
+ * unbinding. `rz:scope:destroy` is the final "instance gone" signal, so it
+ * dispatches last.
  */
 export function destroyInstance(el: HTMLElement) {
+  pendingWakes.get(el)?.();
+  pendingWakes.delete(el);
+
   const inst = instanceMap.get(el);
   if (inst) {
     inst._destroy();
