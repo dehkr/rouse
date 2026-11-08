@@ -5,9 +5,9 @@
  * no effect. `url` stays a string, since a `URL`'s `searchParams` would be a second
  * query string beside `params`.
  *
- * `FetchRequest` is the one transport type for fetch, push, and pull. The authoring
- * types split above this line; never parameterize `request()` or the interceptors by
- * operation.
+ * `ResolvedRequest` is the one transport type for fetch, push, and pull. The authoring
+ * types (`FetchRequest`, `SyncRequest`) split above this line; never parameterize
+ * `request()` or the interceptors by operation.
  *
  * `skipInterceptors` stays programmatic, since a bypass written in markup silently
  * drops what the chain adds, such as auth headers.
@@ -15,7 +15,12 @@
 import type { RouseApp } from '../core/app';
 import { rzHeaders } from '../directives/rz-headers';
 import { rzRequest } from '../directives/rz-request';
-import type { FetchRequest, RequestError, RouseResponse } from '../types';
+import type {
+  FetchRequest,
+  RequestError,
+  ResolvedRequest,
+  RouseResponse,
+} from '../types';
 import { preparePayload } from './payload';
 import { errorResponse, mapCatchError, normalizeResponse } from './response';
 
@@ -34,7 +39,7 @@ const abortRegistry = new Map<string | symbol, AbortController>();
  * mutated in place and carried on `response.config`.
  */
 export async function request<T = any>(
-  config: FetchRequest,
+  config: ResolvedRequest,
   app: RouseApp,
 ): Promise<RouseResponse<T>> {
   if (!config.skipInterceptors) {
@@ -168,7 +173,7 @@ export function resolveRequestConfig(
  */
 async function runErrorInterceptors(
   error: RequestError,
-  config: FetchRequest,
+  config: ResolvedRequest,
   app: RouseApp,
 ): Promise<RequestError> {
   for (const fn of app._interceptors.error) {

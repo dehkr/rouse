@@ -24,7 +24,7 @@ import { request } from '../net/request';
 import { fallbackResponse } from '../net/response';
 import { reactive, seedPropagation, trackDirty } from '../reactivity/reactive';
 import type {
-  FetchRequest,
+  ResolvedRequest,
   LifecycleEventMap,
   RequestError,
   RouseResponse,
@@ -349,7 +349,7 @@ export class StoreManager {
 
     // Layers, later wins: protocol defaults, app config, store policy, per-call
     // options. Headers merge per key so one layer never drops another's keys.
-    const requestOptions: FetchRequest = {
+    const requestOptions: ResolvedRequest = {
       credentials: this.app.config.credentials,
       timeout: this.app.config.timeout,
       ...transport,
@@ -440,7 +440,7 @@ export class StoreManager {
   private async _sendAndApply(
     entry: StoreEntry,
     operation: 'push' | 'pull',
-    requestOptions: FetchRequest,
+    requestOptions: ResolvedRequest,
     snapshot: any,
     handle: LifecycleHandle,
   ): Promise<SendOutcome> {

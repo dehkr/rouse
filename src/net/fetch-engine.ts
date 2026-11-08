@@ -17,7 +17,7 @@ import { createKey } from '../core/keys';
 import { isPlainObject } from '../core/state';
 import { rzSend } from '../directives/rz-send';
 import { readTriggerValues } from '../dom/forms';
-import type { FetchRequest, RouseResponse } from '../types';
+import type { FetchRequest, ResolvedRequest, RouseResponse } from '../types';
 import { type LifecycleHandle, PREVENTED, runRequestLifecycle } from './lifecycle';
 import { resolveUrl } from './payload';
 import { request, resolveRequestConfig } from './request';
@@ -131,7 +131,7 @@ export async function runFetch(
       warn('rz-send: ignored because a body was passed to app.fetch().', triggerEl);
 
     // Final unified config object
-    const finalOptions: FetchRequest = {
+    const finalOptions: ResolvedRequest = {
       ...finalRequestInit,
       ...options,
       ...payload,
@@ -198,7 +198,7 @@ export async function runFetch(
 async function sendAndRoute(
   hostEl: Element,
   triggerEl: Element | null,
-  options: FetchRequest,
+  options: ResolvedRequest,
   app: RouseApp,
   handle: LifecycleHandle,
 ): Promise<RouseResponse> {

@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Clear the dirty flag on a top-level store key the server deletes with `null` in a push, pull, or deposit response, preventing the store from reading dirty indefinitely.
 - Cancel a scope's pending `rz-wake` gate when its host leaves the DOM or the app is destroyed, preventing setup from running on a detached host whose instance never tears down.
 - Allow a `request` interceptor to return nothing in the `RequestInterceptor` type, matching the runtime and the documented in-place edits.
+- Type `config` as resolved in interceptors and in the `:config`, `:start`, `:abort`, and `:end` request event details.
 
 ## [0.16.0] - 2026-11-05
 

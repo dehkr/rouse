@@ -43,7 +43,7 @@ export interface FetchConfigDetail {
    * carries. A `rz:fetch:config` listener can change it in place, including `url` and
    * `method`. Replacing the object has no effect on the request.
    */
-  config: FetchRequest;
+  config: ResolvedRequest;
 }
 
 /** Detail for `rz:fetch:success`: the full response object. */
@@ -79,7 +79,7 @@ export interface PushPullConfigDetail {
    * carries. A `:config` listener can change it in place, including `url`. Replacing
    * the object has no effect on the request.
    */
-  config: FetchRequest;
+  config: ResolvedRequest;
 }
 
 /** A stream's resolved connection config, carried on every `rz:sse:*` detail. */
@@ -613,6 +613,14 @@ export interface FetchConfig extends BaseRequestConfig {
 export type FetchRequest = Omit<RequestInit, 'body' | 'headers'> & FetchConfig;
 
 /**
+ * A request config once Rouse has resolved it, as `:config` listeners and interceptors
+ * see it. `url` is absolute, and `method` and `headers` are always set, so they can be
+ * edited in place.
+ */
+export type ResolvedRequest = FetchRequest &
+  Required<Pick<FetchRequest, 'url' | 'method' | 'headers'>>;
+
+/**
  * The authoring surface for a store push or pull. A push body is the store's own data
  * and a pull carries none, so `body` is absent by design. `method` is absent too: a
  * push is always `PATCH` (RFC 7396 merge patch), and a pull always `GET`.
@@ -662,7 +670,10 @@ export interface RouseResponse<T = any> {
   headers: Record<string, string> | null;
   /** HTTP status code, or `null` for non-HTTP failures. */
   status: number | null;
-  /** The resolved request config that produced this response. */
+  /**
+   * The request config that produced this response. Resolved, except on a response
+   * returned without sending, such as a guard drop.
+   */
   config: FetchRequest;
   /** The server's replacement for the `rz-place` value (`Rouse-Place` header), if it sent one. */
   placeOverride?: string | null;
@@ -692,20 +703,20 @@ export interface RoutablePayload {
  * remove it: set it to `undefined` instead.
  */
 export type RequestInterceptor = (
-  config: FetchRequest,
+  config: ResolvedRequest,
 ) => FetchRequest | void | Promise<FetchRequest | void>;
 
 /** Runs after a successful response is received. Return a modified value to override response data. */
 export type ResponseInterceptor = (
   data: any,
   response: Response,
-  config: FetchRequest,
+  config: ResolvedRequest,
 ) => any | Promise<any>;
 
 /** Runs when a request fails. Return a modified error to override what propagates. */
 export type ErrorInterceptor = (
   error: RequestError,
-  config: FetchRequest,
+  config: ResolvedRequest,
 ) => RequestError | Promise<RequestError>;
 
 /** The three points in the request lifecycle where interceptors can be registered. */
