@@ -16,7 +16,7 @@
  * sound. A mounting element joins it without reviving it; `app.sse()` revives it.
  */
 import type { RouseApp } from '../core/app';
-import { dispatch } from '../core/dispatch';
+import { dispatchFrom } from '../core/dispatch';
 import { safeJSONParse } from '../core/parser';
 import { isPlainObject } from '../core/state';
 import type {
@@ -86,7 +86,13 @@ export function openStream(
 
   // Cancelable, and the one chance to rewrite the endpoint: the key is read back
   // from `config` afterwards, so a mutated URL is the one that connects.
-  const gate = dispatch(el, app.root, 'rz:sse:config', { config }, { cancelable: true });
+  const gate = dispatchFrom(
+    el,
+    app.root,
+    'rz:sse:config',
+    { config },
+    { cancelable: true },
+  );
   if (gate.defaultPrevented) {
     return null;
   }
@@ -115,7 +121,7 @@ export function openStream(
     connect(entry);
   } else if (entry.source?.readyState === EventSource.OPEN) {
     // A ref joining a live stream missed the connect dispatch
-    dispatch(el, app.root, 'rz:sse:open', { config });
+    dispatchFrom(el, app.root, 'rz:sse:open', { config });
   }
 
   return (reason = 'released') => release(key, ref, reason);
@@ -208,13 +214,13 @@ function onMessage(entry: StreamEntry, event: string, e: MessageEvent) {
     // DOM already placed. The sub-event leading its parent is deliberate.
     if (routable) {
       if (Array.isArray(data) || isPlainObject(data)) {
-        dispatch(ref.el, ref.root, 'rz:sse:message:json', { ...base, data });
+        dispatchFrom(ref.el, ref.root, 'rz:sse:message:json', { ...base, data });
       } else {
-        dispatch(ref.el, ref.root, 'rz:sse:message:html', { ...base, data: raw });
+        dispatchFrom(ref.el, ref.root, 'rz:sse:message:html', { ...base, data: raw });
       }
     }
 
-    dispatch(ref.el, ref.root, 'rz:sse:message', { ...base, data });
+    dispatchFrom(ref.el, ref.root, 'rz:sse:message', { ...base, data });
   }
 }
 
@@ -263,7 +269,7 @@ function release(key: string, ref: StreamRef, reason: SseCloseReason) {
   }
 
   if (!announced) {
-    dispatch(ref.el, ref.root, 'rz:sse:close', { config: ref.config, reason });
+    dispatchFrom(ref.el, ref.root, 'rz:sse:close', { config: ref.config, reason });
   }
 }
 
@@ -280,7 +286,7 @@ function emit<E extends 'rz:sse:open' | 'rz:sse:error' | 'rz:sse:close'>(
   let prevented = false;
 
   for (const ref of entry.refs) {
-    const event = dispatch(
+    const event = dispatchFrom(
       ref.el,
       ref.root,
       name,

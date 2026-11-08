@@ -6,7 +6,7 @@ import {
   type PlacePosition,
 } from '../core/constants';
 import { warn } from '../core/diagnostics';
-import { dispatch } from '../core/dispatch';
+import { dispatchFrom } from '../core/dispatch';
 import { queryPlaceTargets } from '../directives/rz-place';
 import type { PlaceOptions } from '../types';
 
@@ -73,7 +73,7 @@ export function placeInto(
       ? target.parentElement || target
       : target;
 
-  const beforeEvent = dispatch(
+  const beforeEvent = dispatchFrom(
     dispatcherEl,
     root,
     'rz:dom:place:before',
@@ -100,7 +100,7 @@ export function placeInto(
       target.insertAdjacentHTML(position, finalContent);
   }
 
-  dispatch(dispatcherEl, root, 'rz:dom:place', {
+  dispatchFrom(dispatcherEl, root, 'rz:dom:place', {
     target,
     position,
     payload: finalContent,

@@ -54,7 +54,7 @@ import type {
   VoidFn,
 } from '../types';
 import { fail, info, warn } from './diagnostics';
-import { dispatch } from './dispatch';
+import { dispatchFrom } from './dispatch';
 import { ScopeRegistry } from './scope-registry';
 import { isPlainObject } from './state';
 import { StoreManager, type SyncPolicy } from './store';
@@ -476,7 +476,7 @@ export class RouseApp {
 
     this._hasStarted = true;
 
-    dispatch(this.root, this.root, 'rz:app:start', { app: this });
+    dispatchFrom(this.root, this.root, 'rz:app:start', { app: this });
 
     initPayloadRouters(this, this._abortController.signal);
 
@@ -489,7 +489,7 @@ export class RouseApp {
     requestAnimationFrame(() => {
       if (this._destroyed) return;
       this.isReady = true;
-      dispatch(this.root, this.root, 'rz:app:ready', { app: this });
+      dispatchFrom(this.root, this.root, 'rz:app:ready', { app: this });
     });
   }
 
@@ -510,7 +510,7 @@ export class RouseApp {
     unmountSubtree(this.root);
     teardownGlobalBindings(this.root);
 
-    dispatch(this.root, this.root, 'rz:app:destroy', { app: this });
+    dispatchFrom(this.root, this.root, 'rz:app:destroy', { app: this });
 
     // Release after the destroy event so app.on('rz:app:destroy') fires and
     // getApp(e.target) still resolves.

@@ -14,7 +14,7 @@
 import type { RouseApp } from '../core/app';
 import { getDirectiveValue } from '../core/attributes';
 import { err, warn } from '../core/diagnostics';
-import { dispatch } from '../core/dispatch';
+import { dispatchFrom } from '../core/dispatch';
 import { parseDirectiveValue } from '../core/parser';
 import { EMPTY_SCOPE } from '../core/resolve';
 import { SCOPE_SELECTOR } from '../directives/rz-scope';
@@ -319,7 +319,7 @@ export function bindScope(root: HTMLElement, instance: Scope, app: RouseApp) {
   awakeScopes.set(root, instance);
 
   // The DOM is bound and the scope is fully active
-  dispatch(root, app.root, 'rz:scope:connect', { instance, host: root });
+  dispatchFrom(root, app.root, 'rz:scope:connect', { instance, host: root });
 
   // Disconnects the entire scope
   function unbindDom() {
@@ -328,7 +328,7 @@ export function bindScope(root: HTMLElement, instance: Scope, app: RouseApp) {
     }
     runHook(instance, 'disconnect', root);
     awakeScopes.delete(root);
-    dispatch(root, app.root, 'rz:scope:disconnect', { instance, host: root });
+    dispatchFrom(root, app.root, 'rz:scope:disconnect', { instance, host: root });
   }
 
   return { unbindDom, scan, teardown };

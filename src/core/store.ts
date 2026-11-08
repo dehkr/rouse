@@ -34,7 +34,7 @@ import type {
 } from '../types';
 import type { RouseApp } from './app';
 import { err, fail, warn } from './diagnostics';
-import { dispatch } from './dispatch';
+import { dispatchFrom } from './dispatch';
 import { getNestedVal, getPathRoot, setNestedVal } from './path';
 import { clone, deepEqual, hasAccessor, nullPaths, patchState } from './state';
 
@@ -291,7 +291,7 @@ export class StoreManager {
   ): CustomEvent<LifecycleEventMap[E]> {
     const target = entry.el ?? this.app.root;
 
-    return dispatch(
+    return dispatchFrom(
       target,
       this.app.root,
       eventName,

@@ -23,7 +23,7 @@
  */
 import { queryTargets } from '../core/attributes';
 import { warn } from '../core/diagnostics';
-import { dispatch } from '../core/dispatch';
+import { dispatchFrom } from '../core/dispatch';
 import { rzDisable } from '../directives/rz-disable';
 import { rzIndicator } from '../directives/rz-indicator';
 import type {
@@ -86,7 +86,7 @@ export async function runRequestLifecycle(
 ): Promise<RouseResponse | typeof PREVENTED> {
   const { el, root, prefix, configDetail, terminalDetail, run } = opts;
 
-  const configEvent = dispatch(el, root, `${prefix}:config`, configDetail, {
+  const configEvent = dispatchFrom(el, root, `${prefix}:config`, configDetail, {
     cancelable: true,
   });
 
@@ -102,7 +102,7 @@ export async function runRequestLifecycle(
 
   trackInFlight(indicators, 1);
 
-  dispatch(el, root, `${prefix}:start`, configDetail);
+  dispatchFrom(el, root, `${prefix}:start`, configDetail);
 
   let released = false;
   const release = () => {
@@ -133,20 +133,20 @@ export async function runRequestLifecycle(
     release();
 
     if (result.error?.code === 'CANCELED') {
-      dispatch(el, root, `${prefix}:abort`, configDetail);
+      dispatchFrom(el, root, `${prefix}:abort`, configDetail);
       return;
     }
 
     if (result.error) {
-      dispatch(el, root, `${prefix}:error`, terminalDetail(result));
+      dispatchFrom(el, root, `${prefix}:error`, terminalDetail(result));
       return;
     }
 
-    dispatch(el, root, `${prefix}:success`, terminalDetail(result));
+    dispatchFrom(el, root, `${prefix}:success`, terminalDetail(result));
 
     const trigger = result.headers?.['rouse-trigger'];
     if (trigger) {
-      dispatch(el, root, trigger, result);
+      dispatchFrom(el, root, trigger, result);
     }
   };
 
@@ -155,7 +155,7 @@ export async function runRequestLifecycle(
   } finally {
     trackInFlight(indicators, -1);
     release();
-    dispatch(el, root, `${prefix}:end`, configDetail);
+    dispatchFrom(el, root, `${prefix}:end`, configDetail);
   }
 }
 

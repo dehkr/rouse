@@ -12,7 +12,7 @@ import type { RouseApp } from '../core/app';
 import { hasDirective, isDisabled } from '../core/attributes';
 import { isSafeMethod } from '../core/constants';
 import { err, warn } from '../core/diagnostics';
-import { dispatch } from '../core/dispatch';
+import { dispatchFrom } from '../core/dispatch';
 import { createKey } from '../core/keys';
 import { isPlainObject } from '../core/state';
 import { rzSend } from '../directives/rz-send';
@@ -515,7 +515,7 @@ function routePayload(
     }
   }
 
-  dispatch(hostEl, app.root, `rz:fetch:${type}:${kind}`, result);
+  dispatchFrom(hostEl, app.root, `rz:fetch:${type}:${kind}`, result);
 }
 
 /** Classifies a response body by the router that handles it. */
