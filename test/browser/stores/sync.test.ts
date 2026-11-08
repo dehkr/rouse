@@ -133,10 +133,7 @@ describe('store pull', () => {
     expect(app.stores.status('profile')!.lastSync).toBeGreaterThan(0);
   });
 
-  // Known bug: the data patch marks `bio` dirty, then the baseline patch deletes it
-  // too, and `_reconcileDirty` only walks keys present in the data or the baseline.
-  // The stale `dirtyRoots.bio` is never cleared. Switch to `it` once fixed.
-  it.fails('reads clean after the server deletes a root with null', async () => {
+  it('reads clean after the server deletes a root with null', async () => {
     worker.use(http.get('/api/profile', () => HttpResponse.json({ bio: null })));
     const { app } = await mount('', {
       setup: (a) =>

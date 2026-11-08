@@ -255,12 +255,19 @@ export class StoreManager {
   /**
    * Recomputes the dirty status against `lastGood`. The only writer of
    * `status.dirtyRoots` and `status.dirty`. Without `roots`, walks every root in
-   * the data or the baseline, so a root deleted locally still reads dirty.
+   * the data, the baseline, or the current dirty set. A root deleted locally still
+   * reads dirty, and a root the server deleted from both sides is cleared.
    */
   private _reconcileDirty(entry: StoreEntry, roots?: Iterable<string>) {
     const { data, status } = entry;
     const baseline = entry.lastGood ?? {};
-    const keys = roots ?? new Set([...Object.keys(data), ...Object.keys(baseline)]);
+    const keys =
+      roots ??
+      new Set([
+        ...Object.keys(data),
+        ...Object.keys(baseline),
+        ...Object.keys(status.dirtyRoots),
+      ]);
 
     for (const key of keys) {
       // Accessors and methods are absent from `lastGood` (clone strips them), so

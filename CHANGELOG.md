@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dispatch lifecycle events from `app.root` when the target element has left the DOM, ensuring `app.on` hears scope teardown, `rz:sse:close`, and the late events of a request from a removed trigger element.
   - Listeners on the detached element or its removed ancestors no longer catch these events. Use `app.on` and filter on `e.detail.host` or `e.detail.config.triggerEl`.
 - Route the response of a trigger element removed while its request is in flight, applying `rz-place`, `rz-deposit`, `Rouse-Place`, and `Rouse-Deposit` instead of silently dropping it.
+- Clear the dirty flag on a top-level store key the server deletes with `null` in a push, pull, or deposit response, preventing the store from reading dirty indefinitely.
 
 ## [0.16.0] - 2026-11-05
 
