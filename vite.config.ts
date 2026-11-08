@@ -8,7 +8,7 @@ const VERSION = JSON.stringify(pkg.version);
 const DEV_DEFINES = { __DEV__: 'true', __VERSION__: VERSION };
 
 // Limits fmt and lint to authored TypeScript: src/, test/, and docs/scopes/
-const SOURCE_ONLY = ['/*', '!/src/', '!/test/', '!/docs/', '/docs/*', '!/docs/scopes/'];
+const SOURCE_ONLY = ['/*', '!/src/', '!/test/', '!/e2e/', '!/docs/', '/docs/*', '!/docs/scopes/'];
 
 const base: PackUserConfig = {
   entry: { rouse: 'src/index.ts' },

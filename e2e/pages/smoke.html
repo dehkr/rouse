@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Smoke</title>
+    <script>
+      window.setup = (app, { signal }) => {
+        app.scope('counter', () => {
+          const count = signal(0);
+          return {
+            get count() {
+              return count();
+            },
+            increment() {
+              count(count() + 1);
+            },
+          };
+        });
+        app.store('todos', {
+          draft: '',
+          items: [{ id: 1, title: 'Ship' }],
+          add() {
+            this.items.push({ id: this.items.length + 1, title: this.draft });
+            this.draft = '';
+          },
+        });
+      };
+    </script>
+    <script type="module" src="/boot.js"></script>
+  </head>
+  <body>
+    <section data-rz-scope="counter">
+      <button id="increment" data-rz-on="click: increment">+</button>
+      <output id="count" data-rz-text="count"></output>
+    </section>
+
+    <section>
+      <input id="draft" data-rz-model="@todos.draft" />
+      <button id="add" data-rz-on="click: @todos.add">Add</button>
+      <ul id="todos">
+        <template data-rz-render="@todos.items" data-rz-key="id">
+          <li data-rz-text="%.title"></li>
+        </template>
+      </ul>
+    </section>
+  </body>
+</html>

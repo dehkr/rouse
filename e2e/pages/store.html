@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Store</title>
+    <script type="module" src="/boot.js"></script>
+  </head>
+  <body>
+    <script
+      type="application/json"
+      data-rz-store="user: /api/store"
+      data-rz-pull="ready: @user"
+    >
+      {}
+    </script>
+
+    <input id="name" data-rz-model="@user.name" />
+    <button
+      id="save"
+      data-rz-push="click: @user"
+      data-rz-attr="disabled: @user::status.syncing"
+    >
+      Save
+    </button>
+    <span id="dirty" data-rz-class="unsaved: @user::status.dirty">Unsaved</span>
+    <span id="saved-at" data-rz-text="@user.savedAt"></span>
+  </body>
+</html>

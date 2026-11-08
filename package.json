@@ -61,16 +61,19 @@
     "check": "vp check",
     "format": "vp fmt",
     "test": "vp test",
-    "types": "tsc && tsc -p test",
+    "types": "tsc && tsc -p test && tsc -p e2e",
     "docs:dev": "eleventy --serve",
     "docs:types": "tsc -p docs/scopes",
     "docs:build": "eleventy",
     "docs:release": "pnpm run docs:build && date -u +%FT%TZ > docs/rebuild.txt",
-    "docs:vendor": "cp dist/* docs/assets/rouse/"
+    "docs:vendor": "cp dist/* docs/assets/rouse/",
+    "e2e": "vp pack && playwright test -c e2e"
   },
   "devDependencies": {
     "@11ty/eleventy": "^3.1.7",
     "@11ty/eleventy-plugin-syntaxhighlight": "^5.0.2",
+    "@playwright/test": "1.65.0",
+    "@types/node": "^26.6.6",
     "@vitest/browser-playwright": "5.1.0",
     "alien-signals": "^3.2.1",
     "esbuild": "^0.28.2",

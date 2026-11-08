@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Navigation</title>
+    <script type="module" src="/boot.js"></script>
+  </head>
+  <body>
+    <button id="redirect-header" data-rz-fetch="click: /api/redirect-header">
+      Redirect
+    </button>
+    <button id="redirect-302" data-rz-fetch="click: /api/redirect-302">Follow</button>
+    <button id="tab-2" data-rz-fetch="click: /api/push-url?tab=2" data-rz-place="#panel">
+      Tab 2
+    </button>
+    <div id="panel"><p>tab 1</p></div>
+  </body>
+</html>

@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Forms</title>
+    <script>
+      window.setup = (app) => app.store('echo', { contentType: '', body: '' });
+    </script>
+    <script type="module" src="/boot.js"></script>
+  </head>
+  <body>
+    <form
+      id="plain"
+      action="/api/echo"
+      method="post"
+      data-rz-fetch="submit"
+      data-rz-deposit="@echo"
+    >
+      <input name="email" value="ada@example.com" />
+      <button>Send</button>
+    </form>
+
+    <form
+      id="upload"
+      action="/api/echo"
+      method="post"
+      enctype="multipart/form-data"
+      data-rz-fetch="submit"
+      data-rz-deposit="@echo"
+    >
+      <input type="file" name="avatar" />
+      <button>Upload</button>
+    </form>
+
+    <pre id="content-type" data-rz-text="@echo.contentType"></pre>
+    <pre id="body" data-rz-text="@echo.body"></pre>
+  </body>
+</html>

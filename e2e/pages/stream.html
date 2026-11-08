@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Stream</title>
+    <script>
+      window.opens = 0;
+      window.setup = (app) => app.on('rz:sse:open', () => window.opens++);
+    </script>
+    <script type="module" src="/boot.js"></script>
+  </head>
+  <body>
+    <div id="feed" data-rz-sse="ready: /api/stream" data-rz-place="beforeend"></div>
+  </body>
+</html>
