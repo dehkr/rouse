@@ -16,7 +16,6 @@ describe('interceptors', () => {
         a.interceptor('request', async (config) => {
           await delay(5);
           config.headers = { ...config.headers, Authorization: 'Bearer t' };
-          return config;
         }),
     });
     await app.fetch('/api/me');
@@ -117,7 +116,6 @@ describe('interceptors', () => {
         a.store('s', { v: 0 }, { url: '/api/s' });
         a.interceptor('request', (config) => {
           headers({ ...config.headers });
-          return config;
         });
       },
     });

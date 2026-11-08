@@ -687,13 +687,13 @@ export interface RoutablePayload {
 }
 
 /**
- * Runs before a request is sent. Change the config in place, or return the fields to
- * change. Leaving a field out of the returned object doesn't remove it: set it to
- * `undefined` instead.
+ * Runs before a request is sent. Change the config in place and return nothing, or
+ * return the fields to change. Leaving a field out of the returned object doesn't
+ * remove it: set it to `undefined` instead.
  */
 export type RequestInterceptor = (
   config: FetchRequest,
-) => FetchRequest | Promise<FetchRequest>;
+) => FetchRequest | void | Promise<FetchRequest | void>;
 
 /** Runs after a successful response is received. Return a modified value to override response data. */
 export type ResponseInterceptor = (
