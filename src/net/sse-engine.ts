@@ -35,6 +35,8 @@ export type SseRelease = (reason?: SseCloseReason) => void;
 interface StreamRef {
   /** Dispatch node for this holder's events, and the `rz-place` host. */
   el: Element;
+  /** The app root, where events fire once `el` has left the DOM. */
+  root: Element;
   config: SseConnectionConfig;
 }
 
@@ -84,7 +86,7 @@ export function openStream(
 
   // Cancelable, and the one chance to rewrite the endpoint: the key is read back
   // from `config` afterwards, so a mutated URL is the one that connects.
-  const gate = dispatch(el, 'rz:sse:config', { config }, { cancelable: true });
+  const gate = dispatch(el, app.root, 'rz:sse:config', { config }, { cancelable: true });
   if (gate.defaultPrevented) {
     return null;
   }
@@ -105,7 +107,7 @@ export function openStream(
     entries.set(key, entry);
   }
 
-  const ref: StreamRef = { el, config };
+  const ref: StreamRef = { el, root: app.root, config };
   entry.refs.add(ref);
 
   if (!entry.source && (!entry.closed || revive)) {
@@ -113,7 +115,7 @@ export function openStream(
     connect(entry);
   } else if (entry.source?.readyState === EventSource.OPEN) {
     // A ref joining a live stream missed the connect dispatch
-    dispatch(el, 'rz:sse:open', { config });
+    dispatch(el, app.root, 'rz:sse:open', { config });
   }
 
   return (reason = 'released') => release(key, ref, reason);
@@ -206,13 +208,13 @@ function onMessage(entry: StreamEntry, event: string, e: MessageEvent) {
     // DOM already placed. The sub-event leading its parent is deliberate.
     if (routable) {
       if (Array.isArray(data) || isPlainObject(data)) {
-        dispatch(ref.el, 'rz:sse:message:json', { ...base, data });
+        dispatch(ref.el, ref.root, 'rz:sse:message:json', { ...base, data });
       } else {
-        dispatch(ref.el, 'rz:sse:message:html', { ...base, data: raw });
+        dispatch(ref.el, ref.root, 'rz:sse:message:html', { ...base, data: raw });
       }
     }
 
-    dispatch(ref.el, 'rz:sse:message', { ...base, data });
+    dispatch(ref.el, ref.root, 'rz:sse:message', { ...base, data });
   }
 }
 
@@ -261,7 +263,7 @@ function release(key: string, ref: StreamRef, reason: SseCloseReason) {
   }
 
   if (!announced) {
-    dispatch(ref.el, 'rz:sse:close', { config: ref.config, reason });
+    dispatch(ref.el, ref.root, 'rz:sse:close', { config: ref.config, reason });
   }
 }
 
@@ -278,9 +280,13 @@ function emit<E extends 'rz:sse:open' | 'rz:sse:error' | 'rz:sse:close'>(
   let prevented = false;
 
   for (const ref of entry.refs) {
-    const event = dispatch(ref.el, name, { config: ref.config, ...detail } as any, {
-      cancelable,
-    });
+    const event = dispatch(
+      ref.el,
+      ref.root,
+      name,
+      { config: ref.config, ...detail } as any,
+      { cancelable },
+    );
     prevented ||= event.defaultPrevented;
   }
 

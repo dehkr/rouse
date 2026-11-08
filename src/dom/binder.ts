@@ -319,7 +319,7 @@ export function bindScope(root: HTMLElement, instance: Scope, app: RouseApp) {
   awakeScopes.set(root, instance);
 
   // The DOM is bound and the scope is fully active
-  dispatch(root, 'rz:scope:connect', { instance });
+  dispatch(root, app.root, 'rz:scope:connect', { instance, host: root });
 
   // Disconnects the entire scope
   function unbindDom() {
@@ -328,7 +328,7 @@ export function bindScope(root: HTMLElement, instance: Scope, app: RouseApp) {
     }
     runHook(instance, 'disconnect', root);
     awakeScopes.delete(root);
-    dispatch(root, 'rz:scope:disconnect', { instance });
+    dispatch(root, app.root, 'rz:scope:disconnect', { instance, host: root });
   }
 
   return { unbindDom, scan, teardown };

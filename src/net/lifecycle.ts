@@ -86,7 +86,7 @@ export async function runRequestLifecycle(
 ): Promise<RouseResponse | typeof PREVENTED> {
   const { el, root, prefix, configDetail, terminalDetail, run } = opts;
 
-  const configEvent = dispatch(el, `${prefix}:config`, configDetail, {
+  const configEvent = dispatch(el, root, `${prefix}:config`, configDetail, {
     cancelable: true,
   });
 
@@ -102,7 +102,7 @@ export async function runRequestLifecycle(
 
   trackInFlight(indicators, 1);
 
-  dispatch(el, `${prefix}:start`, configDetail);
+  dispatch(el, root, `${prefix}:start`, configDetail);
 
   let released = false;
   const release = () => {
@@ -133,20 +133,20 @@ export async function runRequestLifecycle(
     release();
 
     if (result.error?.code === 'CANCELED') {
-      dispatch(el, `${prefix}:abort`, configDetail);
+      dispatch(el, root, `${prefix}:abort`, configDetail);
       return;
     }
 
     if (result.error) {
-      dispatch(el, `${prefix}:error`, terminalDetail(result));
+      dispatch(el, root, `${prefix}:error`, terminalDetail(result));
       return;
     }
 
-    dispatch(el, `${prefix}:success`, terminalDetail(result));
+    dispatch(el, root, `${prefix}:success`, terminalDetail(result));
 
     const trigger = result.headers?.['rouse-trigger'];
     if (trigger) {
-      dispatch(el, trigger, result);
+      dispatch(el, root, trigger, result);
     }
   };
 
@@ -155,7 +155,7 @@ export async function runRequestLifecycle(
   } finally {
     trackInFlight(indicators, -1);
     release();
-    dispatch(el, `${prefix}:end`, configDetail);
+    dispatch(el, root, `${prefix}:end`, configDetail);
   }
 }
 

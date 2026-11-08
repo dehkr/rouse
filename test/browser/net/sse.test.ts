@@ -98,17 +98,18 @@ describe('rz-sse', () => {
     expect(s.clients).toHaveLength(1);
   });
 
-  it('closes with reason teardown when the host leaves the DOM', async () => {
+  it('closes with reason teardown from app.root when the host leaves the DOM', async () => {
     const s = stream('/api/live');
-    const reasons: unknown[] = [];
-    const { $ } = await mount(`<div data-rz-sse="ready: /api/live"></div>`);
-    // Fires from the host after it's detached, so it never reaches app.root
-    $('div').addEventListener('rz:sse:close', (e) =>
-      reasons.push((e as CustomEvent).detail.reason),
-    );
+    const closes: CustomEvent[] = [];
+    const { $, root } = await mount(`<div data-rz-sse="ready: /api/live"></div>`, {
+      setup: (a) => a.on('rz:sse:close', (e) => closes.push(e)),
+    });
+    const host = $('div');
     await s.open();
-    $('div').remove();
-    await expect.poll(() => reasons).toEqual(['teardown']);
+    host.remove();
+    await expect.poll(() => closes.map((e) => e.detail.reason)).toEqual(['teardown']);
+    expect(closes[0]!.target).toBe(root);
+    expect(closes[0]!.detail.config.triggerEl).toBe(host);
   });
 
   it('opens a stream from app.sse and stops on close', async () => {

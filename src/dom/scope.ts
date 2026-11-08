@@ -61,7 +61,7 @@ export function destroyInstance(el: HTMLElement) {
   const inst = instanceMap.get(el);
   if (inst) {
     inst._destroy();
-    dispatch(el, 'rz:scope:destroy', { instance: inst.instance });
+    dispatch(el, inst.root, 'rz:scope:destroy', { instance: inst.instance, host: el });
     instanceMap.delete(el);
   }
 }
@@ -141,7 +141,7 @@ function createScope(el: HTMLElement, app: RouseApp, setup: ScopeSetup) {
 
   if (!setupFailed) {
     // State exists but not bound to DOM yet
-    dispatch(el, 'rz:scope:init', { context, instance });
+    dispatch(el, app.root, 'rz:scope:init', { context, instance });
 
     // `effectScope` for bindings wraps the logic that connects the reactive state
     // to the DOM. Captures effects created by bindings (text, atts, etc.) so the
@@ -157,6 +157,7 @@ function createScope(el: HTMLElement, app: RouseApp, setup: ScopeSetup) {
 
   return {
     instance,
+    root: app.root,
     _scan: (node: Element) => binding?.scan(node),
     _teardown: (node: Element) => binding?.teardown(node),
     _destroy: destroy,

@@ -27,6 +27,8 @@ export interface ScopeInitDetail {
 
 /** Detail for `rz:scope:connect`, `rz:scope:disconnect`, and `rz:scope:destroy`. */
 export interface ScopeLifecycleDetail {
+  /** The scope's host element. Identifies the scope when the event fires from the app root. */
+  host: HTMLElement;
   /**
    * The scope object its setup function returned. On `rz:scope:destroy` it is
    * already torn down, so use it to recognize the scope rather than to call it.

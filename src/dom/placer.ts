@@ -45,7 +45,7 @@ export function placeContent(
 
   let placed = false;
   for (const el of targets) {
-    if (placeInto(el, content, position, 'programmatic')) {
+    if (placeInto(el, app.root, content, position, 'programmatic')) {
       placed = true;
     }
   }
@@ -63,6 +63,7 @@ export function placeContent(
  */
 export function placeInto(
   target: Element,
+  root: Element,
   content: string,
   position: PlacePosition,
   source: 'fetch' | 'sse' | 'programmatic',
@@ -74,6 +75,7 @@ export function placeInto(
 
   const beforeEvent = dispatch(
     dispatcherEl,
+    root,
     'rz:dom:place:before',
     { target, position, payload: content, source },
     { cancelable: true },
@@ -98,7 +100,7 @@ export function placeInto(
       target.insertAdjacentHTML(position, finalContent);
   }
 
-  dispatch(dispatcherEl, 'rz:dom:place', {
+  dispatch(dispatcherEl, root, 'rz:dom:place', {
     target,
     position,
     payload: finalContent,

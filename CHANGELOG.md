@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add `host` to the `rz:scope:connect`, `rz:scope:disconnect`, and `rz:scope:destroy` details, identifying the scope when the event fires from `app.root`.
+
 ### Changed
 
 - **Breaking:** Upgrade alien-signals to 3.2.1, introducing automatic cleanup execution for functions returned from `effect` callbacks. Returned functions now run prior to re-runs and on scope teardown.
@@ -15,7 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Ensure reactive array index reads (`arr[i]`, `i in arr`) re-run on reordering mutators and `length` truncation. Index accessors now track all array mutations, matching iterator behavior and preventing stale values.
-- Return class instances in reactive state unproxied, matching the documented behavior and fixing `TypeError`s from methods that read private fields. Changes inside a class instance no longer update bindings.
+- Return class instances in reactive state unproxied, matching the documented behavior and preventing `TypeError` exceptions in methods accessing private `#fields`. Changes inside a class instance no longer update bindings.
+- Dispatch lifecycle events from `app.root` when the target element has left the DOM, ensuring `app.on` hears scope teardown, `rz:sse:close`, and the late events of a request from a removed trigger element.
+  - Listeners on the detached element or its removed ancestors no longer catch these events. Use `app.on` and filter on `e.detail.host` or `e.detail.config.triggerEl`.
+- Route the response of a trigger element removed while its request is in flight, applying `rz-place`, `rz-deposit`, `Rouse-Place`, and `Rouse-Deposit` instead of silently dropping it.
 
 ## [0.16.0] - 2026-11-05
 

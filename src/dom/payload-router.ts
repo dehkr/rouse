@@ -36,7 +36,9 @@ export function initPayloadRouters(app: RouseApp, signal: AbortSignal) {
       app.root,
       placeOverride,
     )) {
-      targets.forEach((targetEl) => placeInto(targetEl, content, position, source));
+      targets.forEach((targetEl) =>
+        placeInto(targetEl, app.root, content, position, source),
+      );
     }
   });
 

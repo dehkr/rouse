@@ -770,15 +770,15 @@ app.on('rz:dom:place:before', (e) => {
 
 ### Event origins
 
-Every event bubbles to `app.root`. Each fires from the element it describes.
+Every event bubbles to `app.root`. Each fires from the element it describes. Once that element has left the DOM, the event fires from `app.root` instead, and the field in the last column names the element.
 
-| Category | Events | Fires from |
-| --- | --- | --- |
-| App | `rz:app:*` | `app.root` |
-| Scope | `rz:scope:*` | The scope's host |
-| Request (a network operation) | `rz:fetch:*`, `rz:push:*`, `rz:pull:*` | The trigger element, else `app.root` |
-| Destination (what a response changed) | `rz:store:patch*`, `rz:dom:place*` | The store's script (else `app.root`), or the placement target (its parent for `outerHTML` / `delete`) |
-| Connection (a stream) | `rz:sse:*` | The `rz-sse` element |
+| Category | Events | Fires from | Identified by |
+| --- | --- | --- | --- |
+| App | `rz:app:*` | `app.root` | |
+| Scope | `rz:scope:*` | The scope's host | `host` (`context.host` on `:init`) |
+| Request (a network operation) | `rz:fetch:*`, `rz:push:*`, `rz:pull:*` | The trigger element, else `app.root` | `config.triggerEl` (`result.config.triggerEl` on push/pull `:success` / `:error`); push/pull also `storeName` |
+| Destination (what a response changed) | `rz:store:patch*`, `rz:dom:place*` | The store's script (else `app.root`), or the placement target (its parent for `outerHTML` / `delete`) | `storeName`, `target` |
+| Connection (a stream) | `rz:sse:*` | The `rz-sse` element | `config.triggerEl` |
 
 - `rz:push:*` and `rz:pull:*` have the same events as `rz:fetch:*`, minus the per-content-type ones.
 - A destination event's `operation` or `source` names the cause.
@@ -793,9 +793,9 @@ Every `rz:*` event, when it fires, and its `detail`.
 | `rz:app:ready` | The frame after the first scan | `{ app }` |
 | `rz:app:destroy` | `destroy()` | `{ app }` |
 | `rz:scope:init` | Setup returned | `{ context, instance }` |
-| `rz:scope:connect` | Bindings attached, after `rz-wake` | `{ instance }` |
-| `rz:scope:disconnect` | Bindings detached | `{ instance }` |
-| `rz:scope:destroy` | Torn down; fires last. `instance` is for recognizing the scope, not calling it | `{ instance }` |
+| `rz:scope:connect` | Bindings attached, after `rz-wake` | `{ instance, host }` |
+| `rz:scope:disconnect` | Bindings detached | `{ instance, host }` |
+| `rz:scope:destroy` | Torn down; fires last. `instance` is for recognizing the scope, not calling it | `{ instance, host }` |
 | `rz:fetch:config` | Before sending. **Cancelable**: prevented, nothing else fires. Edit `config` in place (absolute `url`, `method`, `headers`); it's the object sent | `{ config }`; push/pull add `storeName` |
 | `rz:fetch:start` | Sent | as `:config` |
 | `rz:fetch:success` | 2xx response. Exactly one of `:success`, `:error`, `:abort` fires | Fetch: the response `{ data, error, status, headers, response, config }`. Push/pull: `{ storeName, result }` |
@@ -960,6 +960,8 @@ These fail without an error, at most a dev warning. Most do nothing; some do the
 - **Duplicate keys drop items.** An item whose `rz-key` value repeats an earlier item's isn't rendered, with only a dev warning.
 - **Interceptors must return.** A `response` or `error` interceptor's return replaces `data` or `error`, so returning nothing sets it to `undefined`.
 - **Scope listeners and requests are app-wide.** `app.on` in a scope listens on the whole app unless you pass `host` first, and lasts as long as the app without `signal: term`. `app.fetch` likewise keeps running after teardown without `signal: term`.
+- **A removed element doesn't hear its own teardown.** Removing an element fires its remaining events (`rz:scope:disconnect`, `rz:scope:destroy`, the teardown `rz:sse:close`, an in-flight request's terminal events) from `app.root`. A listener on the element or a removed ancestor misses them. Use `app.on` and match `e.detail.host` or `e.detail.config.triggerEl`. Inside a scope, clean up with `term` instead.
+- **A removed trigger's response still lands.** Removing a trigger doesn't cancel its request, so a slow response can overwrite newer content in a shared target. Give competing triggers a shared `rz-request="abort-key: …"`.
 - **Register before scanning.** A store registered after the markup reading it was scanned stays `undefined` in those bindings for good.
 - **Stream events stay local.** `sse-[name]` hears only its own element's stream and descendants. A listener beside the stream needs `sse-[name]|root`.
 - **Some events fire off the element.** `visibilitychange` fires on `document`: write `visibilitychange|document`. `load|window` never fires if the app starts after load; use `ready`.

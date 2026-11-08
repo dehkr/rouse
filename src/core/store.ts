@@ -101,8 +101,7 @@ interface StoreEntry {
   idle?: PromiseWithResolvers<void>;
   /**
    * The `<script data-rz-store>` the store was declared on. Kept after the script is
-   * removed, so a same-name replacement can be told apart from a duplicate. Read it
-   * through `_elementOf`, which ignores a detached one.
+   * removed, so a same-name replacement can be told apart from a duplicate.
    */
   el?: Element;
   listeners?: Set<EditListener>;
@@ -192,8 +191,8 @@ export class StoreManager {
   }
 
   /**
-   * Returns the store's element while it's on the page. Events dispatched on a
-   * detached script never reach the app root.
+   * Returns the store's element while it's on the page. A sync started from a detached
+   * `<script data-rz-store>` treats the store as having no element.
    */
   private _elementOf(entry: StoreEntry): Element | undefined {
     return entry.el?.isConnected ? entry.el : undefined;
@@ -290,11 +289,15 @@ export class StoreManager {
     detail: LifecycleEventMap[E],
     options?: CustomEventInit,
   ): CustomEvent<LifecycleEventMap[E]> {
-    const target = this._elementOf(entry) ?? this.app.root;
+    const target = entry.el ?? this.app.root;
 
-    return dispatch(target, eventName, detail as any, options) as CustomEvent<
-      LifecycleEventMap[E]
-    >;
+    return dispatch(
+      target,
+      this.app.root,
+      eventName,
+      detail as any,
+      options,
+    ) as CustomEvent<LifecycleEventMap[E]>;
   }
 
   /**

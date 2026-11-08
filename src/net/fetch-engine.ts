@@ -240,12 +240,12 @@ async function sendAndRoute(
     if (result.error) {
       const { code } = result.error;
       if (code !== 'CANCELED' && code !== 'REDIRECTED' && result.response) {
-        routePayload(hostEl, result, 'error');
+        routePayload(hostEl, app, result, 'error');
       }
       return result;
     }
     if (result.response) {
-      routePayload(hostEl, result, 'success');
+      routePayload(hostEl, app, result, 'success');
     }
     return result;
   } catch (error: any) {
@@ -473,7 +473,12 @@ function getAbortKey(el: Element): string {
  * Dispatches the typed payload sub-event (`:file` / `:json` / `:html`) under the
  * given `rz:fetch:{success,error}` prefix, driving JSON and HTML routing.
  */
-function routePayload(hostEl: Element, result: RouseResponse, type: 'success' | 'error') {
+function routePayload(
+  hostEl: Element,
+  app: RouseApp,
+  result: RouseResponse,
+  type: 'success' | 'error',
+) {
   const data = result.data;
   // A server removing an element usually sends no body, which leaves nothing to
   // classify. `Rouse-Place` names the placement by itself, so an empty body that
@@ -510,7 +515,7 @@ function routePayload(hostEl: Element, result: RouseResponse, type: 'success' | 
     }
   }
 
-  dispatch(hostEl, `rz:fetch:${type}:${kind}`, result);
+  dispatch(hostEl, app.root, `rz:fetch:${type}:${kind}`, result);
 }
 
 /** Classifies a response body by the router that handles it. */
