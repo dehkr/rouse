@@ -1,8 +1,11 @@
+import { msw } from 'msw/vite';
 import { defineConfig } from 'vite-plus';
 import type { PackUserConfig } from 'vite-plus/pack';
+import { playwright } from 'vite-plus/test/browser-playwright';
 import pkg from './package.json';
 
 const VERSION = JSON.stringify(pkg.version);
+const DEV_DEFINES = { __DEV__: 'true', __VERSION__: VERSION };
 
 // Limits fmt and lint to authored TypeScript: src/, test/, and docs/scopes/
 const SOURCE_ONLY = ['/*', '!/src/', '!/test/', '!/docs/', '/docs/*', '!/docs/scopes/'];
@@ -42,15 +45,32 @@ export default defineConfig({
     projects: [
       {
         extends: true,
-        define: { __DEV__: 'true', __VERSION__: VERSION },
+        define: DEV_DEFINES,
         test: { name: 'unit', include: ['test/unit/**/*.test.ts'], environment: 'node' },
+      },
+      {
+        extends: true,
+        define: DEV_DEFINES,
+        // Serves mockServiceWorker.js so test/browser/setup.ts can start MSW
+        plugins: [msw({ mode: 'worker-only' })],
+        test: {
+          name: 'browser',
+          include: ['test/browser/**/*.test.ts'],
+          setupFiles: ['test/browser/setup.ts'],
+          browser: {
+            enabled: true,
+            provider: playwright(),
+            headless: true,
+            instances: [{ browser: 'chromium' }],
+          },
+        },
       },
     ],
   },
   pack: [
     {
       ...base,
-      define: { __DEV__: 'true', __VERSION__: VERSION },
+      define: DEV_DEFINES,
       outExtensions: () => ({ js: '.js', dts: '.d.ts' }),
       dts: true,
       clean: true,
