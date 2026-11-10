@@ -6,13 +6,15 @@
  * ran, so weak-keying `elementCleanups` wouldn't fix one; resolving the owner does.
  *
  * `resolveOwnerState` restates the ownership rule for standalone directives, so a new
- * ownership boundary must be taught to it as well as to `walkBoundElements`.
+ * ownership boundary must be taught to it as well as to `walkBoundElements` and
+ * `closestScope`. A nested app's root is one: a scope above it belongs to another app.
  *
  * A bound directive whose key is its subject needs `singleValue: true`. Without it,
  * `a, b` binds twice on one element and the last effect to run wins, with no warning.
  */
 import type { RouseApp } from '../core/app';
 import { getDirectiveValue } from '../core/attributes';
+import { APP_ROOT_SELECTOR } from '../core/constants';
 import { err, warn } from '../core/diagnostics';
 import { dispatchFrom } from '../core/dispatch';
 import { parseDirectiveValue } from '../core/parser';
@@ -31,6 +33,16 @@ let boundDirectiveList: BoundDirective[] = [];
 let boundSelector = '';
 /** Scope elements whose DOM is bound and whose `rz:scope:connect` has fired, mapped to their instance. */
 const awakeScopes = new WeakMap<Element, Scope>();
+
+/**
+ * Resolves the nearest enclosing scope element for `el` within the given `app`. Scopes
+ * outside `app.root` are ignored to prevent nested applications from resolving ancestor
+ * scopes belonging to an outer app.
+ */
+export function closestScope(el: Element, app: RouseApp): HTMLElement | null {
+  const scopeEl = el.closest<HTMLElement>(SCOPE_SELECTOR);
+  return scopeEl && app.root.contains(scopeEl) ? scopeEl : null;
+}
 
 /** Returns true if a scope element is currently connected. */
 export function isScopeAwake(el: Element): boolean {
@@ -121,9 +133,11 @@ export function bindDirectives(
 
 /**
  * Walks `root` and its subtree, invoking `callback` for each element carrying a
- * bound directive. Skips two boundaries so ownership stays correct: nested
- * `rz-scope` subtrees (owned by their own scope) and `rz-render` instance
- * subtrees (bound by the render engine with item context).
+ * bound directive. Skips three boundaries so ownership stays correct:
+ *
+ * - nested `rz-scope` subtrees, owned by their own scope
+ * - nested app roots, owned by their own app
+ * - `rz-render` instance subtrees, bound by the render engine with item context
  *
  * A `root` that is itself a scope is skipped entirely by default; pass
  * `acceptScopeRoot` to bind `root` itself while still skipping nested scopes.
@@ -147,7 +161,11 @@ export function walkBoundElements(
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT, {
     acceptNode(node) {
       const el = node as Element;
-      if (el.matches(SCOPE_SELECTOR) || renderOwned.has(el)) {
+      if (
+        el.matches(SCOPE_SELECTOR) ||
+        el.matches(APP_ROOT_SELECTOR) ||
+        renderOwned.has(el)
+      ) {
         return NodeFilter.FILTER_REJECT;
       }
 
@@ -286,6 +304,8 @@ export function bindScope(root: HTMLElement, instance: Scope, app: RouseApp) {
   function scan(startEl: Element) {
     const owner = startEl.closest(SCOPE_SELECTOR);
     if (!owner || owner !== root) return;
+    // Markup added inside a nested app's root belongs to that app
+    if (startEl.closest(APP_ROOT_SELECTOR) !== app.root) return;
 
     walkBoundElements(startEl, bindNode, {
       acceptScopeRoot: startEl === root,

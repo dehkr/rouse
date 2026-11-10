@@ -18,7 +18,6 @@ import { warn } from '../core/diagnostics';
 import { parseStoreRef, parseTriggers } from '../core/parser';
 import { getPathRoot } from '../core/path';
 import { applyTiming, parseTime } from '../core/timing';
-import { SCOPE_SELECTOR } from '../directives/rz-scope';
 import { subscribeNamed } from '../net/sse-engine';
 import type {
   ActionFn,
@@ -31,7 +30,7 @@ import type {
   TriggerModifiers,
   VoidFn,
 } from '../types';
-import { isScopeAwake } from './binder';
+import { closestScope, isScopeAwake } from './binder';
 import { applyModifiers, resolveListenerTarget } from './modifiers';
 
 interface TriggerContext {
@@ -388,7 +387,7 @@ const triggerSources: Record<string, TriggerSource> = {
   /** Fires when the nearest enclosing scope is activated. */
   wake: {
     attach: ({ el, app, action }) => {
-      const scopeEl = el.closest<HTMLElement>(SCOPE_SELECTOR);
+      const scopeEl = closestScope(el, app);
 
       if (!scopeEl) {
         __DEV__ && warn(`The 'wake' trigger requires an enclosing scope element.`, el);

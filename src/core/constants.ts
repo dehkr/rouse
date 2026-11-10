@@ -35,6 +35,9 @@ export function isDirectiveSlug(key: string): key is DirectiveSlug {
   return DIRECTIVE_SLUGS.includes(key as DirectiveSlug);
 }
 
+/** Marks an app's root element. Bounds every ownership lookup, since apps can nest. */
+export const APP_ROOT_SELECTOR = '[data-rouse-app]';
+
 export const STORE_PREFIX = '@';
 export const ITEM_PREFIX = '%';
 

@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Listeners on the detached element or its removed ancestors no longer catch these events. Use `app.on` and filter on `e.detail.host` or `e.detail.config.triggerEl`.
 - Route the response of a trigger element removed while its request is in flight, applying `rz-place`, `rz-deposit`, `Rouse-Place`, and `Rouse-Deposit` instead of silently dropping it.
 - Clear the dirty flag on a top-level store key the server deletes with `null` in a push, pull, or deposit response, preventing the store from reading dirty indefinitely.
+- Prevent enclosing scopes from binding a nested app's directives, which previously caused the nested app's `wake` trigger to fire prematurely on outer scope connection.
 - Cancel a scope's pending `rz-wake` gate when its host leaves the DOM or the app is destroyed, preventing setup from running on a detached host whose instance never tears down.
 - Allow a `request` interceptor to return nothing in the `RequestInterceptor` type, matching the runtime and the documented in-place edits.
 - Type `config` as resolved in interceptors and in the `:config`, `:start`, `:abort`, and `:end` request event details.

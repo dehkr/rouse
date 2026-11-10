@@ -4,6 +4,7 @@ import { warn } from '../core/diagnostics';
 import { SCOPE_SELECTOR } from '../directives/rz-scope';
 import { rzStore } from '../directives/rz-store';
 import {
+  closestScope,
   mountGlobalBinding,
   resolveRemovedOwner,
   teardownGlobalBindings,
@@ -66,7 +67,7 @@ export function mountSubtree(root: Element, app: RouseApp) {
 
   forEachOwned<HTMLElement>(root, SCOPE_SELECTOR, app, (el) => initScopeElement(el, app));
 
-  const ownerScope = root.closest<HTMLElement>(SCOPE_SELECTOR);
+  const ownerScope = closestScope(root, app);
 
   // Scan elements that belong to a scope, but make sure the element itself
   // isn't a scope. `closest` matches self, so a scope element would scan itself
@@ -121,7 +122,7 @@ export function releaseSubtree(root: Element, app: RouseApp) {
     forEachOwned(root, directive.selector, app, (el) => directive.teardown(el));
   }
 
-  const ownerScope = root.closest<HTMLElement>(SCOPE_SELECTOR);
+  const ownerScope = closestScope(root, app);
 
   if (ownerScope && !hasDirective(root, 'scope') && getApp(ownerScope, app)) {
     teardownScopeNode(ownerScope, root);

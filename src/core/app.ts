@@ -53,6 +53,7 @@ import type {
   ScopeSetup,
   VoidFn,
 } from '../types';
+import { APP_ROOT_SELECTOR } from './constants';
 import { fail, info, warn } from './diagnostics';
 import { dispatchFrom } from './dispatch';
 import { ScopeRegistry } from './scope-registry';
@@ -238,7 +239,7 @@ export class RouseApp {
     // needs to release them first to prevent both apps writing the same elements. It
     // must happen before the root is marked: the release finds the parent's bindings
     // through `getApp`, which stops resolving them to the parent once it is.
-    const parentRoot = rootEl.parentElement?.closest<HTMLElement>('[data-rouse-app]');
+    const parentRoot = rootEl.parentElement?.closest<HTMLElement>(APP_ROOT_SELECTOR);
     const parent = parentRoot ? appInstances.get(parentRoot) : undefined;
     if (parent?._hasStarted) {
       releaseSubtree(rootEl, parent);
@@ -526,7 +527,7 @@ export class RouseApp {
  * of nested apps.
  */
 export function getApp(el: Element, expected?: RouseApp): RouseApp | undefined {
-  const root = el.closest<HTMLElement>('[data-rouse-app]');
+  const root = el.closest<HTMLElement>(APP_ROOT_SELECTOR);
   if (!root) {
     __DEV__ && warn('Element is not inside an app instance.', el);
     return undefined;
