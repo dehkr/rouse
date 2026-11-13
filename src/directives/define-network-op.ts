@@ -33,7 +33,9 @@ export function defineNetworkOpDirective(
 
       const pairs = parseTriggerSubjectPairs(value);
       if (pairs.length === 0) {
-        __DEV__ && warn(`rz-${slug}: at least one trigger is required.`, el);
+        if (__DEV__) {
+          warn(`rz-${slug}: at least one trigger is required.`, el);
+        }
         return;
       }
 

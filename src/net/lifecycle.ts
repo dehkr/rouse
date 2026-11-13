@@ -181,12 +181,12 @@ function resolveIndicators(
 
   if (typeof resolved === 'string') {
     const els = queryTargets(root, resolved);
-    __DEV__ &&
-      !els.length &&
+    if (__DEV__ && !els.length) {
       warn(
         `No request indicator applied. Selector '${resolved}' does not match any elements.`,
         ...(el === root ? [] : [el]),
       );
+    }
     return els;
   }
 
@@ -195,11 +195,12 @@ function resolveIndicators(
     return [resolved];
   }
 
-  __DEV__ &&
+  if (__DEV__) {
     warn(
       `No request indicator applied. Expected an element, a selector, or null. Got: ${Array.isArray(resolved) ? 'array' : typeof resolved}.`,
       ...(el === root ? [] : [el]),
     );
+  }
 
   return [];
 }
@@ -216,19 +217,20 @@ function resolveDisabled(host: Element | null, root: Element): Element[] {
   if (selector === undefined) return [];
 
   const els = selector === '' ? [host] : queryTargets(root, selector);
-  __DEV__ &&
-    !els.length &&
+  if (__DEV__ && !els.length) {
     warn(`rz-disable: selector '${selector}' does not match any elements.`, host);
+  }
 
   // Filter out elements that don't support the native `disabled` property (e.g. <div>, <a>)
   return els.filter((match) => {
     if ('disabled' in match) return true;
-    __DEV__ &&
+    if (__DEV__) {
       warn(
         `rz-disable: <${match.localName}> can't be disabled. Name a form control or a fieldset.`,
         match,
         host,
       );
+    }
     return false;
   });
 }

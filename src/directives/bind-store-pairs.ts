@@ -66,17 +66,19 @@ function resolveTarget(
   subject: string | null,
 ): string | null {
   if (!subject) {
-    __DEV__ &&
+    if (__DEV__) {
       warn(
         `rz-${op}: missing store reference. Name the store, as in 'click: @cart'.`,
         el,
       );
+    }
     return null;
   }
 
   if (!subject.startsWith(STORE_PREFIX)) {
-    __DEV__ &&
+    if (__DEV__) {
       warn(`rz-${op}: target '${subject}' must be a store reference (e.g., '@cart').`);
+    }
     return null;
   }
 
@@ -88,18 +90,21 @@ function resolveTarget(
   const { source: storeName, nestedPath } = target;
 
   if (!storeName) {
-    __DEV__ && warn(`rz-${op}: invalid store reference '${subject}'.`);
+    if (__DEV__) {
+      warn(`rz-${op}: invalid store reference '${subject}'.`);
+    }
     return null;
   }
 
   // A server changes one field by nesting it in its payload, so sync needs no path.
   // Don't add one.
   if (nestedPath) {
-    __DEV__ &&
+    if (__DEV__) {
       warn(
         `rz-${op}: '${subject}' names a path, but a store syncs as a whole. Use '@${storeName}'.`,
         el,
       );
+    }
     return null;
   }
 
@@ -123,7 +128,9 @@ function triggerStoreSync(
 
   const status = app.stores.status(storeName);
   if (!status) {
-    __DEV__ && warn(`rz-${op}: store '@${storeName}' not found.`, triggerEl);
+    if (__DEV__) {
+      warn(`rz-${op}: store '@${storeName}' not found.`, triggerEl);
+    }
     return;
   }
   if (status.syncing) {

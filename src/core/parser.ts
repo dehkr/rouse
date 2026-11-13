@@ -82,10 +82,9 @@ export function parseDirectiveValue(
     return false;
   });
 
-  __DEV__ &&
-    !scanResult.mismatched &&
-    (scanResult.depth > 0 || scanResult.quote) &&
+  if (__DEV__ && !scanResult.mismatched && (scanResult.depth > 0 || scanResult.quote)) {
     warn(`Malformed directive value: '${value}'.`);
+  }
 
   // Final segment
   parseSegment(cleanedValue.slice(start), parsed);
@@ -122,7 +121,9 @@ function parseSegment(segment: string, pairs: ParsedDirectiveValue): void {
     }
   } else if (trimmed.endsWith(':')) {
     // A trailing ':' most likely means a value was inadvertently left out
-    __DEV__ && warn(`Ignoring '${trimmed}': trailing colon has no value.`);
+    if (__DEV__) {
+      warn(`Ignoring '${trimmed}': trailing colon has no value.`);
+    }
   } else {
     const key = stripQuotes(trimmed);
     if (key) {
@@ -186,7 +187,9 @@ function normalizeModifiers(tokens: string[], trigger: string): TriggerModifiers
       const [name, arg] = argToken;
 
       if (!arg) {
-        __DEV__ && warn(`Empty argument on modifier '${name}' in trigger '${trigger}'.`);
+        if (__DEV__) {
+          warn(`Empty argument on modifier '${name}' in trigger '${trigger}'.`);
+        }
         continue;
       }
 
@@ -196,7 +199,9 @@ function normalizeModifiers(tokens: string[], trigger: string): TriggerModifiers
       } else if (name === 'debounce' || name === 'throttle') {
         options[name] = arg;
       } else {
-        __DEV__ && warn(`Unknown modifier '${name}' in trigger '${trigger}'.`);
+        if (__DEV__) {
+          warn(`Unknown modifier '${name}' in trigger '${trigger}'.`);
+        }
       }
 
       continue;
@@ -209,7 +214,9 @@ function normalizeModifiers(tokens: string[], trigger: string): TriggerModifiers
     } else if (token === 'debounce' || token === 'throttle') {
       options[token] = true;
     } else {
-      __DEV__ && warn(`Unknown modifier '${token}' in trigger '${trigger}'.`);
+      if (__DEV__) {
+        warn(`Unknown modifier '${token}' in trigger '${trigger}'.`);
+      }
     }
   }
 
@@ -241,7 +248,9 @@ export function parseTriggers(value: string | null | undefined): TriggerDef[] {
 
   // A comma inside a bracketed argument is data, not a separator: `key-[,]`
   if (splitOnSafeDelimiter(raw, ',').length > 1) {
-    __DEV__ && warn(`Separate multi-trigger values by spaces, not commas: '${raw}'.`);
+    if (__DEV__) {
+      warn(`Separate multi-trigger values by spaces, not commas: '${raw}'.`);
+    }
     return [];
   }
 
@@ -259,10 +268,11 @@ export function parseTriggers(value: string | null | undefined): TriggerDef[] {
     );
 
     if (!event || modifierGroup === '' || extraGroups.length > 0) {
-      __DEV__ &&
+      if (__DEV__) {
         warn(
           `Malformed trigger: '${trigger}'. Use a single '|' after the event, followed by dot-separated modifiers.`,
         );
+      }
       continue;
     }
 
@@ -401,10 +411,11 @@ export function parseStoreRef(
   const { source, namespace, nestedPath } = parseDataSourcePath(ref);
 
   if (namespace) {
-    __DEV__ &&
+    if (__DEV__) {
       warn(
         `${slug ? `rz-${slug}: ` : ''}'${ref}' references the '${namespace}' namespace. Use '@${source}' to reference store data.`,
       );
+    }
     return null;
   }
 
@@ -466,7 +477,9 @@ function splitOnSafeDelimiter(
 export function safeJSONParse(text: string): unknown {
   return JSON.parse(text, (key, value) => {
     if (KEY_BLOCKLIST.includes(key)) {
-      __DEV__ && warn(`Blocked forbidden key in JSON: '${key}'.`);
+      if (__DEV__) {
+        warn(`Blocked forbidden key in JSON: '${key}'.`);
+      }
       return undefined;
     }
     return value;
@@ -526,7 +539,9 @@ function forEachSafeChar(
         totalDepth--;
       } else {
         mismatched = true;
-        __DEV__ && warn(`Mismatched bracket '${char}' in value: '${text}'.`);
+        if (__DEV__) {
+          warn(`Mismatched bracket '${char}' in value: '${text}'.`);
+        }
       }
     }
 

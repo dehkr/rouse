@@ -49,8 +49,9 @@ export function initPayloadRouters(app: RouseApp, signal: AbortSignal) {
     if (stores.length === 0) return;
 
     if (!isPlainObject(data)) {
-      __DEV__ &&
+      if (__DEV__) {
         warn('Cannot route JSON payload to a store. Expected a JSON object.', data);
+      }
       return;
     }
 

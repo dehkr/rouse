@@ -199,7 +199,9 @@ export class RouseApp {
    * @throws If the root cannot be found, or already has an app attached.
    */
   constructor(config: RouseConfig = {}) {
-    __DEV__ && logBuildBanner();
+    if (__DEV__) {
+      logBuildBanner();
+    }
 
     const rootEl =
       typeof config.root === 'string'
@@ -464,14 +466,17 @@ export class RouseApp {
    */
   start() {
     if (this._destroyed) {
-      __DEV__ &&
+      if (__DEV__) {
         warn(
           `'start()' called on a destroyed app. Ignoring. Create a new instance instead.`,
         );
+      }
       return;
     }
     if (this._hasStarted) {
-      __DEV__ && warn(`'start()' called multiple times. Ignoring.`);
+      if (__DEV__) {
+        warn(`'start()' called multiple times. Ignoring.`);
+      }
       return;
     }
 
@@ -529,7 +534,9 @@ export class RouseApp {
 export function getApp(el: Element, expected?: RouseApp): RouseApp | undefined {
   const root = el.closest<HTMLElement>(APP_ROOT_SELECTOR);
   if (!root) {
-    __DEV__ && warn('Element is not inside an app instance.', el);
+    if (__DEV__) {
+      warn('Element is not inside an app instance.', el);
+    }
     return undefined;
   }
 

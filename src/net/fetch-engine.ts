@@ -71,11 +71,12 @@ export async function runFetch(
 
     const rawUrl = submitter?.getAttribute('formaction') ?? options.url;
     if (!rawUrl) {
-      __DEV__ &&
+      if (__DEV__) {
         warn(
           'Invalid or missing URL for the fetch request.',
           ...(triggerEl ? [triggerEl] : []),
         );
+      }
       return fallbackResponse(
         options,
         'Invalid or missing URL for the fetch request.',
@@ -124,11 +125,9 @@ export async function runFetch(
         ? resolvePayload(triggerEl, submitter, method, headers, app)
         : {};
 
-    __DEV__ &&
-      triggerEl &&
-      hasExplicitBody &&
-      hasDirective(triggerEl, 'send') &&
+    if (__DEV__ && triggerEl && hasExplicitBody && hasDirective(triggerEl, 'send')) {
       warn('rz-send: ignored because a body was passed to app.fetch().', triggerEl);
+    }
 
     // Final unified config object
     const finalOptions: ResolvedRequest = {
@@ -219,7 +218,9 @@ async function sendAndRoute(
         followRedirect(triggerEl, result.response.url);
         return result;
       }
-      __DEV__ && warn(`Cross-origin redirect blocked: '${result.response.url}'.`);
+      if (__DEV__) {
+        warn(`Cross-origin redirect blocked: '${result.response.url}'.`);
+      }
       result.error = {
         message: 'Cross-origin redirect blocked',
         code: 'REDIRECTED',
@@ -330,12 +331,12 @@ function resolveEncoding(
     if (mime === 'multipart/form-data') {
       return 'multipart';
     }
-    __DEV__ &&
-      mime !== 'application/x-www-form-urlencoded' &&
+    if (__DEV__ && mime !== 'application/x-www-form-urlencoded') {
       warn(
         `Content-Type '${declared}' isn't an encoding Rouse can build. Sending form data under it.`,
         el,
       );
+    }
     return 'urlencoded';
   }
 
@@ -397,16 +398,18 @@ function toFormPairs(
         if (keepFiles) {
           return [[key, item]];
         }
-        __DEV__ &&
+        if (__DEV__) {
           warn(
             `File in '${key}' needs a multipart encoding to be sent. Sending its name.`,
             el,
           );
+        }
         return [[key, item.name]];
       }
       if (typeof item === 'object') {
-        __DEV__ &&
+        if (__DEV__) {
           warn(`'${key}' holds an object, which form data can't carry. Ignoring it.`, el);
+        }
         return [];
       }
       return [[key, String(item)]];
@@ -439,7 +442,9 @@ function dropFiles(
         return [[key, val]];
       }
 
-      __DEV__ && warn(`File in '${key}' can't be sent as JSON. Ignoring it.`, el);
+      if (__DEV__) {
+        warn(`File in '${key}' can't be sent as JSON. Ignoring it.`, el);
+      }
       const rest = items.filter((item) => !(item instanceof File));
       return Array.isArray(val) && rest.length ? [[key, rest]] : [];
     }),
@@ -558,14 +563,15 @@ function applyUrlChange(pushUrl: string | null, replaceUrl: string | null): void
   const url = pushUrl ?? replaceUrl;
   if (url === null) return;
 
-  __DEV__ &&
-    pushUrl &&
-    replaceUrl &&
+  if (__DEV__ && pushUrl && replaceUrl) {
     warn(`Both 'Rouse-Push-Url' and 'Rouse-Replace-Url' present. Using Push.`);
+  }
 
   if (!isSameOrigin(url)) {
     const headerName = pushUrl ? 'Rouse-Push-Url' : 'Rouse-Replace-Url';
-    __DEV__ && warn(`'${headerName}' rejected: cross-origin URL '${url}'.`);
+    if (__DEV__) {
+      warn(`'${headerName}' rejected: cross-origin URL '${url}'.`);
+    }
     return;
   }
 
@@ -574,7 +580,9 @@ function applyUrlChange(pushUrl: string | null, replaceUrl: string | null): void
   try {
     history[method]({}, '', url);
   } catch (error) {
-    __DEV__ && warn(`${method} failed for URL '${url}'.`, error);
+    if (__DEV__) {
+      warn(`${method} failed for URL '${url}'.`, error);
+    }
   }
 }
 

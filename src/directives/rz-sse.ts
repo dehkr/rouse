@@ -37,11 +37,12 @@ function bindSsePairs(el: Element, app: RouseApp, pairs: TriggerSubjectPair[]): 
   const url = pairs[0]?.subject;
 
   if (!url) {
-    __DEV__ &&
+    if (__DEV__) {
       warn(
         `rz-sse: no URL found. Configure it using data-rz-sse with at least one leading trigger (e.g. data-rz-sse="ready: /events").`,
         el,
       );
+    }
     return [];
   }
 
@@ -49,9 +50,9 @@ function bindSsePairs(el: Element, app: RouseApp, pairs: TriggerSubjectPair[]): 
   // rz:sse:open fires from one node. A second stream is a second element.
   const shared = pairs.filter((pair) => pair.subject === url);
 
-  __DEV__ &&
-    shared.length !== pairs.length &&
+  if (__DEV__ && shared.length !== pairs.length) {
     warn(`rz-sse: a single element can only carry one stream.`, el);
+  }
 
   return [
     ...shared.map(({ trigger }) =>

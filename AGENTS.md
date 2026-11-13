@@ -75,7 +75,7 @@ Where they meet: rule 2 goes before rule 4 (check whether a question needs an au
 
 The header of `src/core/diagnostics.ts` has the bare `err` sites and the message style.
 
-- **Every `warn()` / `err()` is written `__DEV__ && warn(...)`**, and diagnostic-only state (latches, counters, message values) is gated with it. `if (__DEV__) { … }` is the one alternative, for stranded bookkeeping; `__DEV__ ? x : y` for a value in expression position. A bare call ships its message in the min build.
+- **Every `warn()` / `err()` sits inside `if (__DEV__)`**, and so does diagnostic-only state (latches, counters, message values). Use `__DEV__ ? x : y` for a value in expression position. A bare call ships its message in the min build.
 - **Gate authoring diagnostics; never gate a failure that can first occur in production.** If the same markup could fail for one user and not another, the report ships.
 - **Throws are never gated or labeled.** Route them through `fail()` (`core/diagnostics.ts`).
 - **`warn`/`err`/`fail` prepend `[Rouse]`.** Directive-facing messages start with an `rz-<slug>:` label and a lowercase word; shared internals stay unlabeled. `el` goes last.

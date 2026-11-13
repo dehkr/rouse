@@ -148,23 +148,24 @@ export function on(
     name = event.trim();
 
     // Trigger grammar is parsed out of directive values only
-    __DEV__ &&
-      /\||-\[/.test(name) &&
+    if (__DEV__ && /\||-\[/.test(name)) {
       warn(
         `'${name}' looks like Rouse trigger syntax, which isn't parsed in app.on. Pass a trigger's argument with its name and modifiers as options: app.on({ sse: 'late' }, fn, { once: true }).`,
         target,
       );
+    }
   } else {
     const keys = Object.keys(event);
     const [key] = keys;
 
     // An empty or multi-key object names no single trigger, so nothing binds
     if (key === undefined || keys.length > 1) {
-      __DEV__ &&
+      if (__DEV__) {
         warn(
           `app.on expected a trigger source with its argument, such as { interval: '10s' }, but got an object with ${keys.length} keys.`,
           target,
         );
+      }
       return () => {};
     }
 
@@ -390,7 +391,9 @@ const triggerSources: Record<string, TriggerSource> = {
       const scopeEl = closestScope(el, app);
 
       if (!scopeEl) {
-        __DEV__ && warn(`The 'wake' trigger requires an enclosing scope element.`, el);
+        if (__DEV__) {
+          warn(`The 'wake' trigger requires an enclosing scope element.`, el);
+        }
         return null;
       }
 
@@ -435,21 +438,21 @@ const triggerSources: Record<string, TriggerSource> = {
   media: {
     attach: ({ el, arg: query, action }) => {
       if (typeof query !== 'string' || !query) {
-        __DEV__ &&
+        if (__DEV__) {
           warn(
             `The 'media' trigger requires a query: 'media-[(min-width: 640px)]' in HTML, or { media: '(min-width: 640px)' } from app.on.`,
             el,
           );
+        }
         return null;
       }
 
       const mql = window.matchMedia(query);
 
       // An invalid query doesn't throw; it serializes to 'not all' and never matches
-      __DEV__ &&
-        mql.media === 'not all' &&
-        query !== 'not all' &&
+      if (__DEV__ && mql.media === 'not all' && query !== 'not all') {
         warn(`Invalid media query '${query}'. It will never match.`, el);
+      }
 
       if (mql.matches) {
         action();
@@ -474,8 +477,9 @@ const triggerSources: Record<string, TriggerSource> = {
 
       // A value outside 0–1 makes the observer constructor throw
       if (typeof threshold !== 'number' || !(threshold >= 0 && threshold <= 1)) {
-        __DEV__ &&
+        if (__DEV__) {
           warn(`Invalid intersect threshold '${arg}'. Use a number from 0 to 1.`, el);
+        }
         threshold = 0;
       }
 
@@ -520,11 +524,12 @@ const triggerSources: Record<string, TriggerSource> = {
   sse: {
     attach: ({ el, app, arg: name, options, action }) => {
       if (typeof name !== 'string' || !name) {
-        __DEV__ &&
+        if (__DEV__) {
           warn(
             `The 'sse' trigger requires an event name: 'sse-[cart-updated]' in HTML, or { sse: 'cart-updated' } from app.on.`,
             el,
           );
+        }
         return null;
       }
 
@@ -573,11 +578,12 @@ const triggerSources: Record<string, TriggerSource> = {
       arg.startsWith(STORE_PREFIX) ? arg.slice(STORE_PREFIX.length) : undefined,
     attach: ({ el, app, arg: path, action }) => {
       if (typeof path !== 'string' || !path) {
-        __DEV__ &&
+        if (__DEV__) {
           warn(
             `The 'edit' trigger requires a store, e.g. 'edit-[@cart]' in HTML, or { edit: 'cart' } from app.on.`,
             el,
           );
+        }
         return null;
       }
 
@@ -585,11 +591,12 @@ const triggerSources: Record<string, TriggerSource> = {
       // The sigil is used only in HTML to indicate a store reference, since HTML
       // doesn't have field names.
       if (path.startsWith(STORE_PREFIX)) {
-        __DEV__ &&
+        if (__DEV__) {
           warn(
             `The 'edit' trigger takes a store without '${STORE_PREFIX}' from app.on: { edit: '${path.slice(STORE_PREFIX.length)}' }.`,
             el,
           );
+        }
         return null;
       }
 
@@ -618,11 +625,12 @@ function attachTimingSource(type: 'timeout' | 'interval', ctx: TriggerContext) {
   const delay = ctx.arg;
 
   if (delay === undefined || delay === '') {
-    __DEV__ &&
+    if (__DEV__) {
       warn(
         `The '${type}' trigger requires a delay: '${type}-[5s]' in HTML, or { ${type}: '5s' } from app.on.`,
         ctx.el,
       );
+    }
     return null;
   }
 

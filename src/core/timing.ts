@@ -207,7 +207,9 @@ export function parseTime(val?: string | number): number {
   const match = normalized.match(TIME_REGEX);
 
   if (!match) {
-    __DEV__ && warn(`Invalid time value: '${val}'.`);
+    if (__DEV__) {
+      warn(`Invalid time value: '${val}'.`);
+    }
     return 0;
   }
 

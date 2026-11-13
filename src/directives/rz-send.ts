@@ -56,7 +56,9 @@ function getConfig(
     } else if (entry === 'selector') {
       Object.assign(payload, readSelector(val, el, app));
     } else {
-      __DEV__ && warn(`rz-send: unknown key '${entry}'. The only key is 'selector'.`, el);
+      if (__DEV__) {
+        warn(`rz-send: unknown key '${entry}'. The only key is 'selector'.`, el);
+      }
     }
   }
 
@@ -83,11 +85,12 @@ function readSource(
   }
   if (lead === ITEM_PREFIX) {
     if (parseDataSourcePath(entry).namespace) {
-      __DEV__ &&
+      if (__DEV__) {
         warn(
           `rz-send: '${entry}' is render metadata, not item data. Use '%' or a field like '%.id'.`,
           el,
         );
+      }
       return null;
     }
     return readState(entry, el, scope, app);
@@ -96,13 +99,14 @@ function readSource(
     return readState(entry, el, scope, app);
   }
 
-  __DEV__ &&
+  if (__DEV__) {
     warn(
       /^[#.[:*]/.test(entry)
         ? `rz-send: '${entry}' looks like a selector. Write 'selector: ${entry}'.`
         : `rz-send: '${entry}' is not a source.`,
       el,
     );
+  }
 
   return null;
 }
@@ -111,7 +115,9 @@ function readJson(entry: string, el: Element): Payload | null {
   try {
     return safeJSONParse(entry) as Payload;
   } catch {
-    __DEV__ && warn(`rz-send: '${entry}' is not valid JSON.`, el);
+    if (__DEV__) {
+      warn(`rz-send: '${entry}' is not valid JSON.`, el);
+    }
     return null;
   }
 }
@@ -128,7 +134,9 @@ function readState(
 ): Payload | null {
   const value = resolveState(path, scope, app.stores);
   if (value === undefined) {
-    __DEV__ && warn(`rz-send: '${path}' resolved to undefined. Ignoring.`, el);
+    if (__DEV__) {
+      warn(`rz-send: '${path}' resolved to undefined. Ignoring.`, el);
+    }
     return null;
   }
 
@@ -141,7 +149,9 @@ function readState(
     if (isPlainObject(data)) {
       return data;
     }
-    __DEV__ && warn(`rz-send: '${path}' has no fields to send.`, el);
+    if (__DEV__) {
+      warn(`rz-send: '${path}' has no fields to send.`, el);
+    }
     return null;
   }
 
@@ -155,21 +165,26 @@ function readState(
  */
 function readSelector(selector: string, el: Element, app: RouseApp): Payload | null {
   if (/^[@%{]/.test(selector)) {
-    __DEV__ &&
+    if (__DEV__) {
       warn(
         `rz-send: '${selector}' isn't a selector. Write state references and JSON without 'selector:'.`,
         el,
       );
+    }
     return null;
   }
 
   const matches = queryTargets(app.root, selector);
   if (!matches.length) {
-    __DEV__ && warn(`rz-send: no elements match '${selector}'.`, el);
+    if (__DEV__) {
+      warn(`rz-send: no elements match '${selector}'.`, el);
+    }
     return null;
   }
 
-  __DEV__ && warnUnreadable(selector, matches);
+  if (__DEV__) {
+    warnUnreadable(selector, matches);
+  }
   return collectFields(matches);
 }
 

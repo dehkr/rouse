@@ -22,7 +22,9 @@ function getConfig(el: Element, overrideValue?: string | null): string[] {
 
   return parseDirectiveValue(value).flatMap(([key]) => {
     if (!key.startsWith(STORE_PREFIX)) {
-      __DEV__ && warn(`${label}: '${key}' is not a store reference. Use '@name'.`, el);
+      if (__DEV__) {
+        warn(`${label}: '${key}' is not a store reference. Use '@name'.`, el);
+      }
       return [];
     }
 
@@ -30,8 +32,9 @@ function getConfig(el: Element, overrideValue?: string | null): string[] {
     if (!ref) return [];
 
     if (ref.nestedPath) {
-      __DEV__ &&
+      if (__DEV__) {
         warn(`${label}: '${key}' targets a slice. A deposit writes a whole store.`, el);
+      }
       return [];
     }
 

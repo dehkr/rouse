@@ -210,15 +210,18 @@ export function renderTemplate(
     let target: Element | null = null;
     if (typeof rt === 'string' && rt) {
       target = app.root.querySelector(rt);
-      __DEV__ && !target && warn(`rz-render: render target '${rt}' not found.`);
+      if (__DEV__ && !target) {
+        warn(`rz-render: render target '${rt}' not found.`);
+      }
     } else if (rt instanceof Element) {
       // Kept inside the app root, as `rz-place` is, so the instance stays in the
       // observed subtree
       if (app.root.contains(rt)) {
         target = rt;
       } else {
-        __DEV__ &&
+        if (__DEV__) {
           warn(`rz-render: render target is outside the app root; ignoring.`, rt);
+        }
       }
     }
 

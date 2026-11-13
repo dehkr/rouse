@@ -239,7 +239,9 @@ export function updateAttr(el: Element, attr: string, value: BindableValue) {
  */
 export function updateProp(el: Element, name: string, value: BindableValue) {
   if (Reflect.set(el, name, value)) return;
-  __DEV__ && warnPropOnce(el, name);
+  if (__DEV__) {
+    warnPropOnce(el, name);
+  }
 }
 
 /**

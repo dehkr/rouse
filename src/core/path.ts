@@ -46,7 +46,9 @@ export function setNestedVal(obj: any, path: string | undefined, value: any): vo
       // Convert to empty object to enable traversal
       current[part] = {};
     } else if (typeof current[part] !== 'object') {
-      __DEV__ && warn(`Cannot write to '${path}': '${part}' is a primitive.`);
+      if (__DEV__) {
+        warn(`Cannot write to '${path}': '${part}' is a primitive.`);
+      }
       return;
     }
     current = current[part];

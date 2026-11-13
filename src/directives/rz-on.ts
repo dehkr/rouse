@@ -16,11 +16,12 @@ function bind(
   value: string,
 ): BoundCleanupFn | undefined {
   if (!value) {
-    __DEV__ &&
+    if (__DEV__) {
       warn(
         `rz-on: value '${key}' is incomplete; at least one trigger and a handler are required.`,
         el,
       );
+    }
     return undefined;
   }
 
@@ -38,13 +39,16 @@ function bind(
     const storeData = app.stores.get(storeName);
 
     if (storeData === undefined) {
-      __DEV__ && warn(`rz-on: store '@${storeName}' not found.`, el);
+      if (__DEV__) {
+        warn(`rz-on: store '@${storeName}' not found.`, el);
+      }
       return;
     }
 
     if (!nestedPath) {
-      __DEV__ &&
+      if (__DEV__) {
         warn(`rz-on: '@${storeName}' needs a handler (e.g., @${storeName}.save).`, el);
+      }
       return;
     }
 
@@ -60,7 +64,9 @@ function bind(
 
   // Validate that the resolved target is actually a function
   if (typeof method !== 'function') {
-    __DEV__ && warn(`rz-on: handler '${methodName}' is undefined or not a function.`, el);
+    if (__DEV__) {
+      warn(`rz-on: handler '${methodName}' is undefined or not a function.`, el);
+    }
     return;
   }
 

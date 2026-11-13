@@ -60,13 +60,16 @@ function json(res: ServerResponse, status: number, data: unknown, headers = {}) 
 /** RFC 7396 merge, applied to the server's copy of the store on push. */
 function mergePatch(target: Record<string, any>, patch: Record<string, any>) {
   for (const [key, value] of Object.entries(patch)) {
-    if (value === null) delete target[key];
-    else if (value && typeof value === 'object' && !Array.isArray(value)) {
+    if (value === null) {
+      delete target[key];
+    } else if (value && typeof value === 'object' && !Array.isArray(value)) {
       target[key] = mergePatch(
         target[key] && typeof target[key] === 'object' ? target[key] : {},
         value,
       );
-    } else target[key] = value;
+    } else {
+      target[key] = value;
+    }
   }
   return target;
 }

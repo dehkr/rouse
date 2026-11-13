@@ -39,8 +39,9 @@ export function placeContent(
   } else if (target instanceof Element) {
     targets = [target];
   } else {
-    __DEV__ &&
+    if (__DEV__) {
       warn(`Targets in app.place() must be an element or a selector. Got '${target}'.`);
+    }
   }
 
   let placed = false;

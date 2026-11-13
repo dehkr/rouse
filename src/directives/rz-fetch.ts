@@ -65,7 +65,9 @@ function bindFetchPairs(el: Element, app: RouseApp, pairs: TriggerSubjectPair[])
           const submitter = e instanceof SubmitEvent ? e.submitter : null;
           // A form can take its URL from the submitter's `formaction` at submit time
           if (!url && !submitter?.getAttribute('formaction')) {
-            __DEV__ && warnMissingUrl(el);
+            if (__DEV__) {
+              warnMissingUrl(el);
+            }
             return;
           }
           void runFetch(app, { ...parsed, url, triggerEl: el, submitter });

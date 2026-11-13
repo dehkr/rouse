@@ -19,7 +19,9 @@ function bind(
   value: string,
 ): BoundCleanupFn | undefined {
   if (!(el instanceof HTMLTemplateElement)) {
-    __DEV__ && warn(`rz-render: must be placed on a <template> element.`, el);
+    if (__DEV__) {
+      warn(`rz-render: must be placed on a <template> element.`, el);
+    }
     return;
   }
 
@@ -29,11 +31,7 @@ function bind(
   return renderTemplate(
     el,
     () => resolveBoundValue(raw, scope, app.stores, el, 'render'),
-    {
-      app,
-      parentState: scope,
-      keyPath,
-    },
+    { app, parentState: scope, keyPath },
   ) as BoundCleanupFn;
 }
 

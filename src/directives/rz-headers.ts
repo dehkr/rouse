@@ -28,7 +28,9 @@ function getConfig(el: Element): Record<string, string | null> {
         headers[k] = v == null ? null : String(v);
       }
     } catch {
-      __DEV__ && warn(`rz-headers: value is not valid JSON: ${value}`, el);
+      if (__DEV__) {
+        warn(`rz-headers: value is not valid JSON: ${value}`, el);
+      }
     }
     return headers;
   }
@@ -36,11 +38,12 @@ function getConfig(el: Element): Record<string, string | null> {
   // Static key-value pairs
   for (const [key, val] of parseDirectiveValue(value)) {
     if (val === null) {
-      __DEV__ &&
+      if (__DEV__) {
         warn(
           `rz-headers: header '${key}' has no value. Write '${key}: <value>', or '${key}: null' to remove it.`,
           el,
         );
+      }
       continue;
     }
     // Treat 'null' as the deletion sentinel, mirroring programmatic null.

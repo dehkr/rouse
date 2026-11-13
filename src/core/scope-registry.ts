@@ -6,7 +6,7 @@ const warnedDuplicates = new Set<string>();
 
 /**
  * Warns once per name when a scope name is registered again.
- * Call as `__DEV__ && warnDuplicateOnce(...)`.
+ * Call inside `if (__DEV__)`.
  */
 function warnDuplicateOnce(name: string): void {
   if (warnedDuplicates.has(name)) return;
@@ -23,7 +23,9 @@ export class ScopeRegistry {
   private scopes = new Map<string, ScopeSetup<any>>();
 
   register(name: string, setup: ScopeSetup<any>) {
-    __DEV__ && this.scopes.has(name) && warnDuplicateOnce(name);
+    if (__DEV__ && this.scopes.has(name)) {
+      warnDuplicateOnce(name);
+    }
     this.scopes.set(name, setup);
   }
 

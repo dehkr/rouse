@@ -112,11 +112,12 @@ export function bindDirectives(
 
     // Use the first value if a directive only accepts one
     if (directive.singleValue && parsed.length > 1) {
-      __DEV__ &&
+      if (__DEV__) {
         warn(
           `rz-${directive.slug}: accepts a single value, but received ${parsed.length}. Ignoring extra values.`,
           el,
         );
+      }
       parsed.length = 1;
     }
 
@@ -246,7 +247,9 @@ export function runCleanups(el: Element, cleanups: BoundCleanupFn[]): void {
     try {
       cleanup();
     } catch (error) {
-      __DEV__ && err('Cleanup failed for element:', el, error);
+      if (__DEV__) {
+        err('Cleanup failed for element:', el, error);
+      }
     }
   }
 }

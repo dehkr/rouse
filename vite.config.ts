@@ -32,7 +32,7 @@ export default defineConfig({
     categories: { correctness: 'error' },
     rules: {
       'vite-plus/prefer-vite-plus-imports': 'error',
-      'no-unused-expressions': ['error', { allowShortCircuit: true, allowTernary: true }],
+      'no-unused-expressions': 'error',
       'typescript/no-base-to-string': 'off',
       'typescript/restrict-template-expressions': 'off',
       'typescript/unbound-method': 'off',

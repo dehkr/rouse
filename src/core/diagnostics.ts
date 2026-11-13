@@ -1,9 +1,9 @@
 /*
- * Every call is written `__DEV__ && warn(...)`, and so is diagnostic-only state: a
- * dedupe latch lives inside a helper called that way (`warnWriteOnce`), a count that
- * crosses a function boundary is a dev-only optional callback, and `if (__DEV__)` is
- * only for bookkeeping stranded at a call site. A bare call ships its text in the min
- * build, and an ungated latch keeps the branch that reads it.
+ * Every call sits inside `if (__DEV__)`, and so does diagnostic-only state: a dedupe
+ * latch lives inside a helper called that way (`warnWriteOnce`), and a count that
+ * crosses a function boundary is a dev-only optional callback. A value in expression
+ * position uses `__DEV__ ? x : y`. A bare call ships its text in the min build, and an
+ * ungated latch keeps the branch that reads it.
  *
  * Never gate a failure that can first occur in production. These `err` sites are bare
  * on purpose: `invokeHandler`, a scope's `setup`/`connect`/`disconnect`, `rz-store`'s

@@ -46,10 +46,11 @@ export function clone<T>(obj: T, seen = new WeakMap(), path = 'root'): T {
 
   // Catch complex objects before network sync
   if (!isPlainObject(obj)) {
-    __DEV__ &&
+    if (__DEV__) {
       warn(
         `Non-serializable value at '${path}'. Use plain objects, arrays, or primitives.`,
       );
+    }
     return {} as T;
   }
 
@@ -192,7 +193,9 @@ export function patchState(
   if (action === 'replace') {
     for (const key of Object.keys(target)) {
       if (!isOwnDataProp(target, key)) continue;
-      if (!Object.hasOwn(source, key)) delete target[key];
+      if (!Object.hasOwn(source, key)) {
+        delete target[key];
+      }
     }
     // Write source values into target, skipping keys where target has an accessor.
     // Writing through a getter-only accessor would throw, and even when a setter

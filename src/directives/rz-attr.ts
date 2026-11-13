@@ -17,7 +17,9 @@ function bind(
   // rz-class or rz-style set, so each has its own directive.
   const name = key.toLowerCase();
   if (name === 'class' || name === 'style') {
-    __DEV__ && warn(`rz-attr: '${key}' belongs on data-rz-${name}. Ignoring.`, el);
+    if (__DEV__) {
+      warn(`rz-attr: '${key}' belongs on data-rz-${name}. Ignoring.`, el);
+    }
     return undefined;
   }
 

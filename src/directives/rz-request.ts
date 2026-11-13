@@ -42,7 +42,7 @@ function getConfig(el: Element): Partial<FetchRequest> {
     const type = KEYS[key as keyof typeof KEYS];
 
     if (!type) {
-      __DEV__ &&
+      if (__DEV__) {
         warn(
           key === 'headers' || key === 'indicator'
             ? `rz-request: '${key}' belongs on data-rz-${key}. Ignoring.`
@@ -51,6 +51,7 @@ function getConfig(el: Element): Partial<FetchRequest> {
               : `rz-request: unknown key '${key}'. Ignoring.`,
           el,
         );
+      }
       continue;
     }
 

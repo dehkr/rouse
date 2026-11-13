@@ -59,7 +59,9 @@ function forEachOwned<T extends Element>(
  * the new one, without a warning.
  */
 export function mountSubtree(root: Element, app: RouseApp) {
-  __DEV__ && warnUnknownDirectives(root, app);
+  if (__DEV__) {
+    warnUnknownDirectives(root, app);
+  }
 
   forEachOwned<HTMLScriptElement>(root, rzStore.selector, app, (el) =>
     rzStore.initialize(el, app),

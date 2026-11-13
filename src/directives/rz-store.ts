@@ -24,7 +24,9 @@ function initialize(el: HTMLScriptElement, app: RouseApp) {
 
   const parsed = parseStoreValue(getDirectiveValue(el, 'store'));
   if (!parsed) {
-    __DEV__ && warn(`rz-store: value is missing or empty.`, el);
+    if (__DEV__) {
+      warn(`rz-store: value is missing or empty.`, el);
+    }
     return;
   }
 

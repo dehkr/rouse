@@ -80,7 +80,11 @@ export const handlers: ProxyHandler<object> = {
       // If the value actually changed (reference change), set it. If it's the same
       // object (mutation), use trigger. Reading untracked keeps a writing effect from
       // subscribing to the key it writes, which would wake it on unrelated writes.
-      value !== untracked(sig) ? sig(value) : trigger(sig);
+      if (value !== untracked(sig)) {
+        sig(value);
+      } else {
+        trigger(sig);
+      }
 
       const tracker = dirtyTrackers.get(target);
       if (tracker) {

@@ -217,8 +217,7 @@ export class StoreManager {
    */
   private _getStore(storeName: string | null | undefined, action?: string) {
     const entry = this._find(storeName);
-    __DEV__ &&
-      !entry &&
+    if (__DEV__ && !entry) {
       warn(
         !storeName
           ? 'Store name is missing.'
@@ -226,6 +225,7 @@ export class StoreManager {
             ? `Cannot ${action} store '${storeName}': store not found.`
             : `Store '${storeName}' not found.`,
       );
+    }
     return entry;
   }
 
@@ -325,7 +325,9 @@ export class StoreManager {
     const endpoint = options.url || policyUrl;
 
     if (!endpoint) {
-      __DEV__ && warn(`Cannot ${operation} store '${name}': URL not configured.`);
+      if (__DEV__) {
+        warn(`Cannot ${operation} store '${name}': URL not configured.`);
+      }
       return;
     }
 
@@ -687,13 +689,15 @@ export class StoreManager {
     assertStoreState(storeName, state);
 
     // A store name with a dot is read as a path everywhere except through `app.stores`
-    __DEV__ &&
-      storeName.includes('.') &&
+    if (__DEV__ && storeName.includes('.')) {
       warn(
         `Store name '${storeName}' contains a dot, so '@${storeName}' and { edit: '${storeName}' } read as store '${storeName.slice(0, storeName.indexOf('.'))}'. Use a name without dots.`,
       );
+    }
 
-    __DEV__ && warnNullFields(storeName, state);
+    if (__DEV__) {
+      warnNullFields(storeName, state);
+    }
 
     const status: StoreStatus = reactive({
       syncing: false,
@@ -762,18 +766,21 @@ export class StoreManager {
     // its store. A second owner warns where `app.store()` throws, so one bad partial
     // can't break the observer's scan.
     if (!entry.el || (entry.el !== el && entry.el.isConnected)) {
-      __DEV__ &&
+      if (__DEV__) {
         warn(
           entry.el
             ? `rz-store: store '${storeName}' is already declared by another <script> on the page. This one is ignored.`
             : `rz-store: store '${storeName}' was created in JS, so this <script> is ignored.`,
           el,
         );
+      }
       return;
     }
 
     if (state) {
-      __DEV__ && warnNullFields(storeName, state);
+      if (__DEV__) {
+        warnNullFields(storeName, state);
+      }
       this._reseed(entry, state);
     }
 
@@ -801,7 +808,9 @@ export class StoreManager {
       fail(storeName ? `Store '${storeName}' does not exist.` : 'Store name is missing.');
     }
     assertStoreState(entry.name, state);
-    __DEV__ && warnNullFields(entry.name, state);
+    if (__DEV__) {
+      warnNullFields(entry.name, state);
+    }
 
     this._reseed(entry, state);
 
@@ -938,11 +947,11 @@ export class StoreManager {
     // A path is checked as its root, which can only over-report. That's safer than a
     // `false` that reads as no unsaved changes.
     const key = getPathRoot(root) as string;
-    __DEV__ &&
-      key !== root &&
+    if (__DEV__ && key !== root) {
       warn(
         `Store '${storeName}': isDirty() takes a root key, not a path. Checking '${key}' for '${root}'.`,
       );
+    }
 
     return entry.status.dirtyRoots[key] === true;
   }
@@ -982,11 +991,11 @@ export class StoreManager {
    * always a `PATCH` carrying the whole store, so there is no `method` or `body`.
    */
   async push(storeName: string | null | undefined, options?: SyncRequest): Promise<void> {
-    __DEV__ &&
-      options?.abortKey &&
+    if (__DEV__ && options?.abortKey) {
       warn(
         `Store '${storeName}': abortKey is ignored on a push. A store sends one push at a time, so nothing can replace it. Cancel a push with 'signal'.`,
       );
+    }
 
     return this._push(storeName, options);
   }

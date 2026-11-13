@@ -35,7 +35,9 @@ export function initScopeElement(el: HTMLElement, app: RouseApp) {
   } else {
     const scope = app._registry.get(scopeName);
     if (!scope) {
-      __DEV__ && warn(`Scope '${scopeName}' is not defined.`);
+      if (__DEV__) {
+        warn(`Scope '${scopeName}' is not defined.`);
+      }
       return;
     }
     setup = scope;

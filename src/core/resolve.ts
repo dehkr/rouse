@@ -90,20 +90,22 @@ export function writeState(
     if (isItem && source) return;
 
     if (namespace) {
-      __DEV__ &&
+      if (__DEV__) {
         warnWriteOnce(
           path,
           `rz-model: cannot write to '${path}'. The '${namespace}' namespace is read-only.`,
         );
+      }
       return;
     }
 
     if (!nestedPath) {
-      __DEV__ &&
+      if (__DEV__) {
         warnWriteOnce(
           path,
           `rz-model: cannot use '${path}' because it overwrites the entire ${isItem ? 'render item' : 'store'}. Bind to a field instead.`,
         );
+      }
       return;
     }
 
@@ -111,13 +113,14 @@ export function writeState(
 
     // Warns if the item field, the store, or the store key doesn't exist
     if (!hasNestedKey(target, nestedPath)) {
-      __DEV__ &&
+      if (__DEV__) {
         warnWriteOnce(
           path,
           isItem
             ? `rz-model: '${path}' could not be resolved. Field does not exist on the render item.`
             : `rz-model: cannot resolve '${path}' on '${source}'. One or both may be undefined.`,
         );
+      }
       return;
     }
 
@@ -127,16 +130,19 @@ export function writeState(
 
   // Fallback to local scope state
   if (renderParent(scope) === EMPTY_SCOPE) {
-    __DEV__ &&
+    if (__DEV__) {
       warnWriteOnce(
         path,
         `rz-model: '${path}' used outside of a scope. Use '@' to target a store.`,
       );
+    }
     return;
   }
 
   if (!hasNestedKey(scope, path)) {
-    __DEV__ && warnWriteOnce(path, `rz-model: '${path}' does not exist on the scope.`);
+    if (__DEV__) {
+      warnWriteOnce(path, `rz-model: '${path}' does not exist on the scope.`);
+    }
     return;
   }
 
