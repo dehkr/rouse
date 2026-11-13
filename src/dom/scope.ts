@@ -7,7 +7,7 @@
  * takes a `signal`, so `signal: term` ends it with the scope.
  */
 import { effectScope } from 'alien-signals';
-import type { RouseApp } from '../core/app';
+import type { RouseApp } from '../app';
 import { err, fail, warn } from '../core/diagnostics';
 import { dispatchFrom } from '../core/dispatch';
 import { rzScope, rzWake } from '../directives';

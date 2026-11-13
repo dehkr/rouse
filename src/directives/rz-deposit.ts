@@ -1,4 +1,4 @@
-import { getDirectiveValue } from '../core/attributes';
+import { getDirectiveValue } from '../core/elements';
 import { STORE_PREFIX } from '../core/constants';
 import { warn } from '../core/diagnostics';
 import { parseDirectiveValue, parseStoreRef } from '../core/parser';

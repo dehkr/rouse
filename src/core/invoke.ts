@@ -4,7 +4,7 @@ import { err } from './diagnostics';
 import { parseDataSourcePath } from './parser';
 import { renderCtxOf } from './render-context';
 import { resolveState } from './resolve';
-import type { StoreManager } from './store';
+import type { StoreManager } from '../store';
 
 /**
  * Invokes a resolved handler with a `HandlerCtx` built from the triggering

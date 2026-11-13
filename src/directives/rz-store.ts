@@ -1,9 +1,9 @@
-import type { RouseApp } from '../core/app';
-import { directiveSelector, getDirectiveValue } from '../core/attributes';
+import type { RouseApp } from '../app';
+import { directiveSelector, getDirectiveValue } from '../core/elements';
 import { err, warn } from '../core/diagnostics';
 import { parseStoreValue } from '../core/parser';
 import { isPlainObject } from '../core/state';
-import type { SyncPolicy } from '../core/store';
+import type { SyncPolicy } from '../store';
 import type { StandaloneDirective } from '../types';
 import { rzHeaders } from './rz-headers';
 

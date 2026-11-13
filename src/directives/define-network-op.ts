@@ -1,5 +1,5 @@
-import type { RouseApp } from '../core/app';
-import { directiveSelector, getDirectiveValue } from '../core/attributes';
+import type { RouseApp } from '../app';
+import { directiveSelector, getDirectiveValue } from '../core/elements';
 import { warn } from '../core/diagnostics';
 import { parseTriggerSubjectPairs } from '../core/parser';
 import type {

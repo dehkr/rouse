@@ -8,8 +8,8 @@
  *
  * Adding a directive: its file here, its slug in `DIRECTIVE_SLUGS`, an export below,
  * and a `selector` if it's scanned. Then register it, or it's exported and never
- * scanned: bound directives in `registerBoundDirectives` (`core/app.ts`); a network op
- * in `NETWORK_DIRECTIVES`; any other standalone directive in its own pass in
+ * scanned: bound directives in `registerBoundDirectives` (`app.ts`); a network op
+ * in `NETWORK_DIRECTIVES` below; any other standalone directive in its own pass in
  * `dom/observer.ts`. Config directives need nothing.
  */
 export { rzAttr } from './rz-attr';
@@ -37,3 +37,11 @@ export { rzStore } from './rz-store';
 export { rzStyle } from './rz-style';
 export { rzText } from './rz-text';
 export { rzWake } from './rz-wake';
+
+import { rzFetch } from './rz-fetch';
+import { rzPull } from './rz-pull';
+import { rzPush } from './rz-push';
+import { rzSse } from './rz-sse';
+
+/** Network ops, mounted and torn down by their own pass in `dom/observer.ts`. */
+export const NETWORK_DIRECTIVES = [rzFetch, rzPush, rzPull, rzSse];

@@ -21,7 +21,7 @@
  * Indicators are counted per element rather than owned by one request. An owner token
  * would fix one element firing twice and break two triggers sharing one indicator.
  */
-import { queryTargets } from '../core/attributes';
+import { queryTargets } from '../core/elements';
 import { warn } from '../core/diagnostics';
 import { dispatchFrom } from '../core/dispatch';
 import { rzDisable } from '../directives/rz-disable';

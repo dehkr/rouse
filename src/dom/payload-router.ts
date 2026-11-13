@@ -1,4 +1,5 @@
-import { getApp, type RouseApp } from '../core/app';
+import { getApp } from './binder';
+import type { RouseApp } from '../app';
 import { warn } from '../core/diagnostics';
 import { isPlainObject } from '../core/state';
 import { rzDeposit } from '../directives';

@@ -1,5 +1,5 @@
-import type { RouseApp } from '../core/app';
-import { getDirectiveValue, queryTargets } from '../core/attributes';
+import type { RouseApp } from '../app';
+import { getDirectiveValue, queryTargets } from '../core/elements';
 import { ITEM_PREFIX, STORE_PREFIX } from '../core/constants';
 import { warn } from '../core/diagnostics';
 import {

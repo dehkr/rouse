@@ -1,6 +1,6 @@
 import { effect } from 'alien-signals';
-import type { RouseApp } from '../core/app';
-import { directiveSelector } from '../core/attributes';
+import type { RouseApp } from '../app';
+import { directiveSelector } from '../core/elements';
 import { resolveBoundValue } from '../core/invoke';
 import type {
   BindableValue,

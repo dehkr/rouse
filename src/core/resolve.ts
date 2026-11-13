@@ -4,7 +4,7 @@ import { warn } from './diagnostics';
 import { parseDataSourcePath } from './parser';
 import { getNestedVal, getPathParts, setNestedVal } from './path';
 import { renderFrame, renderItem, renderParent } from './render-context';
-import type { StoreManager } from './store';
+import type { StoreManager } from '../store';
 
 // Compared by identity, and not frozen: `writeState` refuses a bare local write against
 // it, which freezing would turn into a throw

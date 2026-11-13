@@ -1,4 +1,4 @@
-import type { RouseApp } from '../core/app';
+import type { RouseApp } from '../app';
 import { warn } from '../core/diagnostics';
 import { parseFetchSubject } from '../core/parser';
 import { dispatchTrigger } from '../dom/events';

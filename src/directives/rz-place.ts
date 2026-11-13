@@ -1,4 +1,4 @@
-import { getDirectiveValue, queryTargets } from '../core/attributes';
+import { getDirectiveValue, queryTargets } from '../core/elements';
 import {
   DEFAULT_PLACE_POSITION,
   isPlacePosition,

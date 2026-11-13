@@ -1,4 +1,4 @@
-import { directiveSelector, getDirectiveValue } from '../core/attributes';
+import { directiveSelector, getDirectiveValue } from '../core/elements';
 import type { ConfigDirective } from '../types';
 
 function getConfig(el: Element): string | null {

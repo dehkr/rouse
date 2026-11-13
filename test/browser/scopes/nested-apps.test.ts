@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import { rouse } from '../../../src/index';
-import type { RouseApp } from '../../../src/core/app';
+import type { RouseApp } from '../../../src/app';
 import { mount, nextFrame } from '../helpers/mount';
 
 const nested: RouseApp[] = [];

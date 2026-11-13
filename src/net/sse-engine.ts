@@ -15,7 +15,7 @@
  * between. A closed entry stays registered while holders remain, so the refcount stays
  * sound. A mounting element joins it without reviving it; `app.sse()` revives it.
  */
-import type { RouseApp } from '../core/app';
+import type { RouseApp } from '../app';
 import { dispatchFrom } from '../core/dispatch';
 import { safeJSONParse } from '../core/parser';
 import { isPlainObject } from '../core/state';

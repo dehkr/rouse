@@ -38,6 +38,33 @@ export default defineConfig({
       'typescript/unbound-method': 'off',
       'typescript/no-redundant-type-constituents': 'off',
     },
+    overrides: [
+      {
+        // core/ is the bottom layer; `app.ts` and `store.ts` compose the rest above it
+        files: ['src/core/**'],
+        rules: {
+          'no-restricted-imports': [
+            'error',
+            {
+              patterns: [
+                {
+                  group: [
+                    '../app',
+                    '../store',
+                    '../dom/*',
+                    '../net/*',
+                    '../directives',
+                    '../directives/*',
+                  ],
+                  allowTypeImports: true,
+                  message: 'core/ must not import the layers above it at runtime.',
+                },
+              ],
+            },
+          ],
+        },
+      },
+    ],
     ignorePatterns: SOURCE_ONLY,
     options: { typeAware: true, typeCheck: false },
   },

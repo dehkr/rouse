@@ -1,5 +1,5 @@
-import type { RouseApp } from '../core/app';
-import { getDirectiveValue } from '../core/attributes';
+import type { RouseApp } from '../app';
+import { getDirectiveValue } from '../core/elements';
 import { parseTriggers } from '../core/parser';
 import type { ConfigDirective, TriggerDef } from '../types';
 

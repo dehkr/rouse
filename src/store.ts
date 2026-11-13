@@ -18,11 +18,11 @@
  * Conflict handling beyond the mid-flight guard is application policy, through
  * `rz:store:patch:before`. Don't add it here.
  */
-import { type LifecycleHandle, runRequestLifecycle } from '../net/lifecycle';
-import { resolveUrl } from '../net/payload';
-import { request } from '../net/request';
-import { fallbackResponse } from '../net/response';
-import { reactive, seedPropagation, trackDirty } from '../reactivity/reactive';
+import { type LifecycleHandle, runRequestLifecycle } from './net/lifecycle';
+import { resolveUrl } from './net/payload';
+import { request } from './net/request';
+import { fallbackResponse } from './net/response';
+import { reactive, seedPropagation, trackDirty } from './reactivity/reactive';
 import type {
   ResolvedRequest,
   LifecycleEventMap,
@@ -31,12 +31,12 @@ import type {
   StorePatchEvent,
   SyncRequest,
   VoidFn,
-} from '../types';
+} from './types';
 import type { RouseApp } from './app';
-import { err, fail, warn } from './diagnostics';
-import { dispatchFrom } from './dispatch';
-import { getNestedVal, getPathRoot, setNestedVal } from './path';
-import { clone, deepEqual, hasAccessor, nullPaths, patchState } from './state';
+import { err, fail, warn } from './core/diagnostics';
+import { dispatchFrom } from './core/dispatch';
+import { getNestedVal, getPathRoot, setNestedVal } from './core/path';
+import { clone, deepEqual, hasAccessor, nullPaths, patchState } from './core/state';
 
 /** Receives the store roots that changed in one batch of user edits. */
 export type EditListener = (roots: ReadonlySet<string>) => void;

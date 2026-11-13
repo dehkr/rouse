@@ -12,8 +12,8 @@
  * A bound directive whose key is its subject needs `singleValue: true`. Without it,
  * `a, b` binds twice on one element and the last effect to run wins, with no warning.
  */
-import type { RouseApp } from '../core/app';
-import { getDirectiveValue } from '../core/attributes';
+import type { RouseApp } from '../app';
+import { getDirectiveValue } from '../core/elements';
 import { APP_ROOT_SELECTOR } from '../core/constants';
 import { err, warn } from '../core/diagnostics';
 import { dispatchFrom } from '../core/dispatch';
@@ -33,6 +33,52 @@ let boundDirectiveList: BoundDirective[] = [];
 let boundSelector = '';
 /** Scope elements whose DOM is bound and whose `rz:scope:connect` has fired, mapped to their instance. */
 const awakeScopes = new WeakMap<Element, Scope>();
+/** App roots mapped to the app attached to each. */
+const appInstances = new WeakMap<Element, RouseApp>();
+
+const APP_ROOT_ATTR = 'data-rouse-app';
+
+/** Marks `root` as the app root of `app` so `getApp` resolves its descendants. */
+export function attachApp(root: HTMLElement, app: RouseApp): void {
+  root.setAttribute(APP_ROOT_ATTR, '');
+  appInstances.set(root, app);
+}
+
+/** Unmarks `root`, after which `getApp` no longer resolves its descendants. */
+export function detachApp(root: HTMLElement): void {
+  root.removeAttribute(APP_ROOT_ATTR);
+  appInstances.delete(root);
+}
+
+/** Returns the app attached to `root` itself, without searching ancestors. */
+export function appAt(root: Element): RouseApp | undefined {
+  return appInstances.get(root);
+}
+
+/**
+ * Returns the app owning `el`, found through its nearest app root. With `expected`,
+ * returns `undefined` when the owner is a different app, which keeps scan sites out
+ * of nested apps.
+ */
+export function getApp(el: Element, expected?: RouseApp): RouseApp | undefined {
+  const root = el.closest(APP_ROOT_SELECTOR);
+  if (!root) {
+    if (__DEV__) {
+      warn('Element is not inside an app instance.', el);
+    }
+    return undefined;
+  }
+
+  const found = appInstances.get(root);
+
+  // A nested app's elements should not be picked up if a parent app scans its
+  // subtree. That's the normal case, so it returns without a warning.
+  if (expected && found !== expected) {
+    return undefined;
+  }
+
+  return found;
+}
 
 /**
  * Resolves the nearest enclosing scope element for `el` within the given `app`. Scopes

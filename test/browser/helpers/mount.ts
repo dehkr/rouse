@@ -1,5 +1,5 @@
 import { rouse } from '../../../src/index';
-import type { RouseApp } from '../../../src/core/app';
+import type { RouseApp } from '../../../src/app';
 import type { ScopeSetup } from '../../../src/types';
 
 interface MountOptions {

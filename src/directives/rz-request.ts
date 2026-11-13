@@ -1,4 +1,4 @@
-import { getDirectiveValue } from '../core/attributes';
+import { getDirectiveValue } from '../core/elements';
 import { warn } from '../core/diagnostics';
 import { parseDirectiveValue } from '../core/parser';
 import { parseTime } from '../core/timing';

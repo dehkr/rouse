@@ -1,4 +1,4 @@
-import type { RouseApp } from './core/app';
+import type { RouseApp } from './app';
 import type {
   DirectiveSlug,
   ListenTarget,

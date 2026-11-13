@@ -12,7 +12,7 @@
  * `skipInterceptors` stays programmatic, since a bypass written in markup silently
  * drops what the chain adds, such as auth headers.
  */
-import type { RouseApp } from '../core/app';
+import type { RouseApp } from '../app';
 import { rzHeaders } from '../directives/rz-headers';
 import { rzRequest } from '../directives/rz-request';
 import type {

@@ -5,7 +5,7 @@
  * automatic key: an explicit key is the opt-in for lists that refetch or reorder.
  */
 import { effect, signal } from 'alien-signals';
-import type { RouseApp } from '../core/app';
+import type { RouseApp } from '../app';
 import { RENDER_FRAME } from '../core/constants';
 import { warn } from '../core/diagnostics';
 import { getNestedVal } from '../core/path';

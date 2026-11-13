@@ -11,8 +11,8 @@
  * the value, and a check in `attach` that warns with both spellings. Every source lives
  * in `triggerSources`; don't register them from other modules.
  */
-import { getApp, type RouseApp } from '../core/app';
-import { getDirectiveValue } from '../core/attributes';
+import type { RouseApp } from '../app';
+import { getDirectiveValue } from '../core/elements';
 import { STORE_PREFIX } from '../core/constants';
 import { warn } from '../core/diagnostics';
 import { parseStoreRef, parseTriggers } from '../core/parser';
@@ -30,7 +30,7 @@ import type {
   TriggerModifiers,
   VoidFn,
 } from '../types';
-import { closestScope, isScopeAwake } from './binder';
+import { closestScope, getApp, isScopeAwake } from './binder';
 import { applyModifiers, resolveListenerTarget } from './modifiers';
 
 interface TriggerContext {

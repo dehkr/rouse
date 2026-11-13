@@ -1,4 +1,4 @@
-import { getDirectiveValue } from '../core/attributes';
+import { getDirectiveValue } from '../core/elements';
 import { parseTriggers } from '../core/parser';
 import type { ConfigDirective, TriggerDef } from '../types';
 

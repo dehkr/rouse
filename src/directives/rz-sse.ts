@@ -1,4 +1,4 @@
-import type { RouseApp } from '../core/app';
+import type { RouseApp } from '../app';
 import { warn } from '../core/diagnostics';
 import { dispatchTrigger } from '../dom/events';
 import { openStream, type SseRelease } from '../net/sse-engine';

@@ -1,4 +1,4 @@
-import type { RouseApp } from '../core/app';
+import type { RouseApp } from '../app';
 import {
   DEFAULT_PLACE_POSITION,
   isPlacePosition,

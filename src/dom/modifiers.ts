@@ -11,7 +11,7 @@
  * Filters are inert on trigger sources; only `sse` honors a listen target. Don't
  * synthesize key repeat for modifier keys, which don't repeat on macOS.
  */
-import type { RouseApp } from '../core/app';
+import type { RouseApp } from '../app';
 import type { TriggerModifiers } from '../types';
 
 const sysModifierMap = {

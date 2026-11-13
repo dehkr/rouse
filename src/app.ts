@@ -14,30 +14,32 @@
 import {
   rzAttr,
   rzClass,
-  rzFetch,
   rzHtml,
   rzModel,
   rzOn,
   rzProp,
-  rzPull,
-  rzPush,
   rzRender,
-  rzSse,
   rzStyle,
   rzText,
-} from '../directives';
-import { registerBoundDirectives, teardownGlobalBindings } from '../dom/binder';
-import { on } from '../dom/events';
+} from './directives';
+import {
+  appAt,
+  attachApp,
+  detachApp,
+  registerBoundDirectives,
+  teardownGlobalBindings,
+} from './dom/binder';
+import { on } from './dom/events';
 import {
   initObserver,
   mountSubtree,
   releaseSubtree,
   unmountSubtree,
-} from '../dom/observer';
-import { initPayloadRouters } from '../dom/payload-router';
-import { placeContent } from '../dom/placer';
-import { runFetch } from '../net/fetch-engine';
-import { openBoundStream } from '../net/sse-engine';
+} from './dom/observer';
+import { initPayloadRouters } from './dom/payload-router';
+import { placeContent } from './dom/placer';
+import { runFetch } from './net/fetch-engine';
+import { openBoundStream } from './net/sse-engine';
 import type {
   BoundOn,
   ErrorInterceptor,
@@ -52,12 +54,12 @@ import type {
   RouseSse,
   ScopeSetup,
   VoidFn,
-} from '../types';
-import { APP_ROOT_SELECTOR } from './constants';
-import { fail, info, warn } from './diagnostics';
-import { dispatchFrom } from './dispatch';
-import { ScopeRegistry } from './scope-registry';
-import { isPlainObject } from './state';
+} from './types';
+import { APP_ROOT_SELECTOR } from './core/constants';
+import { fail, info, warn } from './core/diagnostics';
+import { dispatchFrom } from './core/dispatch';
+import { ScopeRegistry } from './core/scope-registry';
+import { isPlainObject } from './core/state';
 import { StoreManager, type SyncPolicy } from './store';
 
 export interface RouseConfig {
@@ -88,9 +90,6 @@ interface ResolvedConfig {
   timeout: number;
   wake: string;
 }
-
-export const NETWORK_DIRECTIVES = [rzFetch, rzPush, rzPull, rzSse];
-const appInstances = new WeakMap<HTMLElement, RouseApp>();
 
 let bannerLogged = false;
 
@@ -212,7 +211,7 @@ export class RouseApp {
       fail('Root element not found.');
     }
 
-    if (appInstances.has(rootEl)) {
+    if (appAt(rootEl)) {
       fail('An app instance is already attached to this element.');
     }
 
@@ -242,14 +241,13 @@ export class RouseApp {
     // must happen before the root is marked: the release finds the parent's bindings
     // through `getApp`, which stops resolving them to the parent once it is.
     const parentRoot = rootEl.parentElement?.closest<HTMLElement>(APP_ROOT_SELECTOR);
-    const parent = parentRoot ? appInstances.get(parentRoot) : undefined;
+    const parent = parentRoot ? appAt(parentRoot) : undefined;
     if (parent?._hasStarted) {
       releaseSubtree(rootEl, parent);
     }
 
     // Mark root so children can find parent app
-    this.root.setAttribute('data-rouse-app', '');
-    appInstances.set(this.root, this);
+    attachApp(this.root, this);
 
     // Bound so `app.fetch(url)` resolves to this instance
     this.fetch = this._fetch.bind(this);
@@ -520,35 +518,9 @@ export class RouseApp {
 
     // Release after the destroy event so app.on('rz:app:destroy') fires and
     // getApp(e.target) still resolves.
-    this.root.removeAttribute('data-rouse-app');
-    appInstances.delete(this.root);
+    detachApp(this.root);
     this._abortController.abort();
   }
-}
-
-/**
- * Returns the app owning `el`, found through its nearest app root. With `expected`,
- * returns `undefined` when the owner is a different app, which keeps scan sites out
- * of nested apps.
- */
-export function getApp(el: Element, expected?: RouseApp): RouseApp | undefined {
-  const root = el.closest<HTMLElement>(APP_ROOT_SELECTOR);
-  if (!root) {
-    if (__DEV__) {
-      warn('Element is not inside an app instance.', el);
-    }
-    return undefined;
-  }
-
-  const found = appInstances.get(root);
-
-  // A nested app's elements should not be picked up if a parent app scans its
-  // subtree. That's the normal case, so it returns without a warning.
-  if (expected && found !== expected) {
-    return undefined;
-  }
-
-  return found;
 }
 
 /**

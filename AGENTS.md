@@ -39,20 +39,19 @@ A directive-driven reactivity layer for server-rendered HTML, shipped as one ESM
 - **Directives** bind state to the DOM (`rz-text`, `rz-model`, `rz-render`, …), handle events (`rz-on`), and make requests (`rz-fetch`), routing responses into the DOM (`rz-place`) or stores (`rz-deposit`).
 - **`RouseApp`** (`rouse(config)`) owns one root element; `start()` scans it, `destroy()` ends it.
 
-Directives are authored as `data-rz-<slug>` and named `rz-<slug>` everywhere else (filenames, `DirectiveSlug`, diagnostic labels); `core/attributes.ts` is the only place the prefix is spelled.
+Directives are authored as `data-rz-<slug>` and named `rz-<slug>` everywhere else (filenames, `DirectiveSlug`, diagnostic labels); `core/elements.ts` is the only place the prefix is spelled.
 
 ## Layout
 
 **A module's contract is in a header comment at the top of the file that owns it. Read it before changing the file** — it holds the rules that fail silently and the decisions not to reverse.
 
-- **`src/core/`** — `app.ts` (`RouseApp`), `store.ts` (stores and sync), parsers (`parser.ts`), diagnostics, constants, timing. State addressing is split by dependency weight: `path.ts` (dot paths) → `state.ts` (`clone`, `deepEqual`, `patchState`; a leaf) → `resolve.ts` (`@store` / `%` / scope resolution).
-- **`src/dom/`** — scope lifecycle (`scope.ts`), binding and ownership (`binder.ts`), scan passes (`observer.ts`), trigger sources, `app.on`, and `rz-wake` gates (`events.ts`), key modifiers (`modifiers.ts`), rendering (`renderer.ts`), payload routing, placement.
+- **`src/app.ts`** (`RouseApp`) and **`src/store.ts`** (stores and sync) — compose the layers below.
+- **`src/core/`** — the bottom layer, with no runtime imports from the layers above (lint-enforced). Element helpers and directive attribute access (`elements.ts`), parsers (`parser.ts`), diagnostics, constants, timing. State addressing is split by dependency weight: `path.ts` (dot paths) → `state.ts` (`clone`, `deepEqual`, `patchState`; a leaf) → `resolve.ts` (`@store` / `%` / scope resolution).
+- **`src/dom/`** — scope lifecycle (`scope.ts`), binding, ownership, and the app-root registry (`binder.ts`, `getApp`), scan passes (`observer.ts`), trigger sources, `app.on`, and `rz-wake` gates (`events.ts`), key modifiers (`modifiers.ts`), rendering (`renderer.ts`), payload routing, placement.
 - **`src/net/`** — `request()` and interceptors (`request.ts`), the fetch engine (`fetch-engine.ts`), the request lifecycle (`lifecycle.ts`), payloads, the SSE engine (`sse-engine.ts`).
 - **`src/directives/`** — one directive per `rz-<slug>.ts`, plus factories and shared helpers. Layout rules in the header of `index.ts`.
 - **`src/reactivity/`** — thin wrappers around alien-signals.
 - **`src/types.ts`** — shared interfaces.
-
-**Dependency direction:** `app.ts` and `store.ts` orchestrate and may import from `dom/` and `net/`; nothing else in `core/` does. DOM-aware helpers that `core/` needs live in `core/`.
 
 Three directive shapes, picked by where the directive lives: **`BoundDirective`** (scanned by the binder, mounts in a scope or globally), **`StandaloneDirective`** (`initialize`/`teardown`, works anywhere, including on a store script), **`ConfigDirective`** (`getConfig`, read on demand, no registration).
 

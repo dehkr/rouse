@@ -1,5 +1,5 @@
-import type { RouseApp } from '../core/app';
-import { hasDirective, isDisabled } from '../core/attributes';
+import type { RouseApp } from '../app';
+import { hasDirective, isDisabled } from '../core/elements';
 import { STORE_PREFIX } from '../core/constants';
 import { warn } from '../core/diagnostics';
 import { parseStoreRef } from '../core/parser';

@@ -8,8 +8,8 @@
  * A body's encoding is declared, never inferred from its sources. Rouse doesn't own a
  * fetch endpoint, so unlike push it can't prescribe one.
  */
-import type { RouseApp } from '../core/app';
-import { hasDirective, isDisabled } from '../core/attributes';
+import type { RouseApp } from '../app';
+import { hasDirective, isDisabled } from '../core/elements';
 import { isSafeMethod } from '../core/constants';
 import { err, warn } from '../core/diagnostics';
 import { dispatchFrom } from '../core/dispatch';

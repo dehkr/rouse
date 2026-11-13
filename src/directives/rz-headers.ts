@@ -1,4 +1,4 @@
-import { getDirectiveValue } from '../core/attributes';
+import { getDirectiveValue } from '../core/elements';
 import { warn } from '../core/diagnostics';
 import { parseDirectiveValue, safeJSONParse } from '../core/parser';
 import type { ConfigDirective } from '../types';

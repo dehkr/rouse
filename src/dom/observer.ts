@@ -1,10 +1,12 @@
-import { getApp, NETWORK_DIRECTIVES, type RouseApp } from '../core/app';
-import { hasDirective, queryTargets, unknownDirectiveNames } from '../core/attributes';
+import type { RouseApp } from '../app';
+import { hasDirective, queryTargets, unknownDirectiveNames } from '../core/elements';
 import { warn } from '../core/diagnostics';
+import { NETWORK_DIRECTIVES } from '../directives';
 import { SCOPE_SELECTOR } from '../directives/rz-scope';
 import { rzStore } from '../directives/rz-store';
 import {
   closestScope,
+  getApp,
   mountGlobalBinding,
   resolveRemovedOwner,
   teardownGlobalBindings,
