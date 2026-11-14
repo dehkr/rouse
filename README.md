@@ -15,13 +15,13 @@ Rouse is for applications that render HTML on the server but need rich client-si
 - **Direct DOM binding** – Works with server-rendered HTML. No virtual DOM, hydration step, or client-side copy of the page.
 - **Strict CSP compliance** – Directive values are names, never evaluated code. No `unsafe-eval` required.
 - **Buildless or bundled** – Load directly from a CDN or install from npm with bundled TypeScript definitions.
-- **Zero runtime dependencies** – 21.6 KB gzipped with reactivity, networking, SSE, stores, and sync built in.
+- **Zero runtime dependencies** – 21.4 KB gzipped with reactivity, networking, SSE, stores, and sync built in.
 
 ## Features
 
 ### Reactive state
 
-Model UI state in local scopes and app-wide stores. Stores are reactive out of the box. Scopes opt in with [alien-signals](https://github.com/stackblitz/alien-signals) primitives and a reactive proxy for ergonomic object and array mutations. Updates are fine-grained: only the bindings that read a changed value re-run.
+Model UI state in local scopes and app-wide stores. Stores are reactive out of the box. Scopes opt in with signal primitives (built on [alien-signals](https://github.com/stackblitz/alien-signals), bundled in) and a reactive proxy for ergonomic object and array mutations. Updates are fine-grained: only the bindings that read a changed value re-run.
 
 ### Native client rendering
 
@@ -49,13 +49,13 @@ Directive values are declarative: they describe paths, triggers, and targets. Lo
 
 ## Why Rouse?
 
-Rouse is inspired by several tools but makes different tradeoffs.
+Rouse builds on ideas from several influential tools:
 
 - **[htmx](https://htmx.org)** showed that the server can drive the UI over plain HTTP and HTML. Rouse keeps that model and adds client-side state for interactions where it helps.
 - **[Stimulus](https://stimulus.hotwired.dev)** showed that markup can wire behavior to organized, testable JavaScript. Rouse takes the same approach with scopes, and adds stores and server sync so state doesn't need a separate library.
 - **[Alpine](https://alpinejs.dev)** showed how natural reactivity can feel when declared in markup. Rouse keeps reactive bindings in HTML and moves the logic to JavaScript, so strict CSP works out of the box.
 
-The goal is a single, compact library that covers the common needs of server-rendered apps in the browser, plus a structured foundation for everything else.
+The goal is a single, cohesive library that rouses HTML: it covers what most server-rendered apps need in the browser and provides a structured foundation for everything else.
 
 ## Installation
 
@@ -64,13 +64,13 @@ Rouse ships as ES modules only, in two builds: a development build with diagnost
 ### From a CDN
 
 ```js
-import { rouse } from 'https://cdn.jsdelivr.net/npm/rousejs@0.16.0/dist/rouse.js';
+import { rouse } from 'https://cdn.jsdelivr.net/npm/rousejs@0.17.0/dist/rouse.js';
 ```
 
 Swap in `rouse.min.js` for production:
 
 ```js
-import { rouse } from 'https://cdn.jsdelivr.net/npm/rousejs@0.16.0/dist/rouse.min.js';
+import { rouse } from 'https://cdn.jsdelivr.net/npm/rousejs@0.17.0/dist/rouse.min.js';
 ```
 
 ### From npm
