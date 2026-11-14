@@ -103,7 +103,7 @@ strong {
 }
 
 main {
-  max-width: 880px;
+  max-width: 800px;
   margin: 0 auto;
   padding: 48px 24px 64px;
 }
@@ -182,13 +182,13 @@ pre {
   font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   background: var(--subtle);
   font-size: 0.9em;
-  border: 1px solid var(--border);
 }
 
 code {
-  padding: 0.05em 0.25em 0.1em;
-  border-radius: 4px;
+  padding: 0.01em 0.25em 0.09em;
+  border-radius: 3px;
   overflow-wrap: anywhere;
+  border: 1px solid var(--border);
 }
 
 pre > code {
@@ -204,20 +204,73 @@ pre > code {
 }
 
 pre {
-  padding: 2em;
-  border-radius: 24px;
+  position: relative;
+  padding: 2rem;
+  padding-top: 2rem;
+  margin-inline: -2rem;
+  margin-block: 2.5rem;
+  border-radius: 6px;
+}
+
+/* Scroll the code, not the pre, so the language badge can overhang the pre's edge */
+pre > code {
+  display: block;
   overflow-x: auto;
   scrollbar-color: var(--border) transparent;
+}
+
+pre[class*='language-']::before {
+  position: absolute;
+  top: 0;
+  left: calc(2rem - 1px);
+  transform: translateY(-48%);
+  padding: 0.325em 0.5em;
+  border: 1px solid var(--bg);
+  border-radius: 3px;
+  background: var(--badge-bg);
+  color: var(--fg);
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* Muted language colors: pale tints under dark text, deep shades under light text */
+pre.language-html::before {
+  content: 'HTML';
+  --badge-bg: light-dark(#fed7aa, #7c2d12);
+}
+
+pre.language-js::before {
+  content: 'JavaScript';
+  --badge-bg: light-dark(#fef08a, #713f12);
+}
+
+pre.language-ts::before {
+  content: 'TypeScript';
+  --badge-bg: light-dark(#bfdbfe, #1e3a8a);
+}
+
+pre.language-http::before {
+  content: 'HTTP';
+  --badge-bg: light-dark(#99f6e4, #134e4a);
+}
+
+pre.language-event-stream::before {
+  content: 'Event stream';
+  --badge-bg: light-dark(#ddd6fe, #4c1d95);
 }
 
 table {
   width: 100%;
   border-collapse: collapse;
+  margin-bottom: 2.5rem;
 }
 
 th,
 td {
-  padding: 12px 24px 12px 0;
+  padding: 10px 24px 10px 0;
   text-align: left;
   vertical-align: top;
 }
@@ -233,10 +286,16 @@ th {
   code {
     font: inherit;
   }
+  border-bottom: 2px solid var(--fg);
 }
 
 td {
   border-top: 1px solid var(--border);
+  font-size: 0.88em;
+}
+
+td:first-child {
+  font-weight: 500;
 }
 
 td:first-child code {
@@ -244,15 +303,10 @@ td:first-child code {
   background: none;
   border: none;
   padding: 0;
-  font-size: 0.92em;
+  font-size: 0.95em;
 }
 
 th:nth-child(1) {
-  min-width: 200px;
-}
-
-th:nth-child(2),
-th:nth-child(3) {
   min-width: 180px;
 }
 

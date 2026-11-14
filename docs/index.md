@@ -4,14 +4,13 @@
 
 ## Setup
 
-Create an app, register its scopes, stores, interceptors, and listeners, then start it. Starting scans the page and binds every directive.
+A Rouse app owns one region of the page, usually the whole document. You configure it once, register everything the markup will name, then start it. Starting scans the page and binds every directive.
 
 ```js
 import { rouse } from 'rousejs';
 
 // Creates the app with config; config is read-only after creation
 const app = rouse({
-  root: '#app',
   baseUrl: '/api',
   headers: { 'X-Tenant': '42' },
 });
@@ -26,7 +25,7 @@ app.start(); // scans the root and binds directives
 
 `start()` scans the DOM once and then watches for added nodes. Registration applies to DOM scanned afterward and never retroactively. `<script data-rz-store>` stores don't exist until `start()`. `destroy()` is terminal.
 
-Install with `npm install rousejs`, or skip the install and import from a CDN in a `<script type="module">`: `https://cdn.jsdelivr.net/npm/rousejs@0.16.0/dist/rouse.js` (development) or `https://cdn.jsdelivr.net/npm/rousejs@0.16.0/dist/rouse.min.js` (production). Rouse ships as ES modules only.
+Install with `npm install rousejs`, or skip the install and import from a CDN in a `<script type="module">`: `https://cdn.jsdelivr.net/npm/rousejs@0.17.0/dist/rouse.js` (development) or `https://cdn.jsdelivr.net/npm/rousejs@0.17.0/dist/rouse.min.js` (production). Rouse ships as ES modules only.
 
 - npm `rousejs` -> minified build; under a bundler's `development` condition -> development build.
 - `rousejs/dev` and `rousejs/min` pick one explicitly.
@@ -47,7 +46,7 @@ Options passed to `rouse()`. Every key is optional.
 
 ## Syntax
 
-Directives are `data-rz-*` attributes whose values name state, methods, and triggers. Values are literal text, never expressions.
+Rouse markup is plain HTML. Directives are ordinary `data-*` attributes with an `rz-` prefix, so any server template that can write an attribute can write Rouse. A value names something (a piece of state, a method, a trigger) and never computes anything. Logic stays in JavaScript, where it can be tested and typed.
 
 ```html
 <div data-rz-scope="profile">
@@ -89,7 +88,7 @@ How a directive value names state.
 
 ## Directives
 
-Each directive does one job: bind state to the DOM, handle an event, make a request, or route its response.
+Directives are how server-rendered HTML declares its behavior. Each one does a single job: bind state to the DOM, handle an event, make a request, or route its response. An element combines several rather than relying on one that does everything.
 
 ```html
 <!--
@@ -136,7 +135,7 @@ Every directive, its job, and a typical value.
 | `rz-key` | Stable key for `rz-render` lists that reorder or refetch | `data-rz-key="id"` |
 | `rz-fetch` | Request on a trigger; subject is `[METHOD] URL` (default GET), either part optional (`submit: PUT` keeps the form's `action`) | `data-rz-fetch="click: POST /todos"` |
 | `rz-place` | Where an HTML response goes: `position: selector`, a selector, a position, or `null`. Default: host `innerHTML` | `data-rz-place="beforeend: #log"` |
-| `rz-deposit` | Merge a JSON response into whole stores | `data-rz-deposit="@results"` |
+| `rz-deposit` | Where a JSON response goes: whole stores, merged as JSON Merge Patch | `data-rz-deposit="@results"` |
 | `rz-send` | Payload: scope paths, `@store`/`@store.field`, `%`/`%.field`, inline JSON, `selector: <css>` | `data-rz-send='query, @filters, {"page": 2}'` |
 | `rz-headers` | Request headers for a fetch, or on a store script for its sync; `null` removes | `data-rz-headers="X-Tenant: 42"` |
 | `rz-request` | Fetch options: `timeout`, `abort-key`, `credentials`, `keepalive`, `redirect`, `cache` | `data-rz-request="timeout: 5s, keepalive"` |
@@ -148,11 +147,11 @@ Every directive, its job, and a typical value.
 | `rz-sse` | Open an `EventSource`; one stream per element | `data-rz-sse="ready: /events"` |
 | `rz-close` | Triggers that close that element's stream (OR) | `data-rz-close="sse-[done]"` |
 
-Method is only ever in the `rz-fetch` subject (or a form's `method` / a button's `formmethod`), never in `rz-request`. `rz-headers`, `rz-request`, and `rz-send` apply to fetch triggers only.
+`rz-headers` (outside a store script), `rz-request`, and `rz-send` apply to fetch triggers only. The method is only ever in the `rz-fetch` subject (or a form's `method` / a button's `formmethod`).
 
 ## Trigger grammar
 
-Event-driven directives pair a **trigger** (when) with a **subject** (what): `[trigger]: [subject]`. `rz-on`, `rz-fetch`, `rz-push`, `rz-pull`, `rz-sse`, and `rz-model` take it.
+Rouse doesn't guess when something should happen: triggers are written out on every event-driven directive except `rz-model`. One grammar covers DOM events, timers, viewport and media changes, store edits, and server events, so `when: what` reads the same everywhere. `rz-on`, `rz-fetch`, `rz-push`, `rz-pull`, `rz-sse`, and `rz-model` take it.
 
 ```html
 <!-- Call save on click -->
@@ -230,7 +229,7 @@ On a source only `once`, timing, and its argument apply (`sse` also takes `root`
 
 ## Reactivity
 
-Every binding is an effect: it re-runs when a value it read changes, and only then. Stores are reactive already. Scope state is reactive only when the setup builds it from these functions, exported from `rousejs`.
+Rouse updates the page by tracking what each binding reads, not by re-rendering. Every binding is an effect: it re-runs when a value it read changes, and only then. Stores are reactive already. Scope state is reactive only when the setup builds it from these functions, exported from `rousejs`.
 
 ```js
 import { computed, effect, reactive, signal } from 'rousejs';
@@ -263,7 +262,7 @@ The reactivity functions exported from `rousejs`.
 
 ## Scopes
 
-A scope is a synchronous setup function that returns a plain object: the keys that bare paths in its region resolve against. A scope is not a component: no template, props, or re-render. The returned object is **not** made reactive: build its state from `signal` and `reactive` (see [Reactivity](#reactivity)).
+Scopes define behavior for one region of the page. The server renders the markup, a scope attaches state and methods to a region of it, and the directives inside refer to them by name. Each scope is self-contained: bare paths resolve against the nearest enclosing scope and never leak into an outer one. Scopes communicate through shared stores and DOM events. A scope is a synchronous setup function that returns a plain object. A scope is not a component: no template, props, or re-render. The returned object is not made reactive by default: build reactive state using `signal` and/or `reactive` (see [Reactivity](#reactivity)).
 
 ```js
 import { reactive, signal } from 'rousejs';
@@ -303,6 +302,8 @@ app.scope('search', ({ host, app, term }) => {
 });
 ```
 
+The markup inside `data-rz-scope="search"` names the keys the setup returned: `query`, `run`, `clear`, `results`, `remove`.
+
 ```html
 <div data-rz-scope="search">
   <!-- Typing writes query; run fires 300 ms after typing stops; Escape anywhere clears -->
@@ -323,7 +324,7 @@ app.scope('search', ({ host, app, term }) => {
 ```
 
 - A returned `reactive` object or array is the same proxy for the scope's lifetime. Mutate it in place (`results.splice(…)`, `rz-model="form.name"`); assigning a new value to the key isn't reactive.
-- Nested scopes are independent; share state through a store, signal through DOM events (`dispatch(el, 'name', detail)` from `rousejs`).
+- Nested scopes are independent; share state and app-wide methods through a store, signal through DOM events (`dispatch(el, 'name', detail)` from `rousejs`).
 - Register scopes at app level with `app.scope(name, setup)`, never inside another setup.
 
 ### Setup context
@@ -366,7 +367,7 @@ Scope and store methods called from directives receive `{ el, e, render }` (`Han
 
 ## Stores
 
-A store is one flat reactive object: data, getters (cached computeds; keep them pure), and methods (`this` is the store). Only plain data syncs. The root must be an object.
+Stores hold what the whole app shares: state that outlives one region of the page, state the server needs to see, and behavior that doesn't belong to a single region. Any directive in the app reaches a store by its name prefixed with the `@` sigil (`@cart.items`, `click: @ui.openMenu`), including inside nested scopes. A store with an endpoint syncs with the server as a whole. A store is one flat reactive object: data, getters (cached computeds; keep them pure), and methods (`this` is the store). The root must be an object. Only JSON-serializable data syncs: getters and methods stay local and are never sent, and non-plain objects (`Date`, `Map`) serialize as `{}`.
 
 ```js
 const cart = app.store('cart', {
@@ -381,6 +382,8 @@ await app.stores.push('cart');        // PATCH /api/cart with the whole store
 // or save on every edit instead of calling push yourself:
 app.on({ edit: 'cart' }, () => app.stores.push('cart'), { debounce: 500 });
 ```
+
+The same pattern in markup: a `<script>` declares the store and its endpoint, and `rz-push` saves it on edit or on click.
 
 ```html
 <!-- Autosaves 500 ms after the last edit; the button saves on demand -->
@@ -398,11 +401,15 @@ app.on({ edit: 'cart' }, () => app.stores.push('cart'), { debounce: 500 });
 <span data-rz-class="unsaved: @user::status.dirty">Unsaved changes</span>
 ```
 
-- `rz-push`, `rz-pull`, and `rz-deposit` always name their store, including on the store's own script (`<script data-rz-store="feed" data-rz-sse="ready: /feed" data-rz-deposit="@feed">`). A path (`@user.profile`) is rejected: stores sync whole.
+- `app.store(name, data, config?)` takes the endpoint as `config.url`, plus request options (`headers`, `timeout`, `credentials`, …). It returns the store itself, the same object `app.stores.get(name)` returns.
+
+### Store sync
+
+A store with an endpoint syncs whole. Push (`rz-push`, `app.stores.push`) sends the store as `PATCH` with `Content-Type: application/merge-patch+json`. Pull (`rz-pull`, `app.stores.pull`) refreshes it with `GET`.
+
+- `rz-push`, `rz-pull`, and `rz-deposit` always name their store, including on the store's own script (`<script data-rz-store="feed" data-rz-sse="ready: /feed" data-rz-deposit="@feed">`). A path (`@user.profile`) is rejected.
 - Server responses are applied as JSON Merge Patch (RFC 7396): absent keys stay, objects merge, arrays and primitives replace, `null` deletes the key.
 - A push in progress holds later pushes and sends one follow-up when it succeeds. A failed push changes no data: the store stays dirty and `status.error` is set. Roll back yourself: `app.on('rz:push:error', () => app.stores.revert('cart'))`.
-- Push sends `Content-Type: application/merge-patch+json`.
-- `app.store(name, data, config?)` takes the endpoint as `config.url`, plus request options (`headers`, `timeout`, `credentials`, …). It returns the store itself, the same object `app.stores.get(name)` returns.
 
 ### Store status
 
@@ -461,7 +468,7 @@ The script element is the store's declaration. Replacing it with a new script of
 
 ## Render
 
-`rz-render` repeats a `<template>` over a value. In each instance, `%` is that instance's item; bare paths and `@store` paths resolve as they do outside the template.
+Most HTML comes from the server, but some markup has to follow client state: a filtered list, an empty-state message. `rz-render` covers those cases by repeating a `<template>` over a value. In each instance, `%` is that instance's item. Bare paths and `@store` paths resolve as they do outside the template.
 
 ```html
 <!-- A keyed list from a store; each row reads its item through % -->
@@ -522,9 +529,22 @@ An item with a `renderTarget` field renders its instance there instead of beside
 - A moved instance still binds against its item and the template's scope.
 - `renderTarget` is ordinary item data, so a synced store pushes it with the item. Use a selector there; an element can't be serialized.
 
-## Requests
+## Networking
 
-An `rz-fetch` sends its element's data. Payload precedence: `rz-send` -> the element's own field -> a form's or fieldset's enabled fields. GET and HEAD send it as query parameters; other methods send a body in the encoding you declare.
+Rouse speaks HTTP the way the browser does. Forms, methods, and encodings work as HTML defines them, and the server can steer a response with a header. There are three ways to talk to a server. Each has a directive and a JavaScript equivalent.
+
+| Mechanism | Markup | JavaScript | Data flow | Responses go to |
+| --- | --- | --- | --- | --- |
+| [Fetch](#fetch-requests) | `rz-fetch` | `app.fetch` | One request, one response | `rz-place` (HTML), `rz-deposit` (JSON) |
+| [Store sync](#store-sync) | `rz-push`, `rz-pull` | `app.stores.push`, `app.stores.pull` | A whole store to or from its endpoint | The store, as JSON Merge Patch |
+| [Server-sent events](#server-sent-events) | `rz-sse` | `app.sse` | A stream of server messages | `rz-place` / `rz-deposit`, or `sse-[name]` triggers |
+
+- Fetch and store sync share the app `headers`, `baseUrl`, `timeout`, [interceptors](#interceptors), [request headers](#request-headers), and [error handling](#errors).
+- Streams share only `baseUrl`. `EventSource` sends no custom headers, so the rest doesn't apply.
+
+## Fetch requests
+
+`rz-fetch` extends what links and forms already do: send the element's data and put the response where it belongs, without a page load. A form's `action`, `method`, and `enctype` work as written. Payload precedence: `rz-send` -> the element's own field -> a form's or fieldset's enabled fields. GET and HEAD send it as query parameters. Other methods send a body in the encoding you declare.
 
 ```html
 <!-- GET /search?q=…: a field sends its own name and value -->
@@ -573,7 +593,20 @@ Per-request options, written as `rz-request` pairs in markup or `app.fetch` opti
 | `redirect` | `redirect` | `fetch` `redirect`: `follow`, `error`, `manual` |
 | `cache` | `cache` | `fetch` `cache` mode: `no-store`, `reload`, … |
 
-- Any other `rz-request` key warns and is ignored. The method goes in the `rz-fetch` subject, headers in `rz-headers`, and the indicator in `rz-indicator`.
+- Any other `rz-request` key warns and is ignored. Headers go in `rz-headers` and the indicator in `rz-indicator`.
+
+### Request headers
+
+Headers Rouse sends with every fetch, push, and pull, so the server can tell its requests apart.
+
+| Header | Value | Sent by |
+| --- | --- | --- |
+| `Rouse-Request` | `true` | Every request |
+| `Rouse-Sync` | `push` or `pull` | Push and pull |
+| `Rouse-Store` | The store's name | Push and pull |
+| `Accept` | `application/json, text/html, image/svg+xml, */*;q=0.8` | Every request |
+
+- A `null` value in `rz-headers`, app `headers`, or `app.fetch` `headers` drops any of them.
 
 ### Overlapping requests
 
@@ -588,7 +621,7 @@ Every request has an abort key: the trigger element's own by default, or a share
 
 ## Server responses
 
-The server answers a Rouse request with HTML or JSON, and can steer where it goes with `Rouse-*` response headers.
+The server knows the most about its own response, so it gets the last word. It answers a Rouse request with HTML or JSON, and a `Rouse-*` response header overrides what the markup asked for.
 
 ```http
 HTTP/1.1 200 OK
@@ -612,7 +645,6 @@ How Rouse routes a fetch response from markup, by content type. Code can take an
 | File | Nowhere | `rz:fetch:success:file` |
 
 - **Not routed:** error responses, an empty body, and an `app.fetch` without `triggerEl`, unless the server sends `Rouse-Place` or `Rouse-Deposit`. An empty body with `Rouse-Place` places `''`, so a `204` with `Rouse-Place: delete` removes the trigger. See [Errors](#errors) for routing error responses.
-- Unnamed `rz-sse` messages route the same way, without headers.
 
 ### Response headers
 
@@ -629,23 +661,44 @@ The server can override the client with response headers. The header wins over t
 
 A redirect the browser follows (`3xx`) navigates the page to the final URL when it's same-origin, and fails with `REDIRECTED` when it isn't.
 
-### Request headers
+## Server-sent events
 
-Headers Rouse sends, so the server can tell its requests apart.
+Server-sent events let the server send updates without being asked. Rouse handles each message like a fetch response or an event, so a live feed uses the same `rz-place`, `rz-deposit`, and triggers as everything else. `rz-sse` opens an `EventSource`. An unnamed message is a payload, placed or deposited like a fetch response. A named message is an event that fires `sse-[name]` triggers.
 
-| Header | Value | Sent by |
-| --- | --- | --- |
-| `Rouse-Request` | `true` | Every request |
-| `Rouse-Sync` | `push` or `pull` | Push and pull |
-| `Rouse-Store` | The store's name | Push and pull |
-| `Accept` | `application/json, text/html, image/svg+xml, */*;q=0.8` | Every request |
+```html
+<!-- Unnamed messages append to #log; "stale" pulls @feed; "done" closes the stream -->
+<section
+  data-rz-sse="ready: /events"
+  data-rz-place="beforeend: #log"
+  data-rz-pull="sse-[stale]: @feed"
+  data-rz-close="sse-[done]"
+>
+  <ul id="log"></ul>
+</section>
+```
 
-- A `null` value in `rz-headers`, app `headers`, or `app.fetch` `headers` drops any of them.
-- A push also sends `Content-Type: application/merge-patch+json`.
+The server's side of `/events`, in `text/event-stream` format. A blank line ends each message, and `event:` names it.
+
+```event-stream
+data: <li>Build 41 passed</li>
+
+event: stale
+data: {}
+
+event: done
+data: {}
+```
+
+- **Opening.** Any trigger opens the stream: `ready`, `wake`, `click`, …. One stream per element; a trigger on a live stream does nothing. `app.sse(url, options?)` opens one from JavaScript and returns a close function. Elements and `app.sse` calls on the same URL share one connection.
+- **Unnamed messages.** A JSON object or array goes to the element's `rz-deposit` stores. Anything else is HTML for `rz-place`, which defaults to the element's `innerHTML`; `data-rz-place="null"` opts out. `app.sse` without `triggerEl` routes nothing: listen for `rz:sse:message:{html,json}`.
+- **Named messages.** `sse-[name]` hears the stream on its own element or a descendant; add `|root` to hear every stream in the app. Any directive takes it: `rz-on`, `rz-fetch`, `rz-pull`, `rz-close`.
+- **Reconnects.** The browser reconnects after a dropped connection and resends `Last-Event-ID`. Each loss fires `rz:sse:error`; `preventDefault()` closes the stream instead. A non-200 response or a wrong `Content-Type` closes it for good.
+- **Closing.** `rz-close` triggers, the `app.sse` close function or its `signal`, removing the element, or `app.destroy()`. After `rz-close`, the next open trigger starts a fresh stream.
+- **No request config.** `EventSource` can't send headers, so `rz-headers`, `rz-request`, interceptors, `rz-indicator`, and the `Rouse-*` response headers don't apply. Send cookies cross-origin with `app.sse(url, { withCredentials: true })`.
 
 ## Errors
 
-A failed request never rejects. It resolves with `error` set and fires `rz:fetch:error` (`rz:push:error`, `rz:pull:error` for sync). Error responses skip `rz-place` and `rz-deposit`: a 4xx/5xx body reaches the page only if the server routes it with a header or your code renders it.
+A failed request is a result, not an exception. It never rejects: it resolves with `error` set and fires `rz:fetch:error` (`rz:push:error`, `rz:pull:error` for sync). Error responses skip `rz-place` and `rz-deposit`. A 4xx/5xx body reaches the page only if the server routes it with a header or your code renders it.
 
 ### Error codes
 
@@ -685,6 +738,8 @@ Pick by who owns the error UI. Strategies can be combined: a server-routed form 
 </form>
 ```
 
+The server rejects an invalid email with a 422. `Rouse-Deposit` routes the JSON body into `@form-errors`, which marks the input invalid and shows the message.
+
 ```http
 HTTP/1.1 422 Unprocessable Content
 Content-Type: application/json
@@ -692,6 +747,8 @@ Rouse-Deposit: @form-errors
 
 { "email": "Enter a valid email address." }
 ```
+
+Code can handle the same failures for the whole app: listen for the error event, or rewrite `error` before anything sees it.
 
 ```js
 // App-wide: e.detail is the full response; data is the parsed error body
@@ -718,7 +775,7 @@ app.interceptor('error', (error) => {
 
 ## Interceptors
 
-Interceptors edit every fetch, push, and pull the app makes. They run in registration order, may be async, and each receives the previous one's result. `rz-sse` doesn't use them.
+Interceptors are the one place to apply a policy to every request: auth, tracing, unwrapping an API envelope. They edit every fetch, push, and pull the app makes. They run in registration order, may be async, and each receives the previous one's result. `rz-sse` doesn't use them.
 
 ```js
 // Request: add auth to every request; editing config in place needs no return
@@ -751,7 +808,7 @@ What each phase receives, when it runs, and what its return does.
 
 ## Lifecycle events
 
-Rouse dispatches `rz:*` events as an app, scope, request, store, or stream changes state. Listen with `app.on` or use one as a trigger in markup.
+Everything Rouse does can be observed with ordinary DOM events. It dispatches `rz:*` events as an app, scope, request, store, or stream changes state. Listen with `app.on`, or use one as a trigger in markup.
 
 ```js
 // Report failed requests from anywhere in the app
@@ -823,7 +880,7 @@ Every `rz:*` event, when it fires, and its `detail`.
 
 ## Programmatic API
 
-Everything markup does is also callable from JavaScript, through the app and a few package exports.
+Markup covers the common cases, and JavaScript covers the rest. Everything markup does is also callable from JavaScript, through the app and a few package exports.
 
 ```js
 // Request through the app's config and interceptors; never throws
@@ -835,10 +892,10 @@ app.on('keyup', bump, { ctrl: true, key: 'ArrowUp' });
 // Insert HTML the way rz-place would
 app.place('#log', '<li>Done</li>', { position: 'beforeend' });
 
-// Add a header to every request
-app.interceptor('request', (config) => {
-  config.headers['X-Trace'] = crypto.randomUUID();
-  return config;
+// Open a stream and append each unnamed HTML message to #log
+const close = app.sse('/events');
+app.on('rz:sse:message:html', (e) => {
+  app.place('#log', e.detail.data, { position: 'beforeend' });
 });
 ```
 
@@ -883,7 +940,7 @@ Named exports from `rousejs`.
 
 ## TypeScript
 
-Rouse ships its own types. The JavaScript API is typed end to end; markup is not: directive values are strings, so nothing checks `data-rz-text="usr.name"` against the scope.
+Rouse ships its own types. The JavaScript API is typed end to end. Markup is not: directive values are strings, so nothing checks `data-rz-text="usr.name"` against the scope. Keep logic in TypeScript, where it's checked, and keep directive values to short names.
 
 ```ts
 import type { LifecycleEventMap, RenderHandlerCtx, ScopeSetup } from 'rousejs';
@@ -926,7 +983,7 @@ Import these with `import type { … } from 'rousejs'`.
 
 ## Multiple apps
 
-Each `rouse({ root })` is self-contained: its own stores, scopes, interceptors, listeners, and config, so `@cart` in one app never reaches another app's `cart`. Use separate apps for micro-frontends or widgets that must stay isolated. One app per root; after `destroy()`, a new app can mount on the same element.
+An app is an isolation boundary. Each `rouse({ root })` has its own stores, scopes, interceptors, listeners, and config, so `@cart` in one app never reaches another app's `cart`. Use separate apps for micro-frontends or widgets that must stay isolated. One app per root; after `destroy()`, a new app can mount on the same element.
 
 ```js
 // The page app owns the whole document
@@ -948,7 +1005,7 @@ widget.start();
 
 ## Silent pitfalls
 
-These fail without an error, at most a dev warning. Most do nothing; some do the wrong thing.
+The development build warns about most authoring mistakes. These fail without an error, at most a dev warning. Most do nothing; some do the wrong thing.
 
 - **Modifiers need a pipe.** `click.debounce-[300ms]` is one event named `click.debounce` and never fires. Write `click|debounce-[300ms]`.
 - **Render fields need a dot.** `%name` is not `%.name`. The dot-less form reads `undefined` and writes nothing.
@@ -969,10 +1026,10 @@ These fail without an error, at most a dev warning. Most do nothing; some do the
 - **Wake waits for every trigger.** `rz-wake` is AND: `interact timeout-[5s]` waits for both.
 - **Wake and close need a host directive.** `rz-wake` does nothing without `rz-scope`, and `rz-close` nothing without `rz-sse`.
 - **Null deletes synced fields.** In a synced store `null` deletes the key, so leave a field absent instead of `null`. A server serializer that omits empty values (Go `omitempty`) can never clear a field.
-- **Placement defaults to the host.** `rz-place` defaults to the host's `innerHTML`, so a stream element without it writes every unnamed HTML message into itself. Use `data-rz-place="null"` to opt out.
+- **Placement defaults to the host.** A stream element without `rz-place` writes every unnamed HTML message into its own `innerHTML`. Use `data-rz-place="null"` to opt out.
 - **Edit triggers watch data fields.** `edit-[@store.key]` filters on data fields. A setter writes its underlying field, so watching the accessor's key never fires.
 - **CORS must allow Rouse headers.** A cross-origin server must list the `Rouse-*` headers in `Access-Control-Allow-Headers` (or sync requests fail as `Failed to fetch`) and `Access-Control-Expose-Headers` (or response headers are ignored).
 - **Push isn't plain JSON.** Push bodies are `application/merge-patch+json`. A server parsing only `application/json` (Express `express.json()`) sees an empty body.
-- **Streams send no headers.** `EventSource` can't set headers, so `rz-headers`, `rz-request`, and interceptors don't apply to `rz-sse`.
+- **Streams send no headers.** `rz-headers`, `rz-request`, and interceptors don't apply to `rz-sse`; see [Server-sent events](#server-sent-events).
 - **URLs can read as methods.** A relative URL spelled like an HTTP method is read as one: write `./query`, not `query`.
 - **Scripts in placed HTML don't run.** `rz-place`, `Rouse-Place`, `rz-sse`, `rz-html`, and `app.place` insert HTML through `innerHTML`, which never runs `<script>`. Put behavior in a scope; the fragment's directives still bind.

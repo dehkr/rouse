@@ -5,7 +5,14 @@ import { IdAttributePlugin } from '@11ty/eleventy';
 import { transform } from 'esbuild';
 
 export default function (eleventyConfig) {
-  eleventyConfig.addPlugin(syntaxHighlight);
+  eleventyConfig.addPlugin(syntaxHighlight, {
+    init({ Prism }) {
+      Prism.languages['event-stream'] = {
+        comment: /^:.*/m,
+        keyword: /^(?:data|event|id|retry)(?=:)/m,
+      };
+    },
+  });
   eleventyConfig.addPlugin(IdAttributePlugin);
 
   // Provide defaults via global data so index.md stays clean Markdown for LLM/agent consumption
