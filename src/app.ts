@@ -60,6 +60,7 @@ import { fail, info, warn } from './core/diagnostics';
 import { dispatchFrom } from './core/dispatch';
 import { ScopeRegistry } from './core/scope-registry';
 import { isPlainObject } from './core/state';
+import type { PersistOptions } from './reactivity/persist';
 import { StoreManager, type SyncPolicy } from './store';
 
 export interface RouseConfig {
@@ -325,12 +326,23 @@ export class RouseApp {
    * Only plain, JSON-serializable data is synced. Methods and getters are untouched
    * by snapshots, push bodies, `reset()`, and incoming server state.
    *
+   * **Persistence:** pass `persist` and `persistKey` instead of `url` to keep the data
+   * in the browser across page loads.
+   * - The saved copy is restored on creation. `reset()` restores `data` (or the data
+   *   from the last `update()`), not the copy loaded from storage, and saves it.
+   * - Every change saves the data fields as JSON, including a response applied by a
+   *   one-off push or pull with its own URL.
+   * - Saving stops on `stores.remove()` and `destroy()`. The saved copy stays in storage.
+   *
    * @template T - Shape of the store's data, getters, and methods.
    * @param name - Unique name. Referenced as `@name` in directives.
    * @param data - Initial state. Made reactive, and kept as the snapshot `reset()` restores.
-   * @param config - Standing sync config: the endpoint URL, headers, and other transport options.
+   * @param config - Standing sync config: the endpoint URL, headers, and other transport
+   *   options. Or `persist` (`'local'` or `'session'`) with a `persistKey` used verbatim
+   *   as the storage key.
    * @returns The store's reactive proxy.
-   * @throws If a store of this name already exists.
+   * @throws If a store of this name already exists, if `persist` is combined with `url`,
+   *   or if `persist` is not `'local'` or `'session'` with a `persistKey`.
    *
    * @example
    * const cart = app.store('cart', {
@@ -344,8 +356,15 @@ export class RouseApp {
    * }, { url: '/api/cart' });
    *
    * cart.items.push(item);
+   *
+   * @example
+   * app.store('prefs', { theme: 'light' }, { persist: 'local', persistKey: 'prefs' });
    */
-  store<T extends object>(name: string, data: T, config?: Partial<SyncPolicy>) {
+  store<T extends object>(
+    name: string,
+    data: T,
+    config?: Partial<SyncPolicy> & PersistOptions,
+  ) {
     return this.stores._create<T>(name, data, config);
   }
 
@@ -513,6 +532,7 @@ export class RouseApp {
 
     unmountSubtree(this.root);
     teardownGlobalBindings(this.root);
+    this.stores._stopSaving();
 
     dispatchFrom(this.root, this.root, 'rz:app:destroy', { app: this });
 

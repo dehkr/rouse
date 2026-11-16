@@ -51,7 +51,7 @@ function runOnRaw(proxy: any[], method: string, args: any[], wrapResult = false)
   // be unproxied, so they are re-wrapped here. `reactive` reuses an item's existing
   // proxy, or creates one, and passes non-objects through.
   if (wrapResult && Array.isArray(result)) {
-    return result.map(reactive);
+    return result.map((item) => reactive(item));
   }
 
   return result;

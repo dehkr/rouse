@@ -3,6 +3,7 @@ export { RouseApp, type RouseConfig, rouse, rouse as default } from './app';
 export { dispatch } from './core/dispatch';
 export { createKey } from './core/keys';
 export { reactive } from './reactivity/reactive';
+export type { PersistStorage, ReactiveOptions } from './reactivity/reactive';
 export type {
   BindableValue,
   HandlerCtx,

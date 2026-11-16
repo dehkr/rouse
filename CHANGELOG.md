@@ -7,7 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-No unreleased changes.
+### Added
+
+- Add the `persist` and `persistKey` options to `reactive()` and `app.store()`, saving state to `localStorage` or `sessionStorage` on every change and restoring it on the next page load.
 
 ## [0.17.0] - 2026-11-14
 

@@ -91,6 +91,17 @@ export function isPlacePosition(key: string): key is PlacePosition {
   return PLACE_POSITIONS.includes(key as PlacePosition);
 }
 
+/** Web Storage areas the `persist` option accepts: `localStorage` and `sessionStorage`. */
+export const PERSIST_STORAGES = ['local', 'session'] as const;
+
+/** Represents a `persist` option token. */
+export type PersistStorage = (typeof PERSIST_STORAGES)[number];
+
+/** Type guard to check if a value is a valid PersistStorage. */
+export function isPersistStorage(val: unknown): val is PersistStorage {
+  return PERSIST_STORAGES.includes(val as PersistStorage);
+}
+
 /** List of valid standard HTTP methods. */
 export const HTTP_METHODS = [
   'GET',

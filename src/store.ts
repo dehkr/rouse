@@ -22,7 +22,13 @@ import { type LifecycleHandle, runRequestLifecycle } from './net/lifecycle';
 import { resolveUrl } from './net/payload';
 import { request } from './net/request';
 import { fallbackResponse } from './net/response';
-import { reactive, seedPropagation, trackDirty } from './reactivity/reactive';
+import {
+  type PersistOptions,
+  resolvePersist,
+  restore,
+  startSaving,
+} from './reactivity/persist';
+import { reactive, seedPropagation, trackDirty, untracked } from './reactivity/reactive';
 import type {
   ResolvedRequest,
   LifecycleEventMap,
@@ -106,6 +112,8 @@ interface StoreEntry {
   el?: Element;
   listeners?: Set<EditListener>;
   touched?: Set<string>;
+  /** Stops saving to Web Storage. Set only on a store created with `persist`. */
+  stopSaving?: VoidFn;
 }
 
 /**
@@ -168,6 +176,11 @@ function warnNullFields(storeName: string, state: object) {
       `Store '${storeName}': '${path}' is null. Sync reads null as a delete (RFC 7396), so it cannot rest as a value. Use '' or omit the key.`,
     ),
   );
+}
+
+/** Rejects a persisted store with an endpoint: both would claim its state on load. */
+function failPersistUrl(storeName: string): never {
+  fail(`Store '${storeName}' cannot combine 'persist' and 'url'.`);
 }
 
 /**
@@ -680,13 +693,19 @@ export class StoreManager {
   _create<T extends object = any>(
     storeName: string,
     state: T,
-    config?: Partial<SyncPolicy>,
+    config?: Partial<SyncPolicy> & PersistOptions,
     el?: Element,
   ): T {
     if (this._stores.has(storeName)) {
       fail(`A store named '${storeName}' already exists.`);
     }
     assertStoreState(storeName, state);
+
+    const { persist, persistKey, ...policy } = config ?? {};
+    const persisted = resolvePersist({ persist, persistKey } as PersistOptions);
+    if (persisted && policy.url) {
+      failPersistUrl(storeName);
+    }
 
     // A store name with a dot is read as a path everywhere except through `app.stores`
     if (__DEV__ && storeName.includes('.')) {
@@ -707,13 +726,19 @@ export class StoreManager {
       dirtyRoots: {},
     });
 
+    // `initial` is the declared data, so `reset()` restores defaults, not the saved copy
+    const initial = clone(state);
+    if (persisted) {
+      restore(state, persisted);
+    }
+
     const proxyState = reactive(state);
 
     const entry: StoreEntry = {
       name: storeName,
       data: proxyState,
       status,
-      initial: clone(state),
+      initial,
     };
 
     this._stores.set(storeName, entry);
@@ -730,11 +755,17 @@ export class StoreManager {
     });
 
     if (config) {
-      this._setConfig(entry, config);
+      this._setConfig(entry, policy);
     }
 
     if (el) {
       entry.el = el;
+    }
+
+    if (persisted) {
+      // Detached from the caller's tracking context, so a store created in a scope
+      // setup keeps saving after that scope tears down
+      entry.stopSaving = untracked(() => startSaving(proxyState, persisted));
     }
 
     this._updateLastGood(entry, state);
@@ -973,6 +1004,9 @@ export class StoreManager {
   config(storeName: string | null | undefined, config: Partial<SyncPolicy>) {
     const entry = this._getStore(storeName, 'configure');
     if (!entry) return;
+    if (entry.stopSaving && config.url) {
+      failPersistUrl(entry.name);
+    }
 
     this._setConfig(entry, config);
   }
@@ -1137,6 +1171,7 @@ export class StoreManager {
     // follow-up would reach whatever store is registered under the name next.
     // A running flush has its own copy of the queue, so listeners can also be cleared.
     this._settleIdle(entry);
+    entry.stopSaving?.();
     entry.pendingPush = undefined;
     entry.listeners = undefined;
     entry.touched = undefined;
@@ -1147,5 +1182,14 @@ export class StoreManager {
     // store's tracker, `edit` triggers bound now never fire for a store re-created under
     // the name, and a removal from the store's own `:before` listener still gets that
     // response applied.
+  }
+
+  /**
+   * Stops every persisted store from saving. Called once by `app.destroy()`.
+   *
+   * @internal
+   */
+  _stopSaving() {
+    this._stores.forEach((entry) => entry.stopSaving?.());
   }
 }

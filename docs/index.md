@@ -246,6 +246,7 @@ const stop  = effect(() => console.log(label()));          // runs now and after
 - Getters on a reactive object are cached computeds, as in stores. Keep them pure.
 - Array mutators (`push`, `splice`, `sort`, …) notify once per call. Callbacks of `map`, `find`, `forEach`, … receive reactive items.
 - Reactivity lives in the proxy and the signal, not in values read out of them. `const { name } = form`, or a returned field set to `count()`, is a snapshot. Expose a getter instead.
+- To expose a `signal` to bindings, return a getter, plus a setter if `rz-model` writes it: `get count() { return count(); }, set count(v) { count(v); }`. Getters on the returned object aren't cached: they re-run on every read. Move expensive logic into a `computed` or a getter on the `reactive` state.
 - An `effect` created during setup or in `connect()` stops with the scope. One created later (in a handler, a timer, or after an `await`) runs until stopped: `term.addEventListener('abort', effect(fn))`.
 - A function returned from an `effect` callback is its cleanup. It runs before each re-run and on stop, and reads inside it aren't tracked: `effect(() => { const id = setInterval(tick, state.delay); return () => clearInterval(id); })`.
 
@@ -256,45 +257,55 @@ The reactivity functions exported from `rousejs`.
 | Function | Returns | Use for |
 | --- | --- | --- |
 | `signal(value)` | A signal: `s()` reads, `s(v)` writes | A single value, exposed through a scope getter (plus a setter if `rz-model` writes it) |
-| `reactive(object)` | A deep proxy of a plain object or array | Objects and lists, returned from a scope as-is and mutated in place |
+| `reactive(object, options?)` | A deep proxy of a plain object or array | Objects and lists, returned from a scope as-is and mutated in place. `options` persists it; see [Persistence](#persistence) |
 | `computed(fn)` | A cached derived value, read as `c()` | Derived values. Recomputes only after a value `fn` read changes. Keep `fn` pure |
 | `effect(fn)` | A stop function | Side effects that follow state. Runs `fn` now and whenever what it read changes. A function `fn` returns runs as cleanup before each re-run and on stop |
+
+### Persistence
+
+`persist` keeps state in Web Storage across page loads. `reactive()` and `app.store()` take the same two options.
+
+```js
+const game = reactive({ guesses: [], gameId: 0 }, { persist: 'local', persistKey: 'myapp:game' });
+
+app.store('prefs', { theme: 'light' }, { persist: 'local', persistKey: 'myapp:prefs' });
+```
+
+- `persist` is `'local'` (`localStorage`) or `'session'` (`sessionStorage`). `persistKey` is required and used verbatim as the storage key. Storage is shared across the origin, so pick a key that is stable across loads and unique to this state, such as `'myapp:game'`. Two live owners of one key on a page warn in dev.
+- Restoring triggers no effects. An object takes each saved field over its initial value, so fields added later keep their defaults, and getters and methods are never overwritten. An array is replaced.
+- Missing, corrupt, or mismatched saved data keeps the initial value. Unreadable storage or a failed write (quota, blocked storage) logs an error once per key, in production too. Later changes still try to save.
+- Every change, at any depth, saves the data fields as JSON. Getters and methods are never saved and never trigger a save.
+- Saving follows the `effect` lifetime above: it stops with the scope when `reactive()` runs during setup or `connect()`, and otherwise runs for the page's lifetime. The saved entry is never cleared: call `localStorage.removeItem(key)`.
+- Options apply only on an object's first `reactive()` call. Later calls, proxies, and values `reactive()` returns as-is (primitives, class instances, `Map`) warn in dev and persist nothing.
 
 ## Scopes
 
 Scopes define behavior for one region of the page. The server renders the markup, a scope attaches state and methods to a region of it, and the directives inside refer to them by name. Each scope is self-contained: bare paths resolve against the nearest enclosing scope and never leak into an outer one. Scopes communicate through shared stores and DOM events. A scope is a synchronous setup function that returns a plain object. A scope is not a component: no template, props, or re-render. The returned object is not made reactive by default: build reactive state using `signal` and/or `reactive` (see [Reactivity](#reactivity)).
 
 ```js
-import { reactive, signal } from 'rousejs';
+import { reactive } from 'rousejs';
 
 app.scope('search', ({ host, app, term }) => {
-  // A signal is read through a getter; add a setter if rz-model writes it
-  const query = signal('');
-  // Reactive objects and arrays track themselves; return them as-is
-  const results = reactive([]);
+  // One reactive object holds the scope's state; bindings track every field
+  const state = reactive({ query: '', results: [] });
 
   async function run() {
     // signal: term aborts the request if the scope is torn down mid-flight
-    const { data, error } = await app.fetch(`/search?q=${encodeURIComponent(query())}`, {
+    const { data, error } = await app.fetch(`/search?q=${encodeURIComponent(state.query)}`, {
       signal: term,
     });
-    if (!error) {
-      results.splice(0, results.length, ...data.items);
-    }
+    if (!error) state.results = data.items;
   }
 
   // Search once when half the region scrolls into view
   app.on(host, { intersect: 0.5 }, run, { once: true, signal: term });
 
   return {
-    // Getter for reading, setter so rz-model can write
-    get query() { return query(); },
-    set query(v) { query(v); },
-    results,
+    state,
     run,
-    clear() { query(''); },
+    clear() { state.query = ''; },
     // Handlers get { el, e, render }; render.index is the clicked row
-    remove({ render }) { results.splice(render.index, 1); },
+    remove({ render }) { state.results.splice(render.index, 1); },
     // Optional lifecycle hooks
     connect() {},
     disconnect() {},
@@ -302,18 +313,18 @@ app.scope('search', ({ host, app, term }) => {
 });
 ```
 
-The markup inside `data-rz-scope="search"` names the keys the setup returned: `query`, `run`, `clear`, `results`, `remove`.
+The markup inside `data-rz-scope="search"` names the keys the setup returned: `state.query`, `state.results`, `run`, `clear`, `remove`.
 
 ```html
 <div data-rz-scope="search">
-  <!-- Typing writes query; run fires 300 ms after typing stops; Escape anywhere clears -->
+  <!-- Typing writes state.query; run fires 300 ms after typing stops; Escape anywhere clears -->
   <input 
-    data-rz-model="query"
+    data-rz-model="state.query"
     data-rz-on="input|debounce-[300ms]: run, keydown|window.key-[escape]: clear"
   >
   <ul>
     <!-- One <li> per result, matched by id across re-renders -->
-    <template data-rz-render="results" data-rz-key="id">
+    <template data-rz-render="state.results" data-rz-key="id">
       <li>
         <span data-rz-text="%::position"></span>. <span data-rz-text="%.title"></span>
         <button data-rz-on="click: remove">x</button>
@@ -323,7 +334,7 @@ The markup inside `data-rz-scope="search"` names the keys the setup returned: `q
 </div>
 ```
 
-- A returned `reactive` object or array is the same proxy for the scope's lifetime. Mutate it in place (`results.splice(…)`, `rz-model="form.name"`); assigning a new value to the key isn't reactive.
+- The returned object is a plain API, not reactive: reassigning one of its keys updates nothing. Keep changing values inside `state`.
 - Nested scopes are independent; share state and app-wide methods through a store, signal through DOM events (`dispatch(el, 'name', detail)` from `rousejs`).
 - Register scopes at app level with `app.scope(name, setup)`, never inside another setup.
 
@@ -402,6 +413,8 @@ The same pattern in markup: a `<script>` declares the store and its endpoint, an
 ```
 
 - `app.store(name, data, config?)` takes the endpoint as `config.url`, plus request options (`headers`, `timeout`, `credentials`, …). It returns the store itself, the same object `app.stores.get(name)` returns.
+- `config` takes `persist` and `persistKey` to keep the store in Web Storage; see [Persistence](#persistence). `reset()` restores the declared data (or the last `update()`), never the copy loaded from storage, and saves it. `remove()` and `destroy()` stop saving and leave the saved entry. `<script data-rz-store>` can't persist.
+- A persisted store has no standing endpoint: `persist` with `url` throws, in `app.store()` and `app.stores.config()`. A one-off push or pull with its own URL (`app.stores.pull('prefs', { url: '/api/prefs' })`) still runs, applies its response like a deposit, and saves the result.
 
 ### Store sync
 
@@ -463,7 +476,7 @@ The script element is the store's declaration. Replacing it with a new script of
 | `commit(name)` | | Marks the current data synced; sends nothing. Use it when the data reached the server another way |
 | `update(name, state)` | The store | Replaces the data; it becomes the new `reset()` and `revert()` target, and the store reads clean. Sends nothing |
 | `deposit(name, payload)` | `false` if the store is missing or a listener canceled | Merges a payload as JSON Merge Patch, the way `rz-deposit` does. The payload's keys become synced; other unsaved edits stay |
-| `config(name, partial)` | | Merges `partial` into the sync config (`url`, `headers`, `timeout`, …) |
+| `config(name, partial)` | | Merges `partial` into the sync config (`url`, `headers`, `timeout`, …). Throws on `url` for a persisted store |
 | `remove(name)` | | Deletes the store. Existing references keep working but stop syncing and firing `edit` triggers |
 
 ## Render
@@ -934,7 +947,7 @@ Named exports from `rousejs`.
 | `signal(value)` | A signal: `s()` reads, `s(v)` writes | See [Reactivity API](#reactivity-api) |
 | `computed(fn)` | A cached derived value, read as `c()` | See [Reactivity API](#reactivity-api) |
 | `effect(fn)` | A stop function | See [Reactivity API](#reactivity-api) |
-| `reactive(object)` | A deep proxy of a plain object or array | See [Reactivity API](#reactivity-api) |
+| `reactive(object, options?)` | A deep proxy of a plain object or array | See [Reactivity API](#reactivity-api) |
 | `dispatch(el, name, detail?, init?)` | The `CustomEvent` | Dispatches a bubbling event from `el`. Use it to signal between nested scopes |
 | `createKey(prefix?)` | A key unique for the page's lifetime | For `rz-key` on client-created items. Assign it once at creation, never in a getter |
 
@@ -975,6 +988,8 @@ Import these with `import type { … } from 'rousejs'`.
 | `HandlerCtx<E>` | A handler's argument; see [Handler context](#handler-context) |
 | `RenderHandlerCtx<Item, E>` | `HandlerCtx` narrowed for a handler bound only inside `rz-render`: `render.item` is `Item`, `render.index` is never `null`. Same object at runtime |
 | `BindableValue` | What a binding can write |
+| `ReactiveOptions` | `reactive()`'s options: `persist` with `persistKey` |
+| `PersistStorage` | `'local' \| 'session'`, the `persist` values |
 | `LifecycleEvent` | Union of every lifecycle event name |
 | `LifecycleEventMap` | Lifecycle event name → `detail` type |
 
@@ -1010,7 +1025,7 @@ The development build warns about most authoring mistakes. These fail without an
 - **Modifiers need a pipe.** `click.debounce-[300ms]` is one event named `click.debounce` and never fires. Write `click|debounce-[300ms]`.
 - **Render fields need a dot.** `%name` is not `%.name`. The dot-less form reads `undefined` and writes nothing.
 - **Key names are exact.** `key-[entr]` never fires, and `keydown|enter` (no `key-[]`) fires on every key, with only a dev warning. `key-[ctrl]` is wrong: the key name is `control`, the held flag is `ctrl`.
-- **Scope state isn't reactive by default.** A plain field or `let` returned from setup renders once and never updates; use a `signal` behind a getter, or return a `reactive` object directly.
+- **Scope state isn't reactive by default.** A plain field or `let` returned from setup renders once and never updates; return a `reactive` object, or a `signal` behind a getter.
 - **Only plain objects and arrays are reactive.** `reactive()` returns `Map`, `Set`, `Date`, and class instances unproxied, so changes inside them never update bindings.
 - **Late effects outlive the scope.** An `effect` created in a handler, a timer, or after an `await` isn't stopped on teardown. Stop it when `term` aborts.
 - **A returned function is a cleanup.** A concise arrow that evaluates to a function, such as `effect(() => state.onSave)`, calls it before every re-run and on stop. Use a block body.
@@ -1025,6 +1040,7 @@ The development build warns about most authoring mistakes. These fail without an
 - **Network directives don't wait for a lazy scope.** `rz-fetch`, `rz-pull`, `rz-push`, and `rz-sse` inside a scope with `rz-wake` start at page load. Use the `wake` trigger: `data-rz-sse="wake: /events"`.
 - **Wake waits for every trigger.** `rz-wake` is AND: `interact timeout-[5s]` waits for both.
 - **Wake and close need a host directive.** `rz-wake` does nothing without `rz-scope`, and `rz-close` nothing without `rz-sse`.
+- **Saved values beat changed defaults.** A persisted field restores its saved value on reload, so a new default, or an initial value read from a `data-*` attribute, applies only while nothing is saved. A field removed from the initial object also comes back from saved data.
 - **Null deletes synced fields.** In a synced store `null` deletes the key, so leave a field absent instead of `null`. A server serializer that omits empty values (Go `omitempty`) can never clear a field.
 - **Placement defaults to the host.** A stream element without `rz-place` writes every unnamed HTML message into its own `innerHTML`. Use `data-rz-place="null"` to opt out.
 - **Edit triggers watch data fields.** `edit-[@store.key]` filters on data fields. A setter writes its underlying field, so watching the accessor's key never fires.

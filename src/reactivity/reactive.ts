@@ -1,5 +1,12 @@
 import { setActiveSub } from 'alien-signals';
+import { warn } from '../core/diagnostics';
 import { handlers } from './handlers';
+import { type PersistOptions, resolvePersist, restore, startSaving } from './persist';
+
+export type { PersistStorage } from './persist';
+
+/** Options for `reactive()`. */
+export type ReactiveOptions = PersistOptions;
 
 const proxyCache = new WeakMap();
 const rawCache = new WeakMap();
@@ -18,15 +25,30 @@ export const objectRootKeys = new WeakMap<object, string>();
  * The returned proxy is deeply reactive but lazy: nested properties are converted to
  * proxies only when accessed.
  *
+ * **Persistence:** pass `persist` and `persistKey` to keep the state across page loads.
+ * - The saved value is restored before the proxy is created. An object takes each saved
+ *   field over its initial value, skipping getters and methods. An array is replaced.
+ * - Every change saves the data fields as JSON. Getters and methods are never saved.
+ * - Unreadable storage or a saved value of another type keeps the initial value.
+ * - Saving stops when the scope that created the state tears down.
+ *
  * @template T - The type of the target object.
  * @param target - The object to make reactive.
+ * @param options - `persist` (`'local'` or `'session'`) with a `persistKey` used verbatim
+ *   as the storage key. Options apply only on the object's first `reactive()` call.
  * @returns The reactive proxy, or the original value if it cannot be proxied.
+ * @throws If `persist` is not `'local'` or `'session'`, or `persistKey` is missing.
  *
  * @example
  * const state = reactive({ count: 0 });
  * effect(() => console.log(state.count));
+ *
+ * @example
+ * const prefs = reactive({ theme: 'light' }, { persist: 'local', persistKey: 'prefs' });
  */
-export function reactive<T extends object>(target: T): T {
+export function reactive<T extends object>(target: T, options?: ReactiveOptions): T {
+  // Internal callers create nested proxies without options, so they skip this branch
+  if (options) return reactiveWithOptions(target, options);
   if (!proxiable(target)) return target;
   if (rawCache.has(target)) return target;
   if (proxyCache.has(target)) return proxyCache.get(target);
@@ -37,6 +59,27 @@ export function reactive<T extends object>(target: T): T {
   rawCache.set(proxy, target);
 
   return proxy as T;
+}
+
+/** Applies `reactive()`'s options; the proxy is created only after restoring. */
+function reactiveWithOptions<T extends object>(target: T, options: ReactiveOptions): T {
+  const persisted = resolvePersist(options);
+  if (!persisted) return reactive(target);
+
+  if (!proxiable(target) || rawCache.has(target) || proxyCache.has(target)) {
+    if (__DEV__) {
+      warn(
+        `Cannot persist '${persisted.key}': pass a plain object or array that isn't already reactive.`,
+      );
+    }
+    return reactive(target);
+  }
+
+  restore(target, persisted);
+  const proxy = reactive(target);
+  startSaving(proxy, persisted);
+
+  return proxy;
 }
 
 /**
