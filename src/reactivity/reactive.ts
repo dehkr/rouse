@@ -30,7 +30,8 @@ export const objectRootKeys = new WeakMap<object, string>();
  *   field over its initial value, skipping getters and methods. An array is replaced.
  * - Every change saves the data fields as JSON. Getters and methods are never saved.
  * - Unreadable storage or a saved value of another type keeps the initial value.
- * - Saving stops when the scope that created the state tears down.
+ * - Saving stops with the scope when called during setup or `connect()`. Otherwise
+ *   it runs for the page's lifetime.
  *
  * @template T - The type of the target object.
  * @param target - The object to make reactive.
