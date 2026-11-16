@@ -275,7 +275,7 @@ The reactivity functions exported from `rousejs`.
 | `reactive(object, options?)` | A deep proxy of a plain object or array | Objects and lists, returned from a scope as-is and mutated in place. `options` persists it; see [Persistence](#persistence) |
 | `computed(fn)` | A cached derived value, read as `c()` | Derived values. Recomputes only after a value `fn` read changes. Keep `fn` pure |
 | `effect(fn)` | A stop function | Side effects that follow state. Runs `fn` now and whenever what it read changes. A function `fn` returns runs as cleanup before each re-run and on stop |
-| `batch(fn)` | `fn`'s result | Several writes at once: `batch(() => { state.a = 1; state.b = 2; })`. Effects, bindings, and persistence saves run once, when the outermost `batch()` returns. Reads inside `fn`, computeds included, stay current |
+| `batch(fn)` | `fn`'s result | Several writes at once: `batch(() => { state.a = 1; state.b = 2; })`. Effects and bindings run once, when the outermost `batch()` returns. Reads inside `fn`, computeds included, stay current. Rarely needed: use it when an effect that reads the writes is expensive or does I/O |
 
 ### Persistence
 
@@ -296,8 +296,8 @@ app.store('prefs', { theme: 'light' }, {
 - `persist` is `'local'` (`localStorage`) or `'session'` (`sessionStorage`). `persistKey` is required and used verbatim as the storage key. Storage is shared across the origin, so pick a key that is stable across loads and unique to this state, such as `'myapp:game'`. Two live owners of one key on a page warn in dev.
 - Restoring triggers no effects. An object takes each saved field over its initial value, so fields added later keep their defaults, and getters and methods are never overwritten. An array is replaced.
 - Missing, corrupt, or mismatched saved data keeps the initial value. Unreadable storage or a failed write (quota, blocked storage) logs an error once per key, in production too. Later changes still try to save.
-- Every change, at any depth, saves the data fields as JSON. Getters and methods are never saved and never trigger a save.
-- Saving follows the `effect` lifetime above: it stops with the scope when `reactive()` runs during setup or `connect()`, and otherwise runs for the page's lifetime. The saved entry is never cleared: call `localStorage.removeItem(key)`.
+- Changes at any depth save the data fields as JSON, once per task: any number of writes in one handler save once, before the task ends. Getters and methods are never saved and never trigger a save.
+- Saving follows the `effect` lifetime above: it stops with the scope when `reactive()` runs during setup or `connect()`, and otherwise runs for the page's lifetime. A save still queued when saving stops is written immediately. The saved entry is never cleared: call `localStorage.removeItem(key)`.
 - Options apply only on an object's first `reactive()` call. Later calls, proxies, and values `reactive()` returns as-is (primitives, class instances, `Map`) warn in dev and persist nothing.
 
 ## Scopes

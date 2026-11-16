@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import { effect, reactive } from '../../../src/index';
 import { delay, HttpResponse, http, worker } from '../helpers/network';
-import { mount } from '../helpers/mount';
+import { mount, nextMicrotask } from '../helpers/mount';
 
 const stops: Array<() => void> = [];
 
@@ -87,6 +87,7 @@ describe('store operations update bindings once', () => {
     const setItem = vi.spyOn(Storage.prototype, 'setItem');
 
     app.stores.deposit('p', { a: 1, b: 2, c: 3 });
+    await nextMicrotask();
     expect(setItem).toHaveBeenCalledOnce();
     expect(JSON.parse(localStorage.getItem('rouse-batch')!)).toEqual({
       a: 1,

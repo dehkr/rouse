@@ -56,6 +56,8 @@ function persisted<T extends object>(
 
 const saved = (storage: MemoryStorage, key: string) => JSON.parse(storage.data.get(key)!);
 const flushMicrotasks = () => new Promise<void>((resolve) => setTimeout(resolve));
+/** Resolves after every microtask queued before the call, including a queued save. */
+const nextMicrotask = () => new Promise<void>((resolve) => queueMicrotask(resolve));
 
 describe('restore', () => {
   it('merges a saved object, keeping new initial fields and skipping accessors and methods', () => {
@@ -137,16 +139,33 @@ describe('restore', () => {
 });
 
 describe('save', () => {
-  it('saves a change at any depth', () => {
+  it('saves a change at any depth', async () => {
     const key = uniqueKey();
     const { state } = persisted({ board: { rows: [[1]] } }, key);
 
     state.board.rows[0]!.push(2);
+    await nextMicrotask();
 
     expect(saved(local, key)).toEqual({ board: { rows: [[1, 2]] } });
   });
 
-  it("doesn't save getters, and getter reads don't trigger a save", () => {
+  it('saves once per task, after a microtask', async () => {
+    const key = uniqueKey();
+    const { state } = persisted({ a: 0, b: 0 }, key);
+    await nextMicrotask();
+    local.setItem.mockClear();
+
+    state.a = 1;
+    state.b = 2;
+    state.a = 3;
+    expect(local.setItem).not.toHaveBeenCalled();
+
+    await nextMicrotask();
+    expect(local.setItem).toHaveBeenCalledOnce();
+    expect(saved(local, key)).toEqual({ a: 3, b: 2 });
+  });
+
+  it("doesn't save getters, and getter reads don't trigger a save", async () => {
     const key = uniqueKey();
     const getter = vi.fn(function (this: { n: number }) {
       return this.n + 1;
@@ -160,23 +179,28 @@ describe('save', () => {
       },
       key,
     );
+    await nextMicrotask();
     const writes = local.setItem.mock.calls.length;
 
     void state.next;
+    await nextMicrotask();
 
     expect(local.setItem).toHaveBeenCalledTimes(writes);
     expect(saved(local, key)).toEqual({ n: 1 });
   });
 
-  it('reports a throwing write once and keeps the state working', () => {
+  it('reports a throwing write once and keeps the state working', async () => {
     const key = uniqueKey();
     local.setItem.mockImplementation(() => {
       throw new DOMException('Quota exceeded', 'QuotaExceededError');
     });
 
     const { state } = persisted({ n: 0 }, key);
+    await nextMicrotask();
     state.n = 1;
+    await nextMicrotask();
     state.n = 2;
+    await nextMicrotask();
 
     expect(state.n).toBe(2);
     expect(local.setItem).toHaveBeenCalledTimes(3);
@@ -184,7 +208,7 @@ describe('save', () => {
     expect(errors.mock.calls[0][0]).toContain(`save '${key}' in localStorage`);
   });
 
-  it('reports cyclic state once without throwing', () => {
+  it('reports cyclic state once without throwing', async () => {
     const key = uniqueKey();
     const { state } = persisted({ node: {} as any, n: 0 }, key);
 
@@ -192,22 +216,37 @@ describe('save', () => {
       state.node.self = state.node;
       state.n = 1;
     }).not.toThrow();
+    await nextMicrotask();
+
     expect(errors).toHaveBeenCalledOnce();
   });
 
-  it('stops saving when its effect scope stops', () => {
+  it('writes a queued save immediately when its effect scope stops', () => {
+    const key = uniqueKey();
+    const { state, stop } = persisted({ n: 0 }, key);
+
+    state.n = 1;
+    stop();
+
+    expect(local.setItem).toHaveBeenCalledOnce();
+    expect(saved(local, key)).toEqual({ n: 1 });
+  });
+
+  it('stops saving when its effect scope stops', async () => {
     const key = uniqueKey();
     const { state, stop } = persisted({ n: 0 }, key);
 
     stop();
     state.n = 1;
+    await nextMicrotask();
 
     expect(saved(local, key)).toEqual({ n: 0 });
   });
 
-  it('uses sessionStorage for `session`', () => {
+  it('uses sessionStorage for `session`', async () => {
     const key = uniqueKey();
     persisted({ n: 0 }, key, 'session');
+    await nextMicrotask();
 
     expect(session.data.has(key)).toBe(true);
     expect(local.data.has(key)).toBe(false);

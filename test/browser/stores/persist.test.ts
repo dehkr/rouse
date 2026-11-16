@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { reactive, rouse } from '../../../src/index';
 import type { RouseApp } from '../../../src/app';
-import { mount, nextFrame } from '../helpers/mount';
+import { mount, nextFrame, nextMicrotask } from '../helpers/mount';
 
 const KEY = 'rouse-persist-test';
 const saved = () => JSON.parse(localStorage.getItem(KEY)!);
@@ -45,11 +45,20 @@ describe('persisted reactive() in a scope', () => {
       },
     });
     $('button').click();
+    await nextMicrotask();
     expect(saved()).toEqual({ count: 1 });
 
     $('#host').remove();
     await nextFrame();
     state.count = 5;
+
+    expect(saved()).toEqual({ count: 1 });
+  });
+
+  it('writes a queued save when the app is destroyed', async () => {
+    const { app, $ } = await mount(MARKUP, { scopes: { counter } });
+    $('button').click();
+    app.destroy();
 
     expect(saved()).toEqual({ count: 1 });
   });
@@ -64,6 +73,7 @@ describe('persisted reactive() in a scope', () => {
 
     expect($('span').textContent).toBe('2');
     $('button').click();
+    await nextMicrotask();
     expect(saved()).toEqual({ count: 3 });
     expect(warnings).not.toHaveBeenCalled();
   });
@@ -82,6 +92,7 @@ describe('persisted store', () => {
     expect(app.stores.isDirty('prefs')).toBe(false);
 
     app.stores.reset('prefs');
+    await nextMicrotask();
 
     expect(app.stores.get('prefs').theme).toBe('light');
     expect(saved()).toEqual({ theme: 'light' });
@@ -125,6 +136,7 @@ describe('persisted store', () => {
     $('#host').remove();
     await nextFrame();
     app.stores.get('prefs').theme = 'dark';
+    await nextMicrotask();
 
     expect(saved()).toEqual({ theme: 'dark' });
   });

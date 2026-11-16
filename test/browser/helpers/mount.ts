@@ -66,3 +66,8 @@ export function unmountAll() {
 export function nextFrame(): Promise<void> {
   return new Promise((resolve) => requestAnimationFrame(() => resolve()));
 }
+
+/** Resolves after every microtask queued before the call, such as a queued persist save. */
+export function nextMicrotask(): Promise<void> {
+  return new Promise((resolve) => queueMicrotask(resolve));
+}

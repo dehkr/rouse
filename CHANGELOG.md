@@ -9,8 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Add the `persist` and `persistKey` options to `reactive()` and `app.store()`, saving state to `localStorage` or `sessionStorage` on every change and restoring it on the next page load.
-- Add `batch(fn)` to group reactive writes; effects, bindings, and persistence saves run once when the outermost `batch()` returns.
+- Add the `persist` and `persistKey` options to `reactive()` and `app.store()`, saving state to `localStorage` or `sessionStorage` once per task after a change and restoring it on the next page load.
+- Add `batch(fn)` to group reactive writes; effects and bindings run once when the outermost `batch()` returns.
 
 ### Fixed
 
