@@ -569,8 +569,9 @@ const triggerSources: Record<string, TriggerSource> = {
   },
 
   /**
-   * Fires when a store's data is edited. Framework writes are excluded; user
-   * writes in one tick coalesce into a single notification.
+   * Fires when app code or `rz-model` edits a store's data, coalescing one tick's
+   * writes into one notification. Effects count as app code. Framework writes (sync
+   * responses, deposits, `update()`, `reset()`, `revert()`) don't fire it.
    */
   edit: {
     // The store sigil `@` is required in HTML, so if missing it falls through to the warning

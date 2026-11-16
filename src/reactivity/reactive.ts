@@ -1,4 +1,4 @@
-import { setActiveSub } from 'alien-signals';
+import { endBatch, setActiveSub, startBatch } from 'alien-signals';
 import { warn } from '../core/diagnostics';
 import { handlers } from './handlers';
 import { type PersistOptions, resolvePersist, restore, startSaving } from './persist';
@@ -136,5 +136,36 @@ export function untracked<T>(fn: () => T): T {
     return fn();
   } finally {
     setActiveSub(prev);
+  }
+}
+
+// Only the synchronous part of `fn` is batched. Don't add a scheduler or microtask
+// queue to stretch a batch across an `await`: writes outside `batch()` must update
+// the DOM before the next statement runs.
+/**
+ * Runs `fn` and defers effects until it returns, so each effect runs at most once
+ * for all the writes inside it. Returns `fn`'s result.
+ *
+ * - Reads inside `fn`, including computed values, return current state. Only effects
+ *   wait, so the DOM updates when the outermost `batch()` returns.
+ * - Nested calls run their effects once, when the outermost call returns.
+ * - If `fn` throws, effects for the writes before the throw still run, and the error
+ *   propagates.
+ * - Writes after an `await` inside `fn` are not batched.
+ *
+ * @param fn - A synchronous function that writes state.
+ */
+export function batch<T>(fn: () => T): T {
+  startBatch();
+  try {
+    const result = fn();
+    if (__DEV__ && typeof (result as { then?: unknown } | null)?.then === 'function') {
+      warn(
+        `batch() callback returned a promise. Writes after its first 'await' run unbatched. Wrap only synchronous updates inside batch().`,
+      );
+    }
+    return result;
+  } finally {
+    endBatch();
   }
 }

@@ -10,6 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Add the `persist` and `persistKey` options to `reactive()` and `app.store()`, saving state to `localStorage` or `sessionStorage` on every change and restoring it on the next page load.
+- Add `batch(fn)` to group reactive writes; effects, bindings, and persistence saves run once when the outermost `batch()` returns.
+
+### Fixed
+
+- Fire `edit` triggers when an effect mutates a store in reaction to a framework write (sync response, deposit, `update()`, `reset()`, or `revert()`), so a push on `edit` sends the effect's changes.
 
 ## [0.17.0] - 2026-11-14
 

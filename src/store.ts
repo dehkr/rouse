@@ -28,7 +28,13 @@ import {
   restore,
   startSaving,
 } from './reactivity/persist';
-import { reactive, seedPropagation, trackDirty, untracked } from './reactivity/reactive';
+import {
+  batch,
+  reactive,
+  seedPropagation,
+  trackDirty,
+  untracked,
+} from './reactivity/reactive';
 import type {
   ResolvedRequest,
   LifecycleEventMap,
@@ -282,20 +288,22 @@ export class StoreManager {
         ...Object.keys(status.dirtyRoots),
       ]);
 
-    for (const key of keys) {
-      // Accessors and methods are absent from `lastGood` (clone strips them), so
-      // comparing them would mark every getter permanently dirty. A key missing
-      // from `data` entirely is a deleted root and must still be compared.
-      if (hasAccessor(data, key)) continue;
+    batch(() => {
+      for (const key of keys) {
+        // Accessors and methods are absent from `lastGood` (clone strips them), so
+        // comparing them would mark every getter permanently dirty. A key missing
+        // from `data` entirely is a deleted root and must still be compared.
+        if (hasAccessor(data, key)) continue;
 
-      if (deepEqual(data[key], baseline[key])) {
-        delete status.dirtyRoots[key];
-      } else {
-        status.dirtyRoots[key] = true;
+        if (deepEqual(data[key], baseline[key])) {
+          delete status.dirtyRoots[key];
+        } else {
+          status.dirtyRoots[key] = true;
+        }
       }
-    }
 
-    status.dirty = Object.keys(status.dirtyRoots).length > 0;
+      status.dirty = Object.keys(status.dirtyRoots).length > 0;
+    });
   }
 
   /** Returns `true` when the data at `path`, or the whole store, differs from `lastGood`. */
@@ -465,8 +473,10 @@ export class StoreManager {
     // still owns the store
     const flight: InFlight = { snapshot };
     entry.inFlight = flight;
-    status.syncing = operation;
-    status.error = null;
+    batch(() => {
+      status.syncing = operation;
+      status.error = null;
+    });
 
     let succeeded = false;
 
@@ -544,52 +554,52 @@ export class StoreManager {
     // so this stands even when the echo below is never applied (mid-flight skip, or
     // a listener cancelling `:before`).
     if (operation === 'push') {
-      status.lastSync = Date.now();
-      this._updateLastGood(entry, snapshot);
+      batch(() => {
+        status.lastSync = Date.now();
+        this._updateLastGood(entry, snapshot);
+      });
     }
 
     const beforeEvent = this._dispatchPatchEvent(
       entry,
       'rz:store:patch:before',
-      {
-        storeName,
-        operation,
-        data,
-        payload: result.data,
-      },
+      { storeName, operation, data, payload: result.data },
       { cancelable: true },
     );
     if (beforeEvent.defaultPrevented) return;
 
     // Whole `result.data`, mutable by listeners (matches the router's deposit path)
     const payload = beforeEvent.detail.payload;
+    const hasBody = payload && typeof payload === 'object';
 
-    // Reconcile the response body into the store. On push, how server-owned fields
-    // (assigned id, computed/normalized values) return to the client. On pull, the
-    // fetched data itself.
-    if (payload && typeof payload === 'object') {
-      // Local state moved mid-flight; keep the edit and skip the echo
-      if (!deepEqual(data, snapshot)) {
-        this._dispatchPatchEvent(entry, 'rz:store:patch:skipped', {
-          storeName,
-          operation,
-          localData: data,
-          serverData: payload,
-          response: result,
-        });
-        return;
+    // Local state moved mid-flight; keep the edit and skip the echo
+    if (hasBody && !deepEqual(data, snapshot)) {
+      this._dispatchPatchEvent(entry, 'rz:store:patch:skipped', {
+        storeName,
+        operation,
+        localData: data,
+        serverData: payload,
+        response: result,
+      });
+      return;
+    }
+
+    batch(() => {
+      // Reconcile the response body into the store. On push, how server-owned fields
+      // (assigned id, computed/normalized values) return to the client. On pull, the
+      // fetched data itself.
+      if (hasBody) {
+        this._patchPayload(entry, payload);
+
+        // The response is applied to the baseline exactly as it was to the data. Keys
+        // it omits keep their baseline, so an unsaved edit there stays unsaved.
+        this._patchBaseline(entry, payload);
       }
 
-      this._patchPayload(entry, payload);
-
-      // The response is applied to the baseline exactly as it was to the data. Keys
-      // it omits keep their baseline, so an unsaved edit there stays unsaved.
-      this._patchBaseline(entry, payload);
-    }
-
-    if (operation === 'pull') {
-      status.lastSync = Date.now();
-    }
+      if (operation === 'pull') {
+        status.lastSync = Date.now();
+      }
+    });
 
     this._dispatchPatchEvent(entry, 'rz:store:patch', {
       storeName,
@@ -612,13 +622,15 @@ export class StoreManager {
    * be forgotten.
    */
   private _withPatchGuard(entry: StoreEntry, fn: VoidFn, roots?: string[]) {
-    this._isPatching = true;
-    try {
-      fn();
-    } finally {
-      this._isPatching = false;
-      this._reconcileDirty(entry, roots);
-    }
+    batch(() => {
+      this._isPatching = true;
+      try {
+        fn();
+      } finally {
+        this._isPatching = false;
+        this._reconcileDirty(entry, roots);
+      }
+    });
   }
 
   /**
@@ -661,9 +673,7 @@ export class StoreManager {
    */
   _onEdit(storeName: string | null | undefined, callback: EditListener): VoidFn {
     const entry = this._getStore(storeName);
-    if (!entry) {
-      return () => {};
-    }
+    if (!entry) return () => {};
 
     let listeners = entry.listeners;
     if (!listeners) {
@@ -714,9 +724,7 @@ export class StoreManager {
       );
     }
 
-    if (__DEV__) {
-      warnNullFields(storeName, state);
-    }
+    if (__DEV__) warnNullFields(storeName, state);
 
     const status: StoreStatus = reactive({
       syncing: false,
@@ -728,9 +736,7 @@ export class StoreManager {
 
     // `initial` is the declared data, so `reset()` restores defaults, not the saved copy
     const initial = clone(state);
-    if (persisted) {
-      restore(state, persisted);
-    }
+    if (persisted) restore(state, persisted);
 
     const proxyState = reactive(state);
 
@@ -747,21 +753,13 @@ export class StoreManager {
     // reference kept after `remove()` would still report edits through it
     trackDirty(proxyState, (rootKey: string) => {
       if (this._isPatching || !this._isRegistered(entry)) return;
-
       entry.touched ??= new Set();
       entry.touched.add(rootKey);
-
       this._scheduleFlush(entry);
     });
 
-    if (config) {
-      this._setConfig(entry, policy);
-    }
-
-    if (el) {
-      entry.el = el;
-    }
-
+    if (config) this._setConfig(entry, policy);
+    if (el) entry.el = el;
     if (persisted) {
       // Detached from the caller's tracking context, so a store created in a scope
       // setup keeps saving after that scope tears down
@@ -787,7 +785,6 @@ export class StoreManager {
     declared: Pick<Partial<SyncPolicy>, 'url' | 'headers'>,
   ) {
     const entry = this._stores.get(storeName);
-
     if (!entry) {
       this._create(storeName, state ?? {}, declared, el);
       return;
@@ -809,9 +806,7 @@ export class StoreManager {
     }
 
     if (state) {
-      if (__DEV__) {
-        warnNullFields(storeName, state);
-      }
+      if (__DEV__) warnNullFields(storeName, state);
       this._reseed(entry, state);
     }
 
@@ -839,9 +834,7 @@ export class StoreManager {
       fail(storeName ? `Store '${storeName}' does not exist.` : 'Store name is missing.');
     }
     assertStoreState(entry.name, state);
-    if (__DEV__) {
-      warnNullFields(entry.name, state);
-    }
+    if (__DEV__) warnNullFields(entry.name, state);
 
     this._reseed(entry, state);
 
@@ -855,9 +848,11 @@ export class StoreManager {
   private _reseed(entry: StoreEntry, state: object) {
     // Both targets are cloned from the patched data rather than `state`, so they match
     // what the store holds after the write
-    this._withPatchGuard(entry, () => patchState(entry.data, state, 'replace'));
-    entry.initial = clone(entry.data);
-    this._updateLastGood(entry, entry.data);
+    batch(() => {
+      this._withPatchGuard(entry, () => patchState(entry.data, state, 'replace'));
+      entry.initial = clone(entry.data);
+      this._updateLastGood(entry, entry.data);
+    });
   }
 
   /**
@@ -878,9 +873,7 @@ export class StoreManager {
     options?: { response?: RouseResponse; operation?: 'fetch' | 'sse' },
   ): boolean {
     const entry = this._getStore(storeName);
-    if (!entry) {
-      return false;
-    }
+    if (!entry) return false;
 
     const { data, name } = entry;
     const response = options?.response;
@@ -901,9 +894,11 @@ export class StoreManager {
 
     // Unlike a pull, there's no mid-flight guard, and no null-field warning: a
     // deposit's `null` is its delete.
-    this._patchPayload(entry, applied);
-    this._patchBaseline(entry, applied);
-    entry.status.lastSync = Date.now();
+    batch(() => {
+      this._patchPayload(entry, applied);
+      this._patchBaseline(entry, applied);
+      entry.status.lastSync = Date.now();
+    });
 
     this._dispatchPatchEvent(entry, 'rz:store:patch', {
       storeName: name,
@@ -967,13 +962,8 @@ export class StoreManager {
    */
   isDirty(storeName: string | null | undefined, root?: string): boolean {
     const entry = this._getStore(storeName);
-    if (!entry) {
-      return false;
-    }
-
-    if (!root) {
-      return entry.status.dirty;
-    }
+    if (!entry) return false;
+    if (!root) return entry.status.dirty;
 
     // A path is checked as its root, which can only over-report. That's safer than a
     // `false` that reads as no unsaved changes.
@@ -1122,10 +1112,7 @@ export class StoreManager {
   revert(storeName: string | null | undefined, path?: string): boolean {
     const entry = this._getStore(storeName, 'revert');
     if (!entry) return false;
-
-    if (!this._isSliceDirty(entry, path)) {
-      return false;
-    }
+    if (!this._isSliceDirty(entry, path)) return false;
 
     const value = clone(sliceAt(entry.lastGood, path));
     this._withPatchGuard(

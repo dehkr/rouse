@@ -222,7 +222,7 @@ Triggers that aren't DOM events:
 | `intersect`, `intersect-[ratio]` | Each time the element enters the viewport, at least `ratio` visible (0–1, default 0) | `intersect-[0.5]\|once` |
 | `interact` | On each `pointerover` or `focusin` on the element; add `once` for the first only | `interact\|once` |
 | `idle` | Once, when the browser is idle | `idle` |
-| `edit-[@store]`, `edit-[@store.key]` | When the user edits the store, or that top-level key; framework writes don't count | `edit-[@cart]\|debounce-[500ms]` |
+| `edit-[@store]`, `edit-[@store.key]` | When your code (handlers, effects, timers) or `rz-model` edits the store, or that top-level key. Sync responses, deposits, `update()`, `reset()`, and `revert()` don't count | `edit-[@cart]\|debounce-[500ms]` |
 | `sse-[name]` | On a server-sent event named `name` from this element's stream or its descendants'; `sse-[message]` for unnamed messages | `sse-[done]`, `sse-[tick]\|root` |
 
 On a source only `once`, timing, and its argument apply (`sse` also takes `root`); other modifiers are ignored without a warning.
@@ -232,15 +232,30 @@ On a source only `once`, timing, and its argument apply (`sse` also takes `root`
 Rouse updates the page by tracking what each binding reads, not by re-rendering. Every binding is an effect: it re-runs when a value it read changes, and only then. Stores are reactive already. Scope state is reactive only when the setup builds it from these functions, exported from `rousejs`.
 
 ```js
-import { computed, effect, reactive, signal } from 'rousejs';
+import { batch, computed, effect, reactive, signal } from 'rousejs';
 
-const count = signal(0);                                   // count() reads, count(1) writes
-const form  = reactive({ name: '', tags: [] });            // deep proxy; mutate in place
-const label = computed(() => `${form.name} (${count()})`); // cached; label() reads
-const stop  = effect(() => console.log(label()));          // runs now and after each change
+// count() reads, count(1) writes
+const count = signal(0);   
+
+// deep proxy; mutate in place
+const form = reactive({ name: '', tags: [] });
+
+// cached; label() reads
+const label = computed(() => `${form.name} (${count()})`); 
+
+// runs now and after each change
+const stop = effect(() => console.log(label()));
+
+// the effect runs once, after both writes
+const text = batch(() => {                                
+  form.name = 'Ada';
+  count(2);
+  return label(); // reads are current: text is 'Ada (2)'
+});
 ```
 
 - Writing the value a signal or key already holds triggers nothing.
+- Writes are synchronous: the DOM reflects state right after a write, so a handler can write and then query an element `rz-render` just added. Inside `batch(fn)`, the DOM updates when the outermost `batch()` returns. Store operations (sync responses, deposits, `update()`, `reset()`, `revert()`) each update bindings once.
 - `reactive()` proxies plain objects and arrays only. `Map`, `Set`, `Date`, and class instances are returned unproxied, and changes inside them update nothing.
 - Nested objects become reactive on first read. `reactive(x)` always returns the same proxy, and passing a proxy returns it unchanged.
 - Getters on a reactive object are cached computeds, as in stores. Keep them pure.
@@ -260,15 +275,22 @@ The reactivity functions exported from `rousejs`.
 | `reactive(object, options?)` | A deep proxy of a plain object or array | Objects and lists, returned from a scope as-is and mutated in place. `options` persists it; see [Persistence](#persistence) |
 | `computed(fn)` | A cached derived value, read as `c()` | Derived values. Recomputes only after a value `fn` read changes. Keep `fn` pure |
 | `effect(fn)` | A stop function | Side effects that follow state. Runs `fn` now and whenever what it read changes. A function `fn` returns runs as cleanup before each re-run and on stop |
+| `batch(fn)` | `fn`'s result | Several writes at once: `batch(() => { state.a = 1; state.b = 2; })`. Effects, bindings, and persistence saves run once, when the outermost `batch()` returns. Reads inside `fn`, computeds included, stay current |
 
 ### Persistence
 
 `persist` keeps state in Web Storage across page loads. `reactive()` and `app.store()` take the same two options.
 
 ```js
-const game = reactive({ guesses: [], gameId: 0 }, { persist: 'local', persistKey: 'myapp:game' });
+const game = reactive({ guesses: [], gameId: 0 }, {
+  persist: 'local',
+  persistKey: 'myapp:game',
+});
 
-app.store('prefs', { theme: 'light' }, { persist: 'local', persistKey: 'myapp:prefs' });
+app.store('prefs', { theme: 'light' }, {
+  persist: 'local',
+  persistKey: 'myapp:prefs',
+});
 ```
 
 - `persist` is `'local'` (`localStorage`) or `'session'` (`sessionStorage`). `persistKey` is required and used verbatim as the storage key. Storage is shared across the origin, so pick a key that is stable across loads and unique to this state, such as `'myapp:game'`. Two live owners of one key on a page warn in dev.
@@ -948,6 +970,7 @@ Named exports from `rousejs`.
 | `computed(fn)` | A cached derived value, read as `c()` | See [Reactivity API](#reactivity-api) |
 | `effect(fn)` | A stop function | See [Reactivity API](#reactivity-api) |
 | `reactive(object, options?)` | A deep proxy of a plain object or array | See [Reactivity API](#reactivity-api) |
+| `batch(fn)` | `fn`'s result | See [Reactivity API](#reactivity-api) |
 | `dispatch(el, name, detail?, init?)` | The `CustomEvent` | Dispatches a bubbling event from `el`. Use it to signal between nested scopes |
 | `createKey(prefix?)` | A key unique for the page's lifetime | For `rz-key` on client-created items. Assign it once at creation, never in a getter |
 
@@ -1028,6 +1051,7 @@ The development build warns about most authoring mistakes. These fail without an
 - **Scope state isn't reactive by default.** A plain field or `let` returned from setup renders once and never updates; return a `reactive` object, or a `signal` behind a getter.
 - **Only plain objects and arrays are reactive.** `reactive()` returns `Map`, `Set`, `Date`, and class instances unproxied, so changes inside them never update bindings.
 - **Late effects outlive the scope.** An `effect` created in a handler, a timer, or after an `await` isn't stopped on teardown. Stop it when `term` aborts.
+- **`batch()` ends at the first `await`.** Writes after an `await` inside the callback run unbatched, with only a dev warning. Batch the synchronous writes on each side of the `await` separately.
 - **A returned function is a cleanup.** A concise arrow that evaluates to a function, such as `effect(() => state.onSave)`, calls it before every re-run and on stop. Use a block body.
 - **Duplicate keys drop items.** An item whose `rz-key` value repeats an earlier item's isn't rendered, with only a dev warning.
 - **Interceptors must return.** A `response` or `error` interceptor's return replaces `data` or `error`, so returning nothing sets it to `undefined`.
