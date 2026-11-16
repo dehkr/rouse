@@ -48,39 +48,28 @@ export const objectRootKeys = new WeakMap<object, string>();
  * const prefs = reactive({ theme: 'light' }, { persist: 'local', persistKey: 'prefs' });
  */
 export function reactive<T extends object>(target: T, options?: ReactiveOptions): T {
-  // Internal callers create nested proxies without options, so they skip this branch
-  if (options) return reactiveWithOptions(target, options);
-  if (!proxiable(target)) return target;
-  if (rawCache.has(target)) return target;
-  if (proxyCache.has(target)) return proxyCache.get(target);
+  const persisted = options && resolvePersist(options);
+
+  if (!proxiable(target) || rawCache.has(target) || proxyCache.has(target)) {
+    if (__DEV__ && persisted) {
+      warn(
+        `Cannot persist '${persisted.key}': pass a plain object or array that isn't already reactive.`,
+      );
+    }
+    return proxyCache.get(target) ?? target;
+  }
+
+  // Restore before the proxy exists, so restoring triggers no effects
+  if (persisted) restore(target, persisted);
 
   const proxy = new Proxy(target, handlers as ProxyHandler<any>);
 
   proxyCache.set(target, proxy);
   rawCache.set(proxy, target);
 
+  if (persisted) startSaving(proxy, persisted);
+
   return proxy as T;
-}
-
-/** Applies `reactive()`'s options; the proxy is created only after restoring. */
-function reactiveWithOptions<T extends object>(target: T, options: ReactiveOptions): T {
-  const persisted = resolvePersist(options);
-  if (!persisted) return reactive(target);
-
-  if (!proxiable(target) || rawCache.has(target) || proxyCache.has(target)) {
-    if (__DEV__) {
-      warn(
-        `Cannot persist '${persisted.key}': pass a plain object or array that isn't already reactive.`,
-      );
-    }
-    return reactive(target);
-  }
-
-  restore(target, persisted);
-  const proxy = reactive(target);
-  startSaving(proxy, persisted);
-
-  return proxy;
 }
 
 /**
