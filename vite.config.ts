@@ -10,14 +10,27 @@ const DEV_DEFINES = { __DEV__: 'true', __VERSION__: VERSION };
 // Limits fmt and lint to authored TypeScript: src/, test/, and docs/scopes/
 const SOURCE_ONLY = ['/*', '!/src/', '!/test/', '!/e2e/', '!/docs/', '/docs/*', '!/docs/scopes/'];
 
+// One build per entry: a shared chunk would make each plugin import core by URL, and
+// a page that reached core through two URLs would run two copies of it
+const ENTRIES = [
+  ['rouse', 'src/index.ts'],
+  ['sync', 'src/plugins/sync/index.ts'],
+  ['sse', 'src/plugins/sse/index.ts'],
+] as const;
+
+// Plugins import core's types by package name and bundle no dependency: they reach
+// core's runtime, alien-signals included, only through `install`
+const depsFor = (name: string): PackUserConfig['deps'] =>
+  name === 'rouse'
+    ? { onlyBundle: ['alien-signals'] }
+    : { onlyBundle: [], neverBundle: ['rousejs'] };
+
 const base: PackUserConfig = {
-  entry: { rouse: 'src/index.ts' },
   format: ['esm'],
   platform: 'browser',
   target: 'es2024',
   outDir: 'dist',
   sourcemap: true,
-  deps: { onlyBundle: ['alien-signals'] },
   outputOptions: { comments: { legal: true, annotation: true, jsdoc: false } },
 };
 
@@ -64,6 +77,36 @@ export default defineConfig({
           ],
         },
       },
+      {
+        // A plugin bundles what it imports, so a stateful module would run twice. Stateless
+        // core helpers are allowed; everything else reaches the plugin through `install`.
+        files: ['src/plugins/**'],
+        rules: {
+          'no-restricted-imports': [
+            'error',
+            {
+              patterns: [
+                {
+                  group: [
+                    '../../**',
+                    '!../../core/constants',
+                    '!../../core/diagnostics',
+                    '!../../core/elements',
+                    '!../../core/parser',
+                    '!../../core/path',
+                    '!../../core/state',
+                    'rousejs',
+                    'alien-signals',
+                  ],
+                  allowTypeImports: true,
+                  message:
+                    'Plugins import only stateless core helpers at runtime. Reach the rest through PluginApi.',
+                },
+              ],
+            },
+          ],
+        },
+      },
     ],
     ignorePatterns: SOURCE_ONLY,
     options: { typeAware: true, typeCheck: false },
@@ -94,22 +137,26 @@ export default defineConfig({
       },
     ],
   },
-  pack: [
+  pack: ENTRIES.flatMap(([name, path], i) => [
     {
       ...base,
+      entry: { [name]: path },
+      deps: depsFor(name),
       define: DEV_DEFINES,
       outExtensions: () => ({ js: '.js', dts: '.d.ts' }),
       dts: true,
-      clean: true,
+      clean: i === 0,
       minify: false,
     },
     {
       ...base,
+      entry: { [name]: path },
+      deps: depsFor(name),
       define: { __DEV__: 'false', __VERSION__: VERSION },
       outExtensions: () => ({ js: '.min.js' }),
       dts: false,
       clean: false,
       minify: true,
     },
-  ],
+  ]),
 });

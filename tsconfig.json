@@ -12,6 +12,9 @@
     "module": "preserve",
     "moduleResolution": "bundler",
     "noUncheckedSideEffectImports": true,
+    // Plugins name core by its package name, so their .d.ts files import and augment
+    // `rousejs` rather than a copy of core's types
+    "paths": { "rousejs": ["./src/index.ts"] },
     "resolveJsonModule": true,
 
     /* Emit */

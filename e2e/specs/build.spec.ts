@@ -1,4 +1,18 @@
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { type Build, expect, open, test } from './fixtures';
+
+const DIST = join(import.meta.dirname, '../../dist');
+const PLUGIN_FILES = ['sync.js', 'sync.min.js', 'sse.js', 'sse.min.js'];
+
+// A plugin that imported a file would reach core through a second URL and run a
+// second copy of it
+test('plugin files import nothing', async () => {
+  for (const file of PLUGIN_FILES) {
+    const code = await readFile(join(DIST, file), 'utf8');
+    expect(code, file).not.toMatch(/\bimport\s*[\s{*("'`]|\bfrom\s*["'`]/);
+  }
+});
 
 for (const build of ['min', 'dev'] as Build[]) {
   test.describe(`${build} build`, () => {
@@ -17,6 +31,16 @@ for (const build of ['min', 'dev'] as Build[]) {
       await expect(page.locator('#todos li')).toHaveText(['Ship', 'Test']);
       await expect(page.locator('#draft')).toHaveValue('');
 
+      expect(console).toEqual([]);
+    });
+
+    test('installs plugins loaded by URL', async ({ page, console }) => {
+      await open(page, '/plugins.html', build);
+
+      const names = await page.evaluate(() =>
+        (window as any).app.config.plugins.map((plugin: { name: string }) => plugin.name),
+      );
+      expect(names).toEqual(['sync', 'sse']);
       expect(console).toEqual([]);
     });
   });

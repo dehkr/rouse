@@ -40,6 +40,7 @@
   "type": "module",
   "main": "./dist/rouse.min.js",
   "types": "./dist/rouse.d.ts",
+  "sideEffects": false,
   "exports": {
     ".": {
       "types": "./dist/rouse.d.ts",
@@ -47,13 +48,17 @@
       "production": "./dist/rouse.min.js",
       "import": "./dist/rouse.min.js"
     },
-    "./dev": {
-      "types": "./dist/rouse.d.ts",
-      "import": "./dist/rouse.js"
+    "./sync": {
+      "types": "./dist/sync.d.ts",
+      "development": "./dist/sync.js",
+      "production": "./dist/sync.min.js",
+      "import": "./dist/sync.min.js"
     },
-    "./min": {
-      "types": "./dist/rouse.d.ts",
-      "import": "./dist/rouse.min.js"
+    "./sse": {
+      "types": "./dist/sse.d.ts",
+      "development": "./dist/sse.js",
+      "production": "./dist/sse.min.js",
+      "import": "./dist/sse.min.js"
     }
   },
   "scripts": {

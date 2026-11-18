@@ -4,6 +4,7 @@ export { dispatch } from './core/dispatch';
 export { createKey } from './core/keys';
 export type { RousePlugin } from './plugin-api';
 export { batch, reactive } from './reactivity/reactive';
+export type { StoreManager } from './store';
 export type { PersistStorage, ReactiveOptions } from './reactivity/reactive';
 export type {
   BindableValue,
