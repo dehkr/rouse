@@ -60,6 +60,7 @@ import { fail, info, warn } from './core/diagnostics';
 import { dispatchFrom } from './core/dispatch';
 import { ScopeRegistry } from './core/scope-registry';
 import { isPlainObject } from './core/state';
+import { installPlugins, type RousePlugin, resolvePlugins } from './plugin-api';
 import type { PersistOptions } from './reactivity/persist';
 import { StoreManager, type SyncPolicy } from './store';
 
@@ -76,6 +77,12 @@ export interface RouseConfig {
   timeout?: number;
   /** Default scope activation strategy. Overridden by `rz-wake`. */
   wake?: string;
+  /**
+   * Optional features to install in this app, such as `sync` from `rousejs/sync`.
+   * Each is installed once, while the app is created. Throws if a plugin comes from a
+   * different release than the core library.
+   */
+  plugins?: readonly RousePlugin[];
 }
 
 /**
@@ -90,6 +97,8 @@ interface ResolvedConfig {
   credentials?: RequestCredentials;
   timeout: number;
   wake: string;
+  /** The installed plugins, each listed once. */
+  plugins: readonly RousePlugin[];
 }
 
 let bannerLogged = false;
@@ -203,6 +212,9 @@ export class RouseApp {
       logBuildBanner();
     }
 
+    // Before the root is claimed, so a mismatched plugin leaves it free for a retry
+    const plugins = resolvePlugins(config.plugins);
+
     const rootEl =
       typeof config.root === 'string'
         ? (document.querySelector(config.root) as HTMLElement)
@@ -225,6 +237,7 @@ export class RouseApp {
       credentials: config.credentials,
       timeout: config.timeout ?? 0,
       wake: config.wake?.trim() || 'ready',
+      plugins,
     };
 
     this._interceptors = {
@@ -289,6 +302,9 @@ export class RouseApp {
       const signal = withAppSignal(this._abortController.signal, options.signal);
       return openBoundStream(this, resource, options, signal);
     };
+
+    // Last, so a plugin extends a fully wired app
+    installPlugins(this, plugins);
   }
 
   /**

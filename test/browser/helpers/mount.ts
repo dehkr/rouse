@@ -1,8 +1,10 @@
 import { rouse } from '../../../src/index';
 import type { RouseApp } from '../../../src/app';
+import type { RousePlugin } from '../../../src/plugin-api';
 import type { ScopeSetup } from '../../../src/types';
 
 interface MountOptions {
+  plugins?: RousePlugin[];
   scopes?: Record<string, ScopeSetup>;
   stores?: Record<string, Record<string, any>>;
   /** Called after registration, before `start()`: interceptors, listeners, store config. */
@@ -27,7 +29,7 @@ export async function mount(html: string, options: MountOptions = {}): Promise<M
   root.innerHTML = html;
   document.body.append(root);
 
-  const app = rouse({ root });
+  const app = rouse({ root, plugins: options.plugins });
   mounted.add(app);
 
   for (const [name, setup] of Object.entries(options.scopes ?? {})) {
