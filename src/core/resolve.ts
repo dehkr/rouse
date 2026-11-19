@@ -59,15 +59,15 @@ function resolveItemNamespace(namespace: string, scope: Scope) {
 }
 
 /**
- * Resolves the `::` namespace of a store reference. `status` is the only store
- * namespace defined. The status object is reactive, so nested reads track per field.
+ * Resolves the `::` namespace of a store reference through the app's table. An
+ * unknown namespace resolves to `undefined`.
  */
 function resolveStoreNamespace(
   storeName: string,
   namespace: string,
   storeManager: StoreManager,
 ) {
-  return namespace !== 'status' ? undefined : storeManager.status(storeName);
+  return storeManager._namespaces.get(namespace)?.(storeName);
 }
 
 /**

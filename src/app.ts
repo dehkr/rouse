@@ -12,6 +12,7 @@
  * that scan fires, such as `data-rz-fetch="ready"`.
  */
 import {
+  NETWORK_DIRECTIVES,
   rzAttr,
   rzClass,
   rzHtml,
@@ -29,7 +30,7 @@ import {
   registerBoundDirectives,
   teardownGlobalBindings,
 } from './dom/binder';
-import { on } from './dom/events';
+import { on, type TriggerSource, triggerSources } from './dom/events';
 import {
   initObserver,
   mountSubtree,
@@ -53,6 +54,7 @@ import type {
   RouseFetch,
   RouseSse,
   ScopeSetup,
+  StandaloneDirective,
   VoidFn,
 } from './types';
 import { APP_ROOT_SELECTOR } from './core/constants';
@@ -188,6 +190,22 @@ export class RouseApp {
    * app.on(host, 'input', search, { signal: term });
    */
   public on: BoundOn;
+
+  /**
+   * The network directives this app mounts. Core's are added at creation, and a
+   * plugin adds its own at install.
+   *
+   * @internal
+   */
+  public _networkDirectives = new Set<StandaloneDirective>(NETWORK_DIRECTIVES);
+
+  /**
+   * The trigger sources this app recognizes, by name. Core's are added at creation,
+   * and a plugin adds its own at install.
+   *
+   * @internal
+   */
+  public _triggerSources = new Map<string, TriggerSource>(Object.entries(triggerSources));
 
   /** @internal */
   public _interceptors: {

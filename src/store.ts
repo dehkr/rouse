@@ -196,6 +196,15 @@ function failPersistUrl(storeName: string): never {
 export class StoreManager {
   private app: RouseApp;
 
+  /**
+   * Resolvers for `@store::name` reads, by namespace. A plugin adds its own at install.
+   *
+   * @internal
+   */
+  _namespaces = new Map<string, (storeName: string) => unknown>([
+    ['status', (storeName) => this.status(storeName)],
+  ]);
+
   private _stores = new Map<string, StoreEntry>();
   private _pendingFlush = new Set<StoreEntry>();
   private _isPatching = false;

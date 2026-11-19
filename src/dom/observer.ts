@@ -1,7 +1,6 @@
 import type { RouseApp } from '../app';
 import { hasDirective, queryTargets, unknownDirectiveNames } from '../core/elements';
 import { warn } from '../core/diagnostics';
-import { NETWORK_DIRECTIVES } from '../directives';
 import { SCOPE_SELECTOR } from '../directives/rz-scope';
 import { rzStore } from '../directives/rz-store';
 import {
@@ -18,6 +17,14 @@ import {
   scanScopeNode,
   teardownScopeNode,
 } from './scope';
+import type { StandaloneDirective } from '../types';
+
+/**
+ * Every network directive any app has mounted. A removed node is detached and no
+ * longer resolves to an app, so the removal path tears down through this set rather
+ * than an app's table. A teardown is a no-op on an element its directive never set up.
+ */
+const mountedDirectives = new Set<StandaloneDirective>();
 
 /**
  * Warns for each `data-rz-*` attribute in `root`'s subtree, root included, that isn't a
@@ -80,7 +87,8 @@ export function mountSubtree(root: Element, app: RouseApp) {
     scanScopeNode(ownerScope, root);
   }
 
-  for (const directive of NETWORK_DIRECTIVES) {
+  for (const directive of app._networkDirectives) {
+    mountedDirectives.add(directive);
     forEachOwned(root, directive.selector, app, (el) => directive.initialize(el, app));
   }
 
@@ -105,7 +113,7 @@ export function unmountSubtree(root: Element) {
 
   queryTargets<HTMLElement>(root, SCOPE_SELECTOR).forEach(destroyInstance);
 
-  for (const directive of NETWORK_DIRECTIVES) {
+  for (const directive of mountedDirectives) {
     queryTargets(root, directive.selector).forEach((el) => directive.teardown(el));
   }
 }
@@ -122,7 +130,7 @@ export function releaseSubtree(root: Element, app: RouseApp) {
 
   forEachOwned<HTMLElement>(root, SCOPE_SELECTOR, app, (el) => destroyInstance(el));
 
-  for (const directive of NETWORK_DIRECTIVES) {
+  for (const directive of app._networkDirectives) {
     forEachOwned(root, directive.selector, app, (el) => directive.teardown(el));
   }
 

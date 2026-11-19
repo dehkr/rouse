@@ -8,8 +8,11 @@
  *
  * A source taking an argument needs its type in `TriggerSourceArgs` (plus the
  * `RequiredArgSource` exclusion if it's optional), a `fromArg` if the HTML text isn't
- * the value, and a check in `attach` that warns with both spellings. Every source lives
- * in `triggerSources`; don't register them from other modules.
+ * the value, and a check in `attach` that warns with both spellings.
+ *
+ * Sources are looked up per app, in `app._triggerSources`. Each app copies core's
+ * sources from `triggerSources` at creation, and a plugin adds its own at install.
+ * Nothing else writes to an app's table, so a source is either core's or one plugin's.
  */
 import type { RouseApp } from '../app';
 import { getDirectiveValue } from '../core/elements';
@@ -33,7 +36,7 @@ import type {
 import { closestScope, getApp, isScopeAwake } from './binder';
 import { applyModifiers, resolveListenerTarget } from './modifiers';
 
-interface TriggerContext {
+export interface TriggerContext {
   el: Element;
   app: RouseApp;
   /** The source's argument, resolved from markup or passed by the caller. */
@@ -52,7 +55,7 @@ interface TriggerContext {
   suppressNavigation?: boolean;
 }
 
-type TriggerSourceHandler = (ctx: TriggerContext) => VoidFn | null;
+export type TriggerSourceHandler = (ctx: TriggerContext) => VoidFn | null;
 
 /**
  * A trigger source in the registry. `fromArg` turns the bracketed argument from HTML
@@ -60,7 +63,7 @@ type TriggerSourceHandler = (ctx: TriggerContext) => VoidFn | null;
  * the argument was invalid and already reported, so nothing attaches. `undefined` leaves
  * the source to report a missing argument itself.
  */
-interface TriggerSource {
+export interface TriggerSource {
   fromArg?: (arg: string, el: Element) => TriggerArg | undefined | null;
   attach: TriggerSourceHandler;
 }
@@ -194,8 +197,8 @@ export function on(
 }
 
 /**
- * Routes a single trigger to its handler. Trigger sources go through the
- * `triggerSources` registry. Standard DOM events fall through to `attachListener`.
+ * Routes a single trigger to its handler. Trigger sources come from the app's table.
+ * Standard DOM events fall through to `attachListener`.
  *
  * Timed execution (debounce/throttle) is applied here once, before dispatch, so
  * trigger sources and DOM events both receive timed actions. The returned cleanup
@@ -224,7 +227,7 @@ export function dispatchTrigger(
     };
   };
 
-  const source = triggerSources[trigger.event];
+  const source = base.app._triggerSources.get(trigger.event);
   if (source) {
     let arg = base.arg;
 
@@ -368,9 +371,9 @@ export function attachWakeStrategies(
 }
 
 /**
- * Universal trigger sources available to directives and `app.on`.
+ * Core's trigger sources, copied into each app's table at creation.
  */
-const triggerSources: Record<string, TriggerSource> = {
+export const triggerSources: Record<string, TriggerSource> = {
   /** Fires when the RouseApp instance is fully initialized. */
   ready: {
     attach: ({ app, action }) => {

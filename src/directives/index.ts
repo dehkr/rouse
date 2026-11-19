@@ -8,9 +8,13 @@
  *
  * Adding a directive: its file here, its slug in `DIRECTIVE_SLUGS`, an export below,
  * and a `selector` if it's scanned. Then register it, or it's exported and never
- * scanned: bound directives in `registerBoundDirectives` (`app.ts`); a network op
- * in `NETWORK_DIRECTIVES` below; any other standalone directive in its own pass in
- * `dom/observer.ts`. Config directives need nothing.
+ * scanned:
+ *
+ * - Bound directive: `registerBoundDirectives` (`app.ts`).
+ * - Network op: `NETWORK_DIRECTIVES` below. Each app copies it into its own
+ *   `_networkDirectives` at creation; a plugin's network op is added there at install.
+ * - Any other standalone directive: its own pass in `dom/observer.ts`.
+ * - Config directive: nothing.
  */
 export { rzAttr } from './rz-attr';
 export { rzClass } from './rz-class';
@@ -43,5 +47,5 @@ import { rzPull } from './rz-pull';
 import { rzPush } from './rz-push';
 import { rzSse } from './rz-sse';
 
-/** Network ops, mounted and torn down by their own pass in `dom/observer.ts`. */
+/** Core's network ops, copied into each app's `_networkDirectives` at creation. */
 export const NETWORK_DIRECTIVES = [rzFetch, rzPush, rzPull, rzSse];
