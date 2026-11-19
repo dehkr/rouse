@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { type Build, expect, open, test } from './fixtures';
@@ -11,6 +12,20 @@ test('plugin files import nothing', async () => {
   for (const file of PLUGIN_FILES) {
     const code = await readFile(join(DIST, file), 'utf8');
     expect(code, file).not.toMatch(/\bimport\s*[\s{*("'`]|\bfrom\s*["'`]/);
+  }
+});
+
+// Each fixture is its own program: one import of a plugin augments core's types for
+// the whole program, so a core-only check can't share it
+test('type-checks the declarations with and without a plugin', ({ browserName }) => {
+  test.skip(browserName !== 'chromium', 'Browser-independent');
+  for (const fixture of ['core-only', 'with-sync']) {
+    const config = join(import.meta.dirname, `../types/tsconfig.${fixture}.json`);
+    const { stdout, status } = spawnSync('npx', ['tsc', '-p', config], {
+      encoding: 'utf8',
+    });
+    expect(stdout, fixture).toBe('');
+    expect(status, fixture).toBe(0);
   }
 });
 

@@ -1,15 +1,15 @@
-import type {
-  RousePlugin,
-  StoreManager,
-  StoreStatus,
-  SyncPolicy,
-  SyncRequest,
-} from 'rousejs';
+import type { RousePlugin, StoreManager } from 'rousejs';
 import { setCore } from '../core';
 import { defineSyncOpDirective } from './define-sync-op';
 import { StoreSync } from './manager';
+import type { StoreStatus, SyncPolicy, SyncRequest } from './types';
+
+export type { StoreStatus, SyncPolicy, SyncRequest };
 
 declare module 'rousejs' {
+  // Adds the sync options to `app.store()`
+  interface StoreOptions extends Partial<SyncPolicy> {}
+
   interface StoreManager {
     /**
      * Returns a copy of the last synced state: what a push or pull last confirmed,
@@ -123,7 +123,11 @@ const METHODS = [
   'commit',
 ] as const satisfies readonly (keyof StoreSync & keyof StoreManager)[];
 
-/** A method the plugin adds to `app.stores`. */
+/**
+ * A method the plugin adds to `app.stores`.
+ *
+ * @internal
+ */
 export type SyncMethod = (typeof METHODS)[number];
 
 /**

@@ -3,5 +3,7 @@
   "compilerOptions": {
     "types": ["node"]
   },
-  "include": ["**/*.ts"]
+  "include": ["**/*.ts"],
+  // Checked against the built declarations by build.spec.ts
+  "exclude": ["types"]
 }

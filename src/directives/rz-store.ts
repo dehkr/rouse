@@ -3,7 +3,7 @@ import { directiveSelector, getDirectiveValue } from '../core/elements';
 import { err, warn } from '../core/diagnostics';
 import { parseStoreValue } from '../core/parser';
 import { isPlainObject } from '../core/state';
-import type { SyncPolicy } from '../store';
+import type { DeclaredSync } from '../store';
 import type { StandaloneDirective } from '../types';
 import { rzHeaders } from './rz-headers';
 
@@ -50,7 +50,7 @@ function initialize(el: HTMLScriptElement, app: RouseApp) {
     }
   }
 
-  const declared: Pick<Partial<SyncPolicy>, 'url' | 'headers'> = {};
+  const declared: DeclaredSync = {};
   const headers = rzHeaders.getConfig(el);
 
   if (url) {

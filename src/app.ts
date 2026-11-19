@@ -62,7 +62,7 @@ import { ScopeRegistry } from './core/scope-registry';
 import { isPlainObject } from './core/state';
 import { installPlugins, type RousePlugin, resolvePlugins } from './plugin-api';
 import type { PersistOptions } from './reactivity/persist';
-import { StoreManager, type SyncPolicy } from './store';
+import { StoreManager, type StoreOptions } from './store';
 
 export interface RouseConfig {
   /** Element or selector where the app mounts. Defaults to `document.documentElement`. */
@@ -369,11 +369,7 @@ export class RouseApp {
    * @example
    * app.store('prefs', { theme: 'light' }, { persist: 'local', persistKey: 'prefs' });
    */
-  store<T extends object>(
-    name: string,
-    data: T,
-    config?: Partial<SyncPolicy> & PersistOptions,
-  ) {
+  store<T extends object>(name: string, data: T, config?: StoreOptions & PersistOptions) {
     return this.stores._create<T>(name, data, config);
   }
 

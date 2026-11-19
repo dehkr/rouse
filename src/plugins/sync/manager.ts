@@ -25,22 +25,11 @@
 import type { RouseApp } from '../../app';
 import { err, fail, warn } from '../../core/diagnostics';
 import type { LifecycleHandle } from '../../net/lifecycle';
-import type {
-  StoreEntry,
-  StoreHooks,
-  StoreManager,
-  StoreStatus,
-  SyncPolicy,
-} from '../../store';
-import type {
-  RequestError,
-  ResolvedRequest,
-  RouseResponse,
-  SyncRequest,
-  VoidFn,
-} from '../../types';
+import type { StoreEntry, StoreHooks, StoreManager } from '../../store';
+import type { RequestError, ResolvedRequest, RouseResponse, VoidFn } from '../../types';
 import { core } from '../core';
 import { deepEqual } from './equal';
+import type { StoreStatus, SyncPolicy, SyncRequest } from './types';
 
 /** What a settled request hands back to `_request`. */
 interface SendOutcome {

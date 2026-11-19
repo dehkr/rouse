@@ -20,14 +20,7 @@ import {
   trackDirty,
   untracked,
 } from './reactivity/reactive';
-import type {
-  LifecycleEventMap,
-  RequestError,
-  RouseResponse,
-  StorePatchEvent,
-  SyncRequest,
-  VoidFn,
-} from './types';
+import type { LifecycleEventMap, RouseResponse, StorePatchEvent, VoidFn } from './types';
 import type { RouseApp } from './app';
 import { fail, warn } from './core/diagnostics';
 import { needsPlugin } from './core/plugins';
@@ -38,35 +31,16 @@ import { clone, nullPaths, patchState } from './core/state';
 export type EditListener = (roots: ReadonlySet<string>) => void;
 
 /**
- * A store's sync status. Read it with `app.stores.status(name)` in JavaScript,
- * or as `@name::status` in a directive, for example
- * `data-rz-prop="disabled: @cart::status.syncing"`. Every property updates
- * reactively, and none of them can be written from HTML.
+ * Options a plugin adds to `app.store()`. Empty without one, so an option that needs a
+ * plugin, such as the sync plugin's `url`, is a type error until that plugin is
+ * installed.
  */
-export interface StoreStatus {
-  /** `'push'` or `'pull'` while that operation is in progress, `false` when idle. */
-  syncing: false | 'push' | 'pull';
-  /** Why the last push or pull failed, or `null`. Cleared when the next one starts. */
-  error: Pick<RequestError, 'code' | 'message'> | null;
-  /** When the store last took in data from the server, in milliseconds, or `0`. */
-  lastSync: number;
-  /** `true` when the store holds changes the server hasn't confirmed. */
-  dirty: boolean;
-  /** The roots whose values differ from what the server has. */
-  dirtyRoots: Record<string, true>;
-}
+export interface StoreOptions {}
 
-/**
- * A store's standing sync policy, applied to every push and pull. A store script seeds
- * it when it declares the store, and replaces `url` and `headers` when it re-declares it.
- *
- * `indicator` is deliberately absent: it belongs to the trigger, not the store. A
- * store has many triggers, and `resolveIndicators` takes a single value, so a
- * policy-level indicator would silently override every trigger's `rz-indicator`.
- */
-export interface SyncPolicy extends Omit<SyncRequest, 'url' | 'indicator'> {
-  /** Endpoint for push and pull. */
-  url: string;
+/** The sync config a `<script data-rz-store>` declares. Only the sync plugin reads it. */
+export interface DeclaredSync {
+  url?: string;
+  headers?: Record<string, string | null>;
 }
 
 /** @internal */
@@ -98,14 +72,11 @@ export interface StoreHooks {
   created(
     entry: StoreEntry,
     declared: object,
-    policy: Partial<SyncPolicy> | undefined,
+    policy: StoreOptions | undefined,
     persisted: boolean,
   ): void;
   /** A `<script data-rz-store>` re-declared the store, with the policy it declares. */
-  redeclared(
-    entry: StoreEntry,
-    policy: Pick<Partial<SyncPolicy>, 'url' | 'headers'>,
-  ): void;
+  redeclared(entry: StoreEntry, policy: DeclaredSync): void;
   /** The store's data was replaced whole, by `update()` or a re-declared script. */
   reseeded(entry: StoreEntry): void;
   /** A framework write landed, changing `roots`, or any root when unset. */
@@ -336,7 +307,7 @@ export class StoreManager {
   _create<T extends object = any>(
     storeName: string,
     state: T,
-    config?: Partial<SyncPolicy> & PersistOptions,
+    config?: StoreOptions & PersistOptions,
     el?: Element,
   ): T {
     if (this._stores.has(storeName)) {
@@ -404,7 +375,7 @@ export class StoreManager {
     el: Element,
     storeName: string,
     state: object | undefined,
-    declared: Pick<Partial<SyncPolicy>, 'url' | 'headers'>,
+    declared: DeclaredSync,
   ) {
     const entry = this._stores.get(storeName);
     if (!entry) {

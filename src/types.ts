@@ -621,14 +621,6 @@ export type ResolvedRequest = FetchRequest &
   Required<Pick<FetchRequest, 'url' | 'method' | 'headers'>>;
 
 /**
- * The authoring surface for a store push or pull. A push body is the store's own data
- * and a pull carries none, so `body` is absent by design. `method` is absent too: a
- * push is always `PATCH` (RFC 7396 merge patch), and a pull always `GET`.
- */
-export type SyncRequest = Omit<RequestInit, 'body' | 'headers' | 'method'> &
-  BaseRequestConfig;
-
-/**
  * The callable fetch surface. The HTTP method comes from `options.method`,
  * defaulting to `GET`.
  */
