@@ -98,7 +98,8 @@ interface InFlight {
   snapshot: any;
 }
 
-interface StoreEntry {
+/** @internal */
+export interface StoreEntry {
   name: string;
   data: any;
   status: StoreStatus;
@@ -120,6 +121,40 @@ interface StoreEntry {
   touched?: Set<string>;
   /** Stops saving to Web Storage. Set only on a store created with `persist`. */
   stopSaving?: VoidFn;
+}
+
+/**
+ * Points in a store's lifecycle where a plugin extends core. Core calls each hook that
+ * is set, and otherwise does nothing.
+ *
+ * @internal
+ */
+export interface StoreHooks {
+  /**
+   * A store is about to register. `declared` is its state before `persist` restored a
+   * saved copy, and `policy` is unset when no config was passed. Throwing rejects it.
+   */
+  created(
+    entry: StoreEntry,
+    declared: object,
+    policy: Partial<SyncPolicy> | undefined,
+    persisted: boolean,
+  ): void;
+  /** A `<script data-rz-store>` re-declared the store, with the policy it declares. */
+  redeclared(
+    entry: StoreEntry,
+    policy: Pick<Partial<SyncPolicy>, 'url' | 'headers'>,
+  ): void;
+  /** The store's data was replaced whole, by `update()` or a re-declared script. */
+  reseeded(entry: StoreEntry): void;
+  /** A framework write landed, changing `roots`, or any root when unset. */
+  patched(entry: StoreEntry, roots?: Iterable<string>): void;
+  /** A deposit merged `payload` into the data. Runs inside the deposit's batch. */
+  deposited(entry: StoreEntry, payload: object): void;
+  /** A batch of user edits touched `roots`. Runs before the edit listeners. */
+  edited(entry: StoreEntry, roots: ReadonlySet<string>): void;
+  /** The store was removed. */
+  removed(entry: StoreEntry): void;
 }
 
 /**
@@ -205,12 +240,76 @@ export class StoreManager {
     ['status', (storeName) => this.status(storeName)],
   ]);
 
+  /**
+   * Store lifecycle hooks, set by a plugin at install.
+   *
+   * @internal
+   */
+  _hooks: Partial<StoreHooks>;
+
   private _stores = new Map<string, StoreEntry>();
   private _pendingFlush = new Set<StoreEntry>();
   private _isPatching = false;
 
   constructor(app: RouseApp) {
     this.app = app;
+    this._hooks = this._syncHooks();
+  }
+
+  /** The sync half of the store, routed through the hooks it moves out with. */
+  private _syncHooks(): StoreHooks {
+    return {
+      created: (entry, declared, policy, persisted) => {
+        if (persisted && policy?.url) {
+          failPersistUrl(entry.name);
+        }
+
+        entry.status = reactive({
+          syncing: false,
+          error: null,
+          lastSync: 0,
+          dirty: false,
+          dirtyRoots: {},
+        });
+
+        // The declared data, so `reset()` restores defaults, not the saved copy
+        entry.initial = declared;
+
+        if (policy) this._setConfig(entry, policy);
+        this._updateLastGood(entry, entry.data);
+      },
+      redeclared: (entry, policy) => {
+        // Update url and headers config defined on the <script>. Options that can only
+        // be set via JS are untouched.
+        const config: SyncPolicy = { ...entry.config, url: policy.url ?? '' };
+        if (policy.headers) {
+          config.headers = policy.headers;
+        } else {
+          delete config.headers;
+        }
+        entry.config = config;
+      },
+      reseeded: (entry) => {
+        // Both restore targets are cloned from the patched data rather than the new
+        // state, so they match what the store holds after the write
+        entry.initial = clone(entry.data);
+        this._updateLastGood(entry, entry.data);
+      },
+      patched: (entry, roots) => this._reconcileDirty(entry, roots),
+      deposited: (entry, payload) => {
+        this._patchBaseline(entry, payload);
+        entry.status.lastSync = Date.now();
+      },
+      // Reconciled before the edit listeners run, so a debounced push reads a current
+      // dirty status from inside its own notification
+      edited: (entry, roots) => this._reconcileDirty(entry, roots),
+      removed: (entry) => {
+        // A held `push()` would otherwise wait on a store that no longer exists, and a
+        // follow-up would reach whatever store is registered under the name next
+        this._settleIdle(entry);
+        entry.pendingPush = undefined;
+      },
+    };
   }
 
   /** Replaces the policy object. Nothing in it is reactive, so there's no `@name::config`. */
@@ -625,10 +724,9 @@ export class StoreManager {
   }
 
   /**
-   * Runs a framework write with dirty tracking suppressed, then reconciles the
-   * dirty flags against the baseline, for `roots` or the whole store. Every
-   * framework mutation of store data goes through here, so the reconcile cannot
-   * be forgotten.
+   * Runs a framework write with edit tracking suppressed, then calls the `patched`
+   * hook for `roots` or the whole store. Every framework mutation of store data goes
+   * through here, so the hook cannot be forgotten.
    */
   private _withPatchGuard(entry: StoreEntry, fn: VoidFn, roots?: string[]) {
     batch(() => {
@@ -637,21 +735,20 @@ export class StoreManager {
         fn();
       } finally {
         this._isPatching = false;
-        this._reconcileDirty(entry, roots);
+        this._hooks.patched?.(entry, roots);
       }
     });
   }
 
   /**
-   * Queues a store for end-of-microtask reconciliation, coalescing a batch of
-   * synchronous writes into one dirty recompute and one round of notifications.
+   * Queues a store for an end-of-microtask flush, coalescing a batch of synchronous
+   * writes into one `edited` call and one round of notifications.
    */
   private _scheduleFlush(entry: StoreEntry) {
     const wasEmpty = this._pendingFlush.size === 0;
     this._pendingFlush.add(entry);
     if (!wasEmpty) return;
 
-    // Runs whether or not anyone listens, since the dirty status depends on it
     queueMicrotask(() => {
       // Cleared before iterating, so a throwing listener can't stall later flushes
       const flushing = [...this._pendingFlush];
@@ -663,10 +760,7 @@ export class StoreManager {
         const touched = pending.touched ?? new Set<string>();
         pending.touched = undefined;
 
-        this._reconcileDirty(pending, touched);
-
-        // Reconciling first is what lets the `edit` trigger's dirty guard read a
-        // current value from inside its own notification.
+        this._hooks.edited?.(pending, touched);
         pending.listeners?.forEach((callback) => callback(touched));
       }
     });
@@ -722,9 +816,6 @@ export class StoreManager {
 
     const { persist, persistKey, ...policy } = config ?? {};
     const persisted = resolvePersist({ persist, persistKey } as PersistOptions);
-    if (persisted && policy.url) {
-      failPersistUrl(storeName);
-    }
 
     // A store name with a dot is read as a path everywhere except through `app.stores`
     if (__DEV__ && storeName.includes('.')) {
@@ -735,47 +826,35 @@ export class StoreManager {
 
     if (__DEV__) warnNullFields(storeName, state);
 
-    const status: StoreStatus = reactive({
-      syncing: false,
-      error: null,
-      lastSync: 0,
-      dirty: false,
-      dirtyRoots: {},
-    });
-
-    // `initial` is the declared data, so `reset()` restores defaults, not the saved copy
-    const initial = clone(state);
+    const { created } = this._hooks;
+    const declared = created && clone(state);
     if (persisted) restore(state, persisted);
 
     const proxyState = reactive(state);
+    const entry = { name: storeName, data: proxyState } as StoreEntry;
+    if (el) entry.el = el;
 
-    const entry: StoreEntry = {
-      name: storeName,
-      data: proxyState,
-      status,
-      initial,
-    };
+    // Before registering, so a hook that rejects the store leaves nothing behind
+    created?.(entry, declared!, config && policy, !!persisted);
 
     this._stores.set(storeName, entry);
 
     // Copies of this callback live on every nested object the store has read, so a
-    // reference kept after `remove()` would still report edits through it
+    // reference kept after `remove()` would still report edits through it. With
+    // nothing to notify, a batch of edits isn't worth a flush.
     trackDirty(proxyState, (rootKey: string) => {
       if (this._isPatching || !this._isRegistered(entry)) return;
+      if (!entry.listeners && !this._hooks.edited) return;
       entry.touched ??= new Set();
       entry.touched.add(rootKey);
       this._scheduleFlush(entry);
     });
 
-    if (config) this._setConfig(entry, policy);
-    if (el) entry.el = el;
     if (persisted) {
       // Detached from the caller's tracking context, so a store created in a scope
       // setup keeps saving after that scope tears down
       entry.stopSaving = untracked(() => startSaving(proxyState, persisted));
     }
-
-    this._updateLastGood(entry, state);
 
     return entry.data;
   }
@@ -820,16 +899,7 @@ export class StoreManager {
     }
 
     entry.el = el;
-
-    // Update url and headers config defined on the <script>. Options that can only be set
-    // via JS are untouched.
-    const config: SyncPolicy = { ...entry.config, url: declared.url ?? '' };
-    if (declared.headers) {
-      config.headers = declared.headers;
-    } else {
-      delete config.headers;
-    }
-    entry.config = config;
+    this._hooks.redeclared?.(entry, declared);
   }
 
   /**
@@ -851,16 +921,13 @@ export class StoreManager {
   }
 
   /**
-   * Replaces the store's data and makes it both restore targets. Shared by `update()`,
+   * Replaces the store's data and calls the `reseeded` hook. Shared by `update()`,
    * `reset()`, and a re-declared script. Callers passing new state warn on null fields.
    */
   private _reseed(entry: StoreEntry, state: object) {
-    // Both targets are cloned from the patched data rather than `state`, so they match
-    // what the store holds after the write
     batch(() => {
       this._withPatchGuard(entry, () => patchState(entry.data, state, 'replace'));
-      entry.initial = clone(entry.data);
-      this._updateLastGood(entry, entry.data);
+      this._hooks.reseeded?.(entry);
     });
   }
 
@@ -905,8 +972,7 @@ export class StoreManager {
     // deposit's `null` is its delete.
     batch(() => {
       this._patchPayload(entry, applied);
-      this._patchBaseline(entry, applied);
-      entry.status.lastSync = Date.now();
+      this._hooks.deposited?.(entry, applied);
     });
 
     this._dispatchPatchEvent(entry, 'rz:store:patch', {
@@ -1163,12 +1229,9 @@ export class StoreManager {
     const entry = this._find(storeName);
     if (!entry) return;
 
-    // A held `push()` would otherwise wait on a store that no longer exists, and a
-    // follow-up would reach whatever store is registered under the name next.
-    // A running flush has its own copy of the queue, so listeners can also be cleared.
-    this._settleIdle(entry);
+    // A running flush has its own copy of the queue, so listeners can also be cleared
+    this._hooks.removed?.(entry);
     entry.stopSaving?.();
-    entry.pendingPush = undefined;
     entry.listeners = undefined;
     entry.touched = undefined;
     this._pendingFlush.delete(entry);
