@@ -46,14 +46,21 @@ for (const build of ['min', 'dev'] as Build[]) {
   });
 }
 
-test('logs authoring warnings only in the development build', async ({
+test('logs authoring and missing-plugin warnings only in the development build', async ({
   page,
   console,
 }) => {
   await open(page, '/warnings.html', 'dev');
+  await page.click('#push');
+  const hints = (plugin: string) =>
+    console.filter((m) => m.includes(`needs the ${plugin} plugin`)).length;
   expect(console.filter((m) => m.includes('[Rouse]')).length).toBeGreaterThanOrEqual(2);
+  // rz-push, the store's url, and @draft::status
+  expect(hints('sync')).toBe(3);
+  expect(hints('sse')).toBe(1);
 
   console.length = 0;
   await open(page, '/warnings.html', 'min');
+  await page.click('#push');
   expect(console).toEqual([]);
 });

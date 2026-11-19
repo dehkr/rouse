@@ -1,19 +1,5 @@
 import { warn } from './diagnostics';
-
-/**
- * Returns true if `obj[key]` is a serializable own data property. Excludes
- * accessors (get/set) and function-valued properties. Used by `clone`,
- * `deepEqual`, and `patchState` so all three agree on what counts as state
- * worth snapshotting, diffing, or writing back. Change what counts here, never at
- * a call site.
- */
-function isOwnDataProp(obj: object, key: string): boolean {
-  const desc = Object.getOwnPropertyDescriptor(obj, key);
-  if (!desc) return false;
-  if (desc.get || desc.set) return false;
-  if (typeof desc.value === 'function') return false;
-  return true;
-}
+import { isOwnDataProp } from './own-data';
 
 /**
  * Deep-clone `obj`, stripping non-serializable properties (functions,
@@ -86,85 +72,6 @@ export function nullPaths(obj: unknown, seen = new WeakSet(), path = ''): string
 
     return val === null ? [keyPath] : nullPaths(val, seen, keyPath);
   });
-}
-
-/**
- * Compare two values for deep equality. Skip the same properties `clone()` strips,
- * so a value always compares equal to its own clone.
- */
-export function deepEqual(a: any, b: any, seen = new WeakMap<object, any>()): boolean {
-  if (a === b) {
-    return true;
-  }
-
-  // Handle NaN !== NaN
-  if (
-    typeof a === 'number' &&
-    typeof b === 'number' &&
-    Number.isNaN(a) &&
-    Number.isNaN(b)
-  ) {
-    return true;
-  }
-
-  if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) {
-    return false;
-  }
-
-  if (seen.has(a)) {
-    return seen.get(a) === b;
-  }
-  seen.set(a, b);
-
-  // Fast path: constructor check
-  if (a.constructor !== b.constructor) {
-    return false;
-  }
-  if (a instanceof Date) {
-    return a.getTime() === b.getTime();
-  }
-  if (a instanceof RegExp) {
-    return a.toString() === b.toString();
-  }
-
-  // Arrays: match JSON behavior by converting functions/undefined to null
-  if (Array.isArray(a)) {
-    if (a.length !== b.length) {
-      return false;
-    }
-    for (let i = 0; i < a.length; i++) {
-      const valA = typeof a[i] === 'function' || a[i] === undefined ? null : a[i];
-      const valB = typeof b[i] === 'function' || b[i] === undefined ? null : b[i];
-      if (!deepEqual(valA, valB, seen)) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  // Objects
-  let validKeysA = 0;
-  for (const key in a) {
-    if (!isOwnDataProp(a, key)) continue;
-    const valA = a[key];
-    if (valA !== undefined) {
-      validKeysA++;
-      if (!Object.hasOwn(b, key)) return false;
-      if (!deepEqual(valA, b[key], seen)) return false;
-    }
-  }
-
-  // Count valid keys in B to ensure no extra serializable keys exist
-  let validKeysB = 0;
-  for (const key in b) {
-    if (!isOwnDataProp(b, key)) continue;
-    const valB = b[key];
-    if (valB !== undefined) {
-      validKeysB++;
-    }
-  }
-
-  return validKeysA === validKeysB;
 }
 
 /**

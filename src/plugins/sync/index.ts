@@ -1,4 +1,10 @@
-import type { RousePlugin, StoreStatus, SyncPolicy, SyncRequest } from 'rousejs';
+import type {
+  RousePlugin,
+  StoreManager,
+  StoreStatus,
+  SyncPolicy,
+  SyncRequest,
+} from 'rousejs';
 import { setCore } from '../core';
 import { StoreSync } from './manager';
 import { rzPull } from './rz-pull';
@@ -116,7 +122,10 @@ const METHODS = [
   'reset',
   'revert',
   'commit',
-] as const;
+] as const satisfies readonly (keyof StoreSync & keyof StoreManager)[];
+
+/** A method the plugin adds to `app.stores`. */
+export type SyncMethod = (typeof METHODS)[number];
 
 /**
  * Syncs stores with a server endpoint: `rz-push`, `rz-pull`, `@store::status`, the
@@ -135,7 +144,7 @@ export const sync: RousePlugin = {
     stores._hooks = storeSync.hooks();
     stores._namespaces.set('status', (storeName) => storeSync.status(storeName));
     METHODS.forEach((method) => {
-      (stores as any)[method] = (storeSync as any)[method].bind(storeSync);
+      (stores as Record<SyncMethod, unknown>)[method] = storeSync[method].bind(storeSync);
     });
 
     app._networkDirectives.add(rzPush());

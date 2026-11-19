@@ -13,12 +13,13 @@
  * Anything per app, such as the app's own tables, is reached through `app`.
  */
 import type { RouseApp } from './app';
+import type { SyncMethod } from './plugins/sync';
 import { fail } from './core/diagnostics';
 import { hasPlugin, needsPlugin, type PluginName } from './core/plugins';
 import { defineNetworkOpDirective } from './directives/define-network-op';
 import { parseStoreRef, parseTriggers, safeJSONParse } from './core/parser';
 import { getNestedVal, getPathRoot, setNestedVal } from './core/path';
-import { clone, deepEqual, hasAccessor, isPlainObject, patchState } from './core/state';
+import { clone, hasAccessor, isPlainObject, patchState } from './core/state';
 import { dispatchTrigger } from './dom/events';
 import { resolveListenerTarget } from './dom/modifiers';
 import { runRequestLifecycle } from './net/lifecycle';
@@ -33,7 +34,6 @@ export type { PluginName };
 export interface CoreApi {
   batch: typeof batch;
   clone: typeof clone;
-  deepEqual: typeof deepEqual;
   defineNetworkOpDirective: typeof defineNetworkOpDirective;
   dispatchTrigger: typeof dispatchTrigger;
   fallbackResponse: typeof fallbackResponse;
@@ -70,24 +70,24 @@ export interface RousePlugin {
   install(api: PluginApi): void;
 }
 
-// The methods the sync plugin adds to `app.stores`, stubbed in the dev build without it
-const SYNC_METHODS = [
-  'baseline',
-  'status',
-  'isDirty',
-  'dirtyRoots',
-  'config',
-  'push',
-  'pull',
-  'reset',
-  'revert',
-  'commit',
-];
+// The methods the sync plugin adds to `app.stores`, stubbed in the dev build without
+// it. A record, so the compiler requires every method and no others.
+const SYNC_METHODS: Record<SyncMethod, true> = {
+  baseline: true,
+  status: true,
+  isDirty: true,
+  dirtyRoots: true,
+  config: true,
+  push: true,
+  pull: true,
+  reset: true,
+  revert: true,
+  commit: true,
+};
 
 const core: CoreApi = {
   batch,
   clone,
-  deepEqual,
   defineNetworkOpDirective,
   dispatchTrigger,
   fallbackResponse,
@@ -137,7 +137,7 @@ export function installPlugins(app: RouseApp, plugins: readonly RousePlugin[]): 
     (app as any).sse = () => fail(`app.sse() ${needsPlugin('sse')}`);
   }
   if (__DEV__ && !hasPlugin(app, 'sync')) {
-    SYNC_METHODS.forEach((method) => {
+    Object.keys(SYNC_METHODS).forEach((method) => {
       (app.stores as any)[method] = () =>
         fail(`app.stores.${method}() ${needsPlugin('sync')}`);
     });

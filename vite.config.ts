@@ -94,6 +94,7 @@ export default defineConfig({
                     '!../../core/diagnostics',
                     '!../../core/dispatch',
                     '!../../core/elements',
+                    '!../../core/own-data',
                     'rousejs',
                     'alien-signals',
                   ],

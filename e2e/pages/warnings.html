@@ -9,5 +9,13 @@
     <!-- Authoring mistakes: an unknown directive and an unregistered scope -->
     <div data-rz-bogus="x"></div>
     <div data-rz-scope="missing"></div>
+
+    <!-- Plugin markup with no plugin installed: warns in dev, silent and inert in min -->
+    <script type="application/json" data-rz-store="draft: /api/store">
+      {}
+    </script>
+    <button id="push" data-rz-push="click: @draft">Save</button>
+    <span data-rz-text="@draft::status.dirty"></span>
+    <div data-rz-sse="ready: /api/stream"></div>
   </body>
 </html>

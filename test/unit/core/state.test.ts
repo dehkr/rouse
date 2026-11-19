@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
+import { deepEqual } from '../../../src/plugins/sync/equal';
 import {
   clone,
-  deepEqual,
   hasAccessor,
   isPlainObject,
   nullPaths,

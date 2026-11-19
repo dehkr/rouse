@@ -40,6 +40,7 @@ import type {
   VoidFn,
 } from '../../types';
 import { core } from '../core';
+import { deepEqual } from './equal';
 
 /** What a settled request hands back to `_request`. */
 interface SendOutcome {
@@ -259,7 +260,7 @@ export class StoreSync {
         // from `data` entirely is a deleted root and must still be compared.
         if (core.hasAccessor(data, key)) continue;
 
-        if (core.deepEqual(data[key], baseline[key])) {
+        if (deepEqual(data[key], baseline[key])) {
           delete status.dirtyRoots[key];
         } else {
           status.dirtyRoots[key] = true;
@@ -272,7 +273,7 @@ export class StoreSync {
 
   /** Returns `true` when the data at `path`, or the whole store, differs from `lastGood`. */
   private _isSliceDirty(entry: SyncEntry, path?: string): boolean {
-    return !core.deepEqual(sliceAt(entry.data, path), sliceAt(entry.lastGood, path));
+    return !deepEqual(sliceAt(entry.data, path), sliceAt(entry.lastGood, path));
   }
 
   /**
@@ -520,7 +521,7 @@ export class StoreSync {
     const hasBody = payload && typeof payload === 'object';
 
     // Local state moved mid-flight; keep the edit and skip the echo
-    if (hasBody && !core.deepEqual(data, snapshot)) {
+    if (hasBody && !deepEqual(data, snapshot)) {
       this.stores._dispatchPatchEvent(entry, 'rz:store:patch:skipped', {
         storeName,
         operation,
@@ -673,7 +674,7 @@ export class StoreSync {
     if (!entry || !flight) return;
 
     // Without this check, a remembered second click would send an edit made after it
-    if (core.deepEqual(entry.data, this._expectedBaseline(entry, flight))) {
+    if (deepEqual(entry.data, this._expectedBaseline(entry, flight))) {
       return;
     }
 

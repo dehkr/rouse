@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import { rouse } from '../../../src/index';
 import type { RouseApp } from '../../../src/app';
 import type { PluginApi, RousePlugin } from '../../../src/plugin-api';
+import { sync } from '../../../src/plugins/sync';
 
 const apps: RouseApp[] = [];
 const roots: HTMLElement[] = [];
@@ -88,5 +89,13 @@ describe('plugins option', () => {
     apps.push(app);
 
     expect(app.config.plugins).toEqual([]);
+  });
+
+  it('throws when a plugin is installed with a second copy of core', () => {
+    const app = create([sync]);
+
+    expect(() => sync.install({ app, core: {} as PluginApi['core'] })).toThrow(
+      /two copies of core/,
+    );
   });
 });
