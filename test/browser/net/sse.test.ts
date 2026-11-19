@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vite-plus/test';
 import { sse as ssePlugin } from '../../../src/plugins/sse';
 import { delay, sse, worker } from '../helpers/network';
 import { mount } from '../helpers/mount';
+import type { HandlerCtx } from '../../../src/types';
 
 /** Mounts with the sse plugin installed. */
 const mountSse: typeof mount = (html, options) =>
@@ -72,6 +73,40 @@ describe('rz-sse', () => {
     await expect.poll(() => ancestor.mock.calls.length).toBe(1);
     expect(besideRoot).toHaveBeenCalledOnce();
     expect(beside).not.toHaveBeenCalled();
+  });
+
+  it('treats server messages named open and error as events, not connection state', async () => {
+    const s = stream('/api/named');
+    const named = vi.fn();
+    const connection = vi.fn();
+    const { $ } = await mountSse(
+      `<div data-rz-scope="s" data-rz-on="sse-[open] sse-[error]: named">
+        <section data-rz-sse="ready: /api/named"></section>
+      </div>`,
+      {
+        scopes: {
+          s: () => ({
+            named: ({ e }: HandlerCtx) => named((e as CustomEvent).detail.data),
+          }),
+        },
+        setup: (a) => {
+          a.on('rz:sse:open', () => connection('open'));
+          // Canceling would close the stream if a message reached the error handler
+          a.on('rz:sse:error', (e) => {
+            connection('error');
+            e.preventDefault();
+          });
+        },
+      },
+    );
+    const client = await s.open();
+    client.send({ event: 'open', data: 'a' });
+    client.send({ event: 'error', data: 'b' });
+    client.send({ data: '<b>still open</b>' });
+
+    await expect.poll(() => $('section').innerHTML).toBe('<b>still open</b>');
+    expect(named.mock.calls).toEqual([['a'], ['b']]);
+    expect(connection.mock.calls).toEqual([['open']]);
   });
 
   it('closes the stream on an rz-close trigger', async () => {

@@ -180,12 +180,18 @@ function connect(entry: StreamEntry) {
   entry.closed = false;
   entry.attached = new Set();
 
-  source.addEventListener('open', () => {
+  // A server message named `open` or `error` reaches these listeners too, as a
+  // `MessageEvent`. The connection's own events are plain `Event`s.
+  source.addEventListener('open', (e) => {
+    if (e instanceof MessageEvent) return;
     entry.attempt = 0;
     emit(entry, 'rz:sse:open', {});
   });
 
-  source.addEventListener('error', () => onError(entry));
+  source.addEventListener('error', (e) => {
+    if (e instanceof MessageEvent) return;
+    onError(entry);
+  });
 
   attachNamed(entry, DEFAULT_EVENT);
   subscribedNames.forEach((name) => attachNamed(entry, name));
@@ -196,7 +202,12 @@ function attachNamed(entry: StreamEntry, name: string) {
   if (!source || entry.attached.has(name)) return;
 
   entry.attached.add(name);
-  source.addEventListener(name, (e) => onMessage(entry, name, e as MessageEvent));
+  // `sse-[open]` and `sse-[error]` also hear the connection's own events, which carry no data
+  source.addEventListener(name, (e) => {
+    if (e instanceof MessageEvent) {
+      onMessage(entry, name, e);
+    }
+  });
 }
 
 function onMessage(entry: StreamEntry, event: string, e: MessageEvent) {
