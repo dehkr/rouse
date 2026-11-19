@@ -18,7 +18,6 @@
  */
 export { rzAttr } from './rz-attr';
 export { rzClass } from './rz-class';
-export { rzClose } from './rz-close';
 export { rzDeposit } from './rz-deposit';
 export { rzDisable } from './rz-disable';
 export { rzFetch } from './rz-fetch';
@@ -36,7 +35,6 @@ export { rzRender } from './rz-render';
 export { rzRequest } from './rz-request';
 export { rzScope } from './rz-scope';
 export { rzSend } from './rz-send';
-export { rzSse } from './rz-sse';
 export { rzStore } from './rz-store';
 export { rzStyle } from './rz-style';
 export { rzText } from './rz-text';
@@ -45,7 +43,6 @@ export { rzWake } from './rz-wake';
 import { rzFetch } from './rz-fetch';
 import { rzPull } from './rz-pull';
 import { rzPush } from './rz-push';
-import { rzSse } from './rz-sse';
 
 /** Core's network ops, copied into each app's `_networkDirectives` at creation. */
-export const NETWORK_DIRECTIVES = [rzFetch, rzPush, rzPull, rzSse];
+export const NETWORK_DIRECTIVES = [rzFetch, rzPush, rzPull];

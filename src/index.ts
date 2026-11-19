@@ -12,6 +12,8 @@ export type {
   LifecycleEvent,
   LifecycleEventMap,
   RenderHandlerCtx,
+  RouseSse,
   ScopeCtx,
   ScopeSetup,
+  SseOptions,
 } from './types';

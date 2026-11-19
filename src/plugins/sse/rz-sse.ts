@@ -1,9 +1,13 @@
-import type { RouseApp } from '../app';
-import { warn } from '../core/diagnostics';
-import { dispatchTrigger } from '../dom/events';
-import { openStream, type SseRelease } from '../net/sse-engine';
-import type { SseCloseReason, TriggerSubjectPair, VoidFn } from '../types';
-import { defineNetworkOpDirective } from './define-network-op';
+import type { RouseApp } from '../../app';
+import { warn } from '../../core/diagnostics';
+import type {
+  SseCloseReason,
+  StandaloneDirective,
+  TriggerSubjectPair,
+  VoidFn,
+} from '../../types';
+import { core } from './core';
+import { openStream, type SseRelease } from './engine';
 import { rzClose } from './rz-close';
 
 /** The element's live stream. Absent while closed, so a reopen is a fresh open. */
@@ -56,16 +60,27 @@ function bindSsePairs(el: Element, app: RouseApp, pairs: TriggerSubjectPair[]): 
 
   return [
     ...shared.map(({ trigger }) =>
-      dispatchTrigger(trigger, { el, app, action: () => openFor(el, app, url) }),
+      core.dispatchTrigger(trigger, { el, app, action: () => openFor(el, app, url) }),
     ),
-    ...rzClose
-      .getConfig(el)
-      .map((trigger) =>
-        dispatchTrigger(trigger, { el, app, action: () => closeFor(el, 'released') }),
-      ),
+    ...rzClose.getConfig(el).map((trigger) =>
+      core.dispatchTrigger(trigger, {
+        el,
+        app,
+        action: () => closeFor(el, 'released'),
+      }),
+    ),
     // The connection outlives the triggers that opened it, so teardown ends it
     () => closeFor(el, 'teardown'),
   ];
 }
 
-export const rzSse = defineNetworkOpDirective('sse', bindSsePairs);
+let directive: StandaloneDirective | undefined;
+
+/**
+ * Returns the `rz-sse` directive, built once on first install. One object for every
+ * app, so its per-element cleanups have one home.
+ */
+export function rzSse(): StandaloneDirective {
+  directive ??= core.defineNetworkOpDirective('sse', bindSsePairs);
+  return directive;
+}

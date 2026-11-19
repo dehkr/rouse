@@ -91,6 +91,7 @@ export default defineConfig({
                     '../../**',
                     '!../../core/constants',
                     '!../../core/diagnostics',
+                    '!../../core/dispatch',
                     '!../../core/elements',
                     '!../../core/parser',
                     '!../../core/path',

@@ -15,18 +15,18 @@
  * between. A closed entry stays registered while holders remain, so the refcount stays
  * sound. A mounting element joins it without reviving it; `app.sse()` revives it.
  */
-import type { RouseApp } from '../app';
-import { dispatchFrom } from '../core/dispatch';
-import { safeJSONParse } from '../core/parser';
-import { isPlainObject } from '../core/state';
+import type { RouseApp } from '../../app';
+import { dispatchFrom } from '../../core/dispatch';
+import { safeJSONParse } from '../../core/parser';
+import { isPlainObject } from '../../core/state';
 import type {
   LifecycleEventMap,
   SseCloseReason,
   SseConnectionConfig,
   SseOptions,
   VoidFn,
-} from '../types';
-import { resolveUrl } from './payload';
+} from '../../types';
+import { core } from './core';
 
 /** Releases one reference to a stream. Assignable to `VoidFn`. */
 export type SseRelease = (reason?: SseCloseReason) => void;
@@ -79,7 +79,7 @@ export function openStream(
   const el = options.triggerEl ?? app.root;
 
   const config: SseConnectionConfig = {
-    url: resolveUrl(resource, app.config.baseUrl).href,
+    url: core.resolveUrl(resource, app.config.baseUrl).href,
     withCredentials: options.withCredentials ?? false,
     triggerEl: options.triggerEl,
   };

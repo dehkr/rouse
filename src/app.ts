@@ -40,7 +40,6 @@ import {
 import { initPayloadRouters } from './dom/payload-router';
 import { placeContent } from './dom/placer';
 import { runFetch } from './net/fetch-engine';
-import { openBoundStream } from './net/sse-engine';
 import type {
   BoundOn,
   ErrorInterceptor,
@@ -52,7 +51,6 @@ import type {
   RequestInterceptor,
   ResponseInterceptor,
   RouseFetch,
-  RouseSse,
   ScopeSetup,
   StandaloneDirective,
   VoidFn,
@@ -112,11 +110,6 @@ function logBuildBanner() {
   info(`v${__VERSION__} development build. Switch to rouse.min.js in production.`);
 }
 
-/** Returns a signal that aborts with the app, or with the caller's own signal if given. */
-function withAppSignal(appSignal: AbortSignal, signal?: AbortSignal): AbortSignal {
-  return signal ? AbortSignal.any([appSignal, signal]) : appSignal;
-}
-
 registerBoundDirectives(
   rzAttr,
   rzClass,
@@ -163,18 +156,6 @@ export class RouseApp {
    * const { data } = await app.fetch('/api/search', { signal: term });
    */
   public fetch: RouseFetch;
-
-  /**
-   * Opens a server-sent events stream, or joins one already open at the same URL.
-   * The stream closes when the app is destroyed, when `options.signal` aborts, or
-   * when the returned closer is called. Inside a scope, pass `signal: term` to close
-   * it with the scope.
-   *
-   * @example
-   * const close = app.sse('/api/feed');
-   * app.on('rz:sse:message:html', (e) => app.place(feedEl, e.detail.data, { position: 'beforeend' }));
-   */
-  public sse: RouseSse;
 
   /**
    * Adds an event listener that is auto-removed when the app is destroyed. Listens
@@ -310,15 +291,9 @@ export class RouseApp {
         );
       }
 
-      const signal = withAppSignal(this._abortController.signal, options.signal);
+      const signal = this._bindSignal(options.signal);
 
       return on(target, event, callback, { ...options, signal }, this);
-    };
-
-    // Released when the app-lifetime signal or the caller's signal aborts
-    this.sse = (resource, options = {}) => {
-      const signal = withAppSignal(this._abortController.signal, options.signal);
-      return openBoundStream(this, resource, options, signal);
     };
 
     // Last, so a plugin extends a fully wired app
@@ -548,6 +523,16 @@ export class RouseApp {
       this.isReady = true;
       dispatchFrom(this.root, this.root, 'rz:app:ready', { app: this });
     });
+  }
+
+  /**
+   * Returns a signal that aborts with the app, or with the caller's own signal if given.
+   *
+   * @internal
+   */
+  _bindSignal(signal?: AbortSignal): AbortSignal {
+    const appSignal = this._abortController.signal;
+    return signal ? AbortSignal.any([appSignal, signal]) : appSignal;
   }
 
   /**

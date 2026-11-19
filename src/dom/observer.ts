@@ -1,6 +1,12 @@
 import type { RouseApp } from '../app';
-import { hasDirective, queryTargets, unknownDirectiveNames } from '../core/elements';
+import {
+  directiveSelector,
+  hasDirective,
+  queryTargets,
+  unknownDirectiveNames,
+} from '../core/elements';
 import { warn } from '../core/diagnostics';
+import { hasPlugin, needsPlugin, PLUGIN_DIRECTIVES } from '../core/plugins';
 import { SCOPE_SELECTOR } from '../directives/rz-scope';
 import { rzStore } from '../directives/rz-store';
 import {
@@ -28,8 +34,8 @@ const mountedDirectives = new Set<StandaloneDirective>();
 
 /**
  * Warns for each `data-rz-*` attribute in `root`'s subtree, root included, that isn't a
- * directive. An attribute set on an element already in the page, and `<template>`
- * content before it's inserted, go unchecked.
+ * directive, or whose plugin isn't installed in `app`. An attribute set on an element
+ * already in the page, and `<template>` content before it's inserted, go unchecked.
  */
 function warnUnknownDirectives(root: Element, app: RouseApp) {
   for (const el of queryTargets(root, '*')) {
@@ -42,6 +48,13 @@ function warnUnknownDirectives(root: Element, app: RouseApp) {
       ),
     );
   }
+
+  PLUGIN_DIRECTIVES.forEach((plugin, slug) => {
+    if (hasPlugin(app, plugin)) return;
+    forEachOwned(root, directiveSelector(slug), app, (el) =>
+      warn(`rz-${slug}: ${needsPlugin(plugin)}`, el),
+    );
+  });
 }
 
 /** Runs `fn` on each match of `selector` in `root`'s subtree, root included, that belongs to `app`. */

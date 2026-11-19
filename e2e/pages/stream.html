@@ -4,6 +4,7 @@
     <meta charset="utf-8" />
     <title>Stream</title>
     <script>
+      window.plugins = ['sse'];
       window.opens = 0;
       window.setup = (app) => app.on('rz:sse:open', () => window.opens++);
     </script>

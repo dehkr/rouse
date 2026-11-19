@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from 'vite-plus/test';
+import { sse as ssePlugin } from '../../../src/plugins/sse';
 import { delay, sse, worker } from '../helpers/network';
 import { mount } from '../helpers/mount';
+
+/** Mounts with the sse plugin installed. */
+const mountSse: typeof mount = (html, options) =>
+  mount(html, { ...options, plugins: [ssePlugin] });
 
 /** The part of MSW's stream client the tests use, open to any event name. */
 interface Client {
@@ -31,14 +36,14 @@ function stream(path: string) {
 describe('rz-sse', () => {
   it('places unnamed HTML messages into the host by default', async () => {
     const s = stream('/api/events');
-    const { $ } = await mount(`<div data-rz-sse="ready: /api/events"></div>`);
+    const { $ } = await mountSse(`<div data-rz-sse="ready: /api/events"></div>`);
     (await s.open()).send({ data: '<b>one</b>' });
     await expect.poll(() => $('div').innerHTML).toBe('<b>one</b>');
   });
 
   it('deposits unnamed JSON messages into a store', async () => {
     const s = stream('/api/feed');
-    const { $ } = await mount(`
+    const { $ } = await mountSse(`
       <script type="application/json" data-rz-store="feed"
         data-rz-sse="ready: /api/feed" data-rz-deposit="@feed">{ "n": 0, "title": "a" }</script>
       <b data-rz-text="@feed.n"></b>
@@ -52,7 +57,7 @@ describe('rz-sse', () => {
     const ancestor = vi.fn();
     const beside = vi.fn();
     const besideRoot = vi.fn();
-    await mount(
+    await mountSse(
       `<div data-rz-scope="s">
         <article data-rz-on="sse-[tick]: ancestor">
           <section data-rz-sse="ready: /api/ticks" data-rz-place="null"></section>
@@ -72,7 +77,7 @@ describe('rz-sse', () => {
   it('closes the stream on an rz-close trigger', async () => {
     const s = stream('/api/job');
     const reasons: unknown[] = [];
-    const { $ } = await mount(
+    const { $ } = await mountSse(
       `<div data-rz-sse="ready: /api/job" data-rz-close="sse-[done]"></div>`,
       { setup: (a) => a.on('rz:sse:close', (e) => reasons.push(e.detail.reason)) },
     );
@@ -87,7 +92,7 @@ describe('rz-sse', () => {
 
   it('shares one connection between elements on the same URL', async () => {
     const s = stream('/api/shared');
-    const { root } = await mount(`
+    const { root } = await mountSse(`
       <div class="a" data-rz-sse="ready: /api/shared"></div>
       <div class="b" data-rz-sse="ready: /api/shared"></div>
     `);
@@ -101,7 +106,7 @@ describe('rz-sse', () => {
   it('closes with reason teardown from app.root when the host leaves the DOM', async () => {
     const s = stream('/api/live');
     const closes: CustomEvent[] = [];
-    const { $, root } = await mount(`<div data-rz-sse="ready: /api/live"></div>`, {
+    const { $, root } = await mountSse(`<div data-rz-sse="ready: /api/live"></div>`, {
       setup: (a) => a.on('rz:sse:close', (e) => closes.push(e)),
     });
     const host = $('div');
@@ -115,7 +120,7 @@ describe('rz-sse', () => {
   it('opens a stream from app.sse and stops on close', async () => {
     const s = stream('/api/prog');
     const messages: unknown[] = [];
-    const { app } = await mount('', {
+    const { app } = await mountSse('', {
       setup: (a) => a.on('rz:sse:message', (e) => messages.push(e.detail.data)),
     });
     const close = app.sse('/api/prog');
@@ -127,5 +132,48 @@ describe('rz-sse', () => {
     client.send({ data: 'after' });
     await delay(30);
     expect(messages).toHaveLength(1);
+  });
+});
+
+describe('without the sse plugin', () => {
+  const HINT = 'needs the sse plugin. Install it with rouse({ plugins: [sse] }).';
+
+  it('warns for rz-sse and opens no stream', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    // An unmocked request under /api/ fails the test, so this also proves no connection
+    const { $ } = await mount(`<div data-rz-sse="ready: /api/none"></div>`);
+
+    expect(warn).toHaveBeenCalledOnce();
+    expect(warn).toHaveBeenCalledWith(`[Rouse] rz-sse: ${HINT}`, $('div'));
+  });
+
+  it('warns for an sse trigger in markup and from app.on', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { app, $ } = await mount(`<a data-rz-fetch="sse-[ping]: /api/none"></a>`);
+
+    expect(warn).toHaveBeenCalledWith(`[Rouse] The 'sse' trigger ${HINT}`, $('a'));
+
+    app.on({ sse: 'ping' }, () => {});
+    expect(warn).toHaveBeenCalledTimes(2);
+  });
+
+  it('throws an install hint from app.sse()', async () => {
+    const { app } = await mount('');
+
+    expect(() => app.sse('/api/none')).toThrow(`[Rouse] app.sse() ${HINT}`);
+  });
+
+  it('streams only in the app that installed it', async () => {
+    const s = stream('/api/shared');
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const markup = `<div data-rz-sse="ready: /api/shared"></div>`;
+    const withPlugin = await mountSse(markup);
+    const without = await mount(markup);
+
+    (await s.open()).send({ data: '<b>hi</b>' });
+
+    await expect.poll(() => withPlugin.$('div').innerHTML).toBe('<b>hi</b>');
+    expect(without.$('div').innerHTML).toBe('');
+    expect(warn).toHaveBeenCalledOnce();
   });
 });

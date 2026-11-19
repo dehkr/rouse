@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vite-plus/test';
+import { sse as ssePlugin } from '../../../src/plugins/sse';
 import { delay, HttpResponse, http, sse, worker } from '../helpers/network';
 import { mount } from '../helpers/mount';
 
@@ -25,7 +26,7 @@ describe('event origins for detached elements', () => {
     worker.use(sse('/api/live', () => {}));
     const { app, $, root } = await mount(
       `<section data-rz-scope="s" data-rz-sse="ready: /api/live"></section>`,
-      { scopes: { s: () => ({}) } },
+      { scopes: { s: () => ({}) }, plugins: [ssePlugin] },
     );
     const events = [...SCOPE_TEARDOWN, 'rz:sse:close'];
     const onHost = record($('section'), events);

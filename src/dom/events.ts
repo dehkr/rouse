@@ -19,14 +19,13 @@ import { getDirectiveValue } from '../core/elements';
 import { STORE_PREFIX } from '../core/constants';
 import { warn } from '../core/diagnostics';
 import { parseStoreRef, parseTriggers } from '../core/parser';
+import { hasPlugin, needsPlugin, PLUGIN_TRIGGERS } from '../core/plugins';
 import { getPathRoot } from '../core/path';
 import { applyTiming, parseTime } from '../core/timing';
-import { subscribeNamed } from '../net/sse-engine';
 import type {
   ActionFn,
   EventCallback,
   ListenerOptions,
-  SseMessageDetail,
   TriggerArg,
   TriggerDef,
   TriggerDescriptor,
@@ -247,6 +246,15 @@ export function dispatchTrigger(
     });
 
     return wrapCleanup(cleanup);
+  }
+
+  // Falls through to a DOM listener, as any unregistered name does, so the dev and
+  // min builds behave the same
+  if (__DEV__) {
+    const plugin = PLUGIN_TRIGGERS.get(trigger.event);
+    if (plugin && !hasPlugin(base.app, plugin)) {
+      warn(`The '${trigger.event}' trigger ${needsPlugin(plugin)}`, base.el);
+    }
   }
 
   const cleanup = attachListener(
@@ -514,46 +522,6 @@ export const triggerSources: Record<string, TriggerSource> = {
       events.forEach((evt) => el.addEventListener(evt, action, { passive: true }));
 
       return () => events.forEach((evt) => el.removeEventListener(evt, action));
-    },
-  },
-
-  /**
-   * Fires on a stream message with the named event: `sse-[cart-updated]`.
-   * Listens on the element, which hears its own stream and its descendants'.
-   * `|root` widens it to every stream in the app.
-   *
-   * Subscribing is what makes the name observable.
-   */
-  sse: {
-    attach: ({ el, app, arg: name, options, action }) => {
-      if (typeof name !== 'string' || !name) {
-        if (__DEV__) {
-          warn(
-            `The 'sse' trigger requires an event name: 'sse-[cart-updated]' in HTML, or { sse: 'cart-updated' } from app.on.`,
-            el,
-          );
-        }
-        return null;
-      }
-
-      subscribeNamed(name);
-
-      // Listens on the element unless given `|root`, so a stream's `done` can't close
-      // another stream's `rz-close`. Don't move the default to the root. The name is
-      // filtered from the detail rather than spelled into an `rz:sse:${name}` event,
-      // which would collide with the connection events and lose its modifiers.
-      const target = resolveListenerTarget(el, options, app);
-
-      const handler = (e: Event) => {
-        const { detail } = e as CustomEvent<SseMessageDetail>;
-        if (detail.event === name) {
-          action(e);
-        }
-      };
-
-      target.addEventListener('rz:sse:message', handler);
-
-      return () => target.removeEventListener('rz:sse:message', handler);
     },
   },
 
