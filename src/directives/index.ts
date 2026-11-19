@@ -29,8 +29,6 @@ export { rzModel } from './rz-model';
 export { rzOn } from './rz-on';
 export { rzPlace } from './rz-place';
 export { rzProp } from './rz-prop';
-export { rzPull } from './rz-pull';
-export { rzPush } from './rz-push';
 export { rzRender } from './rz-render';
 export { rzRequest } from './rz-request';
 export { rzScope } from './rz-scope';
@@ -41,8 +39,6 @@ export { rzText } from './rz-text';
 export { rzWake } from './rz-wake';
 
 import { rzFetch } from './rz-fetch';
-import { rzPull } from './rz-pull';
-import { rzPush } from './rz-push';
 
 /** Core's network ops, copied into each app's `_networkDirectives` at creation. */
-export const NETWORK_DIRECTIVES = [rzFetch, rzPush, rzPull];
+export const NETWORK_DIRECTIVES = [rzFetch];

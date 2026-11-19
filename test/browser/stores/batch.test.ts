@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import { effect, reactive } from '../../../src/index';
 import { delay, HttpResponse, http, worker } from '../helpers/network';
 import { mount, nextMicrotask } from '../helpers/mount';
+import { sync } from '../../../src/plugins/sync';
 
 const stops: Array<() => void> = [];
 
@@ -26,6 +27,7 @@ afterEach(() => {
 
 const mountAbc = () =>
   mount('', {
+    plugins: [sync],
     setup: (a) => a.store('abc', { a: 0, b: 0, c: 0 }, { url: '/api/abc' }),
   });
 
@@ -150,6 +152,7 @@ describe('effects that write store data', () => {
   it('mark the store dirty and fire edit when reacting to a deposit', async () => {
     const edits = vi.fn();
     const { app } = await mount('', {
+      plugins: [sync],
       setup: (a) => {
         a.store('list', { items: [] as number[] });
         a.on({ edit: 'list' }, edits);
@@ -176,6 +179,7 @@ describe('effects that write store data', () => {
       }),
     );
     const { app } = await mount('', {
+      plugins: [sync],
       setup: (a) => {
         a.store('list', { items: [] as number[] }, { url: '/api/list' });
         a.on({ edit: 'list' }, () => a.stores.push('list'));

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { reactive, rouse } from '../../../src/index';
 import type { RouseApp } from '../../../src/app';
 import { mount, nextFrame, nextMicrotask } from '../helpers/mount';
+import { sync } from '../../../src/plugins/sync';
 
 const KEY = 'rouse-persist-test';
 const saved = () => JSON.parse(localStorage.getItem(KEY)!);
@@ -85,6 +86,7 @@ describe('persisted store', () => {
   it('restores on creation, and reset() restores the declared data', async () => {
     localStorage.setItem(KEY, JSON.stringify({ theme: 'dark' }));
     const { app, $ } = await mount(`<span data-rz-text="@prefs.theme"></span>`, {
+      plugins: [sync],
       setup: (app) => app.store('prefs', { theme: 'light' }, persist),
     });
 
@@ -142,7 +144,7 @@ describe('persisted store', () => {
   });
 
   it('throws with a url, or without a persistKey', async () => {
-    const { app } = await mount('');
+    const { app } = await mount('', { plugins: [sync] });
 
     expect(() => app.store('a', {}, { ...persist, url: '/api/prefs' })).toThrow(/url/);
     expect(() => app.store('b', {}, { persist: 'local' } as any)).toThrow(/persistKey/);
@@ -152,6 +154,7 @@ describe('persisted store', () => {
 
   it('throws when config() adds a url to a persisted store', async () => {
     const { app } = await mount('', {
+      plugins: [sync],
       setup: (app) => app.store('prefs', {}, persist),
     });
 

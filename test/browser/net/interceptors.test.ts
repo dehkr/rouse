@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vite-plus/test';
 import { delay, HttpResponse, http, worker } from '../helpers/network';
 import { mount } from '../helpers/mount';
+import { sync } from '../../../src/plugins/sync';
 
 describe('interceptors', () => {
   it('lets an async request interceptor add a header', async () => {
@@ -112,6 +113,7 @@ describe('interceptors', () => {
     worker.use(http.patch('/api/s', () => HttpResponse.json({})));
     const headers = vi.fn();
     const { app } = await mount('', {
+      plugins: [sync],
       setup: (a) => {
         a.store('s', { v: 0 }, { url: '/api/s' });
         a.interceptor('request', (config) => {

@@ -2,6 +2,7 @@ import type { Scope } from '../types';
 import { ITEM_PREFIX, isItemNamespace, STORE_PREFIX } from './constants';
 import { warn } from './diagnostics';
 import { parseDataSourcePath } from './parser';
+import { needsPlugin, PLUGIN_NAMESPACES } from './plugins';
 import { getNestedVal, getPathParts, setNestedVal } from './path';
 import { renderFrame, renderItem, renderParent } from './render-context';
 import type { StoreManager } from '../store';
@@ -10,6 +11,8 @@ import type { StoreManager } from '../store';
 // it, which freezing would turn into a throw
 export const EMPTY_SCOPE = {} as Scope;
 const warnedWrites = new Set<string>();
+// Latched per app: a missing namespace would otherwise warn on every effect run
+const warnedNamespaces = new WeakSet<StoreManager>();
 
 /**
  * Resolves a path against a global store, a local scope, or a render item. Never
@@ -67,7 +70,17 @@ function resolveStoreNamespace(
   namespace: string,
   storeManager: StoreManager,
 ) {
-  return storeManager._namespaces.get(namespace)?.(storeName);
+  const resolver = storeManager._namespaces.get(namespace);
+
+  if (__DEV__ && !resolver && !warnedNamespaces.has(storeManager)) {
+    const plugin = PLUGIN_NAMESPACES.get(namespace);
+    if (plugin) {
+      warnedNamespaces.add(storeManager);
+      warn(`'@${storeName}::${namespace}' ${needsPlugin(plugin)}`);
+    }
+  }
+
+  return resolver?.(storeName);
 }
 
 /**

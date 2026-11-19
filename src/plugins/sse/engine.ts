@@ -26,7 +26,7 @@ import type {
   SseOptions,
   VoidFn,
 } from '../../types';
-import { core } from './core';
+import { core } from '../core';
 
 /** Releases one reference to a stream. Assignable to `VoidFn`. */
 export type SseRelease = (reason?: SseCloseReason) => void;

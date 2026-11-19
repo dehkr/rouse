@@ -1,4 +1,4 @@
-import type { CoreApi } from '../../plugin-api';
+import type { CoreApi } from '../plugin-api';
 
 /** Core's shared functions, set at the first install. Every app passes the same object. */
 export let core: CoreApi;

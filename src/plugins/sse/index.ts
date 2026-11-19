@@ -1,5 +1,5 @@
 import type { RousePlugin, RouseSse } from 'rousejs';
-import { setCore } from './core';
+import { setCore } from '../core';
 import { openBoundStream } from './engine';
 import { rzSse } from './rz-sse';
 import { sseSource } from './trigger';

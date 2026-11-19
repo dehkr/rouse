@@ -1,6 +1,6 @@
 import { getDirectiveValue } from '../../core/elements';
 import type { ConfigDirective, TriggerDef } from '../../types';
-import { core } from './core';
+import { core } from '../core';
 
 /**
  * Returns the triggers that close the stream `rz-sse` opened on the same element.

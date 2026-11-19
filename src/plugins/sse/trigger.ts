@@ -1,7 +1,7 @@
 import { warn } from '../../core/diagnostics';
 import type { TriggerSource } from '../../dom/events';
 import type { SseMessageDetail } from '../../types';
-import { core } from './core';
+import { core } from '../core';
 import { subscribeNamed } from './engine';
 
 /**

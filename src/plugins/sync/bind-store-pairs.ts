@@ -1,10 +1,11 @@
-import type { RouseApp } from '../app';
-import { hasDirective, isDisabled } from '../core/elements';
-import { STORE_PREFIX } from '../core/constants';
-import { warn } from '../core/diagnostics';
-import { parseStoreRef } from '../core/parser';
-import { dispatchTrigger } from '../dom/events';
-import type { TriggerSubjectPair, VoidFn } from '../types';
+import type { RouseApp } from '../../app';
+import { STORE_PREFIX } from '../../core/constants';
+import { warn } from '../../core/diagnostics';
+import { hasDirective, isDisabled } from '../../core/elements';
+import { parseStoreRef } from '../../core/parser';
+import type { TriggerSubjectPair, VoidFn } from '../../types';
+import { core } from '../core';
+import { syncFor } from './manager';
 
 /**
  * Binds each `[trigger]: @store` pair to a push or pull. The push `edit`
@@ -53,7 +54,7 @@ export function bindStorePairs(
         }
       : sync;
 
-    return [dispatchTrigger(trigger, { el, app, action: fire })];
+    return [core.dispatchTrigger(trigger, { el, app, action: fire })];
   });
 }
 
@@ -138,7 +139,7 @@ function triggerStoreSync(
     // The follow-up re-enters here, so a trigger gone or disabled by then is still
     // dropped, and its events fire from the element the user acted on.
     if (op === 'push') {
-      app.stores._deferPush(storeName, () =>
+      syncFor(app).deferPush(storeName, () =>
         triggerStoreSync(op, triggerEl, app, storeName),
       );
     }

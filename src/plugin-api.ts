@@ -19,17 +19,26 @@ import { defineNetworkOpDirective } from './directives/define-network-op';
 import { parseTriggers } from './core/parser';
 import { dispatchTrigger } from './dom/events';
 import { resolveListenerTarget } from './dom/modifiers';
+import { runRequestLifecycle } from './net/lifecycle';
 import { resolveUrl } from './net/payload';
+import { request } from './net/request';
+import { fallbackResponse } from './net/response';
+import { batch, reactive } from './reactivity/reactive';
 
 export type { PluginName };
 
 /** Core functions a plugin uses. The same object for every app. */
 export interface CoreApi {
+  batch: typeof batch;
   defineNetworkOpDirective: typeof defineNetworkOpDirective;
   dispatchTrigger: typeof dispatchTrigger;
+  fallbackResponse: typeof fallbackResponse;
   parseTriggers: typeof parseTriggers;
+  reactive: typeof reactive;
+  request: typeof request;
   resolveListenerTarget: typeof resolveListenerTarget;
   resolveUrl: typeof resolveUrl;
+  runRequestLifecycle: typeof runRequestLifecycle;
 }
 
 /** What core passes to `install`: the app being created, and core's shared functions. */
@@ -49,12 +58,31 @@ export interface RousePlugin {
   install(api: PluginApi): void;
 }
 
+// The methods the sync plugin adds to `app.stores`, stubbed in the dev build without it
+const SYNC_METHODS = [
+  'baseline',
+  'status',
+  'isDirty',
+  'dirtyRoots',
+  'config',
+  'push',
+  'pull',
+  'reset',
+  'revert',
+  'commit',
+];
+
 const core: CoreApi = {
+  batch,
   defineNetworkOpDirective,
   dispatchTrigger,
+  fallbackResponse,
   parseTriggers,
+  reactive,
+  request,
   resolveListenerTarget,
   resolveUrl,
+  runRequestLifecycle,
 };
 
 /**
@@ -85,6 +113,12 @@ export function resolvePlugins(plugins: readonly RousePlugin[] = []): RousePlugi
 export function installPlugins(app: RouseApp, plugins: readonly RousePlugin[]): void {
   if (__DEV__ && !hasPlugin(app, 'sse')) {
     (app as any).sse = () => fail(`app.sse() ${needsPlugin('sse')}`);
+  }
+  if (__DEV__ && !hasPlugin(app, 'sync')) {
+    SYNC_METHODS.forEach((method) => {
+      (app.stores as any)[method] = () =>
+        fail(`app.stores.${method}() ${needsPlugin('sync')}`);
+    });
   }
 
   plugins.forEach((plugin) => plugin.install({ app, core }));

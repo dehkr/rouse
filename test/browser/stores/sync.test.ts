@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from 'vite-plus/test';
 import { delay, HttpResponse, http, worker } from '../helpers/network';
-import { mount } from '../helpers/mount';
+import { mount as mountCore } from '../helpers/mount';
+import { sync } from '../../../src/plugins/sync';
+
+const mount: typeof mountCore = (html, options) =>
+  mountCore(html, { ...options, plugins: [sync] });
 
 describe('store push', () => {
   it('sends the whole store as a merge-patch PATCH with sync headers', async () => {

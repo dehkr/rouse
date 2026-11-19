@@ -6,7 +6,7 @@ import type {
   TriggerSubjectPair,
   VoidFn,
 } from '../../types';
-import { core } from './core';
+import { core } from '../core';
 import { openStream, type SseRelease } from './engine';
 import { rzClose } from './rz-close';
 
