@@ -17,8 +17,6 @@
  */
 import type { RouseApp } from '../../app';
 import { dispatchFrom } from '../../core/dispatch';
-import { safeJSONParse } from '../../core/parser';
-import { isPlainObject } from '../../core/state';
 import type {
   LifecycleEventMap,
   SseCloseReason,
@@ -224,7 +222,7 @@ function onMessage(entry: StreamEntry, event: string, e: MessageEvent) {
     // Routing before the trigger source, so an `sse-[name]` handler observes the
     // DOM already placed. The sub-event leading its parent is deliberate.
     if (routable) {
-      if (Array.isArray(data) || isPlainObject(data)) {
+      if (Array.isArray(data) || core.isPlainObject(data)) {
         dispatchFrom(ref.el, ref.root, 'rz:sse:message:json', { ...base, data });
       } else {
         dispatchFrom(ref.el, ref.root, 'rz:sse:message:html', { ...base, data: raw });
@@ -319,7 +317,7 @@ function parseMessageData(raw: string): unknown {
   if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) return raw;
 
   try {
-    return safeJSONParse(trimmed);
+    return core.safeJSONParse(trimmed);
   } catch {
     return raw;
   }

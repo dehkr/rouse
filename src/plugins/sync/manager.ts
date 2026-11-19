@@ -24,8 +24,6 @@
  */
 import type { RouseApp } from '../../app';
 import { err, fail, warn } from '../../core/diagnostics';
-import { getNestedVal, getPathRoot, setNestedVal } from '../../core/path';
-import { clone, deepEqual, hasAccessor, patchState } from '../../core/state';
 import type { LifecycleHandle } from '../../net/lifecycle';
 import type {
   StoreEntry,
@@ -60,7 +58,7 @@ interface InFlight {
  * Returns the nested slice at `path`, or the whole object when no path is given.
  */
 function sliceAt(obj: any, path?: string) {
-  return path ? getNestedVal(obj, path) : obj;
+  return path ? core.getNestedVal(obj, path) : obj;
 }
 
 /** Copies the fields a store's status exposes from a request error. Replaced whole, never mutated. */
@@ -70,7 +68,7 @@ function storeError(error: RequestError | null): StoreStatus['error'] {
 
 /** The one root a path-level write can change, or `undefined` for the whole store. */
 function rootsFor(path?: string): string[] | undefined {
-  return path ? [getPathRoot(path) as string] : undefined;
+  return path ? [core.getPathRoot(path) as string] : undefined;
 }
 
 /**
@@ -179,7 +177,7 @@ export class StoreSync {
         const entry = stored as SyncEntry;
         // Both restore targets are cloned from the patched data rather than the new
         // state, so they match what the store holds after the write
-        entry.initial = clone(entry.data);
+        entry.initial = core.clone(entry.data);
         this._updateLastGood(entry, entry.data);
       },
       patched: (entry, roots) => this._reconcileDirty(entry as SyncEntry, roots),
@@ -219,7 +217,7 @@ export class StoreSync {
    * that move with it.
    */
   private _updateLastGood(entry: SyncEntry, source: any) {
-    entry.lastGood = clone(source);
+    entry.lastGood = core.clone(source);
     this._reconcileDirty(entry);
   }
 
@@ -233,7 +231,7 @@ export class StoreSync {
     // the shape, so a key that's a getter on the store isn't stored as data, where a
     // nested one would read dirty forever.
     entry.lastGood ??= {};
-    patchState(entry.lastGood, clone(payload), 'merge', entry.data);
+    core.patchState(entry.lastGood, core.clone(payload), 'merge', entry.data);
     this._reconcileDirty(entry);
   }
 
@@ -259,9 +257,9 @@ export class StoreSync {
         // Accessors and methods are absent from `lastGood` (clone strips them), so
         // comparing them would mark every getter permanently dirty. A key missing
         // from `data` entirely is a deleted root and must still be compared.
-        if (hasAccessor(data, key)) continue;
+        if (core.hasAccessor(data, key)) continue;
 
-        if (deepEqual(data[key], baseline[key])) {
+        if (core.deepEqual(data[key], baseline[key])) {
           delete status.dirtyRoots[key];
         } else {
           status.dirtyRoots[key] = true;
@@ -274,7 +272,7 @@ export class StoreSync {
 
   /** Returns `true` when the data at `path`, or the whole store, differs from `lastGood`. */
   private _isSliceDirty(entry: SyncEntry, path?: string): boolean {
-    return !deepEqual(sliceAt(entry.data, path), sliceAt(entry.lastGood, path));
+    return !core.deepEqual(sliceAt(entry.data, path), sliceAt(entry.lastGood, path));
   }
 
   /**
@@ -346,7 +344,7 @@ export class StoreSync {
     // would send edits made after the snapshot, and the values of its getters. Listeners
     // and interceptors see it as a JSON string; editing it sends something other than
     // what the baseline advances to.
-    const snapshot = clone(data);
+    const snapshot = core.clone(data);
 
     if (operation === 'push') {
       requestOptions.body = JSON.stringify(snapshot);
@@ -522,7 +520,7 @@ export class StoreSync {
     const hasBody = payload && typeof payload === 'object';
 
     // Local state moved mid-flight; keep the edit and skip the echo
-    if (hasBody && !deepEqual(data, snapshot)) {
+    if (hasBody && !core.deepEqual(data, snapshot)) {
       this.stores._dispatchPatchEvent(entry, 'rz:store:patch:skipped', {
         storeName,
         operation,
@@ -567,7 +565,7 @@ export class StoreSync {
    */
   baseline<T = any>(storeName: string | null | undefined): T | undefined {
     const lastGood = this._find(storeName)?.lastGood;
-    return lastGood ? clone(lastGood) : undefined;
+    return lastGood ? core.clone(lastGood) : undefined;
   }
 
   /**
@@ -593,7 +591,7 @@ export class StoreSync {
 
     // A path is checked as its root, which can only over-report. That's safer than a
     // `false` that reads as no unsaved changes.
-    const key = getPathRoot(root) as string;
+    const key = core.getPathRoot(root) as string;
     if (__DEV__ && key !== root) {
       warn(
         `Store '${storeName}': isDirty() takes a root key, not a path. Checking '${key}' for '${root}'.`,
@@ -675,7 +673,7 @@ export class StoreSync {
     if (!entry || !flight) return;
 
     // Without this check, a remembered second click would send an edit made after it
-    if (deepEqual(entry.data, this._expectedBaseline(entry, flight))) {
+    if (core.deepEqual(entry.data, this._expectedBaseline(entry, flight))) {
       return;
     }
 
@@ -723,7 +721,7 @@ export class StoreSync {
     const entry = this._getStore(storeName, 'reset');
     if (!entry) return;
 
-    this.stores._reseed(entry, clone(entry.initial));
+    this.stores._reseed(entry, core.clone(entry.initial));
   }
 
   /**
@@ -738,14 +736,14 @@ export class StoreSync {
     if (!entry) return false;
     if (!this._isSliceDirty(entry, path)) return false;
 
-    const value = clone(sliceAt(entry.lastGood, path));
+    const value = core.clone(sliceAt(entry.lastGood, path));
     this.stores._withPatchGuard(
       entry,
       () => {
         if (path) {
-          setNestedVal(entry.data, path, value);
+          core.setNestedVal(entry.data, path, value);
         } else {
-          patchState(entry.data, value, 'replace');
+          core.patchState(entry.data, value, 'replace');
         }
       },
       rootsFor(path),

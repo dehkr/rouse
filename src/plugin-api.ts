@@ -16,7 +16,9 @@ import type { RouseApp } from './app';
 import { fail } from './core/diagnostics';
 import { hasPlugin, needsPlugin, type PluginName } from './core/plugins';
 import { defineNetworkOpDirective } from './directives/define-network-op';
-import { parseTriggers } from './core/parser';
+import { parseStoreRef, parseTriggers, safeJSONParse } from './core/parser';
+import { getNestedVal, getPathRoot, setNestedVal } from './core/path';
+import { clone, deepEqual, hasAccessor, isPlainObject, patchState } from './core/state';
 import { dispatchTrigger } from './dom/events';
 import { resolveListenerTarget } from './dom/modifiers';
 import { runRequestLifecycle } from './net/lifecycle';
@@ -30,15 +32,25 @@ export type { PluginName };
 /** Core functions a plugin uses. The same object for every app. */
 export interface CoreApi {
   batch: typeof batch;
+  clone: typeof clone;
+  deepEqual: typeof deepEqual;
   defineNetworkOpDirective: typeof defineNetworkOpDirective;
   dispatchTrigger: typeof dispatchTrigger;
   fallbackResponse: typeof fallbackResponse;
+  getNestedVal: typeof getNestedVal;
+  getPathRoot: typeof getPathRoot;
+  hasAccessor: typeof hasAccessor;
+  isPlainObject: typeof isPlainObject;
+  parseStoreRef: typeof parseStoreRef;
   parseTriggers: typeof parseTriggers;
+  patchState: typeof patchState;
   reactive: typeof reactive;
   request: typeof request;
   resolveListenerTarget: typeof resolveListenerTarget;
   resolveUrl: typeof resolveUrl;
   runRequestLifecycle: typeof runRequestLifecycle;
+  safeJSONParse: typeof safeJSONParse;
+  setNestedVal: typeof setNestedVal;
 }
 
 /** What core passes to `install`: the app being created, and core's shared functions. */
@@ -74,15 +86,25 @@ const SYNC_METHODS = [
 
 const core: CoreApi = {
   batch,
+  clone,
+  deepEqual,
   defineNetworkOpDirective,
   dispatchTrigger,
   fallbackResponse,
+  getNestedVal,
+  getPathRoot,
+  hasAccessor,
+  isPlainObject,
+  parseStoreRef,
   parseTriggers,
+  patchState,
   reactive,
   request,
   resolveListenerTarget,
   resolveUrl,
   runRequestLifecycle,
+  safeJSONParse,
+  setNestedVal,
 };
 
 /**

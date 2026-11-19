@@ -2,7 +2,6 @@ import type { RouseApp } from '../../app';
 import { STORE_PREFIX } from '../../core/constants';
 import { warn } from '../../core/diagnostics';
 import { hasDirective, isDisabled } from '../../core/elements';
-import { parseStoreRef } from '../../core/parser';
 import type { TriggerSubjectPair, VoidFn } from '../../types';
 import { core } from '../core';
 import { syncFor } from './manager';
@@ -83,7 +82,7 @@ function resolveTarget(
     return null;
   }
 
-  const target = parseStoreRef(subject, op);
+  const target = core.parseStoreRef(subject, op);
   if (!target) {
     return null;
   }

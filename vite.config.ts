@@ -78,8 +78,9 @@ export default defineConfig({
         },
       },
       {
-        // A plugin bundles what it imports, so a stateful module would run twice. Stateless
-        // core helpers are allowed; everything else reaches the plugin through `install`.
+        // A plugin bundles what it imports, so a stateful module would run twice, and a
+        // shared helper would ship twice on a page with both plugins. Only small stateless
+        // leaf modules are allowed; everything else reaches the plugin through `install`.
         files: ['src/plugins/**'],
         rules: {
           'no-restricted-imports': [
@@ -93,9 +94,6 @@ export default defineConfig({
                     '!../../core/diagnostics',
                     '!../../core/dispatch',
                     '!../../core/elements',
-                    '!../../core/parser',
-                    '!../../core/path',
-                    '!../../core/state',
                     'rousejs',
                     'alien-signals',
                   ],
