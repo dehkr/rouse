@@ -6,9 +6,8 @@ import type {
   SyncRequest,
 } from 'rousejs';
 import { setCore } from '../core';
+import { defineSyncOpDirective } from './define-sync-op';
 import { StoreSync } from './manager';
-import { rzPull } from './rz-pull';
-import { rzPush } from './rz-push';
 
 declare module 'rousejs' {
   interface StoreManager {
@@ -147,7 +146,7 @@ export const sync: RousePlugin = {
       (stores as Record<SyncMethod, unknown>)[method] = storeSync[method].bind(storeSync);
     });
 
-    app._networkDirectives.add(rzPush());
-    app._networkDirectives.add(rzPull());
+    app._networkDirectives.add(defineSyncOpDirective('push'));
+    app._networkDirectives.add(defineSyncOpDirective('pull'));
   },
 };

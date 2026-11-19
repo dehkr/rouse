@@ -1,10 +1,12 @@
 /*
  * One directive per `rz-<slug>.ts`, holding everything specific to it. Shared code gets
  * a module named for what it is: a factory (`define-<what-it-makes>.ts`) or a helper
- * belonging to no single directive (`bind-store-pairs.ts`). A shared module needs more
- * than one consumer; with one left, fold it back. A shared grammar alone is never a
- * reason to extract. Keep `as const satisfies …Directive` on each directive object, or
- * the slug widens to `string`.
+ * belonging to no single directive. A directive whose whole definition is one factory
+ * call gets no file of its own: the factory's module builds it (`rz-push` and `rz-pull`,
+ * in the sync plugin's `define-sync-op.ts`). A shared module needs more than one
+ * consumer; with one left, fold it back. A shared grammar alone is never a reason to
+ * extract. Keep `as const satisfies …Directive` on each directive object, or the slug
+ * widens to `string`.
  *
  * Adding a directive: its file here, its slug in `DIRECTIVE_SLUGS`, an export below,
  * and a `selector` if it's scanned. Then register it, or it's exported and never
