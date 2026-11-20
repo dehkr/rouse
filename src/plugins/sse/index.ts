@@ -30,7 +30,7 @@ export const sse: RousePlugin = {
   install({ app, core }) {
     setCore(core);
 
-    app._networkDirectives.add(rzSse());
+    app._addStandaloneDirective(rzSse);
     app._triggerSources.set('sse', sseSource);
 
     // Released when the app-lifetime signal or the caller's signal aborts

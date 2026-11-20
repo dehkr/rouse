@@ -11,27 +11,18 @@
  * finished, and an interceptor registered after the first scan would miss requests
  * that scan fires, such as `data-rz-fetch="ready"`.
  */
-import {
-  NETWORK_DIRECTIVES,
-  rzAttr,
-  rzClass,
-  rzHtml,
-  rzModel,
-  rzOn,
-  rzProp,
-  rzRender,
-  rzStyle,
-  rzText,
-} from './directives';
+import { BOUND_DIRECTIVES, STANDALONE_DIRECTIVES } from './directives';
 import {
   appAt,
   attachApp,
   detachApp,
+  isBoundSlug,
   registerBoundDirectives,
   teardownGlobalBindings,
 } from './dom/binder';
 import { on, type TriggerSource, triggerSources } from './dom/events';
 import {
+  addStandaloneSlug,
   initObserver,
   mountSubtree,
   releaseSubtree,
@@ -42,6 +33,7 @@ import { placeContent } from './dom/placer';
 import { runFetch } from './net/fetch-engine';
 import type {
   BoundOn,
+  DirectiveSlug,
   ErrorInterceptor,
   FetchRequest,
   InterceptorOptions,
@@ -113,17 +105,7 @@ function logBuildBanner() {
   info(`v${__VERSION__} development build. Switch to rouse.min.js in production.`);
 }
 
-registerBoundDirectives(
-  rzAttr,
-  rzClass,
-  rzHtml,
-  rzModel,
-  rzOn,
-  rzProp,
-  rzRender,
-  rzStyle,
-  rzText,
-);
+registerBoundDirectives(BOUND_DIRECTIVES);
 
 /**
  * A Rouse application instance. Holds the root element, the stores, the
@@ -176,12 +158,12 @@ export class RouseApp {
   public on: BoundOn;
 
   /**
-   * The network directives this app mounts. Core's are added at creation, and a
-   * plugin adds its own at install.
+   * The standalone directives this app mounts, by slug, in mount order. Core's are
+   * added at creation, and a plugin adds its own at install.
    *
    * @internal
    */
-  public _networkDirectives = new Set<StandaloneDirective>(NETWORK_DIRECTIVES);
+  public _standaloneDirectives = new Map<DirectiveSlug, StandaloneDirective>();
 
   /**
    * The trigger sources this app recognizes, by name. Core's are added at creation,
@@ -250,6 +232,7 @@ export class RouseApp {
 
     this.stores = new StoreManager(this);
     this._registry = new ScopeRegistry();
+    STANDALONE_DIRECTIVES.forEach((directive) => this._addStandaloneDirective(directive));
     this.isReady = false;
 
     // An enclosing app that already scanned this markup still owns its bindings, so it
@@ -527,6 +510,23 @@ export class RouseApp {
       this.isReady = true;
       dispatchFrom(this.root, this.root, 'rz:app:ready', { app: this });
     });
+  }
+
+  /**
+   * Adds a standalone directive for this app to mount.
+   *
+   * @throws If the slug is already registered, as a standalone or a bound directive.
+   * @internal
+   */
+  _addStandaloneDirective(directive: StandaloneDirective): void {
+    const { slug } = directive;
+    // A second directive on one slug would share its mount record entry, or act on
+    // the same attribute as a bound directive
+    if (this._standaloneDirectives.has(slug) || isBoundSlug(slug)) {
+      fail(`Directive 'rz-${slug}' is already registered in this app.`);
+    }
+    this._standaloneDirectives.set(slug, directive);
+    addStandaloneSlug(slug);
   }
 
   /**

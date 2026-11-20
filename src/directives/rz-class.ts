@@ -1,25 +1,6 @@
-import { effect } from 'alien-signals';
-import type { RouseApp } from '../app';
-import { directiveSelector } from '../core/elements';
-import { resolveBoundValue } from '../core/invoke';
 import { updateClass } from '../dom/updater';
-import type { BoundCleanupFn, BoundDirective, Scope } from '../types';
+import { writerDirective } from './define-bound-writer';
 
-function bind(
-  el: Element,
-  scope: Scope,
-  app: RouseApp,
-  key: string,
-  val: string,
-): BoundCleanupFn {
-  return effect(() => {
-    const resolvedValue = resolveBoundValue(val || key, scope, app.stores, el, 'class');
-    updateClass(el, val === '' ? resolvedValue : { [key]: !!resolvedValue });
-  }) as BoundCleanupFn;
-}
-
-export const rzClass = {
-  slug: 'class',
-  selector: directiveSelector('class'),
-  bind,
-} as const satisfies BoundDirective;
+export const rzClass = writerDirective('class', (el, key, resolved, value) =>
+  updateClass(el, value === '' ? resolved : { [key]: !!resolved }),
+);

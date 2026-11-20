@@ -16,7 +16,6 @@ import type { RouseApp } from './app';
 import type { SyncMethod } from './plugins/sync';
 import { fail } from './core/diagnostics';
 import { hasPlugin, needsPlugin, type PluginName } from './core/plugins';
-import { defineNetworkOpDirective } from './directives/define-network-op';
 import { parseStoreRef, parseTriggers, safeJSONParse } from './core/parser';
 import { getNestedVal, getPathRoot, setNestedVal } from './core/path';
 import { clone, hasAccessor, isPlainObject, patchState } from './core/state';
@@ -34,7 +33,6 @@ export type { PluginName };
 export interface CoreApi {
   batch: typeof batch;
   clone: typeof clone;
-  defineNetworkOpDirective: typeof defineNetworkOpDirective;
   dispatchTrigger: typeof dispatchTrigger;
   fallbackResponse: typeof fallbackResponse;
   getNestedVal: typeof getNestedVal;
@@ -88,7 +86,6 @@ const SYNC_METHODS: Record<SyncMethod, true> = {
 const core: CoreApi = {
   batch,
   clone,
-  defineNetworkOpDirective,
   dispatchTrigger,
   fallbackResponse,
   getNestedVal,

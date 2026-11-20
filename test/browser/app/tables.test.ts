@@ -1,16 +1,20 @@
 import { describe, expect, it, vi } from 'vite-plus/test';
 import type { RouseApp } from '../../../src/app';
 import type { TriggerSource } from '../../../src/dom/events';
-import type { StandaloneDirective } from '../../../src/types';
+import type { DirectiveSlug, StandaloneDirective, VoidFn } from '../../../src/types';
 import { mount, nextFrame } from '../helpers/mount';
 
-function probeDirective() {
-  return {
-    selector: '[data-probe]',
-    initialize: vi.fn(),
-    teardown: vi.fn(),
+/** A standalone directive on a slug core doesn't mount, with one cleanup per element. */
+function probeDirective(slug: DirectiveSlug = 'close') {
+  const cleanup = vi.fn();
+  const directive = {
+    slug,
+    mount: vi.fn((): VoidFn[] => [cleanup]),
   } satisfies StandaloneDirective;
+  return { directive, cleanup };
 }
+
+const PROBE = '<div data-rz-close="click: a"></div>';
 
 /** Mounts two sibling apps on `html`, with `extend` applied to the first only. */
 async function twoApps(html: string, extend: (app: RouseApp) => void) {
@@ -20,15 +24,17 @@ async function twoApps(html: string, extend: (app: RouseApp) => void) {
 }
 
 describe('per-app tables', () => {
-  it('mounts a network directive only in the app that added it', async () => {
-    const probe = probeDirective();
-    const { first, second } = await twoApps('<div data-probe></div>', (app) => {
-      app._networkDirectives.add(probe);
+  it('mounts a standalone directive only in the app that added it', async () => {
+    const { directive } = probeDirective();
+    const { first, second } = await twoApps(PROBE, (app) => {
+      app._addStandaloneDirective(directive);
     });
 
-    expect(probe.initialize).toHaveBeenCalledTimes(1);
-    expect(probe.initialize).toHaveBeenCalledWith(first.$('[data-probe]'), first.app);
-    expect(second.app._networkDirectives.has(probe)).toBe(false);
+    expect(directive.mount).toHaveBeenCalledTimes(1);
+    expect(directive.mount).toHaveBeenCalledWith(first.$('div'), first.app, [
+      { trigger: { event: 'click', options: {} }, subject: 'a' },
+    ]);
+    expect(second.app._standaloneDirectives.has('close')).toBe(false);
   });
 
   it('attaches a trigger source only in the app that added it', async () => {
@@ -56,28 +62,48 @@ describe('per-app tables', () => {
   });
 
   it('tears down a removed element without resolving its app', async () => {
-    const probe = probeDirective();
-    const { $ } = await mount('<section><div data-probe></div></section>', {
-      setup: (app) => app._networkDirectives.add(probe),
+    const { directive, cleanup } = probeDirective();
+    const { $ } = await mount(`<section>${PROBE}</section>`, {
+      setup: (app) => app._addStandaloneDirective(directive),
     });
-    const el = $('[data-probe]');
 
     // The removed subtree is detached when the observer runs, so it can't find its app
     $('section').remove();
     await nextFrame();
 
-    expect(probe.teardown).toHaveBeenCalledWith(el);
+    expect(cleanup).toHaveBeenCalledOnce();
   });
 
   it('tears down a directive the app added when the app is destroyed', async () => {
-    const probe = probeDirective();
-    const { app, $ } = await mount('<div data-probe></div>', {
-      setup: (app) => app._networkDirectives.add(probe),
+    const { directive, cleanup } = probeDirective();
+    const { app } = await mount(PROBE, {
+      setup: (app) => app._addStandaloneDirective(directive),
     });
-    const el = $('[data-probe]');
 
     app.destroy();
 
-    expect(probe.teardown).toHaveBeenCalledWith(el);
+    expect(cleanup).toHaveBeenCalledOnce();
+  });
+
+  it('tears down every standalone directive on a removed element, in mount order', async () => {
+    const torn: string[] = [];
+    const directive = (slug: DirectiveSlug): StandaloneDirective => ({
+      slug,
+      mount: () => [() => torn.push(slug)],
+    });
+    const { $ } = await mount(
+      '<section><div data-rz-close="click: a" data-rz-key="click: b"></div></section>',
+      {
+        setup: (app) => {
+          app._addStandaloneDirective(directive('close'));
+          app._addStandaloneDirective(directive('key'));
+        },
+      },
+    );
+
+    $('section').remove();
+    await nextFrame();
+
+    expect(torn).toEqual(['close', 'key']);
   });
 });

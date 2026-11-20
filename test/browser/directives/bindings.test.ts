@@ -204,3 +204,39 @@ describe('scope lifecycle', () => {
     expect(warn).not.toHaveBeenCalled();
   });
 });
+
+describe('re-scanned elements', () => {
+  /**
+   * Adds `html` inside a new wrapper in one task. The observer then mounts the
+   * wrapper's subtree and the inner element again, as two mutations.
+   */
+  function addTwice(root: HTMLElement, html: string) {
+    const wrapper = document.createElement('section');
+    root.append(wrapper);
+    wrapper.innerHTML = html;
+  }
+
+  it('mount a standalone directive that bound nothing once, warning once', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { root } = await mount('');
+
+    addTwice(root, '<div data-rz-fetch="click"></div>');
+    await nextFrame();
+
+    expect(warn).toHaveBeenCalledOnce();
+    expect(warn.mock.calls[0]![0]).toMatch(/^\[Rouse\] rz-fetch: no URL found/);
+  });
+
+  it('bind a global element that bound nothing once, warning once', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { root } = await mount('');
+
+    addTwice(root, '<div data-rz-attr="class: on"></div>');
+    await nextFrame();
+
+    expect(warn).toHaveBeenCalledOnce();
+    expect(warn.mock.calls[0]![0]).toBe(
+      "[Rouse] rz-attr: 'class' belongs on data-rz-class. Ignoring.",
+    );
+  });
+});

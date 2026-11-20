@@ -1,6 +1,6 @@
 import { updateProp } from '../dom/updater';
-import { defineBoundWriterDirective } from './define-bound-writer';
+import { writerDirective } from './define-bound-writer';
 
-export const rzProp = defineBoundWriterDirective('prop', (el, key, val) =>
-  updateProp(el, key, val),
+export const rzProp = writerDirective('prop', (el, key, resolved) =>
+  updateProp(el, key, resolved),
 );

@@ -486,12 +486,10 @@ export interface ConfigDirective<T> {
   getConfig: (el: Element, ...args: any[]) => T;
 }
 
-/** Represents a persistent data or event binding between the DOM and application state. */
+/** Bound to its scope's state, once per `key: value` segment. */
 export interface BoundDirective {
   /** The `rz-*` attribute name (prefix omitted) this directive handles. */
   slug: DirectiveSlug;
-  /** CSS selector string for elements with this directive. */
-  selector: string;
   /**
    * Bind only the first `[key: value]` segment, warning that the rest are ignored.
    * Set on directives that bind one subject per element, where extra comma-separated
@@ -512,14 +510,15 @@ export interface BoundDirective {
   ) => BoundCleanupFn | undefined;
 }
 
-/** A directive that manages its own explicit initialization and teardown lifecycle. */
-export interface StandaloneDirective<T extends Element = Element> {
-  /** CSS selector string for elements with this directive. */
-  selector: string;
-  /** Set up the directive on `el`. Called by the initial scan and the mutation observer's add branch. */
-  initialize: (el: T, app: RouseApp) => void;
-  /** Tear down the directive when `el` leaves the DOM. */
-  teardown: (el: T) => void;
+/** Owned by the app, mounted once per element from its `[trigger]: [subject]` pairs. */
+export interface StandaloneDirective {
+  /** The `rz-*` attribute name (prefix omitted) this directive handles. */
+  slug: DirectiveSlug;
+  /**
+   * Wires the element's parsed pairs and returns their cleanups, which run when the
+   * element leaves the DOM. Core calls it once per element, never with no pairs.
+   */
+  mount: (el: Element, app: RouseApp, pairs: TriggerSubjectPair[]) => VoidFn[];
 }
 
 /**

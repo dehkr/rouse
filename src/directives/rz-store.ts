@@ -4,7 +4,6 @@ import { err, warn } from '../core/diagnostics';
 import { parseStoreValue } from '../core/parser';
 import { isPlainObject } from '../core/state';
 import type { DeclaredSync } from '../store';
-import type { StandaloneDirective } from '../types';
 import { rzHeaders } from './rz-headers';
 
 const initialized = new WeakSet<HTMLScriptElement>();
@@ -77,4 +76,4 @@ export const rzStore = {
   selector: directiveSelector('store', 'script'),
   initialize,
   teardown,
-} as const satisfies StandaloneDirective<HTMLScriptElement>;
+} as const;

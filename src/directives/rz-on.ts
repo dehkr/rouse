@@ -1,5 +1,4 @@
 import type { RouseApp } from '../app';
-import { directiveSelector } from '../core/elements';
 import { STORE_PREFIX } from '../core/constants';
 import { warn } from '../core/diagnostics';
 import { invokeHandler } from '../core/invoke';
@@ -91,6 +90,5 @@ function bind(
 
 export const rzOn = {
   slug: 'on',
-  selector: directiveSelector('on'),
   bind,
 } as const satisfies BoundDirective;

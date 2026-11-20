@@ -1,8 +1,10 @@
 import { updateText } from '../dom/updater';
-import { defineBoundWriterDirective } from './define-bound-writer';
+import { writerDirective } from './define-bound-writer';
 
-export const rzText = defineBoundWriterDirective(
+export const rzText = writerDirective(
   'text',
-  (el, _key, val) => updateText(el, val),
-  { singleValue: true },
+  (el, _key, resolved) => updateText(el, resolved),
+  {
+    singleValue: true,
+  },
 );

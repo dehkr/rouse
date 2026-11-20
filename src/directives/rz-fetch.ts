@@ -3,8 +3,7 @@ import { warn } from '../core/diagnostics';
 import { parseFetchSubject } from '../core/parser';
 import { dispatchTrigger } from '../dom/events';
 import { runFetch } from '../net/fetch-engine';
-import type { TriggerSubjectPair } from '../types';
-import { defineNetworkOpDirective } from './define-network-op';
+import type { StandaloneDirective, TriggerSubjectPair, VoidFn } from '../types';
 
 /**
  * Returns the URL value if it exists from an anchor element's `href` or
@@ -31,7 +30,11 @@ function warnMissingUrl(el: Element) {
  * Binds each `[trigger]: [[METHOD] URL]` pair to a fetch. Resolves the URL once
  * and shares it across the element's triggers. Returns the pairs' cleanups.
  */
-function bindFetchPairs(el: Element, app: RouseApp, pairs: TriggerSubjectPair[]) {
+function bindFetchPairs(
+  el: Element,
+  app: RouseApp,
+  pairs: TriggerSubjectPair[],
+): VoidFn[] {
   const elementUrl = nativeUrl(el);
 
   // A form without a URL at init can still get one at submit time from the
@@ -77,4 +80,7 @@ function bindFetchPairs(el: Element, app: RouseApp, pairs: TriggerSubjectPair[])
   });
 }
 
-export const rzFetch = defineNetworkOpDirective('fetch', bindFetchPairs);
+export const rzFetch = {
+  slug: 'fetch',
+  mount: bindFetchPairs,
+} as const satisfies StandaloneDirective;

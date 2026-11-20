@@ -2,35 +2,18 @@ import type { RouseApp } from '../../app';
 import { STORE_PREFIX } from '../../core/constants';
 import { warn } from '../../core/diagnostics';
 import { hasDirective, isDisabled } from '../../core/elements';
-import type { StandaloneDirective, TriggerSubjectPair, VoidFn } from '../../types';
+import type { TriggerSubjectPair, VoidFn } from '../../types';
 import { core } from '../core';
 import { syncFor } from './manager';
 
 type SyncOp = 'push' | 'pull';
-
-const directives = new Map<SyncOp, StandaloneDirective>();
-
-/**
- * Returns the `rz-push` or `rz-pull` directive. Each is built once, on the first
- * install, and shared by every app.
- */
-export function defineSyncOpDirective(op: SyncOp): StandaloneDirective {
-  let directive = directives.get(op);
-  if (!directive) {
-    directive = core.defineNetworkOpDirective(op, (el, app, pairs) =>
-      bindStorePairs(op, el, app, pairs),
-    );
-    directives.set(op, directive);
-  }
-  return directive;
-}
 
 /**
  * Binds each `[trigger]: @store` pair to a push or pull. The push `edit`
  * trigger fires on store mutation via the `edit` trigger source; every other
  * trigger routes through `dispatchTrigger`. Returns the cleanups.
  */
-function bindStorePairs(
+export function bindStorePairs(
   op: SyncOp,
   el: Element,
   app: RouseApp,

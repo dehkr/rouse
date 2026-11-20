@@ -13,14 +13,14 @@
  * `a, b` binds twice on one element and the last effect to run wins, with no warning.
  */
 import type { RouseApp } from '../app';
-import { getDirectiveValue } from '../core/elements';
+import { directiveSelector, getDirectiveValue } from '../core/elements';
 import { APP_ROOT_SELECTOR } from '../core/constants';
 import { err, warn } from '../core/diagnostics';
 import { dispatchFrom } from '../core/dispatch';
 import { parseDirectiveValue } from '../core/parser';
 import { EMPTY_SCOPE } from '../core/resolve';
 import { SCOPE_SELECTOR } from '../directives/rz-scope';
-import type { BoundCleanupFn, BoundDirective, Scope } from '../types';
+import type { BoundCleanupFn, BoundDirective, DirectiveSlug, Scope } from '../types';
 
 /** Registry to track cleanup functions of globally mounted directives. */
 const globalBindings = new WeakMap<Element, BoundCleanupFn[]>();
@@ -29,7 +29,7 @@ const scopeBindings = new WeakMap<Element, HTMLElement>();
 /** Registry of `rz-render` instance roots, mapped to the render context they bind against. */
 const renderOwned = new WeakMap<Element, Scope>();
 /** Bound directives the binder scans for, and a selector matching any of them. */
-let boundDirectiveList: BoundDirective[] = [];
+let boundDirectiveList: readonly BoundDirective[] = [];
 let boundSelector = '';
 /** Scope elements whose DOM is bound and whose `rz:scope:connect` has fired, mapped to their instance. */
 const awakeScopes = new WeakMap<Element, Scope>();
@@ -99,9 +99,16 @@ export function isScopeAwake(el: Element): boolean {
  * Sets the directives the binder scans for and binds. `app.ts` calls it once, at
  * module load.
  */
-export function registerBoundDirectives(...directives: BoundDirective[]): void {
+export function registerBoundDirectives(directives: readonly BoundDirective[]): void {
   boundDirectiveList = directives;
-  boundSelector = directives.map((directive) => directive.selector).join(', ');
+  boundSelector = directives
+    .map((directive) => directiveSelector(directive.slug))
+    .join(', ');
+}
+
+/** Returns `true` when `slug` belongs to a bound directive. */
+export function isBoundSlug(slug: DirectiveSlug): boolean {
+  return boundDirectiveList.some((directive) => directive.slug === slug);
 }
 
 /**
@@ -236,10 +243,8 @@ export function walkBoundElements(
  */
 export function mountGlobalBinding(el: Element, app: RouseApp): void {
   if (globalBindings.has(el)) return;
-  const cleanups = bindDirectives(el, EMPTY_SCOPE, app);
-  if (cleanups.length) {
-    globalBindings.set(el, cleanups);
-  }
+  // Recorded even when empty, so a re-scan doesn't bind again and repeat warnings
+  globalBindings.set(el, bindDirectives(el, EMPTY_SCOPE, app));
 }
 
 /**

@@ -1,11 +1,13 @@
 import type { RouseApp } from '../app';
 import {
   directiveSelector,
+  getDirectiveValue,
   hasDirective,
   queryTargets,
   unknownDirectiveNames,
 } from '../core/elements';
 import { warn } from '../core/diagnostics';
+import { parseTriggerSubjectPairs } from '../core/parser';
 import { hasPlugin, needsPlugin, PLUGIN_DIRECTIVES } from '../core/plugins';
 import { SCOPE_SELECTOR } from '../directives/rz-scope';
 import { rzStore } from '../directives/rz-store';
@@ -23,14 +25,55 @@ import {
   scanScopeNode,
   teardownScopeNode,
 } from './scope';
-import type { StandaloneDirective } from '../types';
+import type { DirectiveSlug, StandaloneDirective, VoidFn } from '../types';
 
 /**
- * Every network directive any app has mounted. A removed node is detached and no
- * longer resolves to an app, so the removal path tears down through this set rather
- * than an app's table. A teardown is a no-op on an element its directive never set up.
+ * Each element's mounted standalone directives, by slug, with their cleanups. It holds
+ * no directive objects, so a removed node, which no longer resolves to an app, tears
+ * down from here alone.
  */
-const mountedDirectives = new Set<StandaloneDirective>();
+const mounted = new WeakMap<Element, Map<DirectiveSlug, VoidFn[]>>();
+
+/** Every standalone slug any app registered, and a selector matching any of them. */
+const standaloneSlugs = new Set<DirectiveSlug>();
+let standaloneSelector = '';
+
+/** Adds a slug to the selector the removal path tears down through. */
+export function addStandaloneSlug(slug: DirectiveSlug): void {
+  if (standaloneSlugs.has(slug)) return;
+  standaloneSlugs.add(slug);
+  standaloneSelector = [...standaloneSlugs].map((s) => directiveSelector(s)).join(', ');
+}
+
+/**
+ * Mounts `directive` on `el` unless it already is. Records the mount even when it
+ * bound nothing, so a re-scan doesn't repeat its warnings.
+ */
+function mountStandalone(el: Element, app: RouseApp, directive: StandaloneDirective) {
+  const { slug } = directive;
+  let record = mounted.get(el);
+  if (record?.has(slug)) return;
+
+  const pairs = parseTriggerSubjectPairs(getDirectiveValue(el, slug));
+  if (__DEV__ && pairs.length === 0) {
+    warn(`rz-${slug}: at least one trigger is required.`, el);
+  }
+  const cleanups = pairs.length > 0 ? directive.mount(el, app, pairs) : [];
+
+  if (!record) {
+    record = new Map();
+    mounted.set(el, record);
+  }
+  record.set(slug, cleanups);
+}
+
+/** Runs the cleanups of every standalone directive mounted on `el`, in mount order. */
+function teardownStandalone(el: Element) {
+  const record = mounted.get(el);
+  if (!record) return;
+  mounted.delete(el);
+  record.forEach((cleanups) => cleanups.forEach((fn) => fn()));
+}
 
 /**
  * Warns for each `data-rz-*` attribute in `root`'s subtree, root included, that isn't a
@@ -76,9 +119,10 @@ function forEachOwned<T extends Element>(
  * come first so `@store` references resolve for the rest. Shared by `app.start()` and
  * the observer, so a directive registered here is scanned on both paths.
  *
- * A new standalone directive needs its own selector pass here, in `unmountSubtree`, and
- * in `releaseSubtree`. Sharing another directive's pass misses elements carrying only
- * the new one, without a warning.
+ * A new structural directive needs its own selector pass here, in `unmountSubtree`,
+ * and in `releaseSubtree`. Sharing another directive's pass misses elements carrying
+ * only the new one, without a warning. Standalone directives mount one pass per
+ * directive, in the app's order, and tear down element by element.
  */
 export function mountSubtree(root: Element, app: RouseApp) {
   if (__DEV__) {
@@ -100,9 +144,12 @@ export function mountSubtree(root: Element, app: RouseApp) {
     scanScopeNode(ownerScope, root);
   }
 
-  for (const directive of app._networkDirectives) {
-    mountedDirectives.add(directive);
-    forEachOwned(root, directive.selector, app, (el) => directive.initialize(el, app));
+  // One pass per directive, since a `ready` trigger fires during mount and mount
+  // order is request order
+  for (const directive of app._standaloneDirectives.values()) {
+    forEachOwned(root, directiveSelector(directive.slug), app, (el) =>
+      mountStandalone(el, app, directive),
+    );
   }
 
   // Outside any scope, bound directives mount globally
@@ -116,7 +163,7 @@ export function mountSubtree(root: Element, app: RouseApp) {
 }
 
 /**
- * Tears down the stores, scopes, and network directives in `root`'s subtree, root
+ * Tears down the stores, scopes, and standalone directives in `root`'s subtree, root
  * included. Bound directives are left to the caller, which knows who owns them.
  */
 export function unmountSubtree(root: Element) {
@@ -126,8 +173,8 @@ export function unmountSubtree(root: Element) {
 
   queryTargets<HTMLElement>(root, SCOPE_SELECTOR).forEach(destroyInstance);
 
-  for (const directive of mountedDirectives) {
-    queryTargets(root, directive.selector).forEach((el) => directive.teardown(el));
+  if (standaloneSelector) {
+    queryTargets(root, standaloneSelector).forEach(teardownStandalone);
   }
 }
 
@@ -143,8 +190,8 @@ export function releaseSubtree(root: Element, app: RouseApp) {
 
   forEachOwned<HTMLElement>(root, SCOPE_SELECTOR, app, (el) => destroyInstance(el));
 
-  for (const directive of app._networkDirectives) {
-    forEachOwned(root, directive.selector, app, (el) => directive.teardown(el));
+  if (standaloneSelector) {
+    forEachOwned(root, standaloneSelector, app, teardownStandalone);
   }
 
   const ownerScope = closestScope(root, app);

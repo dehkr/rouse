@@ -9,13 +9,13 @@
  * widens to `string`.
  *
  * Adding a directive: its file here, its slug in `DIRECTIVE_SLUGS`, an export below,
- * and a `selector` if it's scanned. Then register it, or it's exported and never
+ * and an entry in one of the lists below if it's scanned, or it's exported and never
  * scanned:
  *
- * - Bound directive: `registerBoundDirectives` (`app.ts`).
- * - Network op: `NETWORK_DIRECTIVES` below. Each app copies it into its own
- *   `_networkDirectives` at creation; a plugin's network op is added there at install.
- * - Any other standalone directive: its own pass in `dom/observer.ts`.
+ * - Bound directive: `BOUND_DIRECTIVES`, in bind order.
+ * - Standalone directive: `STANDALONE_DIRECTIVES`, in mount order. A plugin's goes
+ *   through `app._addStandaloneDirective` at install instead.
+ * - Structural directive (`rz-store`, `rz-scope`): its own step in `dom/observer.ts`.
  * - Config directive: nothing.
  */
 export { rzAttr } from './rz-attr';
@@ -40,7 +40,33 @@ export { rzStyle } from './rz-style';
 export { rzText } from './rz-text';
 export { rzWake } from './rz-wake';
 
+import { rzAttr } from './rz-attr';
+import { rzClass } from './rz-class';
 import { rzFetch } from './rz-fetch';
+import { rzHtml } from './rz-html';
+import { rzModel } from './rz-model';
+import { rzOn } from './rz-on';
+import { rzProp } from './rz-prop';
+import { rzRender } from './rz-render';
+import { rzStyle } from './rz-style';
+import { rzText } from './rz-text';
+import type { BoundDirective, StandaloneDirective } from '../types';
 
-/** Core's network ops, copied into each app's `_networkDirectives` at creation. */
-export const NETWORK_DIRECTIVES = [rzFetch];
+/**
+ * Core's bound directives, in bind order. On one element, `rz-model` binds before
+ * `rz-on`, so an `input` handler runs after `rz-model` writes the value.
+ */
+export const BOUND_DIRECTIVES: readonly BoundDirective[] = [
+  rzAttr,
+  rzClass,
+  rzHtml,
+  rzModel,
+  rzOn,
+  rzProp,
+  rzRender,
+  rzStyle,
+  rzText,
+];
+
+/** Core's standalone directives, added to each app at creation, in mount order. */
+export const STANDALONE_DIRECTIVES: readonly StandaloneDirective[] = [rzFetch];

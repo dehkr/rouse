@@ -1,43 +1,36 @@
 import { effect } from 'alien-signals';
-import type { RouseApp } from '../app';
-import { directiveSelector } from '../core/elements';
 import { resolveBoundValue } from '../core/invoke';
 import type {
   BindableValue,
   BoundCleanupFn,
   BoundDirective,
   DirectiveSlug,
-  Scope,
 } from '../types';
 
 /**
- * Factory for the bound-writer directives (rz-text, rz-html, rz-prop).
- * Resolves a bound value inside an effect and writes it to the element.
+ * Returns a bound directive that writes the resolved value whenever it changes.
+ * `value` is the segment's raw value, empty when the segment is a bare key, which
+ * then names the value to resolve.
  *
- * `rz-prop` takes multiple comma-separated values, since `key` names the property.
- * `rz-text` and `rz-html` take a bare value and ignore `key`, so pass
- * `{ singleValue: true }` for them. Multiple values would write the same element from
- * competing effects.
+ * Pass `{ singleValue: true }` for a directive that ignores `key`, such as `rz-text`.
+ * Several values would write the same element from competing effects.
  */
-export function defineBoundWriterDirective(
+export function writerDirective(
   slug: DirectiveSlug,
-  write: (el: Element, key: string, val: BindableValue) => void,
+  write: (el: Element, key: string, resolved: BindableValue, value: string) => void,
   options?: { singleValue?: boolean },
 ): BoundDirective {
   return {
     slug,
-    selector: directiveSelector(slug),
     singleValue: options?.singleValue,
-    bind(
-      el: Element,
-      scope: Scope,
-      app: RouseApp,
-      key: string,
-      value: string,
-    ): BoundCleanupFn {
-      const raw = value || key;
+    bind(el, scope, app, key, value) {
       return effect(() => {
-        write(el, key, resolveBoundValue(raw, scope, app.stores, el, slug));
+        write(
+          el,
+          key,
+          resolveBoundValue(value || key, scope, app.stores, el, slug),
+          value,
+        );
       }) as BoundCleanupFn;
     },
   };

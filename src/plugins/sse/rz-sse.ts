@@ -10,28 +10,6 @@ import { core } from '../core';
 import { openStream, type SseRelease } from './engine';
 import { rzClose } from './rz-close';
 
-/** The element's live stream. Absent while closed, so a reopen is a fresh open. */
-const activeStreams = new WeakMap<Element, SseRelease>();
-
-function openFor(el: Element, app: RouseApp, url: string) {
-  // Repeat triggers on a live stream are a no-op, not a second connection
-  if (activeStreams.has(el)) return;
-
-  // A stream that closes for good frees the element, so its next open trigger reconnects
-  const release = openStream(app, url, { triggerEl: el }, () => activeStreams.delete(el));
-  if (release) {
-    activeStreams.set(el, release);
-  }
-}
-
-function closeFor(el: Element, reason: SseCloseReason) {
-  const release = activeStreams.get(el);
-  if (!release) return;
-
-  activeStreams.delete(el);
-  release(reason);
-}
-
 /**
  * Binds one stream: every trigger sharing the first pair's URL opens it, and the
  * `rz-close` triggers end it. Returns the pairs' cleanups.
@@ -59,29 +37,40 @@ function bindSsePairs(el: Element, app: RouseApp, pairs: TriggerSubjectPair[]): 
     warn(`rz-sse: a single element can only carry one stream.`, el);
   }
 
+  // The element's live stream. Unset while closed, so a reopen is a fresh open.
+  let release: SseRelease | undefined;
+
+  const open = () => {
+    // Repeat triggers on a live stream are a no-op, not a second connection
+    if (release) return;
+    // A stream that closes for good frees the element, so its next open trigger reconnects
+    release =
+      openStream(app, url, { triggerEl: el }, () => {
+        release = undefined;
+      }) ?? undefined;
+  };
+
+  const close = (reason: SseCloseReason) => {
+    const current = release;
+    release = undefined;
+    current?.(reason);
+  };
+
   return [
     ...shared.map(({ trigger }) =>
-      core.dispatchTrigger(trigger, { el, app, action: () => openFor(el, app, url) }),
+      core.dispatchTrigger(trigger, { el, app, action: open }),
     ),
-    ...rzClose.getConfig(el).map((trigger) =>
-      core.dispatchTrigger(trigger, {
-        el,
-        app,
-        action: () => closeFor(el, 'released'),
-      }),
-    ),
+    ...rzClose
+      .getConfig(el)
+      .map((trigger) =>
+        core.dispatchTrigger(trigger, { el, app, action: () => close('released') }),
+      ),
     // The connection outlives the triggers that opened it, so teardown ends it
-    () => closeFor(el, 'teardown'),
+    () => close('teardown'),
   ];
 }
 
-let directive: StandaloneDirective | undefined;
-
-/**
- * Returns the `rz-sse` directive, built once on first install. One object for every
- * app, so its per-element cleanups have one home.
- */
-export function rzSse(): StandaloneDirective {
-  directive ??= core.defineNetworkOpDirective('sse', bindSsePairs);
-  return directive;
-}
+export const rzSse = {
+  slug: 'sse',
+  mount: bindSsePairs,
+} as const satisfies StandaloneDirective;
