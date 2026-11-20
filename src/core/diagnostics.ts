@@ -9,7 +9,7 @@
  * on purpose: `invokeHandler`, a scope's `setup`/`connect`/`disconnect`, `rz-store`'s
  * JSON parse and seed check, and the catches in `runFetch`, `sendAndRoute`, and
  * `_sendAndApply`, which settle a thrown request as `INTERNAL_ERROR` and leave the
- * report as the only trace of what threw. The URL catch in `StoreManager._request` is
+ * report as the only trace of what threw. The URL catch in `StoreSync._request` is
  * bare for the same reason: it records `INTERNAL_ERROR` without firing request events.
  * The restore and save reports in `reactivity/persist.ts` depend on browser storage
  * state, not markup.

@@ -9,11 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add the `plugins` option to `rouse()`, installing optional features per app. Plugins load from `rousejs/sync` and `rousejs/sse`, or from `dist/sync[.min].js` and `dist/sse[.min].js` on a CDN, and must come from the same release as core.
 - Add the `persist` and `persistKey` options to `reactive()` and `app.store()`, saving state to `localStorage` or `sessionStorage` once per task after a change and restoring it on the next page load.
 - Add `batch(fn)` to group reactive writes; effects and bindings run once when the outermost `batch()` returns.
 
+### Changed
+
+- **Breaking:** Move store sync into the `sync` plugin. `rz-push`, `rz-pull`, `@store::status`, a store endpoint and request options, and the `app.stores` methods `status`, `isDirty`, `dirtyRoots`, `baseline`, `config`, `push`, `pull`, `reset`, `revert`, and `commit` now require it.
+  - Installation: `import { sync } from 'rousejs/sync'`, then `rouse({ plugins: [sync] })`.
+  - Import `StoreStatus`, `SyncPolicy`, and `SyncRequest` from `rousejs/sync` instead of `rousejs`.
+- **Breaking:** Move server-sent events into the `sse` plugin. `rz-sse`, `rz-close`, the `sse-[name]` trigger, and `app.sse()` now require it.
+  - Installation: `import { sse } from 'rousejs/sse'`, then `rouse({ plugins: [sse] })`.
+- **Breaking:** Remove the `rousejs/dev` and `rousejs/min` entry points. `rousejs` resolves to the dev build under the `development` condition and to the prod/min build otherwise.
+  - Replace `rousejs/dev` with `rousejs`, and set the `development` condition in dev builds. Vite sets it by default; with esbuild, pass `--conditions=development`.
+  - Replace `rousejs/min` with `rousejs`.
+
 ### Fixed
 
+- Ignore server-sent messages named `open` or `error` in connection handling, so they no longer count as failed attempts, fire `rz:sse:error` or `rz:sse:open`, or close the stream. `sse-[open]` and `sse-[error]` triggers now receive them instead of throwing on connection events.
 - Fire `edit` triggers when an effect mutates a store in reaction to a framework write (sync response, deposit, `update()`, `reset()`, or `revert()`), so a push on `edit` sends the effect's changes.
 
 ## [0.17.0] - 2026-11-14

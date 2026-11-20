@@ -15,7 +15,7 @@ Rouse is for applications that render HTML on the server but need rich client-si
 - **Direct DOM binding** – Works with server-rendered HTML. No virtual DOM, hydration step, or client-side copy of the page.
 - **Strict CSP compliance** – Directive values are names, never evaluated code. No `unsafe-eval` required.
 - **Buildless or bundled** – Load directly from a CDN or install from npm with bundled TypeScript definitions.
-- **Zero runtime dependencies** – 21.4 KB gzipped with reactivity, networking, SSE, stores, and sync built in.
+- **Zero runtime dependencies** – 19.4 KB gzipped with reactivity, networking, and stores. Store sync (3.3 KB) and server-sent events (1.8 KB) are optional plugins.
 
 ## Features
 
@@ -29,11 +29,11 @@ Render dynamic lists and conditional views from reactive state with `<template>`
 
 ### Networking
 
-Fetch HTML fragments or JSON on any event, straight from attributes. Response headers let the server steer targeting, issue redirects, update stores, and trigger client-side events, error responses included. Server-sent event streams work the same way: each message places HTML, updates a store, or fires a named event.
+Fetch HTML fragments or JSON on any event, straight from attributes. Response headers let the server steer targeting, issue redirects, update stores, and trigger client-side events, error responses included. With the `sse` plugin, server-sent event streams work the same way: each message places HTML, updates a store, or fires a named event.
 
 ### State synchronization
 
-Give a store an endpoint and keep it in sync with your server over plain HTTP, with built-in dirty tracking and protection for edits made mid-request.
+With the `sync` plugin, give a store an endpoint and keep it in sync with your server over plain HTTP, with dirty tracking and protection for edits made mid-request.
 
 ### Local scopes, deferred activation
 
@@ -59,19 +59,7 @@ The goal is a single, cohesive library that rouses HTML: it covers what most ser
 
 ## Installation
 
-Rouse ships as ES modules only, in two builds: a development build with diagnostics, and a minified production build.
-
-### From a CDN
-
-```js
-import { rouse } from 'https://cdn.jsdelivr.net/npm/rousejs@0.17.0/dist/rouse.js';
-```
-
-Swap in `rouse.min.js` for production:
-
-```js
-import { rouse } from 'https://cdn.jsdelivr.net/npm/rousejs@0.17.0/dist/rouse.min.js';
-```
+Rouse ships as ES modules only, in two builds: a development build with diagnostics, and a minified production build. Store sync and server-sent events are plugins, imported separately and passed to `rouse()`.
 
 ### From npm
 
@@ -81,15 +69,42 @@ npm install rousejs
 
 ```js
 import { rouse } from 'rousejs';
+import { sync } from 'rousejs/sync';
+import { sse } from 'rousejs/sse';
+
+const app = rouse({ plugins: [sync, sse] });
 ```
 
 Types are bundled. No additional setup for TypeScript necessary.
 
+### From a CDN
+
+An import map states the version once. Load core and every plugin from the same version:
+
+```html
+<script type="importmap">
+  {
+    "imports": {
+      "rousejs": "https://cdn.jsdelivr.net/npm/rousejs@0.17.0/dist/rouse.js",
+      "rousejs/sync": "https://cdn.jsdelivr.net/npm/rousejs@0.17.0/dist/sync.js"
+    }
+  }
+</script>
+<script type="module">
+  import { rouse } from 'rousejs';
+  import { sync } from 'rousejs/sync';
+
+  const app = rouse({ plugins: [sync] });
+</script>
+```
+
+Swap in `rouse.min.js` and `sync.min.js` for production.
+
 ### Build selection
 
-The development build (`dist/rouse.js`) warns about misused directives, missing targets, and invalid values. The production build (`dist/rouse.min.js`) strips the warnings.
+The development build (`rouse.js`, `sync.js`, `sse.js`) warns about misused directives, missing targets, invalid values, and plugin features used without their plugin. The production build (`*.min.js`) strips the warnings.
 
-Bundlers with `development`/`production` conditions pick the right build, otherwise you get the minified build. Import `rousejs/dev` for diagnostics during development. `rousejs/min` resolves to the minified build regardless of tool.
+From npm, `rousejs` and its plugins resolve to the minified build. A bundler that sets the `development` condition, such as Vite in dev, picks the development build. With esbuild, pass `--conditions=development`.
 
 ## Getting started
 
@@ -97,8 +112,9 @@ Register your scopes, then call `app.start()` to scan the page and bind its dire
 
 ```js
 import { rouse, signal } from 'rousejs';
+import { sync } from 'rousejs/sync';
 
-const app = rouse();
+const app = rouse({ plugins: [sync] });
 
 // A scope's setup returns the API for the directives inside it
 app.scope('counter', ({ host }) => {
@@ -122,7 +138,7 @@ Directives are standard `data-*` attributes with the `rz-` prefix:
   <span data-rz-text="count">5</span>
 </div>
 
-<!-- A store declared in markup, synced with /api/user -->
+<!-- A store declared in markup, synced with /api/user by the sync plugin -->
 <script data-rz-store="user: /api/user" type="application/json">
   { "name": "Ada" }
 </script>

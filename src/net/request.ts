@@ -30,7 +30,7 @@ const abortRegistry = new Map<string | symbol, AbortController>();
  * Issues a network request and normalizes the outcome.
  *
  * The single path every request Rouse makes goes through: the fetch engine and
- * `StoreManager._request` both route through it, which is what makes interceptors
+ * `StoreSync._request` both route through it, which is what makes interceptors
  * apply uniformly (`skipInterceptors` is the per-call opt-out). Handles payload
  * serialization, `abortKey` concurrency, timeouts, and response normalization.
  *

@@ -67,7 +67,10 @@ import { StoreManager, type StoreOptions } from './store';
 export interface RouseConfig {
   /** Element or selector where the app mounts. Defaults to `document.documentElement`. */
   root?: string | HTMLElement;
-  /** Prepended to relative URLs in `rz-fetch`, `rz-push`, `rz-pull`, `rz-sse`, `app.fetch()`, and `app.sse()`. */
+  /**
+   * Prepended to relative URLs in `rz-fetch` and `app.fetch()`, and in the requests and
+   * streams of the `sync` and `sse` plugins.
+   */
   baseUrl?: string;
   /** Default headers applied to every request. Merged with per-request and directive-level headers; a `null` value removes the header. */
   headers?: Record<string, string | null>;
@@ -330,28 +333,29 @@ export class RouseApp {
    *
    * A store is one flat object. Data, getters, and methods live side by side.
    * Getters are cached as computeds bound to the proxy and must stay pure. Work
-   * that needs cleanup belongs in a scope instead.
+   * that needs cleanup belongs in a scope instead. Snapshots and incoming data touch
+   * only plain, JSON-serializable data, never methods or getters.
    *
-   * Only plain, JSON-serializable data is synced. Methods and getters are untouched
-   * by snapshots, push bodies, `reset()`, and incoming server state.
+   * **Sync:** with the `sync` plugin installed, `config` also takes the store's
+   * endpoint (`url`) and request options, and the store syncs with that endpoint as a
+   * whole.
    *
-   * **Persistence:** pass `persist` and `persistKey` instead of `url` to keep the data
-   * in the browser across page loads.
-   * - The saved copy is restored on creation. `reset()` restores `data` (or the data
-   *   from the last `update()`), not the copy loaded from storage, and saves it.
-   * - Every change saves the data fields as JSON, including a response applied by a
-   *   one-off push or pull with its own URL.
+   * **Persistence:** pass `persist` and `persistKey` to keep the data in the browser
+   * across page loads.
+   * - The saved copy is restored on creation. With sync, `reset()` restores `data` (or
+   *   the data from the last `update()`), not the copy loaded from storage.
+   * - Every change saves the data fields as JSON.
    * - Saving stops on `stores.remove()` and `destroy()`. The saved copy stays in storage.
    *
    * @template T - Shape of the store's data, getters, and methods.
    * @param name - Unique name. Referenced as `@name` in directives.
-   * @param data - Initial state. Made reactive, and kept as the snapshot `reset()` restores.
-   * @param config - Standing sync config: the endpoint URL, headers, and other transport
-   *   options. Or `persist` (`'local'` or `'session'`) with a `persistKey` used verbatim
-   *   as the storage key.
+   * @param data - Initial state, made reactive.
+   * @param config - `persist` (`'local'` or `'session'`) with a `persistKey` used
+   *   verbatim as the storage key. The `sync` plugin adds `url` and request options.
    * @returns The store's reactive proxy.
-   * @throws If a store of this name already exists, if `persist` is combined with `url`,
-   *   or if `persist` is not `'local'` or `'session'` with a `persistKey`.
+   * @throws If a store of this name already exists, or if `persist` is not `'local'` or
+   *   `'session'` with a `persistKey`. With sync, also if `persist` is combined with
+   *   `url`.
    *
    * @example
    * const cart = app.store('cart', {
@@ -362,12 +366,16 @@ export class RouseApp {
    *   clear() {
    *     this.items = [];
    *   },
-   * }, { url: '/api/cart' });
+   * });
    *
    * cart.items.push(item);
    *
    * @example
    * app.store('prefs', { theme: 'light' }, { persist: 'local', persistKey: 'prefs' });
+   *
+   * @example
+   * // With the sync plugin: rouse({ plugins: [sync] })
+   * app.store('user', { name: '' }, { url: '/api/user' });
    */
   store<T extends object>(name: string, data: T, config?: StoreOptions & PersistOptions) {
     return this.stores._create<T>(name, data, config);

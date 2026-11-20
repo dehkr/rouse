@@ -25,11 +25,43 @@ app.start(); // scans the root and binds directives
 
 `start()` scans the DOM once and then watches for added nodes. Registration applies to DOM scanned afterward and never retroactively. `<script data-rz-store>` stores don't exist until `start()`. `destroy()` is terminal.
 
-Install with `npm install rousejs`, or skip the install and import from a CDN in a `<script type="module">`: `https://cdn.jsdelivr.net/npm/rousejs@0.17.0/dist/rouse.js` (development) or `https://cdn.jsdelivr.net/npm/rousejs@0.17.0/dist/rouse.min.js` (production). Rouse ships as ES modules only.
+### Install
 
-- npm `rousejs` -> minified build; under a bundler's `development` condition -> development build.
-- `rousejs/dev` and `rousejs/min` pick one explicitly.
-- Only the development build logs `[Rouse]` authoring warnings.
+Rouse ships as ES modules only, in a development build (`[Rouse]` authoring warnings) and a minified production build. Install with `npm install rousejs`, or import from a CDN in a `<script type="module">`.
+
+- npm: `rousejs` resolves to the minified build, and to the development build under a bundler's `development` condition (Vite sets it in dev; esbuild: `--conditions=development`). `rousejs/sync` and `rousejs/sse` resolve the same way.
+- CDN: `dist/rouse.js` (development) or `dist/rouse.min.js` (production), and `dist/sync[.min].js`, `dist/sse[.min].js` beside them. Pin one exact version in every URL, and load core and its plugins from the same version and build.
+
+```html
+<script type="importmap">
+  {
+    "imports": {
+      "rousejs": "https://cdn.jsdelivr.net/npm/rousejs@0.17.0/dist/rouse.min.js",
+      "rousejs/sync": "https://cdn.jsdelivr.net/npm/rousejs@0.17.0/dist/sync.min.js"
+    }
+  }
+</script>
+<script type="module">
+  import { rouse } from 'rousejs';
+  import { sync } from 'rousejs/sync';
+  rouse({ plugins: [sync] }).start();
+</script>
+```
+
+An import map states the version once. Subresource Integrity for these modules goes in the import map's `integrity` field; a `<script integrity>` covers only that script, not what it imports.
+
+### Plugins
+
+Store sync and server-sent events are plugins. Core never loads them: pass each to every app that uses it.
+
+| Plugin | Import | Adds |
+| --- | --- | --- |
+| `sync` | `import { sync } from 'rousejs/sync'` | `rz-push`, `rz-pull`, `@store::status`, a store endpoint and request options (`app.store()` config, `data-rz-store="name: /url"`, `rz-headers` on a store script), and `app.stores` `status`, `isDirty`, `dirtyRoots`, `baseline`, `config`, `push`, `pull`, `reset`, `revert`, `commit` |
+| `sse` | `import { sse } from 'rousejs/sse'` | `rz-sse`, `rz-close`, the `sse-[name]` trigger, `app.sse()` |
+
+- Without the plugin, its markup does nothing. The development build warns once per element (`::status` once per app), and its `app.stores` methods and `app.sse()` throw an install hint. The production build stays silent. In TypeScript the plugin's options and methods don't exist until its module is imported.
+- A plugin from a different version than core throws in `rouse()`, before the app claims its root.
+- Each app installs its own: a plugin in one app adds nothing to another on the same page.
 
 ### Config options
 
@@ -38,11 +70,12 @@ Options passed to `rouse()`. Every key is optional.
 | Config key | Default | Meaning |
 | --- | --- | --- |
 | `root` | `document.documentElement` | Element or selector the app owns |
-| `baseUrl` | `''` | Prefixed to relative URLs in `rz-fetch`, `rz-push`, `rz-pull`, `rz-sse`, `app.fetch`, `app.sse` |
+| `baseUrl` | `''` | Prefixed to relative URLs in `rz-fetch` and `app.fetch`, and in the plugins' sync and stream URLs |
 | `headers` | `{}` | Sent with every request; a `null` value removes a header |
 | `credentials` | browser's (`same-origin`) | `fetch` `credentials` for every request |
 | `timeout` | `0` (none) | Abort every request after this many ms; a per-request `timeout` overrides it |
 | `wake` | `ready` | Default scope activation; `rz-wake` overrides it per scope |
+| `plugins` | `[]` | Plugins to install; see [Plugins](#plugins) |
 
 ## Syntax
 
@@ -141,11 +174,11 @@ Every directive, its job, and a typical value.
 | `rz-request` | Fetch options: `timeout`, `abort-key`, `credentials`, `keepalive`, `redirect`, `cache` | `data-rz-request="timeout: 5s, keepalive"` |
 | `rz-indicator` | Elements that get the `rouse-request` class in flight (default: the trigger; `null` = none) | `data-rz-indicator="#spinner"` |
 | `rz-disable` | Elements disabled in flight; empty = the host. A `<form>` can't be disabled: name its `<fieldset>` | `data-rz-disable` |
-| `rz-store` | On `<script type="application/json">`: declare a store, optional sync endpoint | `data-rz-store="cart: /api/cart"` |
-| `rz-push` | Send the whole store (`PATCH`, JSON Merge Patch body) | `data-rz-push="click: @cart"` |
-| `rz-pull` | Refresh the whole store (`GET`) | `data-rz-pull="ready interval-[30s]: @cart"` |
-| `rz-sse` | Open an `EventSource`; one stream per element | `data-rz-sse="ready: /events"` |
-| `rz-close` | Triggers that close that element's stream (OR) | `data-rz-close="sse-[done]"` |
+| `rz-store` | On `<script type="application/json">`: declare a store, optional sync endpoint (sync plugin) | `data-rz-store="cart: /api/cart"` |
+| `rz-push` | Sync plugin. Send the whole store (`PATCH`, JSON Merge Patch body) | `data-rz-push="click: @cart"` |
+| `rz-pull` | Sync plugin. Refresh the whole store (`GET`) | `data-rz-pull="ready interval-[30s]: @cart"` |
+| `rz-sse` | SSE plugin. Open an `EventSource`; one stream per element | `data-rz-sse="ready: /events"` |
+| `rz-close` | SSE plugin. Triggers that close that element's stream (OR) | `data-rz-close="sse-[done]"` |
 
 `rz-headers` (outside a store script), `rz-request`, and `rz-send` apply to fetch triggers only. The method is only ever in the `rz-fetch` subject (or a form's `method` / a button's `formmethod`).
 
@@ -223,7 +256,7 @@ Triggers that aren't DOM events:
 | `interact` | On each `pointerover` or `focusin` on the element; add `once` for the first only | `interact\|once` |
 | `idle` | Once, when the browser is idle | `idle` |
 | `edit-[@store]`, `edit-[@store.key]` | When your code (handlers, effects, timers) or `rz-model` edits the store, or that top-level key. Sync responses, deposits, `update()`, `reset()`, and `revert()` don't count | `edit-[@cart]\|debounce-[500ms]` |
-| `sse-[name]` | On a server-sent event named `name` from this element's stream or its descendants'; `sse-[message]` for unnamed messages | `sse-[done]`, `sse-[tick]\|root` |
+| `sse-[name]` | SSE plugin. On a server-sent event named `name` from this element's stream or its descendants'; `sse-[message]` for unnamed messages | `sse-[done]`, `sse-[tick]\|root` |
 
 On a source only `once`, timing, and its argument apply (`sse` also takes `root`); other modifiers are ignored without a warning.
 
@@ -400,7 +433,7 @@ Scope and store methods called from directives receive `{ el, e, render }` (`Han
 
 ## Stores
 
-Stores hold what the whole app shares: state that outlives one region of the page, state the server needs to see, and behavior that doesn't belong to a single region. Any directive in the app reaches a store by its name prefixed with the `@` sigil (`@cart.items`, `click: @ui.openMenu`), including inside nested scopes. A store with an endpoint syncs with the server as a whole. A store is one flat reactive object: data, getters (cached computeds; keep them pure), and methods (`this` is the store). The root must be an object. Only JSON-serializable data syncs: getters and methods stay local and are never sent, and non-plain objects (`Date`, `Map`) serialize as `{}`.
+Stores hold what the whole app shares: state that outlives one region of the page, state the server needs to see, and behavior that doesn't belong to a single region. Any directive in the app reaches a store by its name prefixed with the `@` sigil (`@cart.items`, `click: @ui.openMenu`), including inside nested scopes. With the [sync plugin](#plugins), a store with an endpoint syncs with the server as a whole. A store is one flat reactive object: data, getters (cached computeds; keep them pure), and methods (`this` is the store). The root must be an object. Only JSON-serializable data syncs: getters and methods stay local and are never sent, and non-plain objects (`Date`, `Map`) serialize as `{}`.
 
 ```js
 const cart = app.store('cart', {
@@ -416,7 +449,7 @@ await app.stores.push('cart');        // PATCH /api/cart with the whole store
 app.on({ edit: 'cart' }, () => app.stores.push('cart'), { debounce: 500 });
 ```
 
-The same pattern in markup: a `<script>` declares the store and its endpoint, and `rz-push` saves it on edit or on click.
+The `url`, `app.stores.push()`, and the `edit`-to-push pattern need the sync plugin. The same pattern in markup: a `<script>` declares the store and its endpoint, and `rz-push` saves it on edit or on click.
 
 ```html
 <!-- Autosaves 500 ms after the last edit; the button saves on demand -->
@@ -434,13 +467,13 @@ The same pattern in markup: a `<script>` declares the store and its endpoint, an
 <span data-rz-class="unsaved: @user::status.dirty">Unsaved changes</span>
 ```
 
-- `app.store(name, data, config?)` takes the endpoint as `config.url`, plus request options (`headers`, `timeout`, `credentials`, …). It returns the store itself, the same object `app.stores.get(name)` returns.
-- `config` takes `persist` and `persistKey` to keep the store in Web Storage; see [Persistence](#persistence). `reset()` restores the declared data (or the last `update()`), never the copy loaded from storage, and saves it. `remove()` and `destroy()` stop saving and leave the saved entry. `<script data-rz-store>` can't persist.
-- A persisted store has no standing endpoint: `persist` with `url` throws, in `app.store()` and `app.stores.config()`. A one-off push or pull with its own URL (`app.stores.pull('prefs', { url: '/api/prefs' })`) still runs, applies its response like a deposit, and saves the result.
+- `app.store(name, data, config?)` takes the endpoint as `config.url`, plus request options (`headers`, `timeout`, `credentials`, …), with the sync plugin. It returns the store itself, the same object `app.stores.get(name)` returns.
+- `config` takes `persist` and `persistKey` to keep the store in Web Storage; see [Persistence](#persistence). With sync, `reset()` restores the declared data (or the last `update()`), never the copy loaded from storage, and saves it. `remove()` and `destroy()` stop saving and leave the saved entry. `<script data-rz-store>` can't persist.
+- A persisted store has no standing endpoint: with sync, `persist` with `url` throws, in `app.store()` and `app.stores.config()`. A one-off push or pull with its own URL (`app.stores.pull('prefs', { url: '/api/prefs' })`) still runs, applies its response like a deposit, and saves the result.
 
 ### Store sync
 
-A store with an endpoint syncs whole. Push (`rz-push`, `app.stores.push`) sends the store as `PATCH` with `Content-Type: application/merge-patch+json`. Pull (`rz-pull`, `app.stores.pull`) refreshes it with `GET`.
+Requires the sync plugin. A store with an endpoint syncs whole. Push (`rz-push`, `app.stores.push`) sends the store as `PATCH` with `Content-Type: application/merge-patch+json`. Pull (`rz-pull`, `app.stores.pull`) refreshes it with `GET`.
 
 - `rz-push`, `rz-pull`, and `rz-deposit` always name their store, including on the store's own script (`<script data-rz-store="feed" data-rz-sse="ready: /feed" data-rz-deposit="@feed">`). A path (`@user.profile`) is rejected.
 - Server responses are applied as JSON Merge Patch (RFC 7396): absent keys stay, objects merge, arrays and primitives replace, `null` deletes the key.
@@ -448,7 +481,7 @@ A store with an endpoint syncs whole. Push (`rz-push`, `app.stores.push`) sends 
 
 ### Store status
 
-`@name::status` in markup, `app.stores.status(name)` in JavaScript. Reactive and read-only.
+Requires the sync plugin. `@name::status` in markup, `app.stores.status(name)` in JavaScript. Reactive and read-only.
 
 | Field | Value |
 | --- | --- |
@@ -465,7 +498,7 @@ A `<script type="application/json" data-rz-store="name: /endpoint">` declares a 
 The script element is the store's declaration. Replacing it with a new script of the same name re-declares the store:
 
 - **Data.** The new body replaces the data and becomes the new `reset()` and `revert()` target. Unsaved edits are discarded, and the store reads clean.
-- **Config.** The endpoint and headers come from the new script. A missing endpoint or `rz-headers` clears that setting, including headers set in JS. Other options (`timeout`, `credentials`, …) are kept.
+- **Config.** With sync, the endpoint and headers come from the new script. A missing endpoint or `rz-headers` clears that setting, including headers set in JS. Other options (`timeout`, `credentials`, …) are kept.
 - **Empty body.** The data is kept; only the config is replaced.
 
 ```html
@@ -481,24 +514,24 @@ The script element is the store's declaration. Replacing it with a new script of
 
 ### Store manager methods
 
-`app.stores` manages every store by name. It's a manager, not a record of stores.
+`app.stores` manages every store by name. It's a manager, not a record of stores. The sync plugin adds the methods marked *sync*.
 
 | Method | Returns | Notes |
 | --- | --- | --- |
 | `get(name)` | The store, or `undefined` | The same reactive object `@name` reads in markup and `app.store()` returns. Writes through it update bindings and mark the store dirty |
 | `has(name)` | `true` if the store exists | A `<script data-rz-store>` store exists only after `start()` |
-| `status(name)` | The store's status, or `undefined` | The same reactive object as `@name::status`; see [Store status](#store-status) |
-| `isDirty(name, root?)` | `true` if the store, or one top-level key, has unsynced edits | `root` is a top-level key (`'items'`), not a path. Updates a microtask after an edit |
-| `dirtyRoots(name)` | Array of top-level keys with unsynced edits; empty when clean | A copy: changing it doesn't affect the status |
+| `status(name)` *sync* | The store's status, or `undefined` | The same reactive object as `@name::status`; see [Store status](#store-status) |
+| `isDirty(name, root?)` *sync* | `true` if the store, or one top-level key, has unsynced edits | `root` is a top-level key (`'items'`), not a path. Updates a microtask after an edit |
+| `dirtyRoots(name)` *sync* | Array of top-level keys with unsynced edits; empty when clean | A copy: changing it doesn't affect the status |
 | `snapshot(name)` | Plain, non-reactive deep copy of the current data | Data fields only: getters and methods are dropped, and non-plain objects (`Date`, `Map`) become `{}` with a dev warning. Safe to serialize |
-| `baseline(name)` | Plain, non-reactive deep copy of the last synced data | What `revert()` restores and dirty checks compare against. Same copy rules as `snapshot()` |
-| `push(name)` / `pull(name)` | `Promise<void>`; never rejects | Syncs now; check `status(name).error` for the outcome. A push during another push waits and sends once |
-| `revert(name, path?)` | `true` if anything changed | Restores the last synced data. With `path`, restores one field or branch |
-| `reset(name)` | | Restores the initial data: from creation, the last `update()`, or the last re-declared script. The store then reads clean |
-| `commit(name)` | | Marks the current data synced; sends nothing. Use it when the data reached the server another way |
-| `update(name, state)` | The store | Replaces the data; it becomes the new `reset()` and `revert()` target, and the store reads clean. Sends nothing |
-| `deposit(name, payload)` | `false` if the store is missing or a listener canceled | Merges a payload as JSON Merge Patch, the way `rz-deposit` does. The payload's keys become synced; other unsaved edits stay |
-| `config(name, partial)` | | Merges `partial` into the sync config (`url`, `headers`, `timeout`, …). Throws on `url` for a persisted store |
+| `baseline(name)` *sync* | Plain, non-reactive deep copy of the last synced data | What `revert()` restores and dirty checks compare against. Same copy rules as `snapshot()` |
+| `push(name)` / `pull(name)` *sync* | `Promise<void>`; never rejects | Syncs now; check `status(name).error` for the outcome. A push during another push waits and sends once |
+| `revert(name, path?)` *sync* | `true` if anything changed | Restores the last synced data. With `path`, restores one field or branch |
+| `reset(name)` *sync* | | Restores the initial data: from creation, the last `update()`, or the last re-declared script. The store then reads clean |
+| `commit(name)` *sync* | | Marks the current data synced; sends nothing. Use it when the data reached the server another way |
+| `update(name, state)` | The store | Replaces the data. With sync, it becomes the new `reset()` and `revert()` target, and the store reads clean. Sends nothing |
+| `deposit(name, payload)` | `false` if the store is missing or a listener canceled | Merges a payload as JSON Merge Patch, the way `rz-deposit` does. With sync, the payload's keys become synced; other unsaved edits stay |
+| `config(name, partial)` *sync* | | Merges `partial` into the sync config (`url`, `headers`, `timeout`, …). Throws on `url` for a persisted store |
 | `remove(name)` | | Deletes the store. Existing references keep working but stop syncing and firing `edit` triggers |
 
 ## Render
@@ -698,7 +731,7 @@ A redirect the browser follows (`3xx`) navigates the page to the final URL when 
 
 ## Server-sent events
 
-Server-sent events let the server send updates without being asked. Rouse handles each message like a fetch response or an event, so a live feed uses the same `rz-place`, `rz-deposit`, and triggers as everything else. `rz-sse` opens an `EventSource`. An unnamed message is a payload, placed or deposited like a fetch response. A named message is an event that fires `sse-[name]` triggers.
+Requires the sse plugin. Server-sent events let the server send updates without being asked. Rouse handles each message like a fetch response or an event, so a live feed uses the same `rz-place`, `rz-deposit`, and triggers as everything else. `rz-sse` opens an `EventSource`. An unnamed message is a payload, placed or deposited like a fetch response. A named message is an event that fires `sse-[name]` triggers.
 
 ```html
 <!-- Unnamed messages append to #log; "stale" pulls @feed; "done" closes the stream -->
@@ -712,7 +745,7 @@ Server-sent events let the server send updates without being asked. Rouse handle
 </section>
 ```
 
-The server's side of `/events`, in `text/event-stream` format. A blank line ends each message, and `event:` names it.
+The example's `rz-pull` also needs the sync plugin. The server's side of `/events`, in `text/event-stream` format. A blank line ends each message, and `event:` names it.
 
 ```event-stream
 data: <li>Build 41 passed</li>
@@ -927,7 +960,7 @@ app.on('keyup', bump, { ctrl: true, key: 'ArrowUp' });
 // Insert HTML the way rz-place would
 app.place('#log', '<li>Done</li>', { position: 'beforeend' });
 
-// Open a stream and append each unnamed HTML message to #log
+// With the sse plugin: open a stream and append each unnamed HTML message to #log
 const close = app.sse('/events');
 app.on('rz:sse:message:html', (e) => {
   app.place('#log', e.detail.data, { position: 'beforeend' });
@@ -947,7 +980,7 @@ Methods and properties on the app that `rouse()` returns.
 | `app.fetch(url, options?)` | `Promise<{ data, error, status, headers, response, config }>`; never rejects | Sends a request through the app's config and interceptors |
 | `app.on([target,] event, callback, options?)` | A teardown function | Listens until the app is destroyed or `options.signal` aborts |
 | `app.place(target, html, options?)` | `true` if anything was placed | Inserts HTML the way `rz-place` does |
-| `app.sse(url, options?)` | A close function | Opens a stream, or joins one already open at that URL |
+| `app.sse(url, options?)` | A close function | SSE plugin. Opens a stream, or joins one already open at that URL |
 | `app.interceptor(phase, fn, options?)` | A teardown function | Adds an interceptor; phase is `'request'`, `'response'`, or `'error'`. See [Interceptors](#interceptors) |
 | `app.stores` | The store manager | See [Store manager methods](#store-manager-methods) |
 | `app.root` | The root element | Resolved from `config.root` at creation. Every event bubbles to it, and `app.on` listens on it by default |
@@ -961,7 +994,7 @@ Methods and properties on the app that `rouse()` returns.
 
 ### Package exports
 
-Named exports from `rousejs`.
+Named exports from `rousejs`. The plugins are `sync` from `rousejs/sync` and `sse` from `rousejs/sse`.
 
 | Export | Returns | Notes |
 | --- | --- | --- |
@@ -1015,13 +1048,17 @@ Import these with `import type { … } from 'rousejs'`.
 | `PersistStorage` | `'local' \| 'session'`, the `persist` values |
 | `LifecycleEvent` | Union of every lifecycle event name |
 | `LifecycleEventMap` | Lifecycle event name → `detail` type |
+| `RousePlugin` | A plugin passed to `rouse({ plugins })` |
+| `StoreOptions` | `app.store()` options a plugin adds; the sync plugin adds `url` and request options |
+
+The sync plugin's types come from `rousejs/sync`: `StoreStatus` (`@name::status`), `SyncPolicy` (a store's sync config), and `SyncRequest` (`push()` / `pull()` options).
 
 - `app.store('cart', data)` returns `data`'s type, so the store's fields, getters, and methods are typed. `app.stores.get<T>(name)` takes the type explicitly.
 - `dispatch(el, name, detail)` checks `detail` when `name` is a lifecycle event.
 
 ## Multiple apps
 
-An app is an isolation boundary. Each `rouse({ root })` has its own stores, scopes, interceptors, listeners, and config, so `@cart` in one app never reaches another app's `cart`. Use separate apps for micro-frontends or widgets that must stay isolated. One app per root; after `destroy()`, a new app can mount on the same element.
+An app is an isolation boundary. Each `rouse({ root })` has its own stores, scopes, interceptors, listeners, plugins, and config, so `@cart` in one app never reaches another app's `cart`. Use separate apps for micro-frontends or widgets that must stay isolated. One app per root; after `destroy()`, a new app can mount on the same element.
 
 ```js
 // The page app owns the whole document
@@ -1058,6 +1095,7 @@ The development build warns about most authoring mistakes. These fail without an
 - **Scope listeners and requests are app-wide.** `app.on` in a scope listens on the whole app unless you pass `host` first, and lasts as long as the app without `signal: term`. `app.fetch` likewise keeps running after teardown without `signal: term`.
 - **A removed element doesn't hear its own teardown.** Removing an element fires its remaining events (`rz:scope:disconnect`, `rz:scope:destroy`, the teardown `rz:sse:close`, an in-flight request's terminal events) from `app.root`. A listener on the element or a removed ancestor misses them. Use `app.on` and match `e.detail.host` or `e.detail.config.triggerEl`. Inside a scope, clean up with `term` instead.
 - **A removed trigger's response still lands.** Removing a trigger doesn't cancel its request, so a slow response can overwrite newer content in a shared target. Give competing triggers a shared `rz-request="abort-key: …"`.
+- **Plugin markup needs its plugin.** Without `sync` or `sse` installed in that app, `rz-push`, `rz-pull`, `@store::status`, a store endpoint, `rz-sse`, and `sse-[name]` do nothing. The production build doesn't warn.
 - **Register before scanning.** A store registered after the markup reading it was scanned stays `undefined` in those bindings for good.
 - **Stream events stay local.** `sse-[name]` hears only its own element's stream and descendants. A listener beside the stream needs `sse-[name]|root`.
 - **Some events fire off the element.** `visibilitychange` fires on `document`: write `visibilitychange|document`. `load|window` never fires if the app starts after load; use `ready`.

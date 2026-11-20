@@ -35,9 +35,10 @@ Three layers. Put a test in the cheapest one that can observe the behavior.
 A directive-driven reactivity layer for server-rendered HTML, shipped as one ESM library. The server renders the page; `data-rz-*` attributes wire it up:
 
 - **Scopes** (`rz-scope`) attach a setup function to a DOM region and expose its state and methods to the directives inside.
-- **Stores** (`<script data-rz-store>`, `app.store()`) are named, app-wide state that can sync with a server endpoint (push/pull).
+- **Stores** (`<script data-rz-store>`, `app.store()`) are named, app-wide state. With the sync plugin they sync with a server endpoint (push/pull).
 - **Directives** bind state to the DOM (`rz-text`, `rz-model`, `rz-render`, …), handle events (`rz-on`), and make requests (`rz-fetch`), routing responses into the DOM (`rz-place`) or stores (`rz-deposit`).
 - **`RouseApp`** (`rouse(config)`) owns one root element; `start()` scans it, `destroy()` ends it.
+- **Plugins** (`rouse({ plugins: [sync, sse] })`) add store sync and server-sent events per app. Core ships neither.
 
 Directives are authored as `data-rz-<slug>` and named `rz-<slug>` everywhere else (filenames, `DirectiveSlug`, diagnostic labels); `core/elements.ts` is the only place the prefix is spelled.
 
@@ -45,12 +46,14 @@ Directives are authored as `data-rz-<slug>` and named `rz-<slug>` everywhere els
 
 **A module's contract is in a header comment at the top of the file that owns it. Read it before changing the file** — it holds the rules that fail silently and the decisions not to reverse.
 
-- **`src/app.ts`** (`RouseApp`) and **`src/store.ts`** (stores and sync) — compose the layers below.
+- **`src/app.ts`** (`RouseApp`) and **`src/store.ts`** (stores, and the hooks sync attaches to) — compose the layers below.
+- **`src/plugin-api.ts`** — the private contract with plugins: `CoreApi`, version check, install, and dev-build stubs. **`src/core/plugins.ts`** names what each plugin owns, for missing-plugin diagnostics.
 - **`src/core/`** — the bottom layer, with no runtime imports from the layers above (lint-enforced). Element helpers and directive attribute access (`elements.ts`), parsers (`parser.ts`), diagnostics, constants, timing. State addressing is split by dependency weight: `path.ts` (dot paths) → `state.ts` (`clone`, `patchState`; a leaf) → `resolve.ts` (`@store` / `%` / scope resolution).
 - **`src/dom/`** — scope lifecycle (`scope.ts`), binding, ownership, and the app-root registry (`binder.ts`, `getApp`), scan passes (`observer.ts`), trigger sources, `app.on`, and `rz-wake` gates (`events.ts`), key modifiers (`modifiers.ts`), rendering (`renderer.ts`), payload routing, placement.
-- **`src/net/`** — `request()` and interceptors (`request.ts`), the fetch engine (`fetch-engine.ts`), the request lifecycle (`lifecycle.ts`), payloads, the SSE engine (`sse-engine.ts`).
+- **`src/net/`** — `request()` and interceptors (`request.ts`), the fetch engine (`fetch-engine.ts`), the request lifecycle (`lifecycle.ts`), payloads.
 - **`src/directives/`** — one directive per `rz-<slug>.ts`, plus factories and shared helpers. Layout rules in the header of `index.ts`.
 - **`src/reactivity/`** — thin wrappers around alien-signals.
+- **`src/plugins/`** — one directory per plugin (`sync/`, `sse/`), each its own build entry. A plugin imports only the stateless core helpers the lint allow-list names (`vite.config.ts`) and reaches everything else through `CoreApi`; a stateful module bundled into a plugin would run twice. Contract in the header of `src/plugin-api.ts`.
 - **`src/types.ts`** — shared interfaces.
 
 Three directive shapes, picked by where the directive lives: **`BoundDirective`** (scanned by the binder, mounts in a scope or globally), **`StandaloneDirective`** (`initialize`/`teardown`, works anywhere, including on a store script), **`ConfigDirective`** (`getConfig`, read on demand, no registration).
@@ -107,10 +110,11 @@ The header of `src/core/diagnostics.ts` has the bare `err` sites and the message
 Each spans files and breaks quietly if done partially.
 
 - **Adding a directive** — see the header of `src/directives/index.ts`.
-- **Adding a request-config key** — the field on `BaseRequestConfig` (both paths) or `FetchConfig` (fetch only), plus an entry in `rz-request`'s `KEYS` if it should be reachable from HTML. A store-only key goes on `SyncPolicy` with a read in `StoreManager._request`.
+- **Adding a request-config key** — the field on `BaseRequestConfig` (both paths) or `FetchConfig` (fetch only), plus an entry in `rz-request`'s `KEYS` if it should be reachable from HTML. A store-only key goes on `SyncPolicy` (`plugins/sync/types.ts`) with a read in `StoreSync._request`.
 - **Adding an interceptor phase** — extend `InterceptorPhase` (`types.ts`), add its `Set` to `RouseApp._interceptors` and initialize it, add an `app.interceptor()` overload, and add the execution site in `request()`.
 - **Adding a lifecycle event** — extend the `LifecycleEvent` union, add the `LifecycleEventMap` entry, and add a detail type, sharing fields through a `Base*` interface. A new request family also needs a `RequestLifecycleOptions` member; see the header of `src/net/lifecycle.ts`. Then list the event in `docs/index.md`.
 - **Adding a trigger source** — see the header of `src/dom/events.ts`.
+- **Adding a plugin-owned name** (directive, trigger, store namespace, `app.stores` method) — register it in the plugin's `install`, and add it to the matching table in `core/plugins.ts` (or `SYNC_METHODS` in `plugin-api.ts`) so an app without the plugin warns. A core function the plugin needs goes on `CoreApi`.
 
 ### Project posture
 

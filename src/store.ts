@@ -124,8 +124,8 @@ function warnNullFields(storeName: string, state: object) {
 }
 
 /**
- * The central manager for all reactive stores and their network logic.
- * Instantiated once per RouseApp to ensure isolation.
+ * Manages one app's stores by name, as `app.stores`. Each app has its own, so stores
+ * never cross between apps.
  */
 export class StoreManager {
   private app: RouseApp;
@@ -414,9 +414,8 @@ export class StoreManager {
   }
 
   /**
-   * Replaces the store's data, then clears dirty flags and refreshes both
-   * snapshots: the one `reset()` restores to, and the last synced state `revert()`
-   * restores to. To change the store's sync configuration, use `config()`.
+   * Replaces the store's data. Sends nothing. With the `sync` plugin, the new data is
+   * also what `reset()` and `revert()` restore, and the store has no unsaved changes.
    */
   update<T extends object = any>(storeName: string | null | undefined, state: object): T {
     const entry = this._find(storeName);
@@ -450,9 +449,9 @@ export class StoreManager {
    * events a push or pull fires, so a listener sees one shape whatever produced
    * the payload.
    *
-   * The payload's keys become the last synced state, as they would after a pull.
-   * Keys it leaves out keep any unsaved changes, and `reset()` still restores the
-   * state the store started with.
+   * With the `sync` plugin, the payload's keys count as synced, as after a pull. Keys
+   * it leaves out keep any unsaved changes, and `reset()` still restores the state the
+   * store started with.
    *
    * @returns `false` if the store does not exist or a listener canceled the patch.
    */
