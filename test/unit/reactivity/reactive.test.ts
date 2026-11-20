@@ -194,6 +194,23 @@ describe('arrays', () => {
     expect(runs).toHaveBeenCalledTimes(3);
   });
 
+  it.each<[string, (list: number[]) => unknown]>([
+    ['sort', (list) => list.sort((a, b) => a - b)],
+    ['reverse', (list) => list.reverse()],
+    ['fill', (list) => list.fill(0)],
+    ['copyWithin', (list) => list.copyWithin(0, 1)],
+  ])('returns the proxy from %s', (_, mutate) => {
+    const list = reactive([2, 1]);
+    expect(mutate(list)).toBe(list);
+  });
+
+  it('re-runs an effect on a write chained on a mutator', () => {
+    const list = reactive([2, 1]);
+    const runs = track(() => list.length);
+    list.sort((a, b) => a - b).push(3);
+    expect(runs).toHaveBeenCalledTimes(2);
+  });
+
   it('re-runs an effect iterating the array on index writes', () => {
     const list = reactive([1, 2]);
     let sum = 0;

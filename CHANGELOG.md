@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Ignore server-sent messages named `open` or `error` in connection handling, so they no longer count as failed attempts, fire `rz:sse:error` or `rz:sse:open`, or close the stream. `sse-[open]` and `sse-[error]` triggers now receive them instead of throwing on connection events.
 - Fire `edit` triggers when an effect mutates a store in reaction to a framework write (sync response, deposit, `update()`, `reset()`, or `revert()`), so a push on `edit` sends the effect's changes.
 - Mark a store dirty and fire `edit` triggers for edits to an array item reached through an array method (`find()`, `map()`, `for...of`), including `rz-model` bindings on `rz-render` items (`%.done`).
+- Return the reactive array from array mutators that return the array itself (such as `sort()` and `reverse()`), so writes chained on the result re-run effects and mark a store dirty.
 
 ## [0.17.0] - 2026-11-14
 

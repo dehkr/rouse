@@ -1,7 +1,14 @@
-import { endBatch, startBatch, trigger } from 'alien-signals';
+import { trigger } from 'alien-signals';
 import type { AnyFn } from '../types';
 import { adoptTracker, getSignal, ITERATION_KEY } from './handlers';
-import { dirtyTrackers, getRaw, objectRootKeys, proxiable, reactive } from './reactive';
+import {
+  batch,
+  dirtyTrackers,
+  getRaw,
+  objectRootKeys,
+  proxiable,
+  reactive,
+} from './reactive';
 
 /** Array-method overrides keyed by name/symbol. */
 export const methodIntercepts: Record<string | symbol, AnyFn> = {};
@@ -82,8 +89,7 @@ const MUTATORS = [
 // Batch updates, run on raw, and manually trigger 'length' and iteration signals
 for (const key of MUTATORS) {
   methodIntercepts[key] = function (this: any[], ...args: any[]) {
-    startBatch();
-    try {
+    return batch(() => {
       const raw = getRaw(this);
       const result = raw[key].apply(raw, args);
 
@@ -93,7 +99,8 @@ for (const key of MUTATORS) {
 
       const tracker = dirtyTrackers.get(raw);
       if (tracker) {
-        const rootKey = objectRootKeys.get(raw) ?? 'root';
+        // Stores can't be arrays, so a tracked array always has a root key.
+        const rootKey = objectRootKeys.get(raw)!;
         tracker(rootKey);
 
         // Inserted items bypass the set trap, which would hand them the tracker. A
@@ -104,10 +111,9 @@ for (const key of MUTATORS) {
           }
         }
       }
-      return result;
-    } finally {
-      endBatch();
-    }
+      // Return the proxy where native returns `this`, so chained writes stay reactive
+      return result === raw ? this : result;
+    });
   };
 }
 
