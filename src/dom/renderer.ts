@@ -32,14 +32,10 @@ type ItemSignal = {
   (value: unknown): void;
 };
 
-interface ItemPlan {
-  item: unknown;
-  index: number;
-}
-
 interface NormalizedValue {
   mode: RenderMode;
-  items: ItemPlan[];
+  /** One item per instance, at its index */
+  items: unknown[];
 }
 
 interface InstanceRecord {
@@ -66,34 +62,25 @@ interface RenderOptions {
  * - Object: renders once with the object as the item
  * - Array: renders one instance per element, with the element as the item
  *
- * Iterates arrays with `map`, not an index loop, so the read goes through the
- * reactive interceptor and structural changes (including in-place reorders)
- * re-run the render.
+ * Copies arrays through the proxy's iterator, so the render tracks the array and
+ * re-runs on structural changes, including in-place reorders.
  */
 function normalize(value: unknown): NormalizedValue {
   if (Array.isArray(value)) {
-    const items: ItemPlan[] = value.map((item, index) => ({ item, index }));
-    return { mode: 'array', items };
+    return { mode: 'array', items: Array.from(value) };
   }
 
   if (typeof value === 'number') {
     const n = Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
-    const items: ItemPlan[] = Array.from({ length: n }, (_, index) => ({
-      item: value,
-      index,
-    }));
-    return { mode: 'number', items };
+    return { mode: 'number', items: Array.from({ length: n }, () => value) };
   }
 
   if (isPlainObject(value)) {
-    return { mode: 'object', items: [{ item: value, index: 0 }] };
+    return { mode: 'object', items: [value] };
   }
 
   // `boolean` and anything else: truthy renders once, falsy renders nothing
-  return {
-    mode: 'boolean',
-    items: value ? [{ item: value, index: 0 }] : [],
-  };
+  return { mode: 'boolean', items: value ? [value] : [] };
 }
 
 /**
@@ -102,19 +89,20 @@ function normalize(value: unknown): NormalizedValue {
  * to position.
  */
 function keyFor(
-  plan: ItemPlan,
+  item: unknown,
+  index: number,
   mode: RenderMode,
   keyPath: string | null,
   onMissing?: VoidFn,
 ): string | number {
   if (mode === 'boolean' || mode === 'number' || !keyPath) {
-    return plan.index;
+    return index;
   }
 
-  const explicit = getNestedVal(plan.item, keyPath);
+  const explicit = getNestedVal(item, keyPath);
   if (explicit == null) {
     onMissing?.();
-    return plan.index;
+    return index;
   }
 
   return explicit as string | number;
@@ -160,7 +148,7 @@ export function renderTemplate(
    * and index onto a render context, binds the cloned directives against it,
    * and teleports the nodes to a target when the item requests one.
    */
-  function buildInstance(plan: ItemPlan): InstanceRecord {
+  function buildInstance(item: unknown, index: number): InstanceRecord {
     const frag = template.content.cloneNode(true) as DocumentFragment;
     const roots = Array.from(frag.childNodes);
     const elementRoots = roots.filter(
@@ -172,8 +160,8 @@ export function renderTemplate(
     const collected: Element[] = [];
     elementRoots.forEach((root) => walkBoundElements(root, (e) => collected.push(e)));
 
-    const itemSig: ItemSignal = signal(reactive(plan.item as object));
-    const indexSig: IndexSignal = signal(plan.index);
+    const itemSig: ItemSignal = signal(reactive(item as object));
+    const indexSig: IndexSignal = signal(index);
     const frame: RenderFrame = {
       get item() {
         return itemSig();
@@ -201,7 +189,6 @@ export function renderTemplate(
 
     // Per-item teleport. `renderTarget` accepts a selector string or
     // a direct Element reference.
-    const item = plan.item;
     const rt =
       item && typeof item === 'object'
         ? (getRaw(item) as Record<string, unknown>).renderTarget
@@ -234,7 +221,7 @@ export function renderTemplate(
     };
 
     return {
-      item: plan.item,
+      item,
       itemSig,
       indexSig,
       roots,
@@ -251,7 +238,7 @@ export function renderTemplate(
   }
 
   /**
-   * Diffs the incoming item plans against the live instances by key, then creates,
+   * Diffs the incoming items against the live instances by key, then creates,
    * reuses, repositions, or removes instances so the DOM matches the new list.
    */
   function reconcile(normalized: NormalizedValue) {
@@ -271,8 +258,8 @@ export function renderTemplate(
     const onMissing = __DEV__ ? () => missing++ : undefined;
     const seen = new Set<string | number>();
 
-    for (const plan of normalized.items) {
-      const instanceKey = keyFor(plan, normalized.mode, keyPath, onMissing);
+    for (const [index, item] of normalized.items.entries()) {
+      const instanceKey = keyFor(item, index, normalized.mode, keyPath, onMissing);
 
       if (seen.has(instanceKey)) {
         if (__DEV__) {
@@ -287,15 +274,15 @@ export function renderTemplate(
       if (rec) {
         // Same key, new identity (e.g. refetched data, explicit rz-key): swap
         // the item so bound directives re-read without a rebuild.
-        if (rec.item !== plan.item) {
-          rec.item = plan.item;
-          rec.itemSig(reactive(plan.item as object));
+        if (rec.item !== item) {
+          rec.item = item;
+          rec.itemSig(reactive(item as object));
         }
-        if (rec.indexSig() !== plan.index) {
-          rec.indexSig(plan.index);
+        if (rec.indexSig() !== index) {
+          rec.indexSig(index);
         }
       } else {
-        rec = buildInstance(plan);
+        rec = buildInstance(item, index);
         records.set(instanceKey, rec);
       }
 

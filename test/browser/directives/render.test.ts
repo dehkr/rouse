@@ -17,6 +17,9 @@ describe('rz-render', () => {
     items.push({ title: 'c' });
     items.shift();
     expect(texts(root)).toEqual(['b', 'c']);
+
+    items[0] = { title: 'd' };
+    expect(texts(root)).toEqual(['d', 'c']);
   });
 
   it('keeps each keyed instance’s DOM node across a reorder', async () => {
