@@ -197,6 +197,19 @@ describe('store status and dirty tracking', () => {
     expect(app.stores.isDirty('s')).toBe(false);
   });
 
+  it('marks deposited keys synced and keeps unsaved edits in the others', async () => {
+    const { app } = await mount('', { stores: { s: { a: 1, b: 1, c: 1 } } });
+    const s = app.stores.get('s')!;
+    s.a = 2;
+    s.b = 2;
+    await Promise.resolve();
+
+    app.stores.deposit('s', { a: 3, c: null });
+
+    expect(app.stores.dirtyRoots('s')).toEqual(['b']);
+    expect(app.stores.baseline('s')).toEqual({ a: 3, b: 1 });
+  });
+
   it('binds status fields in markup', async () => {
     worker.use(
       http.patch('/api/s', async () => {

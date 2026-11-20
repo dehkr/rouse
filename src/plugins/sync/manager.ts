@@ -174,6 +174,7 @@ export class StoreSync {
       deposited: (stored, payload) => {
         const entry = stored as SyncEntry;
         this._patchBaseline(entry, payload);
+        this._reconcileDirty(entry, Object.keys(payload));
         entry.status.lastSync = Date.now();
       },
       // Reconciled before the edit listeners run, so a debounced push reads a current
@@ -212,8 +213,8 @@ export class StoreSync {
   }
 
   /**
-   * Applies a response payload to `lastGood` exactly as it was applied to the data,
-   * and reconciles the dirty flags that move with it.
+   * Applies a response payload to `lastGood` exactly as it is applied to the data. The
+   * caller reconciles the payload's roots once both sides hold it.
    */
   private _patchBaseline(entry: SyncEntry, payload: any) {
     // Cloned so the baseline never shares an object or array with the store, where an
@@ -222,7 +223,6 @@ export class StoreSync {
     // nested one would read dirty forever.
     entry.lastGood ??= {};
     core.patchState(entry.lastGood, core.clone(payload), 'merge', entry.data);
-    this._reconcileDirty(entry);
   }
 
   /**
@@ -522,15 +522,14 @@ export class StoreSync {
     }
 
     core.batch(() => {
-      // Reconcile the response body into the store. On push, how server-owned fields
-      // (assigned id, computed/normalized values) return to the client. On pull, the
-      // fetched data itself.
+      // Reconcile the response payload into the store: merges server-owned fields
+      // (assigned IDs, normalized values) on push, or hydrates fetched state on pull.
       if (hasBody) {
-        this.stores._patchPayload(entry, payload);
-
-        // The response is applied to the baseline exactly as it was to the data. Keys
-        // it omits keep their baseline, so an unsaved edit there stays unsaved.
+        // Patch the baseline identically to live data so omitted keys preserve their
+        // dirty state. Update the baseline first so the subsequent data patch's patched
+        // hook sees both sides synchronized.
         this._patchBaseline(entry, payload);
+        this.stores._patchPayload(entry, payload);
       }
 
       if (operation === 'pull') {

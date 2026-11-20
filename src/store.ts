@@ -3,9 +3,10 @@
  * behind the `edit` trigger. Sync (baselines, dirty status, push and pull) is the sync
  * plugin's, reached only through `_hooks`. Don't read or write sync state here.
  *
- * Every framework write goes through `_withPatchGuard`, which is what keeps it out of
- * `edit` and calls the `patched` hook. Every `rz:store:patch:*` dispatch goes through
- * `_dispatchPatchEvent`.
+ * Every framework write goes through `_frameworkWrite`, which keeps it out of `edit` and
+ * calls exactly one hook: `reseeded`, `deposited`, or `patched`. A second hook for the
+ * same write would make sync recompute the dirty status twice. Every
+ * `rz:store:patch:*` dispatch goes through `_dispatchPatchEvent`.
  */
 import {
   type PersistOptions,
@@ -79,7 +80,10 @@ export interface StoreHooks {
   redeclared(entry: StoreEntry, policy: DeclaredSync): void;
   /** The store's data was replaced whole, by `update()` or a re-declared script. */
   reseeded(entry: StoreEntry): void;
-  /** A framework write landed, changing `roots`, or any root when unset. */
+  /**
+   * Any other framework write landed, changing `roots`, or any root when unset.
+   * Not called for a reseed or a deposit, which have their own hooks.
+   */
   patched(entry: StoreEntry, roots?: Iterable<string>): void;
   /** A deposit merged `payload` into the data. Runs inside the deposit's batch. */
   deposited(entry: StoreEntry, payload: object): void;
@@ -214,29 +218,40 @@ export class StoreManager {
   }
 
   /**
-   * Applies a response payload to the store's data, as a framework write.
+   * Merges a response payload into the store's data, as a framework write that
+   * changes the payload's roots.
    *
    * @internal
    */
   _patchPayload(entry: StoreEntry, payload: any) {
-    this._withPatchGuard(entry, () => patchState(entry.data, payload, 'merge'));
+    this._withPatchGuard(
+      entry,
+      () => patchState(entry.data, payload, 'merge'),
+      Object.keys(payload),
+    );
   }
 
   /**
-   * Runs a framework write with edit tracking suppressed, then calls the `patched`
-   * hook for `roots` or the whole store. Every framework mutation of store data goes
-   * through here, so the hook cannot be forgotten.
+   * Runs a framework write, then calls the `patched` hook for `roots` or the whole store.
    *
    * @internal
    */
   _withPatchGuard(entry: StoreEntry, fn: VoidFn, roots?: string[]) {
+    this._frameworkWrite(fn, () => this._hooks.patched?.(entry, roots));
+  }
+
+  /**
+   * Runs `fn` with edit tracking suppressed, then `report`, the one hook that announces
+   * the write, in the same batch.
+   */
+  private _frameworkWrite(fn: VoidFn, report: VoidFn) {
     batch(() => {
       this._isPatching = true;
       try {
         fn();
       } finally {
         this._isPatching = false;
-        this._hooks.patched?.(entry, roots);
+        report();
       }
     });
   }
@@ -437,10 +452,10 @@ export class StoreManager {
    * @internal
    */
   _reseed(entry: StoreEntry, state: object) {
-    batch(() => {
-      this._withPatchGuard(entry, () => patchState(entry.data, state, 'replace'));
-      this._hooks.reseeded?.(entry);
-    });
+    this._frameworkWrite(
+      () => patchState(entry.data, state, 'replace'),
+      () => this._hooks.reseeded?.(entry),
+    );
   }
 
   /**
@@ -482,10 +497,10 @@ export class StoreManager {
 
     // Unlike a pull, there's no mid-flight guard, and no null-field warning: a
     // deposit's `null` is its delete.
-    batch(() => {
-      this._patchPayload(entry, applied);
-      this._hooks.deposited?.(entry, applied);
-    });
+    this._frameworkWrite(
+      () => patchState(data, applied, 'merge'),
+      () => this._hooks.deposited?.(entry, applied),
+    );
 
     this._dispatchPatchEvent(entry, 'rz:store:patch', {
       storeName: name,
