@@ -480,12 +480,6 @@ export type TriggerEvent<S extends string> = S extends keyof LifecycleEventMap
 /** A listener callback, or an object with `handleEvent`, as `addEventListener` accepts. */
 export type EventCallback<E> = ((ev: E) => void) | { handleEvent(ev: E): void };
 
-/** A stateless directive used to parse DOM attributes into a typed configuration object. */
-export interface ConfigDirective<T> {
-  /** Parse the element's attributes into the typed config `T`. Pure. No lifecycle, read on demand. */
-  getConfig: (el: Element, ...args: any[]) => T;
-}
-
 /** Bound to its scope's state, once per `key: value` segment. */
 export interface BoundDirective {
   /** The `rz-*` attribute name (prefix omitted) this directive handles. */

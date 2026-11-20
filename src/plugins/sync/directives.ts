@@ -2,18 +2,28 @@ import type { RouseApp } from '../../app';
 import { STORE_PREFIX } from '../../core/constants';
 import { warn } from '../../core/diagnostics';
 import { hasDirective, isDisabled } from '../../core/elements';
-import type { TriggerSubjectPair, VoidFn } from '../../types';
+import type { StandaloneDirective, TriggerSubjectPair, VoidFn } from '../../types';
 import { core } from '../core';
 import { syncFor } from './manager';
 
 type SyncOp = 'push' | 'pull';
+
+export const rzPush = {
+  slug: 'push',
+  mount: (el, app, pairs) => bindStorePairs('push', el, app, pairs),
+} as const satisfies StandaloneDirective;
+
+export const rzPull = {
+  slug: 'pull',
+  mount: (el, app, pairs) => bindStorePairs('pull', el, app, pairs),
+} as const satisfies StandaloneDirective;
 
 /**
  * Binds each `[trigger]: @store` pair to a push or pull. The push `edit`
  * trigger fires on store mutation via the `edit` trigger source; every other
  * trigger routes through `dispatchTrigger`. Returns the cleanups.
  */
-export function bindStorePairs(
+function bindStorePairs(
   op: SyncOp,
   el: Element,
   app: RouseApp,

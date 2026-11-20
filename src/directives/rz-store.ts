@@ -4,7 +4,7 @@ import { err, warn } from '../core/diagnostics';
 import { parseStoreValue } from '../core/parser';
 import { isPlainObject } from '../core/state';
 import type { DeclaredSync } from '../store';
-import { rzHeaders } from './rz-headers';
+import { readHeaders } from '../net/request';
 
 const initialized = new WeakSet<HTMLScriptElement>();
 
@@ -50,7 +50,7 @@ function initialize(el: HTMLScriptElement, app: RouseApp) {
   }
 
   const declared: DeclaredSync = {};
-  const headers = rzHeaders.getConfig(el);
+  const headers = readHeaders(el);
 
   if (url) {
     declared.url = url;

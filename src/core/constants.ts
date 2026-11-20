@@ -1,29 +1,36 @@
-/** Every `rz-*` directive name supported by the framework, without the prefix. */
+/**
+ * Every `rz-*` directive name, plugins' included, without the prefix. Grouped by kind,
+ * each with where its definition lives.
+ */
 export const DIRECTIVE_SLUGS = [
+  // Bound: `directives/`
   'attr',
   'class',
+  'html',
+  'model',
+  'on',
+  'prop',
+  'render',
+  'style',
+  'text',
+  // Standalone: `directives/`, or the owning plugin
+  'fetch',
+  'pull',
+  'push',
+  'sse',
+  // Structural: `directives/rz-store.ts` and `dom/scope.ts`
+  'scope',
+  'store',
+  // Config: the `read<Slug>` function, in the reader's module
   'close',
   'deposit',
   'disable',
-  'fetch',
   'headers',
-  'html',
   'indicator',
   'key',
-  'model',
-  'on',
   'place',
-  'prop',
-  'pull',
-  'push',
-  'render',
   'request',
-  'scope',
   'send',
-  'sse',
-  'store',
-  'style',
-  'text',
   'wake',
 ] as const;
 

@@ -10,6 +10,9 @@ export function directiveSelector(slug: DirectiveSlug, tag = ''): string {
   return `${tag}[${PREFIX}${slug}]`;
 }
 
+/** Matches a scope element. */
+export const SCOPE_SELECTOR = directiveSelector('scope');
+
 /**
  * Gets the directive value associated with a specific element. Returns `null` if
  * the directive isn't present.

@@ -13,13 +13,12 @@
  * `a, b` binds twice on one element and the last effect to run wins, with no warning.
  */
 import type { RouseApp } from '../app';
-import { directiveSelector, getDirectiveValue } from '../core/elements';
+import { directiveSelector, getDirectiveValue, SCOPE_SELECTOR } from '../core/elements';
 import { APP_ROOT_SELECTOR } from '../core/constants';
 import { err, warn } from '../core/diagnostics';
 import { dispatchFrom } from '../core/dispatch';
 import { parseDirectiveValue } from '../core/parser';
 import { EMPTY_SCOPE } from '../core/resolve';
-import { SCOPE_SELECTOR } from '../directives/rz-scope';
 import type { BoundCleanupFn, BoundDirective, DirectiveSlug, Scope } from '../types';
 
 /** Registry to track cleanup functions of globally mounted directives. */

@@ -10,10 +10,11 @@ import { effectScope } from 'alien-signals';
 import type { RouseApp } from '../app';
 import { err, fail, warn } from '../core/diagnostics';
 import { dispatchFrom } from '../core/dispatch';
-import { rzScope, rzWake } from '../directives';
-import type { ScopeCtx, ScopeSetup, VoidFn } from '../types';
+import type { ScopeCtx, ScopeSetup, VoidFn, TriggerDef } from '../types';
 import { bindScope } from './binder';
 import { attachWakeStrategies } from './events';
+import { getDirectiveValue } from '../core/elements';
+import { parseTriggers } from '../core/parser';
 
 type ScopeHandle = ReturnType<typeof createScope>;
 const instanceMap = new WeakMap<HTMLElement, ScopeHandle>();
@@ -25,7 +26,7 @@ const pendingWakes = new WeakMap<HTMLElement, VoidFn>();
  * setup function from the registry, and mounting the reactive instance.
  */
 export function initScopeElement(el: HTMLElement, app: RouseApp) {
-  const scopeName = rzScope.getConfig(el);
+  const scopeName = readScope(el);
   if (scopeName === null) return;
 
   let setup: ScopeSetup;
@@ -43,7 +44,7 @@ export function initScopeElement(el: HTMLElement, app: RouseApp) {
     setup = scope;
   }
 
-  const strategies = rzWake.getConfig(el, app);
+  const strategies = readWake(el, app);
 
   let waked = false;
   const cancel = attachWakeStrategies(el, app, strategies, () => {
@@ -183,4 +184,22 @@ function createScope(el: HTMLElement, app: RouseApp, setup: ScopeSetup) {
     _teardown: (node: Element) => binding?.teardown(node),
     _destroy: destroy,
   };
+}
+
+/** Returns the name of the scope setup `el` names. */
+function readScope(el: Element): string | null {
+  return getDirectiveValue(el, 'scope');
+}
+
+function readWake(el: Element, app: RouseApp): TriggerDef[] {
+  const wakeTriggers = parseTriggers(getDirectiveValue(el, 'wake'));
+  if (wakeTriggers.length === 0) {
+    const wakeTriggersConfig = parseTriggers(app.config.wake);
+
+    // Fall back to the app config or to `ready` if the config is malformed
+    return wakeTriggersConfig.length === 0
+      ? [{ event: 'ready', options: {} }]
+      : wakeTriggersConfig;
+  }
+  return wakeTriggers;
 }

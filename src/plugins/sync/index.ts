@@ -1,6 +1,6 @@
 import type { RousePlugin, StoreManager } from 'rousejs';
 import { setCore } from '../core';
-import { bindStorePairs } from './define-sync-op';
+import { rzPull, rzPush } from './directives';
 import { StoreSync } from './manager';
 import type { StoreStatus, SyncPolicy, SyncRequest } from './types';
 
@@ -150,13 +150,7 @@ export const sync: RousePlugin = {
       (stores as Record<SyncMethod, unknown>)[method] = storeSync[method].bind(storeSync);
     });
 
-    app._addStandaloneDirective({
-      slug: 'push',
-      mount: (el, app, pairs) => bindStorePairs('push', el, app, pairs),
-    });
-    app._addStandaloneDirective({
-      slug: 'pull',
-      mount: (el, app, pairs) => bindStorePairs('pull', el, app, pairs),
-    });
+    app._addStandaloneDirective(rzPush);
+    app._addStandaloneDirective(rzPull);
   },
 };

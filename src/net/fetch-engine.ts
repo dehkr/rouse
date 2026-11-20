@@ -15,11 +15,11 @@ import { err, warn } from '../core/diagnostics';
 import { dispatchFrom } from '../core/dispatch';
 import { createKey } from '../core/keys';
 import { isPlainObject } from '../core/state';
-import { rzSend } from '../directives/rz-send';
 import { readTriggerValues } from '../dom/forms';
 import type { FetchRequest, ResolvedRequest, RouseResponse } from '../types';
 import { type LifecycleHandle, PREVENTED, runRequestLifecycle } from './lifecycle';
 import { resolveUrl } from './payload';
+import { readSend } from './send';
 import { request, resolveRequestConfig } from './request';
 import { fallbackResponse, isFileType, isJsonType } from './response';
 
@@ -283,7 +283,7 @@ function resolvePayload(
   app: RouseApp,
 ): Partial<FetchRequest> {
   const payload = hasDirective(el, 'send')
-    ? rzSend.getConfig(el, app, submitter)
+    ? readSend(el, app, submitter)
     : readTriggerValues(el, submitter);
   if (!payload) {
     return {};

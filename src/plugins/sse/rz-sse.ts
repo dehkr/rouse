@@ -1,14 +1,23 @@
 import type { RouseApp } from '../../app';
 import { warn } from '../../core/diagnostics';
+import { getDirectiveValue } from '../../core/elements';
 import type {
   SseCloseReason,
   StandaloneDirective,
+  TriggerDef,
   TriggerSubjectPair,
   VoidFn,
 } from '../../types';
 import { core } from '../core';
 import { openStream, type SseRelease } from './engine';
-import { rzClose } from './rz-close';
+
+/**
+ * Returns the triggers that close the stream `rz-sse` opened on the same element.
+ * The first to fire closes it, unlike `rz-wake`'s AND. Inert without `rz-sse`.
+ */
+function readClose(el: Element): TriggerDef[] {
+  return core.parseTriggers(getDirectiveValue(el, 'close'));
+}
 
 /**
  * Binds one stream: every trigger sharing the first pair's URL opens it, and the
@@ -60,11 +69,9 @@ function bindSsePairs(el: Element, app: RouseApp, pairs: TriggerSubjectPair[]): 
     ...shared.map(({ trigger }) =>
       core.dispatchTrigger(trigger, { el, app, action: open }),
     ),
-    ...rzClose
-      .getConfig(el)
-      .map((trigger) =>
-        core.dispatchTrigger(trigger, { el, app, action: () => close('released') }),
-      ),
+    ...readClose(el).map((trigger) =>
+      core.dispatchTrigger(trigger, { el, app, action: () => close('released') }),
+    ),
     // The connection outlives the triggers that opened it, so teardown ends it
     () => close('teardown'),
   ];

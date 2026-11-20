@@ -2,10 +2,11 @@ import { getApp } from './binder';
 import type { RouseApp } from '../app';
 import { warn } from '../core/diagnostics';
 import { isPlainObject } from '../core/state';
-import { rzDeposit } from '../directives';
-import { rzPlace } from '../directives/rz-place';
 import type { RouseResponse, RoutablePayload } from '../types';
-import { placeInto } from './placer';
+import { placeInto, readPlace } from './placer';
+import { getDirectiveValue } from '../core/elements';
+import { STORE_PREFIX } from '../core/constants';
+import { parseDirectiveValue, parseStoreRef } from '../core/parser';
 
 /** What produced a routable payload. */
 type PayloadSource = 'fetch' | 'sse';
@@ -32,11 +33,7 @@ export function initPayloadRouters(app: RouseApp, signal: AbortSignal) {
     const content = data == null && placeOverride ? '' : data;
     if (typeof content !== 'string') return;
 
-    for (const { targets, position } of rzPlace.getConfig(
-      host,
-      app.root,
-      placeOverride,
-    )) {
+    for (const { targets, position } of readPlace(host, app.root, placeOverride)) {
       targets.forEach((targetEl) =>
         placeInto(targetEl, app.root, content, position, source),
       );
@@ -46,7 +43,7 @@ export function initPayloadRouters(app: RouseApp, signal: AbortSignal) {
   listenForPayloads(app, signal, 'json', 'depositOverride', (detail, operation, host) => {
     const { data, depositOverride } = detail;
 
-    const stores = rzDeposit.getConfig(host, depositOverride);
+    const stores = readDeposit(host, depositOverride);
     if (stores.length === 0) return;
 
     if (!isPlainObject(data)) {
@@ -108,4 +105,42 @@ function listenForPayloads(
   listen(`rz:fetch:success:${kind}`, 'fetch');
   listen(`rz:fetch:error:${kind}`, 'fetch');
   listen(`rz:sse:message:${kind}`, 'sse');
+}
+
+/**
+ * Resolves `rz-deposit` into store names for JSON payload routing via a fetch response
+ * or an unnamed stream message.
+ *
+ * Whole stores only, comma separated. Without it, a payload deposits nothing, a store
+ * script included: there's no fallback to the script's own store.
+ *
+ * - `data-rz-deposit="@cart"`
+ * - `data-rz-deposit="@cart, @status"`
+ *
+ * @param overrideValue - Takes precedence over the attribute (a server `Rouse-Deposit` header).
+ */
+function readDeposit(el: Element, overrideValue?: string | null): string[] {
+  const value = overrideValue || getDirectiveValue(el, 'deposit');
+  const label = __DEV__ ? (overrideValue ? 'Rouse-Deposit' : 'rz-deposit') : '';
+
+  return parseDirectiveValue(value).flatMap(([key]) => {
+    if (!key.startsWith(STORE_PREFIX)) {
+      if (__DEV__) {
+        warn(`${label}: '${key}' is not a store reference. Use '@name'.`, el);
+      }
+      return [];
+    }
+
+    const ref = parseStoreRef(key, 'deposit');
+    if (!ref) return [];
+
+    if (ref.nestedPath) {
+      if (__DEV__) {
+        warn(`${label}: '${key}' targets a slice. A deposit writes a whole store.`, el);
+      }
+      return [];
+    }
+
+    return [ref.source];
+  });
 }

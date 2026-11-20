@@ -21,17 +21,16 @@
  * Indicators are counted per element rather than owned by one request. An owner token
  * would fix one element firing twice and break two triggers sharing one indicator.
  */
-import { queryTargets } from '../core/elements';
+import { queryTargets, getDirectiveValue } from '../core/elements';
 import { warn } from '../core/diagnostics';
 import { dispatchFrom } from '../core/dispatch';
-import { rzDisable } from '../directives/rz-disable';
-import { rzIndicator } from '../directives/rz-indicator';
 import type {
   FetchConfigDetail,
   PushPullConfigDetail,
   PushPullResultDetail,
   RouseResponse,
 } from '../types';
+import { stripQuotes } from '../core/parser';
 
 export const PREVENTED = Symbol(__DEV__ ? 'rz.prevented' : '');
 
@@ -170,7 +169,7 @@ function resolveIndicators(
   root: Element,
   indicator: string | Element | null | undefined,
 ): Element[] {
-  const resolved = indicator === undefined ? rzIndicator.getConfig(el) : indicator;
+  const resolved = indicator === undefined ? readIndicator(el) : indicator;
 
   if (resolved === undefined) {
     return [el];
@@ -213,7 +212,7 @@ function resolveIndicators(
 function resolveDisabled(host: Element | null, root: Element): Element[] {
   if (!host) return [];
 
-  const selector = rzDisable.getConfig(host);
+  const selector = readDisable(host);
   if (selector === undefined) return [];
 
   const els = selector === '' ? [host] : queryTargets(root, selector);
@@ -275,4 +274,44 @@ function trackInFlight(els: Element[], delta: 1 | -1) {
     inFlight.set(el, n);
     el.classList.toggle(REQUEST_CLASS, n > 0);
   }
+}
+
+/**
+ * A CSS selector for the elements that receive the `rouse-request` class while a
+ * request from the host element is in flight. Without it, the host element receives
+ * the class itself. Commas belong to the selector, so `#spinner, .label` marks both.
+ * Write `null` to apply it to nothing.
+ *
+ * @example
+ * <button data-rz-fetch="click: /save" data-rz-indicator="#spinner">Save</button>
+ */
+function readIndicator(el: Element): string | null | undefined {
+  const value = getDirectiveValue(el, 'indicator')?.trim();
+  if (!value) return undefined;
+
+  // Checked before stripping quotes, so `'null'` is still a selector
+  if (value === 'null') return null;
+
+  return stripQuotes(value) || undefined;
+}
+
+/**
+ * Resolves the `rz-disable` directive target for an element.
+ *
+ * Configures which elements to disable while a request from the host element is in flight.
+ * Accepts a CSS selector (e.g., `#name, #email`), or an empty string/attribute to target
+ * the host element itself.
+ *
+ * - Elements already disabled before the request will remain disabled after it completes.
+ * - `<form>` elements cannot be disabled natively; target a `<fieldset>` inside the form instead.
+ *
+ * @example
+ * <button data-rz-fetch="click: POST /save" data-rz-disable>Save</button>
+ */
+function readDisable(el: Element): string | undefined {
+  const value = getDirectiveValue(el, 'disable');
+  if (value === null) return undefined;
+
+  // An empty string names the host element
+  return stripQuotes(value.trim());
 }

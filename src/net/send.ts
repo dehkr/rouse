@@ -18,7 +18,7 @@ import {
   readTriggerValues,
 } from '../dom/forms';
 import { getRaw } from '../reactivity/reactive';
-import type { ConfigDirective, Scope } from '../types';
+import type { Scope } from '../types';
 
 type Payload = Record<string, unknown>;
 
@@ -42,7 +42,7 @@ type Payload = Record<string, unknown>;
  * @example
  * <button data-rz-fetch="click: /search" data-rz-send='query, selector: [name=tags], {"page": 2}'>
  */
-function getConfig(
+export function readSend(
   el: Element,
   app: RouseApp,
   submitter: HTMLElement | null = null,
@@ -204,5 +204,3 @@ function warnUnreadable(selector: string, matches: Element[]): void {
     }
   }
 }
-
-export const rzSend = { getConfig } as const satisfies ConfigDirective<Payload>;

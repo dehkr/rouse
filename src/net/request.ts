@@ -13,8 +13,6 @@
  * drops what the chain adds, such as auth headers.
  */
 import type { RouseApp } from '../app';
-import { rzHeaders } from '../directives/rz-headers';
-import { rzRequest } from '../directives/rz-request';
 import type {
   FetchRequest,
   RequestError,
@@ -23,6 +21,10 @@ import type {
 } from '../types';
 import { preparePayload } from './payload';
 import { errorResponse, mapCatchError, normalizeResponse } from './response';
+import { getDirectiveValue } from '../core/elements';
+import { warn } from '../core/diagnostics';
+import { parseDirectiveValue, safeJSONParse } from '../core/parser';
+import { parseTime } from '../core/timing';
 
 const abortRegistry = new Map<string | symbol, AbortController>();
 
@@ -157,12 +159,12 @@ export function resolveRequestConfig(
   const config: Partial<FetchRequest> = {
     credentials: app.config.credentials,
     timeout: app.config.timeout,
-    ...(triggerEl ? rzRequest.getConfig(triggerEl) : {}),
+    ...(triggerEl ? readRequest(triggerEl) : {}),
   };
 
   config.headers = {
     ...app.config.headers,
-    ...(triggerEl ? rzHeaders.getConfig(triggerEl) : {}),
+    ...(triggerEl ? readHeaders(triggerEl) : {}),
   };
 
   return config;
@@ -180,4 +182,122 @@ async function runErrorInterceptors(
     error = await fn(error, config);
   }
   return error;
+}
+
+/**
+ * Request headers for an element. Read by the network directives. Written as key-value
+ * pairs, or as an inline JSON object. A `null` value removes the header from the
+ * request; an empty string is sent as is. Values that contain a comma should be
+ * wrapped in quotes.
+ *
+ * - `data-rz-headers="Tenant: 123"`
+ * - `data-rz-headers="Rouse-Request: null"`
+ * - `data-rz-headers="X-Blank: ''"`
+ * - `data-rz-headers="Accept: 'text/html, application/json'"`
+ * - `data-rz-headers='{ "Tenant": 123 }'`
+ */
+export function readHeaders(el: Element): Record<string, string | null> {
+  const value = getDirectiveValue(el, 'headers');
+  if (!value) return {};
+
+  const headers: Record<string, string | null> = {};
+
+  // Inline JSON
+  if (value.startsWith('{')) {
+    try {
+      for (const [k, v] of Object.entries(safeJSONParse(value) as object)) {
+        headers[k] = v == null ? null : String(v);
+      }
+    } catch {
+      if (__DEV__) {
+        warn(`rz-headers: value is not valid JSON: ${value}`, el);
+      }
+    }
+    return headers;
+  }
+
+  // Static key-value pairs
+  for (const [key, val] of parseDirectiveValue(value)) {
+    if (val === null) {
+      if (__DEV__) {
+        warn(
+          `rz-headers: header '${key}' has no value. Write '${key}: <value>', or '${key}: null' to remove it.`,
+          el,
+        );
+      }
+      continue;
+    }
+    // Treat 'null' as the deletion sentinel, mirroring programmatic null.
+    headers[key] = val === 'null' ? null : val;
+  }
+
+  return headers;
+}
+
+/** How a config value is coerced. */
+type ConfigValueType = 'string' | 'boolean' | 'duration';
+
+/**
+ * Keys `rz-request` accepts, and how each value is coerced. A key outside this
+ * table warns and is dropped, so a typo or a key belonging to another directive
+ * can't sit in a config doing nothing.
+ *
+ * Deliberately narrower than `RequestInit`: adding a key later is non-breaking,
+ * removing one isn't. `method` belongs in the `rz-fetch` subject, `body` and `params`
+ * in `rz-send` and the URL, and `skip-interceptors` in JS, where a bypass can't
+ * silently drop auth from markup.
+ */
+const KEYS = {
+  timeout: 'duration',
+  'abort-key': 'string',
+  credentials: 'string',
+  keepalive: 'boolean',
+  redirect: 'string',
+  cache: 'string',
+} as const satisfies Record<string, ConfigValueType>;
+
+/**
+ * Request options for the element's `rz-fetch`, written as `key: value` pairs.
+ *
+ * @example
+ * <button data-rz-fetch="click: POST /save" data-rz-request="timeout: 5s, keepalive">
+ */
+function readRequest(el: Element): Partial<FetchRequest> {
+  const value = getDirectiveValue(el, 'request');
+  if (!value) return {};
+
+  const config: Record<string, any> = {};
+
+  for (const [key, rawVal] of parseDirectiveValue(value)) {
+    const type = KEYS[key as keyof typeof KEYS];
+
+    if (!type) {
+      if (__DEV__) {
+        warn(
+          key === 'headers' || key === 'indicator'
+            ? `rz-request: '${key}' belongs on data-rz-${key}. Ignoring.`
+            : key === 'method'
+              ? `rz-request: 'method' belongs in the data-rz-fetch subject, as in 'click: POST /save'. Ignoring.`
+              : `rz-request: unknown key '${key}'. Ignoring.`,
+          el,
+        );
+      }
+      continue;
+    }
+
+    const val = rawVal ?? '';
+
+    config[kebabToCamel(key)] =
+      type === 'boolean'
+        ? val === 'true' || val === ''
+        : type === 'duration'
+          ? parseTime(val)
+          : val;
+  }
+
+  return config as Partial<FetchRequest>;
+}
+
+function kebabToCamel(str: string) {
+  return str.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
 }

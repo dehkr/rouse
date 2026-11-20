@@ -1,15 +1,30 @@
+/*
+ * Mount order is behavior: stores -> scopes -> scope scan -> standalone directives ->
+ * global bound directives. Stores come first so `@store` references resolve for the
+ * rest. Scopes and the scope scan come before standalone directives, which can fire
+ * events while they mount (a `ready` trigger on an element added after `rz:app:ready`),
+ * so an `rz-on` must already be listening.
+ *
+ * Standalone directives mount one pass per directive, since mount order is request
+ * order, and tear down element by element through one selector. The mount record holds
+ * cleanups, never directive objects: a removed node no longer resolves to an app.
+ *
+ * A new structural directive needs its own selector pass in `mountSubtree`,
+ * `unmountSubtree`, and `releaseSubtree`. Sharing another directive's pass misses
+ * elements carrying only the new one, without a warning.
+ */
 import type { RouseApp } from '../app';
 import {
   directiveSelector,
   getDirectiveValue,
   hasDirective,
   queryTargets,
+  SCOPE_SELECTOR,
   unknownDirectiveNames,
 } from '../core/elements';
 import { warn } from '../core/diagnostics';
 import { parseTriggerSubjectPairs } from '../core/parser';
 import { hasPlugin, needsPlugin, PLUGIN_DIRECTIVES } from '../core/plugins';
-import { SCOPE_SELECTOR } from '../directives/rz-scope';
 import { rzStore } from '../directives/rz-store';
 import {
   closestScope,
@@ -115,14 +130,9 @@ function forEachOwned<T extends Element>(
 }
 
 /**
- * Sets up everything in `root`'s subtree, root included, that belongs to `app`. Stores
- * come first so `@store` references resolve for the rest. Shared by `app.start()` and
- * the observer, so a directive registered here is scanned on both paths.
- *
- * A new structural directive needs its own selector pass here, in `unmountSubtree`,
- * and in `releaseSubtree`. Sharing another directive's pass misses elements carrying
- * only the new one, without a warning. Standalone directives mount one pass per
- * directive, in the app's order, and tear down element by element.
+ * Sets up everything in `root`'s subtree, root included, that belongs to `app`. Shared
+ * by `app.start()` and the observer, so a directive registered here is scanned on both
+ * paths.
  */
 export function mountSubtree(root: Element, app: RouseApp) {
   if (__DEV__) {
@@ -144,8 +154,6 @@ export function mountSubtree(root: Element, app: RouseApp) {
     scanScopeNode(ownerScope, root);
   }
 
-  // One pass per directive, since a `ready` trigger fires during mount and mount
-  // order is request order
   for (const directive of app._standaloneDirectives.values()) {
     forEachOwned(root, directiveSelector(directive.slug), app, (el) =>
       mountStandalone(el, app, directive),

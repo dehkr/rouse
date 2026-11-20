@@ -3,7 +3,7 @@ import { warn } from '../core/diagnostics';
 import { resolveBoundValue } from '../core/invoke';
 import { renderTemplate } from '../dom/renderer';
 import type { BoundCleanupFn, BoundDirective, Scope } from '../types';
-import { rzKey } from './rz-key';
+import { getDirectiveValue } from '../core/elements';
 
 /**
  * Drives an `rz-render` template: resolves its value expression reactively and
@@ -25,7 +25,7 @@ function bind(
   }
 
   const raw = value || key;
-  const keyPath = rzKey.getConfig(el);
+  const keyPath = readKey(el);
 
   return renderTemplate(
     el,
@@ -39,3 +39,16 @@ export const rzRender = {
   singleValue: true,
   bind,
 } as const satisfies BoundDirective;
+
+/**
+ * Explicit reconciliation key for `rz-render`. Holds an item path resolved per
+ * instance (e.g. `data-rz-key="id"` or `data-rz-key="user.id"`). Encouraged for any list
+ * that reorders or is refetched, so instances reuse DOM by stable identity.
+ * Without it, `rz-render` keys by position.
+ *
+ * @example
+ * <template data-rz-render="@todos.items" data-rz-key="id">
+ */
+function readKey(el: Element): string | null {
+  return getDirectiveValue(el, 'key')?.trim() || null;
+}
