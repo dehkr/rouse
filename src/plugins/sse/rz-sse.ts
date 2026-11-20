@@ -17,7 +17,8 @@ function openFor(el: Element, app: RouseApp, url: string) {
   // Repeat triggers on a live stream are a no-op, not a second connection
   if (activeStreams.has(el)) return;
 
-  const release = openStream(app, url, { triggerEl: el });
+  // A stream that closes for good frees the element, so its next open trigger reconnects
+  const release = openStream(app, url, { triggerEl: el }, () => activeStreams.delete(el));
   if (release) {
     activeStreams.set(el, release);
   }

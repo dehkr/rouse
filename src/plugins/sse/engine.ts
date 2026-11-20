@@ -12,8 +12,10 @@
  *
  * `rz:sse:error` is the only reconnect switch, so there's no `reconnect` option, and
  * `rz:sse:config` fires once per open, since the browser retries with no hook in
- * between. A closed entry stays registered while holders remain, so the refcount stays
- * sound. A mounting element joins it without reviving it; `app.sse()` revives it.
+ * between. A connection that closes for good leaves the registry and drops its holders,
+ * so the next open on its URL, from markup or `app.sse()`, connects fresh and fires
+ * `rz:sse:config` again. Don't keep a closed entry joinable: a holder joining it hears
+ * nothing.
  */
 import type { RouseApp } from '../../app';
 import { dispatchFrom } from '../../core/dispatch';
@@ -36,19 +38,20 @@ interface StreamRef {
   /** The app root, where events fire once `el` has left the DOM. */
   root: Element;
   config: SseConnectionConfig;
+  /** Called when the connection closes for good, before `rz:sse:close`. */
+  onEnd?: VoidFn;
 }
 
 interface StreamEntry {
+  key: string;
   url: string;
   withCredentials: boolean;
   source: EventSource | null;
   refs: Set<StreamRef>;
-  /** Named events already wired to `source`; cleared whenever a new source is built. */
+  /** Named events already wired to `source`. */
   attached: Set<string>;
   /** Consecutive failed attempts. Reset on every open. */
   attempt: number;
-  /** Ended and will not reopen. A joining reference does not revive it. */
-  closed: boolean;
 }
 
 const DEFAULT_EVENT = 'message';
@@ -64,15 +67,14 @@ function streamKey(url: string, withCredentials: boolean) {
  * Opens a stream, or joins one already open at the same URL. Fires `rz:sse:config`
  * first; a listener that cancels it gets an inert release and no connection.
  *
- * @param revive - Whether to reopen a permanently closed connection. Programmatic
- * callers do; a mounting element does not, so it can't override a listener's cancel.
+ * @param onEnd - Called if the connection closes for good while this holder has it.
  * @returns A release for this holder's reference, idempotent after the first call.
  */
 export function openStream(
   app: RouseApp,
   resource: string,
   options: SseOptions = {},
-  revive = false,
+  onEnd?: VoidFn,
 ): SseRelease | null {
   const el = options.triggerEl ?? app.root;
 
@@ -98,31 +100,30 @@ export function openStream(
   const key = streamKey(config.url, config.withCredentials);
   let entry = entries.get(key);
 
+  const ref: StreamRef = { el, root: app.root, config, onEnd };
+
   if (!entry) {
     entry = {
+      key,
       url: config.url,
       withCredentials: config.withCredentials,
       source: null,
-      refs: new Set(),
+      refs: new Set([ref]),
       attached: new Set(),
       attempt: 0,
-      closed: false,
     };
     entries.set(key, entry);
-  }
-
-  const ref: StreamRef = { el, root: app.root, config };
-  entry.refs.add(ref);
-
-  if (!entry.source && (!entry.closed || revive)) {
-    entry.attempt = 0;
     connect(entry);
-  } else if (entry.source?.readyState === EventSource.OPEN) {
-    // A ref joining a live stream missed the connect dispatch
-    dispatchFrom(el, app.root, 'rz:sse:open', { config });
+  } else {
+    entry.refs.add(ref);
+    if (entry.source?.readyState === EventSource.OPEN) {
+      // A ref joining a live stream missed the connect dispatch
+      dispatchFrom(el, app.root, 'rz:sse:open', { config });
+    }
   }
 
-  return (reason = 'released') => release(key, ref, reason);
+  const joined = entry;
+  return (reason = 'released') => release(joined, ref, reason);
 }
 
 /**
@@ -141,7 +142,7 @@ export function openBoundStream(
     return () => {};
   }
 
-  const release = openStream(app, resource, options, true);
+  const release = openStream(app, resource, options);
   if (!release) {
     return () => {};
   }
@@ -175,8 +176,6 @@ function connect(entry: StreamEntry) {
   });
 
   entry.source = source;
-  entry.closed = false;
-  entry.attached = new Set();
 
   // A server message named `open` or `error` reaches these listeners too, as a
   // `MessageEvent`. The connection's own events are plain `Event`s.
@@ -255,31 +254,30 @@ function onError(entry: StreamEntry) {
   }
 }
 
-/** Ends the connection while its references remain, so the refcount stays sound. */
+/**
+ * Ends the connection for every holder and unregisters it. Holders are freed before
+ * `rz:sse:close`, so a listener that reopens the URL gets a fresh connection.
+ */
 function finalize(entry: StreamEntry, reason: SseCloseReason) {
   entry.source?.close();
   entry.source = null;
-  entry.attached.clear();
-  entry.closed = true;
+  entries.delete(entry.key);
 
+  entry.refs.forEach((ref) => ref.onEnd?.());
   emit(entry, 'rz:sse:close', { reason });
+  // A holder's later release is a no-op: the close is already announced
+  entry.refs.clear();
 }
 
-function release(key: string, ref: StreamRef, reason: SseCloseReason) {
-  const entry = entries.get(key);
-  if (!entry?.refs.delete(ref)) return;
-
-  // `finalize` already announced a permanent close to every holder
-  const announced = entry.closed;
+function release(entry: StreamEntry, ref: StreamRef, reason: SseCloseReason) {
+  if (!entry.refs.delete(ref)) return;
 
   if (entry.refs.size === 0) {
     entry.source?.close();
-    entries.delete(key);
+    entries.delete(entry.key);
   }
 
-  if (!announced) {
-    dispatchFrom(ref.el, ref.root, 'rz:sse:close', { config: ref.config, reason });
-  }
+  dispatchFrom(ref.el, ref.root, 'rz:sse:close', { config: ref.config, reason });
 }
 
 /**

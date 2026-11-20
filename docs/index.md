@@ -761,7 +761,7 @@ data: {}
 - **Unnamed messages.** A JSON object or array goes to the element's `rz-deposit` stores. Anything else is HTML for `rz-place`, which defaults to the element's `innerHTML`; `data-rz-place="null"` opts out. `app.sse` without `triggerEl` routes nothing: listen for `rz:sse:message:{html,json}`.
 - **Named messages.** `sse-[name]` hears the stream on its own element or a descendant; add `|root` to hear every stream in the app. Any directive takes it: `rz-on`, `rz-fetch`, `rz-pull`, `rz-close`.
 - **Reconnects.** The browser reconnects after a dropped connection and resends `Last-Event-ID`. Each loss fires `rz:sse:error`; `preventDefault()` closes the stream instead. A non-200 response or a wrong `Content-Type` closes it for good.
-- **Closing.** `rz-close` triggers, the `app.sse` close function or its `signal`, removing the element, or `app.destroy()`. After `rz-close`, the next open trigger starts a fresh stream.
+- **Closing.** `rz-close` triggers, the `app.sse` close function or its `signal`, removing the element, or `app.destroy()`. After a stream closes by `rz-close`, a prevented `rz:sse:error`, or a rejected connection, the element's next open trigger opens a new connection. So does another `rz-sse` element or an `app.sse` call for that URL.
 - **No request config.** `EventSource` can't send headers, so `rz-headers`, `rz-request`, interceptors, `rz-indicator`, and the `Rouse-*` response headers don't apply. Send cookies cross-origin with `app.sse(url, { withCredentials: true })`.
 
 ## Errors

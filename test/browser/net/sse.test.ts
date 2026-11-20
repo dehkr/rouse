@@ -11,6 +11,7 @@ const mountSse: typeof mount = (html, options) =>
 /** The part of MSW's stream client the tests use, open to any event name. */
 interface Client {
   send(message: { event?: string; data: string }): void;
+  close(): void;
 }
 
 /** Mocks a stream at `path` and resolves each connection's client as it opens. */
@@ -123,6 +124,50 @@ describe('rz-sse', () => {
     client.send({ data: '<b>late</b>' });
     await delay(30);
     expect($('div').innerHTML).toBe('');
+  });
+
+  it('connects a new element afresh after the stream closes for good', async () => {
+    const s = stream('/api/once');
+    const reasons: unknown[] = [];
+    const { $, root } = await mountSse(
+      `<div class="a" data-rz-sse="ready: /api/once"></div>`,
+      {
+        setup: (a) => {
+          a.on('rz:sse:error', (e) => e.preventDefault());
+          a.on('rz:sse:close', (e) => reasons.push(e.detail.reason));
+        },
+      },
+    );
+    (await s.open()).close();
+    await expect.poll(() => reasons).toEqual(['canceled']);
+
+    root.insertAdjacentHTML(
+      'beforeend',
+      `<div class="b" data-rz-sse="ready: /api/once"></div>`,
+    );
+    await expect.poll(() => s.clients.length).toBe(2);
+    await delay(10);
+    s.clients[1]!.send({ data: 'again' });
+
+    await expect.poll(() => $('.b').textContent).toBe('again');
+    // The first element's stream ended; it doesn't silently join the new one
+    expect($('.a').textContent).toBe('');
+  });
+
+  it("reopens on the element's next open trigger after the stream closes for good", async () => {
+    const s = stream('/api/retry');
+    const { $ } = await mountSse(`<button data-rz-sse="click: /api/retry"></button>`, {
+      setup: (a) => a.on('rz:sse:error', (e) => e.preventDefault()),
+    });
+    $('button').click();
+    (await s.open()).close();
+    await delay(20);
+
+    $('button').click();
+    await expect.poll(() => s.clients.length).toBe(2);
+    await delay(10);
+    s.clients[1]!.send({ data: 'back' });
+    await expect.poll(() => $('button').textContent).toBe('back');
   });
 
   it('shares one connection between elements on the same URL', async () => {
