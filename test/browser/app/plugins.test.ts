@@ -99,18 +99,3 @@ describe('plugins option', () => {
     );
   });
 });
-
-describe('directive registration', () => {
-  it.each(['fetch', 'text'] as const)(
-    'throws from rouse() when a plugin registers rz-%s, which core has',
-    (slug) => {
-      const taken = plugin({
-        install: ({ app }) => app._addStandaloneDirective({ slug, mount: () => [] }),
-      });
-
-      expect(() => create([taken])).toThrow(
-        `[Rouse] Directive 'rz-${slug}' is already registered in this app.`,
-      );
-    },
-  );
-});

@@ -40,7 +40,7 @@ A directive-driven reactivity layer for server-rendered HTML, shipped as one ESM
 - **`RouseApp`** (`rouse(config)`) owns one root element; `start()` scans it, `destroy()` ends it.
 - **Plugins** (`rouse({ plugins: [sync, sse] })`) add store sync and server-sent events per app. Core ships neither.
 
-Directives are authored as `data-rz-<slug>` and named `rz-<slug>` everywhere else (filenames, `DirectiveSlug`, diagnostic labels); `core/elements.ts` is the only place the prefix is spelled.
+Directives are authored as `data-rz-<slug>` and named `rz-<slug>` everywhere else (`DirectiveSlug`, diagnostic labels, and the file of a directive that has one); `core/elements.ts` is the only place the prefix is spelled.
 
 ## Layout
 
@@ -50,13 +50,18 @@ Directives are authored as `data-rz-<slug>` and named `rz-<slug>` everywhere els
 - **`src/plugin-api.ts`** — the private contract with plugins: `CoreApi`, version check, install, and dev-build stubs. **`src/core/plugins.ts`** names what each plugin owns, for missing-plugin diagnostics.
 - **`src/core/`** — the bottom layer, with no runtime imports from the layers above (lint-enforced). Element helpers and directive attribute access (`elements.ts`), parsers (`parser.ts`), diagnostics, constants, timing. State addressing is split by dependency weight: `path.ts` (dot paths) → `state.ts` (`clone`, `patchState`; a leaf) → `resolve.ts` (`@store` / `%` / scope resolution).
 - **`src/dom/`** — scope lifecycle (`scope.ts`), binding, ownership, and the app-root registry (`binder.ts`, `getApp`), scan passes (`observer.ts`), trigger sources, `app.on`, and `rz-wake` gates (`events.ts`), key modifiers (`modifiers.ts`), rendering (`renderer.ts`), payload routing, placement.
-- **`src/net/`** — `request()` and interceptors (`request.ts`), the fetch engine (`fetch-engine.ts`), the request lifecycle (`lifecycle.ts`), payloads.
-- **`src/directives/`** — one directive per `rz-<slug>.ts`, plus factories and shared helpers. Layout rules in the header of `index.ts`.
+- **`src/net/`** — `request()` and interceptors (`request.ts`), the fetch engine (`fetch-engine.ts`), the request lifecycle (`lifecycle.ts`), `rz-send` payload collection (`send.ts`), payloads.
+- **`src/directives/`** — core's scanned directives: `BOUND_DIRECTIVES` and `STANDALONE_DIRECTIVES` in `index.ts`, a file per directive with logic of its own, and the one-value writers in `writers.ts`. Layout rules in the header of `index.ts`.
 - **`src/reactivity/`** — thin wrappers around alien-signals.
 - **`src/plugins/`** — one directory per plugin (`sync/`, `sse/`), each its own build entry. A plugin imports only the stateless core helpers the lint allow-list names (`vite.config.ts`) and reaches everything else through `CoreApi`; a stateful module bundled into a plugin would run twice. Contract in the header of `src/plugin-api.ts`.
 - **`src/types.ts`** — shared interfaces.
 
-Three directive shapes, picked by where the directive lives: **`BoundDirective`** (scanned by the binder, mounts in a scope or globally), **`StandaloneDirective`** (`initialize`/`teardown`, works anywhere, including on a store script), **`ConfigDirective`** (`getConfig`, read on demand, no registration).
+Four directive groups, each with one registration mechanism:
+
+- **Bound** (`BoundDirective`, `{ slug, bind }`): binds scope state per segment, in a scope or globally. Listed in `BOUND_DIRECTIVES`.
+- **Standalone** (`StandaloneDirective`, `{ slug, mount }`): acts on `[trigger]: [subject]` pairs whether or not a scope is awake. Listed in `STANDALONE_DIRECTIVES`, or added by a plugin through `app._addStandaloneDirective`. Core parses the pairs and keeps the mount record.
+- **Structural** (`rz-store`, `rz-scope`): fixed steps in `dom/observer.ts`, since every other directive resolves against them.
+- **Config**: a `read<Slug>` function in the module that reads it, with no registration. `DIRECTIVE_SLUGS` (`core/constants.ts`) is grouped by kind and says where each group lives.
 
 **[docs/index.md](docs/index.md)** is the user-facing reference, written for LLMs: one dense page covering syntax, the trigger grammar, events, and silent pitfalls. Keep it dense. A change to user-visible behavior updates it.
 
@@ -110,7 +115,7 @@ The header of `src/core/diagnostics.ts` has the bare `err` sites and the message
 Each spans files and breaks quietly if done partially.
 
 - **Adding a directive** — see the header of `src/directives/index.ts`.
-- **Adding a request-config key** — the field on `BaseRequestConfig` (both paths) or `FetchConfig` (fetch only), plus an entry in `rz-request`'s `KEYS` if it should be reachable from HTML. A store-only key goes on `SyncPolicy` (`plugins/sync/types.ts`) with a read in `StoreSync._request`.
+- **Adding a request-config key** — the field on `BaseRequestConfig` (both paths) or `FetchConfig` (fetch only), plus an entry in `readRequest`'s `KEYS` (`net/request.ts`) if it should be reachable from HTML. A store-only key goes on `SyncPolicy` (`plugins/sync/types.ts`) with a read in `StoreSync._request`.
 - **Adding an interceptor phase** — extend `InterceptorPhase` (`types.ts`), add its `Set` to `RouseApp._interceptors` and initialize it, add an `app.interceptor()` overload, and add the execution site in `request()`.
 - **Adding a lifecycle event** — extend the `LifecycleEvent` union, add the `LifecycleEventMap` entry, and add a detail type, sharing fields through a `Base*` interface. A new request family also needs a `RequestLifecycleOptions` member; see the header of `src/net/lifecycle.ts`. Then list the event in `docs/index.md`.
 - **Adding a trigger source** — see the header of `src/dom/events.ts`.

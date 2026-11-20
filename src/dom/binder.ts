@@ -19,7 +19,7 @@ import { err, warn } from '../core/diagnostics';
 import { dispatchFrom } from '../core/dispatch';
 import { parseDirectiveValue } from '../core/parser';
 import { EMPTY_SCOPE } from '../core/resolve';
-import type { BoundCleanupFn, BoundDirective, DirectiveSlug, Scope } from '../types';
+import type { BoundCleanupFn, BoundDirective, Scope } from '../types';
 
 /** Registry to track cleanup functions of globally mounted directives. */
 const globalBindings = new WeakMap<Element, BoundCleanupFn[]>();
@@ -103,11 +103,6 @@ export function registerBoundDirectives(directives: readonly BoundDirective[]): 
   boundSelector = directives
     .map((directive) => directiveSelector(directive.slug))
     .join(', ');
-}
-
-/** Returns `true` when `slug` belongs to a bound directive. */
-export function isBoundSlug(slug: DirectiveSlug): boolean {
-  return boundDirectiveList.some((directive) => directive.slug === slug);
 }
 
 /**

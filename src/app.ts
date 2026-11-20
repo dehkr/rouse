@@ -16,7 +16,6 @@ import {
   appAt,
   attachApp,
   detachApp,
-  isBoundSlug,
   registerBoundDirectives,
   teardownGlobalBindings,
 } from './dom/binder';
@@ -513,20 +512,14 @@ export class RouseApp {
   }
 
   /**
-   * Adds a standalone directive for this app to mount.
+   * Adds a standalone directive for this app to mount, and its slug to the selector
+   * removed subtrees tear down through.
    *
-   * @throws If the slug is already registered, as a standalone or a bound directive.
    * @internal
    */
   _addStandaloneDirective(directive: StandaloneDirective): void {
-    const { slug } = directive;
-    // A second directive on one slug would share its mount record entry, or act on
-    // the same attribute as a bound directive
-    if (this._standaloneDirectives.has(slug) || isBoundSlug(slug)) {
-      fail(`Directive 'rz-${slug}' is already registered in this app.`);
-    }
-    this._standaloneDirectives.set(slug, directive);
-    addStandaloneSlug(slug);
+    this._standaloneDirectives.set(directive.slug, directive);
+    addStandaloneSlug(directive.slug);
   }
 
   /**
