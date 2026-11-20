@@ -15,14 +15,14 @@ interface TimingConfig {
   /** Delay in milliseconds. */
   wait: number;
   /** Executes at the start of the event sequence. */
-  leading?: boolean;
+  leading: boolean;
   /** Executes at the end of the event sequence. */
-  trailing?: boolean;
+  trailing: boolean;
   /**
    * `debounce` clumps a burst of events into a single execution.
    * `throttle` guarantees execution at a regulated, steady rate.
    */
-  strategy?: 'debounce' | 'throttle';
+  strategy: 'debounce' | 'throttle';
 }
 
 /**
@@ -42,41 +42,38 @@ const DEFAULT_THROTTLE_MS = 150;
 const TIME_REGEX = /^(\d*\.?\d+)(ms|s|m)?$/;
 
 /**
- * Resolves a trigger's timing options into a strategy config.
+ * Resolves a trigger's timing options into a strategy config, or `null` when the
+ * trigger names no strategy.
  */
-function getTimingConfig(options: TriggerModifiers): TimingConfig {
+function getTimingConfig(options: TriggerModifiers): TimingConfig | null {
   const { debounce: debounceOpt, throttle: throttleOpt } = options;
 
-  const strategy: TimingConfig['strategy'] =
+  const strategy =
     debounceOpt !== undefined
       ? 'debounce'
       : throttleOpt !== undefined
         ? 'throttle'
-        : undefined;
+        : null;
+  if (!strategy) return null;
 
   const value = debounceOpt ?? throttleOpt;
   const explicitWait =
     value === undefined || value === true ? undefined : parseTime(value);
 
-  // Explicit wait > strategy default > safe fallback
+  // Explicit wait > strategy default
   const wait =
     explicitWait ?? (strategy === 'throttle' ? DEFAULT_THROTTLE_MS : DEFAULT_DEBOUNCE_MS);
 
-  let { leading, trailing } = options;
+  // Naming at least one edge opts out of the strategy defaults:
+  // debounce fires on the trailing edge, throttle on both
+  const named = options.leading !== undefined || options.trailing !== undefined;
 
-  // Naming at least one edge opts out of the strategy defaults
-  if (leading !== undefined || trailing !== undefined) {
-    leading = !!leading;
-    trailing = !!trailing;
-  } else if (strategy === 'throttle') {
-    leading = true;
-    trailing = true;
-  } else if (strategy === 'debounce') {
-    leading = false;
-    trailing = true;
-  }
-
-  return { strategy, wait, leading, trailing };
+  return {
+    strategy,
+    wait,
+    leading: named ? !!options.leading : strategy === 'throttle',
+    trailing: named ? !!options.trailing : true,
+  };
 }
 
 /**
@@ -85,7 +82,7 @@ function getTimingConfig(options: TriggerModifiers): TimingConfig {
  */
 function debounce<T extends AnyFn>(
   fn: T,
-  { wait, leading = false, trailing = true }: TimingConfig,
+  { wait, leading, trailing }: TimingConfig,
 ): TimedFn<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   let lastArgs: Parameters<T> | undefined;
@@ -125,7 +122,7 @@ function debounce<T extends AnyFn>(
  */
 function throttle<T extends AnyFn>(
   fn: T,
-  { wait, leading = true, trailing = true }: TimingConfig,
+  { wait, leading, trailing }: TimingConfig,
 ): TimedFn<T> {
   let lastRun = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -163,27 +160,17 @@ function throttle<T extends AnyFn>(
 }
 
 /**
- * Wraps a function with a timing strategy (debounce or throttle) based on the
- * provided options. Returns an augmented raw function if no strategy is matched.
+ * Wraps a function with the timing strategy (debounce or throttle) the options name.
+ * Returns `null` when they name none, so the caller runs `fn` directly.
  */
 export function applyTiming<T extends AnyFn>(
   fn: T,
   options: TriggerModifiers,
-): TimedFn<T> {
+): TimedFn<T> | null {
   const config = getTimingConfig(options);
+  if (!config) return null;
 
-  if (config.strategy === 'debounce') {
-    return debounce(fn, config);
-  }
-  if (config.strategy === 'throttle') {
-    return throttle(fn, config);
-  }
-
-  // Fallback for immediate execution
-  const timed = (...args: Parameters<T>) => fn(...args);
-  timed.cancel = () => {};
-
-  return timed as TimedFn<T>;
+  return config.strategy === 'debounce' ? debounce(fn, config) : throttle(fn, config);
 }
 
 /**
@@ -203,7 +190,7 @@ export function parseTime(val?: string | number): number {
   if (!val) return 0;
   if (typeof val === 'number') return val;
 
-  const normalized = String(val).trim().toLowerCase();
+  const normalized = val.trim().toLowerCase();
   const match = normalized.match(TIME_REGEX);
 
   if (!match) {

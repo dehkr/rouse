@@ -191,15 +191,8 @@ function readScope(el: Element): string | null {
   return getDirectiveValue(el, 'scope');
 }
 
+/** Returns the triggers in `el`'s `rz-wake`, else the app's `wake` config. */
 function readWake(el: Element, app: RouseApp): TriggerDef[] {
-  const wakeTriggers = parseTriggers(getDirectiveValue(el, 'wake'));
-  if (wakeTriggers.length === 0) {
-    const wakeTriggersConfig = parseTriggers(app.config.wake);
-
-    // Fall back to the app config or to `ready` if the config is malformed
-    return wakeTriggersConfig.length === 0
-      ? [{ event: 'ready', options: {} }]
-      : wakeTriggersConfig;
-  }
-  return wakeTriggers;
+  const triggers = parseTriggers(getDirectiveValue(el, 'wake'));
+  return triggers.length ? triggers : app._wakeTriggers;
 }

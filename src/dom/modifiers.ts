@@ -63,107 +63,103 @@ export function resolveListenerTarget(
 }
 
 /**
- * Applies event filters and determines if the handler should execute.
+ * Compiles a listener's modifiers into a per-event check that applies the event
+ * filters and the native-API modifiers (`prevent`, `stop`, `stopImmediate`). The check
+ * returns `true` if the handler should run. Values derived from `options` are computed
+ * once per listener, not per event.
+ *
  * By default, modifiers are matched exactly (e.g., `key-[enter]` fires only on bare
  * Enter, not Shift+Enter). Use `loose` to allow extra modifiers.
- *
- * @returns `true` if the handler should execute, `false` otherwise
  */
-export function applyModifiers(
-  e: Event,
+export function compileModifiers(
   el: Element,
   options: TriggerModifiers,
-): boolean {
-  if (options.self && e.target !== e.currentTarget) {
-    return false;
-  }
+): (e: Event) => boolean {
+  const expectedFlags = SYS_MODIFIERS.filter((m) => options[m]).map(
+    (m) => sysModifierMap[m],
+  );
+  const keys = expectedKeys(options.key);
 
-  // The instance check isn't redundant: `on()` casts its target, so `el` is a
-  // `Window` for `on(window, 'click', fn, { outside: true })`.
-  if (options.outside && el instanceof Element) {
-    if (el.contains(e.target as Node)) {
+  return (e) => {
+    if (options.self && e.target !== e.currentTarget) {
       return false;
     }
-  }
 
-  if (e instanceof KeyboardEvent || e instanceof MouseEvent) {
-    const expectedSysModifiers = SYS_MODIFIERS.filter((m) => options[m]);
-
-    for (const mod of expectedSysModifiers) {
-      if (!e[sysModifierMap[mod]]) {
+    // The instance check isn't redundant: `on()` casts its target, so `el` is a
+    // `Window` for `on(window, 'click', fn, { outside: true })`.
+    if (options.outside && el instanceof Element) {
+      if (el.contains(e.target as Node)) {
         return false;
       }
     }
 
-    const keys = e instanceof KeyboardEvent ? expectedKeys(options.key) : [];
-
-    // A system modifier qualifies another key rather than filtering on its own. A
-    // keyboard trigger without a `key` option has nothing to qualify, so it's inert.
-    // A mouse event still filters on it (`click|ctrl`).
-    if (
-      e instanceof KeyboardEvent &&
-      expectedSysModifiers.length > 0 &&
-      keys.length === 0
-    ) {
-      return false;
-    }
-
-    // Exact matching only applies when the trigger asks for specific keys or
-    // modifiers. A bare trigger shouldn't be blocked by a held `shift` or `ctrl`.
-    const exact = !options.loose && (expectedSysModifiers.length > 0 || keys.length > 0);
-
-    if (exact) {
-      // Pressing a modifier key sets its own flag, so it isn't an extra modifier
-      // unless the trigger asked for it. Allows `keydown|key-[shift]` to work.
-      // A modifier's `KeyboardEvent.key` is its option name, except `Control`
-      const pressed = e instanceof KeyboardEvent ? e.key.toLowerCase() : '';
-      const selfFlag =
-        sysModifierMap[(pressed === 'control' ? 'ctrl' : pressed) as SystemModifierKey];
-
-      const expectedFlags = expectedSysModifiers.map((m) => sysModifierMap[m]);
-
-      const pressedModifiers = SYS_MODIFIER_FLAGS.filter(
-        (key) => e[key] && (key !== selfFlag || expectedFlags.includes(key)),
-      );
-
-      if (pressedModifiers.length !== expectedFlags.length) {
+    if (e instanceof KeyboardEvent || e instanceof MouseEvent) {
+      if (!expectedFlags.every((flag) => e[flag])) {
         return false;
       }
-    }
 
-    if (e instanceof KeyboardEvent && keys.length > 0) {
-      const pressedKey = e.key.toLowerCase();
-      const pressedCode = e.code.toLowerCase();
+      const hasKeys = e instanceof KeyboardEvent && keys.length > 0;
 
-      const isMatch = keys.some((expected) => {
-        if (!expected) return false;
-        if (pressedKey === expected) return true;
+      // A system modifier qualifies another key rather than filtering on its own. A
+      // keyboard trigger without a `key` option has nothing to qualify, so it's inert.
+      // A mouse event still filters on it (`click|ctrl`).
+      if (e instanceof KeyboardEvent && expectedFlags.length > 0 && !hasKeys) {
+        return false;
+      }
 
-        // Fallback to fix macOS 'alt' dead key
-        if (expected.length === 1) {
-          if (expected === ' ') {
-            return pressedCode === 'space';
-          }
-          return pressedCode === `key${expected}` || pressedCode === `digit${expected}`;
+      // Exact matching only applies when the trigger asks for specific keys or
+      // modifiers. A bare trigger shouldn't be blocked by a held `shift` or `ctrl`.
+      if (!options.loose && (expectedFlags.length > 0 || hasKeys)) {
+        // Pressing a modifier key sets its own flag, so it isn't an extra modifier
+        // unless the trigger asked for it. Allows `keydown|key-[shift]` to work.
+        // A modifier's `KeyboardEvent.key` is its option name, except `Control`
+        const pressed = e instanceof KeyboardEvent ? e.key.toLowerCase() : '';
+        const selfFlag =
+          sysModifierMap[(pressed === 'control' ? 'ctrl' : pressed) as SystemModifierKey];
+
+        const pressedModifiers = SYS_MODIFIER_FLAGS.filter(
+          (key) => e[key] && (key !== selfFlag || expectedFlags.includes(key)),
+        );
+
+        if (pressedModifiers.length !== expectedFlags.length) {
+          return false;
         }
+      }
 
-        return false;
-      });
+      if (e instanceof KeyboardEvent && hasKeys) {
+        const pressedKey = e.key.toLowerCase();
+        const pressedCode = e.code.toLowerCase();
 
-      if (!isMatch) return false;
+        const isMatch = keys.some((expected) => {
+          if (!expected) return false;
+          if (pressedKey === expected) return true;
+
+          // Fallback to fix macOS 'alt' dead key
+          if (expected.length === 1) {
+            if (expected === ' ') {
+              return pressedCode === 'space';
+            }
+            return pressedCode === `key${expected}` || pressedCode === `digit${expected}`;
+          }
+
+          return false;
+        });
+
+        if (!isMatch) return false;
+      }
     }
-  }
 
-  // Native API
-  if (options.prevent) {
-    e.preventDefault();
-  }
-  if (options.stop) {
-    e.stopPropagation();
-  }
-  if (options.stopImmediate) {
-    e.stopImmediatePropagation();
-  }
+    // Native API
+    if (options.prevent) {
+      e.preventDefault();
+    }
+    if (options.stop) {
+      e.stopPropagation();
+    }
+    if (options.stopImmediate) {
+      e.stopImmediatePropagation();
+    }
 
-  return true;
+    return true;
+  };
 }

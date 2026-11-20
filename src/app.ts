@@ -44,11 +44,13 @@ import type {
   RouseFetch,
   ScopeSetup,
   StandaloneDirective,
+  TriggerDef,
   VoidFn,
 } from './types';
 import { APP_ROOT_SELECTOR } from './core/constants';
 import { fail, info, warn } from './core/diagnostics';
 import { dispatchFrom } from './core/dispatch';
+import { parseTriggers } from './core/parser';
 import { ScopeRegistry } from './core/scope-registry';
 import { isPlainObject } from './core/state';
 import { installPlugins, type RousePlugin, resolvePlugins } from './plugin-api';
@@ -127,6 +129,12 @@ export class RouseApp {
   public stores: StoreManager;
   /** @internal */
   public _registry: ScopeRegistry;
+  /**
+   * The `wake` config, parsed once. A scope without `rz-wake` waits on these.
+   *
+   * @internal
+   */
+  public readonly _wakeTriggers: TriggerDef[];
   public isReady: boolean;
 
   /**
@@ -222,6 +230,10 @@ export class RouseApp {
       wake: config.wake?.trim() || 'ready',
       plugins,
     };
+
+    // A malformed `wake` warns here, once, and falls back to `ready`
+    const wake = parseTriggers(this.config.wake);
+    this._wakeTriggers = wake.length ? wake : [{ event: 'ready', options: {} }];
 
     this._interceptors = {
       request: new Set(),

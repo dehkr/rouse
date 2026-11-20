@@ -33,7 +33,7 @@ import type {
   VoidFn,
 } from '../types';
 import { closestScope, getApp, isScopeAwake } from './binder';
-import { applyModifiers, resolveListenerTarget } from './modifiers';
+import { compileModifiers, resolveListenerTarget } from './modifiers';
 
 export interface TriggerContext {
   el: Element;
@@ -93,8 +93,9 @@ function attachListener<D = any>(
   app: RouseApp,
 ): VoidFn {
   const { capture, once, passive } = triggerOptions;
+  const passes = compileModifiers(el, triggerOptions);
   const listener = (e: Event) => {
-    if (!applyModifiers(e, el, triggerOptions)) return;
+    if (!passes(e)) return;
 
     // Native `once` would consume the listener on filtered-out events,
     // so removal happens here, after the modifiers pass.
@@ -217,9 +218,11 @@ export function dispatchTrigger(
   base: Omit<TriggerContext, 'options'>,
 ): VoidFn {
   const timed = applyTiming(base.action, trigger.options);
+  const action = timed ?? base.action;
   const suppressNavigation = base.suppressNavigation ?? true;
 
   const wrapCleanup = (cleanup: VoidFn | null): VoidFn => {
+    if (!timed) return cleanup ?? (() => {});
     return () => {
       timed.cancel();
       cleanup?.();
@@ -242,7 +245,7 @@ export function dispatchTrigger(
       ...base,
       arg,
       options: trigger.options,
-      action: timed,
+      action,
     });
 
     return wrapCleanup(cleanup);
@@ -264,7 +267,7 @@ export function dispatchTrigger(
       if (suppressNavigation && isNativeNavigation(base.el, e)) {
         e.preventDefault();
       }
-      timed(e);
+      action(e);
     },
     trigger.options,
     base.app,
@@ -310,11 +313,11 @@ function attachTriggerSource(
 
 /**
  * Coordinates `rz-wake` activation strategies using the unified event engine.
- * All strategies must be satisfied before `onWake` fires. If no strategies
- * are provided it fires immediately.
+ * All strategies must be satisfied before `onWake` fires.
  *
  * @param el - The scope element awaiting activation.
- * @param triggers - Parsed TriggerDef array from `parseTriggers`.
+ * @param triggers - The parsed wake triggers. Never empty: a scope without `rz-wake`
+ * falls back to the app's `wake` config.
  * @param onWake - Invoked once when all strategies have been satisfied.
  * @returns A master cleanup function to abort wake strategies if the element unmounts early.
  */
@@ -325,11 +328,6 @@ export function attachWakeStrategies(
   onWake: VoidFn,
 ): VoidFn {
   let pending = triggers.length;
-  if (pending === 0) {
-    onWake();
-    return () => {};
-  }
-
   let isAwake = false;
   let cleanups: VoidFn[] = [];
   const teardown = () => cleanups.forEach((cleanup) => cleanup());
