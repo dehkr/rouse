@@ -5,13 +5,7 @@ import { parseTriggers } from '../core/parser';
 import { resolveState, writeState } from '../core/resolve';
 import { dispatchTrigger } from '../dom/events';
 import { getModelableValue, setModelableValue } from '../dom/updater';
-import type {
-  BindableValue,
-  BoundCleanupFn,
-  BoundDirective,
-  Scope,
-  TriggerDef,
-} from '../types';
+import type { BindableValue, BoundDirective, Scope, TriggerDef, VoidFn } from '../types';
 
 /**
  * Returns the default trigger for a given element. Custom elements and
@@ -45,7 +39,7 @@ function bind(
   app: RouseApp,
   key: string,
   value: string,
-): BoundCleanupFn | undefined {
+): VoidFn[] {
   const subject = value || key;
 
   let triggers: TriggerDef[];
@@ -60,7 +54,7 @@ function bind(
           el,
         );
       }
-      return;
+      return [];
     }
     triggers = [def];
   }
@@ -68,15 +62,13 @@ function bind(
   // DOM -> State
   const action = () => writeState(subject, getModelableValue(el), scope, app.stores);
 
-  const cleanups = [
+  return [
     effect(() => {
       // State -> DOM
       setModelableValue(el, resolveState<BindableValue>(subject, scope, app.stores));
     }),
     ...triggers.map((trigger) => dispatchTrigger(trigger, { el, app, action })),
   ];
-
-  return (() => cleanups.forEach((fn) => fn())) as BoundCleanupFn;
 }
 
 export const rzModel = {

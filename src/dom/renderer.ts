@@ -11,7 +11,7 @@ import { warn } from '../core/diagnostics';
 import { getNestedVal } from '../core/path';
 import { isPlainObject } from '../core/state';
 import { getRaw, reactive, untracked } from '../reactivity/reactive';
-import type { BoundCleanupFn, RenderContext, RenderFrame, Scope, VoidFn } from '../types';
+import type { RenderContext, RenderFrame, Scope, VoidFn } from '../types';
 import {
   bindDirectives,
   markRenderOwned,
@@ -183,7 +183,7 @@ export function renderTemplate(
 
     // Detach from the render effect's tracking so these per-instance effects
     // survive its re-runs (and don't leak into it).
-    const cleanups: BoundCleanupFn[] = untracked(() =>
+    const cleanups: VoidFn[] = untracked(() =>
       collected.flatMap((e) => bindDirectives(e, ctx, app)),
     );
 

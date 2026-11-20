@@ -8,9 +8,6 @@ import type {
 
 export type { DirectiveSlug };
 
-/** Brand for {@link BoundCleanupFn}, keeping arbitrary `VoidFn`s out of directive-teardown positions. */
-declare const CLEANUP: unique symbol;
-
 /** Detail for `rz:app:start`, `rz:app:ready`, and `rz:app:destroy`. */
 export interface AppEventDetail {
   /** The app instance the event fired from. */
@@ -326,9 +323,6 @@ export type VoidFn = () => void;
 /** An event handler that optionally receives the triggering `Event`. */
 export type ActionFn = (e?: Event) => void;
 
-/** A teardown function returned by a bound directive. Branded to prevent accidental misuse. */
-export type BoundCleanupFn = VoidFn & { [CLEANUP]: true };
-
 /** The object returned by a setup function. Includes standard lifecycle hooks and custom state/methods. */
 export type Scope = Record<string, any> & {
   /** Lifecycle hook, run when the scope connects (bindings attached). */
@@ -493,7 +487,7 @@ export interface BoundDirective {
   /**
    * Attach the binding for one pre-split `[key: value]` segment: `key` is the
    * trigger/token, `value` the subject. `scope` is the owning `Scope`, or `EMPTY_SCOPE`
-   * when globally mounted. Returns a cleanup, or `undefined` if nothing was bound.
+   * when globally mounted. Returns the binding's cleanups, empty if nothing was bound.
    */
   bind: (
     el: Element,
@@ -501,7 +495,7 @@ export interface BoundDirective {
     app: RouseApp,
     key: string,
     value: string,
-  ) => BoundCleanupFn | undefined;
+  ) => VoidFn[];
 }
 
 /** Owned by the app, mounted once per element from its `[trigger]: [subject]` pairs. */

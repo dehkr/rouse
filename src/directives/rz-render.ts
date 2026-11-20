@@ -2,7 +2,7 @@ import type { RouseApp } from '../app';
 import { warn } from '../core/diagnostics';
 import { resolveBoundValue } from '../core/invoke';
 import { renderTemplate } from '../dom/renderer';
-import type { BoundCleanupFn, BoundDirective, Scope } from '../types';
+import type { BoundDirective, Scope, VoidFn } from '../types';
 import { getDirectiveValue } from '../core/elements';
 
 /**
@@ -16,22 +16,24 @@ function bind(
   app: RouseApp,
   key: string,
   value: string,
-): BoundCleanupFn | undefined {
+): VoidFn[] {
   if (!(el instanceof HTMLTemplateElement)) {
     if (__DEV__) {
       warn(`rz-render: must be placed on a <template> element.`, el);
     }
-    return;
+    return [];
   }
 
   const raw = value || key;
   const keyPath = readKey(el);
 
-  return renderTemplate(
-    el,
-    () => resolveBoundValue(raw, scope, app.stores, el, 'render'),
-    { app, parentState: scope, keyPath },
-  ) as BoundCleanupFn;
+  return [
+    renderTemplate(el, () => resolveBoundValue(raw, scope, app.stores, el, 'render'), {
+      app,
+      parentState: scope,
+      keyPath,
+    }),
+  ];
 }
 
 export const rzRender = {

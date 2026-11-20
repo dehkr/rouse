@@ -124,15 +124,17 @@ function createScope(el: HTMLElement, app: RouseApp, setup: ScopeSetup) {
     isDestroyed = true;
     abortCtrl.abort();
     // Reverse order: DOM bindings must dispose before the state they read
-    [...cleanups].reverse().forEach((fn) => fn());
+    cleanups.reverse().forEach((fn) => fn());
   };
+
+  const scan = (node: Element) => binding?.scan(node);
 
   // Context object passed into the scope setup function
   const context: ScopeCtx = {
     host: el,
     app,
     term: abortCtrl.signal,
-    scan: (newNode: Element) => binding?.scan(newNode),
+    scan,
   };
 
   // `effectScope` for setup state wraps effects that belong to the scope instance.
@@ -180,7 +182,7 @@ function createScope(el: HTMLElement, app: RouseApp, setup: ScopeSetup) {
   return {
     instance,
     root: app.root,
-    _scan: (node: Element) => binding?.scan(node),
+    _scan: scan,
     _teardown: (node: Element) => binding?.teardown(node),
     _destroy: destroy,
   };

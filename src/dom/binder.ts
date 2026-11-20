@@ -19,10 +19,10 @@ import { err, warn } from '../core/diagnostics';
 import { dispatchFrom } from '../core/dispatch';
 import { parseDirectiveValue } from '../core/parser';
 import { EMPTY_SCOPE } from '../core/resolve';
-import type { BoundCleanupFn, BoundDirective, Scope } from '../types';
+import type { BoundDirective, Scope, VoidFn } from '../types';
 
 /** Registry to track cleanup functions of globally mounted directives. */
-const globalBindings = new WeakMap<Element, BoundCleanupFn[]>();
+const globalBindings = new WeakMap<Element, VoidFn[]>();
 /** Registry mapping scope-bound elements to their scope root element. */
 const scopeBindings = new WeakMap<Element, HTMLElement>();
 /** Registry of `rz-render` instance roots, mapped to the render context they bind against. */
@@ -142,18 +142,12 @@ export function resolveOwnerState(el: Element, root: Element): Scope {
 /**
  * Executes the attachment lifecycle for all bound directives on a specific element.
  */
-export function bindDirectives(
-  el: Element,
-  scope: Scope,
-  app: RouseApp,
-): BoundCleanupFn[] {
-  const cleanups: BoundCleanupFn[] = [];
-
-  for (const directive of boundDirectiveList) {
+export function bindDirectives(el: Element, scope: Scope, app: RouseApp): VoidFn[] {
+  return boundDirectiveList.flatMap((directive) => {
     const value = getDirectiveValue(el, directive.slug);
 
     // Strict check to allow empty/boolean directives
-    if (value === null) continue;
+    if (value === null) return [];
 
     const parsed = parseDirectiveValue(value);
 
@@ -168,15 +162,8 @@ export function bindDirectives(
       parsed.length = 1;
     }
 
-    for (const [key, val] of parsed) {
-      const cleanup = directive.bind(el, scope, app, key, val ?? '');
-      if (cleanup) {
-        cleanups.push(cleanup);
-      }
-    }
-  }
-
-  return cleanups;
+    return parsed.flatMap(([key, val]) => directive.bind(el, scope, app, key, val ?? ''));
+  });
 }
 
 /**
@@ -287,7 +274,7 @@ export function resolveRemovedOwner(el: Element): HTMLElement | null {
  * Runs each cleanup, isolating failures so one throwing cleanup doesn't
  * abort the rest.
  */
-export function runCleanups(el: Element, cleanups: BoundCleanupFn[]): void {
+export function runCleanups(el: Element, cleanups: VoidFn[]): void {
   for (const cleanup of cleanups) {
     try {
       cleanup();
@@ -324,7 +311,7 @@ function runHook(instance: Scope, name: 'connect' | 'disconnect', root: Element)
  * - `unbindDom()`: tear down the whole scope (all cleanups, `disconnect`, `rz:scope:disconnect`).
  */
 export function bindScope(root: HTMLElement, instance: Scope, app: RouseApp) {
-  const elementCleanups = new Map<Element, BoundCleanupFn[]>();
+  const elementCleanups = new Map<Element, VoidFn[]>();
   const boundNodes = new WeakSet<Element>();
 
   function runCleanup(el: Element) {

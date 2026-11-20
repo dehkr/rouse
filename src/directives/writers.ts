@@ -11,12 +11,7 @@ import {
   updateStyle,
   updateText,
 } from '../dom/updater';
-import type {
-  BindableValue,
-  BoundCleanupFn,
-  BoundDirective,
-  DirectiveSlug,
-} from '../types';
+import type { BindableValue, BoundDirective, DirectiveSlug } from '../types';
 
 /**
  * Returns a bound directive that writes the resolved value whenever it changes.
@@ -35,14 +30,16 @@ function writerDirective(
     slug,
     singleValue: options?.singleValue,
     bind(el, scope, app, key, value) {
-      return effect(() => {
-        write(
-          el,
-          key,
-          resolveBoundValue(value || key, scope, app.stores, el, slug),
-          value,
-        );
-      }) as BoundCleanupFn;
+      return [
+        effect(() => {
+          write(
+            el,
+            key,
+            resolveBoundValue(value || key, scope, app.stores, el, slug),
+            value,
+          );
+        }),
+      ];
     },
   };
 }
@@ -95,7 +92,7 @@ export const rzAttr: BoundDirective = {
       if (__DEV__) {
         warn(`rz-attr: '${key}' belongs on data-rz-${name}. Ignoring.`, el);
       }
-      return undefined;
+      return [];
     }
     return attrWriter.bind(el, scope, app, key, value);
   },

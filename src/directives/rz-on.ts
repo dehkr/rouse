@@ -5,7 +5,7 @@ import { invokeHandler } from '../core/invoke';
 import { parseStoreRef, parseTriggers } from '../core/parser';
 import { getNestedVal } from '../core/path';
 import { dispatchTrigger } from '../dom/events';
-import type { AnyFn, BoundCleanupFn, BoundDirective, Scope } from '../types';
+import type { AnyFn, BoundDirective, Scope, VoidFn } from '../types';
 
 function bind(
   el: Element,
@@ -13,7 +13,7 @@ function bind(
   app: RouseApp,
   key: string,
   value: string,
-): BoundCleanupFn | undefined {
+): VoidFn[] {
   if (!value) {
     if (__DEV__) {
       warn(
@@ -21,7 +21,7 @@ function bind(
         el,
       );
     }
-    return undefined;
+    return [];
   }
 
   const methodName = value.trim();
@@ -32,7 +32,7 @@ function bind(
   // Global store (e.g., `@theme.toggleMode`)
   if (methodName.startsWith(STORE_PREFIX)) {
     const ref = parseStoreRef(methodName, 'on');
-    if (!ref) return;
+    if (!ref) return [];
 
     const { source: storeName, nestedPath } = ref;
     const storeData = app.stores.get(storeName);
@@ -41,14 +41,14 @@ function bind(
       if (__DEV__) {
         warn(`rz-on: store '@${storeName}' not found.`, el);
       }
-      return;
+      return [];
     }
 
     if (!nestedPath) {
       if (__DEV__) {
         warn(`rz-on: '@${storeName}' needs a handler (e.g., @${storeName}.save).`, el);
       }
-      return;
+      return [];
     }
 
     method = getNestedVal(storeData, nestedPath);
@@ -66,10 +66,10 @@ function bind(
     if (__DEV__) {
       warn(`rz-on: handler '${methodName}' is undefined or not a function.`, el);
     }
-    return;
+    return [];
   }
 
-  const cleanups = parseTriggers(key).map((trigger) =>
+  return parseTriggers(key).map((trigger) =>
     dispatchTrigger(trigger, {
       el,
       app,
@@ -84,8 +84,6 @@ function bind(
         ),
     }),
   );
-
-  return (() => cleanups.forEach((fn) => fn())) as BoundCleanupFn;
 }
 
 export const rzOn = {

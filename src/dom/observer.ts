@@ -9,9 +9,9 @@
  * order, and tear down element by element through one selector. The mount record holds
  * cleanups, never directive objects: a removed node no longer resolves to an app.
  *
- * A new structural directive needs its own selector pass in `mountSubtree`,
- * `unmountSubtree`, and `releaseSubtree`. Sharing another directive's pass misses
- * elements carrying only the new one, without a warning.
+ * A new structural directive needs its own selector pass in `mountSubtree` and
+ * `unmountSubtree`. Sharing another directive's pass misses elements carrying only the
+ * new one, without a warning.
  */
 import type { RouseApp } from '../app';
 import {
@@ -31,6 +31,7 @@ import {
   getApp,
   mountGlobalBinding,
   resolveRemovedOwner,
+  runCleanups,
   teardownGlobalBindings,
   walkBoundElements,
 } from './binder';
@@ -87,7 +88,7 @@ function teardownStandalone(el: Element) {
   const record = mounted.get(el);
   if (!record) return;
   mounted.delete(el);
-  record.forEach((cleanups) => cleanups.forEach((fn) => fn()));
+  record.forEach((cleanups) => runCleanups(el, cleanups));
 }
 
 /**
@@ -115,15 +116,18 @@ function warnUnknownDirectives(root: Element, app: RouseApp) {
   });
 }
 
-/** Runs `fn` on each match of `selector` in `root`'s subtree, root included, that belongs to `app`. */
+/**
+ * Runs `fn` on each match of `selector` in `root`'s subtree, root included, that
+ * belongs to `app`. Without `app`, runs it on every match.
+ */
 function forEachOwned<T extends Element>(
   root: Element,
   selector: string,
-  app: RouseApp,
+  app: RouseApp | undefined,
   fn: (el: T) => void,
 ) {
   for (const el of queryTargets<T>(root, selector)) {
-    if (getApp(el, app)) {
+    if (!app || getApp(el, app)) {
       fn(el);
     }
   }
@@ -172,17 +176,19 @@ export function mountSubtree(root: Element, app: RouseApp) {
 
 /**
  * Tears down the stores, scopes, and standalone directives in `root`'s subtree, root
- * included. Bound directives are left to the caller, which knows who owns them.
+ * included. With `app`, only those that belong to it: a removed node no longer
+ * resolves to an app, so the removal path passes none. Bound directives are left to
+ * the caller, which knows who owns them.
  */
-export function unmountSubtree(root: Element) {
-  queryTargets<HTMLScriptElement>(root, rzStore.selector).forEach((el) =>
+export function unmountSubtree(root: Element, app?: RouseApp) {
+  forEachOwned<HTMLScriptElement>(root, rzStore.selector, app, (el) =>
     rzStore.teardown(el),
   );
 
-  queryTargets<HTMLElement>(root, SCOPE_SELECTOR).forEach(destroyInstance);
+  forEachOwned<HTMLElement>(root, SCOPE_SELECTOR, app, destroyInstance);
 
   if (standaloneSelector) {
-    queryTargets(root, standaloneSelector).forEach(teardownStandalone);
+    forEachOwned(root, standaloneSelector, app, teardownStandalone);
   }
 }
 
@@ -192,15 +198,7 @@ export function unmountSubtree(root: Element) {
  * resolve to `app`. Mirrors `mountSubtree`, which bound them.
  */
 export function releaseSubtree(root: Element, app: RouseApp) {
-  forEachOwned<HTMLScriptElement>(root, rzStore.selector, app, (el) =>
-    rzStore.teardown(el),
-  );
-
-  forEachOwned<HTMLElement>(root, SCOPE_SELECTOR, app, (el) => destroyInstance(el));
-
-  if (standaloneSelector) {
-    forEachOwned(root, standaloneSelector, app, teardownStandalone);
-  }
+  unmountSubtree(root, app);
 
   const ownerScope = closestScope(root, app);
 
