@@ -1,7 +1,7 @@
 import { endBatch, startBatch, trigger } from 'alien-signals';
 import type { AnyFn } from '../types';
-import { getSignal, ITERATION_KEY } from './handlers';
-import { dirtyTrackers, getRaw, objectRootKeys, reactive } from './reactive';
+import { adoptTracker, getSignal, ITERATION_KEY } from './handlers';
+import { dirtyTrackers, getRaw, objectRootKeys, proxiable, reactive } from './reactive';
 
 /** Array-method overrides keyed by name/symbol. */
 export const methodIntercepts: Record<string | symbol, AnyFn> = {};
@@ -95,6 +95,14 @@ for (const key of MUTATORS) {
       if (tracker) {
         const rootKey = objectRootKeys.get(raw) ?? 'root';
         tracker(rootKey);
+
+        // Inserted items bypass the set trap, which would hand them the tracker. A
+        // mutator's other arguments are indices, counts, or a comparator.
+        for (const arg of args) {
+          if (proxiable(arg)) {
+            adoptTracker(arg, tracker, rootKey);
+          }
+        }
       }
       return result;
     } finally {

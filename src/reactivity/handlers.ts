@@ -187,8 +187,8 @@ function propsOf<V>(
 
 /**
  * Hands `tracker` to the object stored at `key`, so edits inside it report the same
- * root. Skips an object that already has one, and a non-enumerable key: `clone`
- * leaves those out of the baseline, so an edit there would read dirty forever.
+ * root. Skips a non-enumerable key: `clone` leaves those out of the baseline, so an
+ * edit there would read dirty forever.
  */
 function propagateTracker(
   target: object,
@@ -197,10 +197,33 @@ function propagateTracker(
   tracker: (rootKey: string) => void,
   desc: PropertyDescriptor | undefined,
 ) {
-  const rawChild = getRaw(child);
-  if (!dirtyTrackers.has(rawChild) && desc?.enumerable !== false) {
-    dirtyTrackers.set(rawChild, tracker);
-    objectRootKeys.set(rawChild, getRootKey(target, key));
+  if (desc?.enumerable !== false) {
+    adoptTracker(child, tracker, getRootKey(target, key));
+  }
+}
+
+/**
+ * Hands `tracker` and `rootKey` to `child` unless it already has a tracker. An array
+ * hands them on to its items at once, since array methods pass items out without the
+ * get trap that propagates to an object's fields.
+ */
+export function adoptTracker(
+  child: object,
+  tracker: (rootKey: string) => void,
+  rootKey: string,
+) {
+  const raw = getRaw(child);
+  if (dirtyTrackers.has(raw)) return;
+
+  dirtyTrackers.set(raw, tracker);
+  objectRootKeys.set(raw, rootKey);
+
+  if (Array.isArray(raw)) {
+    for (const item of raw) {
+      if (proxiable(item)) {
+        adoptTracker(item, tracker, rootKey);
+      }
+    }
   }
 }
 

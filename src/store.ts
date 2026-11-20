@@ -14,13 +14,7 @@ import {
   restore,
   startSaving,
 } from './reactivity/persist';
-import {
-  batch,
-  reactive,
-  seedPropagation,
-  trackDirty,
-  untracked,
-} from './reactivity/reactive';
+import { batch, reactive, trackDirty, untracked } from './reactivity/reactive';
 import type { LifecycleEventMap, RouseResponse, StorePatchEvent, VoidFn } from './types';
 import type { RouseApp } from './app';
 import { fail, warn } from './core/diagnostics';
@@ -294,15 +288,7 @@ export class StoreManager {
     const entry = this._getStore(storeName);
     if (!entry) return () => {};
 
-    let listeners = entry.listeners;
-    if (!listeners) {
-      listeners = new Set();
-      entry.listeners = listeners;
-      // Seed lazy tracker propagation across the initial tree
-      if (entry.data) {
-        seedPropagation(entry.data);
-      }
-    }
+    const listeners = (entry.listeners ??= new Set());
     listeners.add(callback);
     return () => {
       listeners.delete(callback);

@@ -103,18 +103,6 @@ export function trackDirty<T extends object>(
 }
 
 /**
- * Read every enumerable key through the proxy to fire the get trap.
- */
-export function seedPropagation(obj: any, seen = new WeakSet()): void {
-  if (!obj || typeof obj !== 'object' || seen.has(obj)) return;
-  seen.add(obj);
-  for (const key of Object.keys(obj)) {
-    const value = obj[key];
-    seedPropagation(value, seen);
-  }
-}
-
-/**
  * Runs `fn` without linking the reads or any effects created inside it to the
  * current tracking context. Used by `rz-render` so per-instance directive
  * effects survive the parent render effect re-running (and don't leak into it).

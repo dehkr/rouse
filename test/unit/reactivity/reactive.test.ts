@@ -263,6 +263,52 @@ describe('trackDirty', () => {
     state.a = 1;
     expect(dirty).not.toHaveBeenCalled();
   });
+
+  // `rz-render` reaches items through `map()`, without the get trap
+  it('reports the root key for an edit inside an item from map()', () => {
+    const state = reactive({ items: [{ name: 'a' }] });
+    const dirty = vi.fn();
+    trackDirty(state, dirty);
+    const item = state.items.map((entry) => entry)[0] as { name: string };
+    item.name = 'b';
+    expect(dirty).toHaveBeenCalledWith('items');
+  });
+
+  it.each<[string, (items: Array<{ name: string }>, item: { name: string }) => unknown]>([
+    ['push', (items, item) => items.push(item)],
+    ['unshift', (items, item) => items.unshift(item)],
+    ['splice', (items, item) => items.splice(0, 0, item)],
+  ])('reports the root key for an edit inside an item inserted by %s', (_, insert) => {
+    const state = reactive({ items: [] as Array<{ name: string }> });
+    const dirty = vi.fn();
+    trackDirty(state, dirty);
+    insert(state.items, { name: 'a' });
+    dirty.mockClear();
+    const item = state.items.find((entry) => entry.name === 'a') as { name: string };
+    item.name = 'b';
+    expect(dirty).toHaveBeenCalledWith('items');
+  });
+
+  it('reports the root key for an edit inside an item of a nested array', () => {
+    const state = reactive({ grid: [[{ on: false }]] });
+    const dirty = vi.fn();
+    trackDirty(state, dirty);
+    for (const row of state.grid) {
+      for (const cell of row) cell.on = true;
+    }
+    expect(dirty).toHaveBeenCalledWith('grid');
+  });
+
+  it('reports nothing for an edit inside an object a map() callback creates', () => {
+    const state = reactive({ items: [{ name: 'a' }] });
+    const dirty = vi.fn();
+    trackDirty(state, dirty);
+    const copy = state.items.map((entry) => ({ name: entry.name }))[0] as {
+      name: string;
+    };
+    copy.name = 'b';
+    expect(dirty).not.toHaveBeenCalled();
+  });
 });
 
 describe('untracked', () => {
