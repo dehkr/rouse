@@ -121,7 +121,11 @@ describe('rz-sse', () => {
     client.send({ event: 'done', data: '' });
     await expect.poll(() => reasons.length).toBe(1);
 
+    // Closing cancels the mocked stream, and MSW logs a write that lands after the
+    // cancel instead of dropping it. Whether this send lands after it is a race.
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
     client.send({ data: '<b>late</b>' });
+    errors.mockRestore();
     await delay(30);
     expect($('div').innerHTML).toBe('');
   });
