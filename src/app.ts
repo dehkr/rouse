@@ -86,6 +86,8 @@ export interface RouseConfig {
  * `root` is the resolved element, the same one `app.root` returns.
  */
 interface ResolvedConfig {
+  // Every `RouseConfig` key has a field here, so `app.config` lists every option.
+  // Keep `root` even though `app.root` returns the same element.
   root: HTMLElement;
   baseUrl: string;
   headers: Record<string, string | null>;
