@@ -6,7 +6,7 @@
  * ran, so weak-keying `elementCleanups` wouldn't fix one; resolving the owner does.
  *
  * `resolveOwnerState` restates the ownership rule for standalone directives, so a new
- * ownership boundary must be taught to it as well as to `walkBoundElements` and
+ * ownership boundary must be taught to it as well as to `boundElements` and
  * `closestScope`. A nested app's root is one: a scope above it belongs to another app.
  *
  * A bound directive whose key is its subject needs `singleValue: true`. Without it,
@@ -133,7 +133,9 @@ export function resolveOwnerState(el: Element, root: Element): Scope {
     if (node.matches(SCOPE_SELECTOR)) {
       return awakeScopes.get(node) ?? EMPTY_SCOPE;
     }
-    if (node === root) break;
+    if (node === root) {
+      break;
+    }
   }
 
   return EMPTY_SCOPE;
@@ -147,7 +149,9 @@ export function bindDirectives(el: Element, scope: Scope, app: RouseApp): VoidFn
     const value = getDirectiveValue(el, directive.slug);
 
     // Strict check to allow empty/boolean directives
-    if (value === null) return [];
+    if (value === null) {
+      return [];
+    }
 
     const parsed = parseDirectiveValue(value);
 
@@ -167,8 +171,9 @@ export function bindDirectives(el: Element, scope: Scope, app: RouseApp): VoidFn
 }
 
 /**
- * Walks `root` and its subtree, invoking `callback` for each element carrying a
- * bound directive. Skips three boundaries so ownership stays correct:
+ * Yields `root` and each element in its subtree carrying a bound directive, in
+ * document order. Lazy, so a caller can stop early. Skips three boundaries so
+ * ownership stays correct:
  *
  * - nested `rz-scope` subtrees, owned by their own scope
  * - nested app roots, owned by their own app
@@ -177,20 +182,21 @@ export function bindDirectives(el: Element, scope: Scope, app: RouseApp): VoidFn
  * A `root` that is itself a scope is skipped entirely by default; pass
  * `acceptScopeRoot` to bind `root` itself while still skipping nested scopes.
  */
-export function walkBoundElements(
+export function* boundElements(
   root: Element,
-  callback: (el: Element) => void,
   options?: { acceptScopeRoot?: boolean },
-): void {
+): Generator<Element> {
   // If root is itself a scope and the caller hasn't opted in,
   // the entire subtree is scope-owned.
   if (!options?.acceptScopeRoot && root.matches(SCOPE_SELECTOR)) return;
 
   // Render-owned subtrees are bound by `rz-render` itself, with item context
-  if (renderOwned.has(root)) return;
+  if (renderOwned.has(root)) {
+    return;
+  }
 
   if (root.matches(boundSelector)) {
-    callback(root);
+    yield root;
   }
 
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT, {
@@ -210,11 +216,8 @@ export function walkBoundElements(
     },
   });
 
-  let node = walker.nextNode();
-
-  while (node !== null) {
-    callback(node as Element);
-    node = walker.nextNode();
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    yield node as Element;
   }
 }
 
@@ -223,7 +226,9 @@ export function walkBoundElements(
  * Resolves reactive state against global stores rather than local variables.
  */
 export function mountGlobalBinding(el: Element, app: RouseApp): void {
-  if (globalBindings.has(el)) return;
+  if (globalBindings.has(el)) {
+    return;
+  }
   // Recorded even when empty, so a re-scan doesn't bind again and repeat warnings
   globalBindings.set(el, bindDirectives(el, EMPTY_SCOPE, app));
 }
@@ -236,38 +241,45 @@ export function teardownGlobalBindings(
   root: Element,
   owns?: (el: Element) => boolean,
 ): void {
-  walkBoundElements(root, (el) => {
-    if (owns && !owns(el)) return;
+  for (const el of boundElements(root)) {
+    if (owns && !owns(el)) {
+      continue;
+    }
 
     const cleanups = globalBindings.get(el);
-    if (!cleanups) return;
+    if (!cleanups) {
+      continue;
+    }
 
     globalBindings.delete(el);
     runCleanups(el, cleanups);
-  });
+  }
 }
 
 /**
- * Resolves the scope root that owns a removed subtree.
- * Tries the element itself first then falls back to scanning the subtree
- * for any bound descendant (all share the same owner). Returns null for
- * globally-bound or unbound subtrees.
+ * Resolves the scope root that owns a removed subtree. Returns null for globally
+ * bound or unbound subtrees.
+ *
+ * Tries the element itself first, since the walk skips a scope root. Then stops at
+ * the first bound descendant either registry knows: all share the same owner.
  */
 export function resolveRemovedOwner(el: Element): HTMLElement | null {
   const direct = scopeBindings.get(el);
-  if (direct) return direct;
+  if (direct) {
+    return direct;
+  }
 
-  let found: HTMLElement | null = null;
-  walkBoundElements(el, (boundEl) => {
-    if (!found) {
-      const owner = scopeBindings.get(boundEl);
-      if (owner) {
-        found = owner;
-      }
+  for (const boundEl of boundElements(el)) {
+    const owner = scopeBindings.get(boundEl);
+    if (owner) {
+      return owner;
     }
-  });
+    if (globalBindings.has(boundEl)) {
+      return null;
+    }
+  }
 
-  return found;
+  return null;
 }
 
 /**
@@ -292,7 +304,9 @@ export function runCleanups(el: Element, cleanups: VoidFn[]): void {
  */
 function runHook(instance: Scope, name: 'connect' | 'disconnect', root: Element): void {
   const hook = instance[name];
-  if (typeof hook !== 'function') return;
+  if (typeof hook !== 'function') {
+    return;
+  }
 
   try {
     hook.call(instance);
@@ -312,13 +326,12 @@ function runHook(instance: Scope, name: 'connect' | 'disconnect', root: Element)
  */
 export function bindScope(root: HTMLElement, instance: Scope, app: RouseApp) {
   const elementCleanups = new Map<Element, VoidFn[]>();
-  const boundNodes = new WeakSet<Element>();
 
   function runCleanup(el: Element) {
-    boundNodes.delete(el);
-
     const cleanups = elementCleanups.get(el);
-    if (!cleanups) return;
+    if (!cleanups) {
+      return;
+    }
 
     elementCleanups.delete(el);
     scopeBindings.delete(el);
@@ -326,25 +339,28 @@ export function bindScope(root: HTMLElement, instance: Scope, app: RouseApp) {
   }
 
   function bindNode(el: Element) {
-    if (boundNodes.has(el)) return;
-    boundNodes.add(el);
-
-    const cleanups = bindDirectives(el, instance, app);
-    if (!cleanups.length) return;
-
-    elementCleanups.set(el, cleanups);
+    if (elementCleanups.has(el)) {
+      return;
+    }
+    // Recorded even when empty, as a global mount is, so a re-scan doesn't bind again
+    // and the removal path resolves the owner from any bound element
+    elementCleanups.set(el, bindDirectives(el, instance, app));
     scopeBindings.set(el, root);
   }
 
   function scan(startEl: Element) {
     const owner = startEl.closest(SCOPE_SELECTOR);
-    if (!owner || owner !== root) return;
+    if (!owner || owner !== root) {
+      return;
+    }
     // Markup added inside a nested app's root belongs to that app
-    if (startEl.closest(APP_ROOT_SELECTOR) !== app.root) return;
+    if (startEl.closest(APP_ROOT_SELECTOR) !== app.root) {
+      return;
+    }
 
-    walkBoundElements(startEl, bindNode, {
-      acceptScopeRoot: startEl === root,
-    });
+    for (const el of boundElements(startEl, { acceptScopeRoot: startEl === root })) {
+      bindNode(el);
+    }
   }
 
   function teardown(removedEl: Element) {

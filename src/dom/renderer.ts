@@ -17,7 +17,7 @@ import {
   markRenderOwned,
   runCleanups,
   unmarkRenderOwned,
-  walkBoundElements,
+  boundElements,
 } from './binder';
 
 type RenderMode = 'array' | 'object' | 'number' | 'boolean';
@@ -157,8 +157,7 @@ export function renderTemplate(
 
     // Collect directive elements before marking render-owned, so the binder
     // guard doesn't reject our own walk.
-    const collected: Element[] = [];
-    elementRoots.forEach((root) => walkBoundElements(root, (e) => collected.push(e)));
+    const collected = elementRoots.flatMap((root) => [...boundElements(root)]);
 
     const itemSig: ItemSignal = signal(reactive(item as object));
     const indexSig: IndexSignal = signal(index);

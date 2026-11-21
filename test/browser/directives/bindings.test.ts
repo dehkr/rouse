@@ -315,4 +315,33 @@ describe('re-scanned elements', () => {
       "[Rouse] rz-attr: 'class' belongs on data-rz-class. Ignoring.",
     );
   });
+
+  it('bind a scoped element that bound nothing once, warning once', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { $ } = await mount('<div data-rz-scope="s"></div>', {
+      scopes: { s: () => ({}) },
+    });
+
+    addTwice($('div'), '<div data-rz-attr="class: on"></div>');
+    await nextFrame();
+
+    expect(warn).toHaveBeenCalledOnce();
+  });
+
+  it('rebind a scoped element that bound nothing once its markup is fixed and re-inserted', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { $ } = await mount(
+      '<div data-rz-scope="s"><span data-rz-attr="class: msg"></span></div>',
+      { scopes: { s: () => ({ msg: 'hi' }) } },
+    );
+    const host = $('div');
+    const span = $('span');
+
+    span.remove();
+    await nextFrame();
+    span.setAttribute('data-rz-attr', 'title: msg');
+    host.append(span);
+
+    await expect.poll(() => span.getAttribute('title')).toBe('hi');
+  });
 });

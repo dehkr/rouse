@@ -32,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fire `edit` triggers when an effect mutates a store in reaction to a framework write (sync response, deposit, `update()`, `reset()`, or `revert()`), so a push on `edit` sends the effect's changes.
 - Mark a store dirty and fire `edit` triggers for edits to an array item reached through an array method (`find()`, `map()`, `for...of`), including `rz-model` bindings on `rz-render` items (`%.done`).
 - Return the reactive array from array mutators that return the array itself (such as `sort()` and `reverse()`), so writes chained on the result re-run effects and mark a store dirty.
+- Rebind an element re-inserted into the same scope after its directives were ignored with a warning, so markup corrected while the element was detached takes effect, matching elements outside a scope.
 
 ## [0.17.0] - 2026-11-14
 

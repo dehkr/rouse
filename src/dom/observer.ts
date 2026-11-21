@@ -33,7 +33,7 @@ import {
   resolveRemovedOwner,
   runCleanups,
   teardownGlobalBindings,
-  walkBoundElements,
+  boundElements,
 } from './binder';
 import {
   destroyInstance,
@@ -166,11 +166,11 @@ export function mountSubtree(root: Element, app: RouseApp) {
 
   // Outside any scope, bound directives mount globally
   if (!ownerScope) {
-    walkBoundElements(root, (el) => {
+    for (const el of boundElements(root)) {
       if (getApp(el, app)) {
         mountGlobalBinding(el, app);
       }
-    });
+    }
   }
 }
 
