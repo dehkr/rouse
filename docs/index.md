@@ -895,7 +895,7 @@ app.on('rz:dom:place:before', (e) => {
 
 ### Event origins
 
-Every event bubbles to `app.root`. Each fires from the element it describes. Once that element has left the DOM, the event fires from `app.root` instead, and the field in the last column names the element.
+Every event bubbles to `app.root`. Each fires from the element it describes. Once that element has left `app.root`, removed or moved into another app, the event fires from `app.root` instead, and the field in the last column names the element.
 
 | Category | Events | Fires from | Identified by |
 | --- | --- | --- | --- |

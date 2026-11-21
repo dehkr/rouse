@@ -1,9 +1,10 @@
 /*
  * Rouse's own events go through `dispatchFrom`, never the public `dispatch`. Every
  * event fires from the element it describes, or from the app root once that element
- * has left the DOM, so `app.on` hears it on every path. The `MutationObserver` sees a
+ * has left the root, so `app.on` hears it on every path. The `MutationObserver` sees a
  * removal only after the fact, so teardown events, and the late events of a request
- * whose trigger was removed, would otherwise propagate through a detached subtree.
+ * whose trigger was removed, would otherwise propagate through a detached subtree, or
+ * through another app's root once the trigger moved there.
  *
  * The fallback is resolved at dispatch time. Each event's `detail` must name its
  * element, since `e.target` may be the root.
@@ -39,7 +40,7 @@ export function dispatch(
   return event;
 }
 
-/** Dispatches from `el`, or from `root` once `el` has left the DOM. */
+/** Dispatches from `el`, or from `root` once `el` has left `root`. */
 export function dispatchFrom<N extends string>(
   el: Element,
   root: Element,
@@ -47,5 +48,5 @@ export function dispatchFrom<N extends string>(
   detail?: N extends keyof LifecycleEventMap ? LifecycleEventMap[N] : any,
   options?: CustomEventInit,
 ): CustomEvent<N extends keyof LifecycleEventMap ? LifecycleEventMap[N] : any> {
-  return dispatch(el.isConnected ? el : root, name, detail, options);
+  return dispatch(root.contains(el) ? el : root, name, detail, options);
 }

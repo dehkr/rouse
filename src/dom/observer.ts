@@ -12,6 +12,13 @@
  * A new structural directive needs its own selector pass in `mountSubtree` and
  * `unmountSubtree`. Sharing another directive's pass misses elements carrying only the
  * new one, without a warning.
+ *
+ * One `MutationObserver` serves every app, so mutations apply in the order the DOM made
+ * them: a node moved between apps is torn down before it's mounted again. Don't go back
+ * to an observer per app. Observers run in creation order, so a destination app started
+ * first would find the source app's records on the node and skip it. Code that reads
+ * the registries synchronously (`start()`, `destroy()`, a nested app's release) flushes
+ * queued mutations first.
  */
 import type { RouseApp } from '../app';
 import {
@@ -211,40 +218,96 @@ export function releaseSubtree(root: Element, app: RouseApp) {
   }
 }
 
+/** Apps whose roots the shared observer watches. */
+const observedApps = new Set<RouseApp>();
+const OBSERVE_OPTIONS: MutationObserverInit = { childList: true, subtree: true };
+let observer: MutationObserver | undefined;
+
 /**
- * Creates a `MutationObserver` scoped to the provided app instance. Sets up added
- * subtrees and tears down removed ones.
- *
- * @returns A configured, unstarted MutationObserver instance.
+ * Starts watching `app.root`. Applies the mutations already queued first, so the
+ * app's first scan sees what they tore down.
  */
-export function initObserver(app: RouseApp) {
-  return new MutationObserver((mutations) => {
-    for (const mutation of mutations) {
-      for (const node of mutation.addedNodes) {
-        // If a subtree is added then removed before the current task finishes,
-        // the add will be reported, but the node will be detached when the observer
-        // runs. So skip it to avoid errant ownership warnings.
-        if (node.nodeType === Node.ELEMENT_NODE && node.isConnected) {
-          mountSubtree(node as Element, app);
-        }
-      }
+export function observeApp(app: RouseApp) {
+  flushMutations();
+  observedApps.add(app);
+  observer ??= new MutationObserver(applyMutations);
+  observer.observe(app.root, OBSERVE_OPTIONS);
+}
 
-      for (const node of mutation.removedNodes) {
-        if (node.nodeType !== Node.ELEMENT_NODE) continue;
+/** Stops watching `app.root`, after applying the mutations already queued. */
+export function unobserveApp(app: RouseApp) {
+  flushMutations();
+  observedApps.delete(app);
+  if (!observer) {
+    return;
+  }
+  // An observer can't stop watching one node, so it restarts on the remaining roots
+  observer.disconnect();
+  for (const { root } of observedApps) {
+    observer.observe(root, OBSERVE_OPTIONS);
+  }
+}
 
-        const removedEl = node as Element;
-        unmountSubtree(removedEl);
+/** Applies queued mutations now, before code that reads the binding registries. */
+export function flushMutations() {
+  if (observer) {
+    applyMutations(observer.takeRecords());
+  }
+}
 
-        // Ownership resolved against the `scopeBindings` WeakMap, not DOM
-        // ancestry. Survives detached parents, cross-boundary moves, and
-        // sync-detachment edge cases.
-        const ownerScope = resolveRemovedOwner(removedEl);
-        if (!ownerScope) {
-          teardownGlobalBindings(removedEl);
-        } else if (!hasDirective(removedEl, 'scope')) {
-          teardownScopeNode(ownerScope, removedEl);
-        }
+function applyMutations(mutations: MutationRecord[]) {
+  for (const mutation of mutations) {
+    for (const node of mutation.addedNodes) {
+      // If a subtree is added then removed before the current task finishes,
+      // the add will be reported, but the node will be detached when the observer
+      // runs. So skip it to avoid errant ownership warnings.
+      if (node.nodeType === Node.ELEMENT_NODE && node.isConnected) {
+        mountAdded(node as Element);
       }
     }
-  });
+
+    for (const node of mutation.removedNodes) {
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        isolate(() => unmountRemoved(node as Element));
+      }
+    }
+  }
+}
+
+/**
+ * Mounts an added subtree for each app it touches: the apps whose root contains it,
+ * and the apps whose root it contains, which moved with it.
+ */
+function mountAdded(node: Element) {
+  for (const app of observedApps) {
+    if (app.root.contains(node)) {
+      isolate(() => mountSubtree(node, app));
+    } else if (node.contains(app.root)) {
+      isolate(() => mountSubtree(app.root, app));
+    }
+  }
+}
+
+function unmountRemoved(removedEl: Element) {
+  unmountSubtree(removedEl);
+
+  // Ownership resolved against the `scopeBindings` WeakMap, not DOM
+  // ancestry. Survives detached parents, cross-boundary moves, and
+  // sync-detachment edge cases.
+  const ownerScope = resolveRemovedOwner(removedEl);
+  if (!ownerScope) {
+    teardownGlobalBindings(removedEl);
+  } else if (!hasDirective(removedEl, 'scope')) {
+    teardownScopeNode(ownerScope, removedEl);
+  }
+}
+
+// Every app's mutations share one callback, so a throw while applying one must not
+// skip the rest. Reported as an uncaught error, as it would be from its own callback.
+function isolate(fn: VoidFn) {
+  try {
+    fn();
+  } catch (error) {
+    reportError(error);
+  }
 }

@@ -22,10 +22,12 @@ import {
 import { on, type TriggerSource, triggerSources } from './dom/events';
 import {
   addStandaloneSlug,
-  initObserver,
+  flushMutations,
   mountSubtree,
+  observeApp,
   releaseSubtree,
   unmountSubtree,
+  unobserveApp,
 } from './dom/observer';
 import { initPayloadRouters } from './dom/payload-router';
 import { placeContent } from './dom/placer';
@@ -191,7 +193,6 @@ export class RouseApp {
 
   private _hasStarted = false;
   private _destroyed = false;
-  private _observer?: MutationObserver;
   private _abortController: AbortController;
 
   /**
@@ -255,6 +256,7 @@ export class RouseApp {
     const parentRoot = rootEl.parentElement?.closest<HTMLElement>(APP_ROOT_SELECTOR);
     const parent = parentRoot ? appAt(parentRoot) : undefined;
     if (parent?._hasStarted) {
+      flushMutations();
       releaseSubtree(rootEl, parent);
     }
 
@@ -513,8 +515,7 @@ export class RouseApp {
     initPayloadRouters(this, this._abortController.signal);
 
     // Observing first means DOM that a scope adds while mounting is still scanned
-    this._observer = initObserver(this);
-    this._observer.observe(this.root, { childList: true, subtree: true });
+    observeApp(this);
 
     mountSubtree(this.root, this);
 
@@ -558,7 +559,7 @@ export class RouseApp {
     if (!this._hasStarted || this._destroyed) return;
     this._destroyed = true;
 
-    this._observer?.disconnect();
+    unobserveApp(this);
 
     unmountSubtree(this.root);
     teardownGlobalBindings(this.root);

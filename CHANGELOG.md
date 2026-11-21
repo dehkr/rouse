@@ -33,6 +33,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Mark a store dirty and fire `edit` triggers for edits to an array item reached through an array method (`find()`, `map()`, `for...of`), including `rz-model` bindings on `rz-render` items (`%.done`).
 - Return the reactive array from array mutators that return the array itself (such as `sort()` and `reverse()`), so writes chained on the result re-run effects and mark a store dirty.
 - Rebind an element re-inserted into the same scope after its directives were ignored with a warning, so markup corrected while the element was detached takes effect, matching elements outside a scope.
+- Rebind an element moved to another app, whichever app started first, and fire its in-flight request events from the app that sent them.
+- Remount a nested app whose root element moves within the outer app.
 
 ## [0.17.0] - 2026-11-14
 
