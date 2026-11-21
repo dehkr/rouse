@@ -192,7 +192,6 @@ export const SYNC_METHODS = [
   'baseline',
   'status',
   'isDirty',
-  'dirtyRoots',
   'config',
   'push',
   'pull',

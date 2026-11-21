@@ -146,7 +146,7 @@ describe('store pull', () => {
     await app.stores.pull('profile');
 
     expect(app.stores.snapshot('profile')).toEqual({ name: 'Ada' });
-    expect(app.stores.dirtyRoots('profile')).toEqual([]);
+    expect(Object.keys(app.stores.status('profile')!.dirtyRoots)).toEqual([]);
   });
 
   it('pulls on ready from markup and updates bindings', async () => {
@@ -189,7 +189,7 @@ describe('store status and dirty tracking', () => {
     s.b.c = 3;
     await Promise.resolve();
     expect(app.stores.isDirty('s')).toBe(true);
-    expect(app.stores.dirtyRoots('s')).toEqual(['b']);
+    expect(Object.keys(app.stores.status('s')!.dirtyRoots)).toEqual(['b']);
     expect(app.stores.isDirty('s', 'a')).toBe(false);
 
     s.b.c = 2;
@@ -206,7 +206,7 @@ describe('store status and dirty tracking', () => {
 
     app.stores.deposit('s', { a: 3, c: null });
 
-    expect(app.stores.dirtyRoots('s')).toEqual(['b']);
+    expect(Object.keys(app.stores.status('s')!.dirtyRoots)).toEqual(['b']);
     expect(app.stores.baseline('s')).toEqual({ a: 3, b: 1 });
   });
 

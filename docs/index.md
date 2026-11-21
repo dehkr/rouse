@@ -56,7 +56,7 @@ Store sync and server-sent events are plugins. Core never loads them: pass each 
 
 | Plugin | Import | Adds |
 | --- | --- | --- |
-| `sync` | `import { sync } from 'rousejs/sync'` | `rz-push`, `rz-pull`, `@store::status`, a store endpoint and request options (`app.store()` config, `data-rz-store="name: /url"`, `rz-headers` on a store script), and `app.stores` `status`, `isDirty`, `dirtyRoots`, `baseline`, `config`, `push`, `pull`, `reset`, `revert`, `commit` |
+| `sync` | `import { sync } from 'rousejs/sync'` | `rz-push`, `rz-pull`, `@store::status`, a store endpoint and request options (`app.store()` config, `data-rz-store="name: /url"`, `rz-headers` on a store script), and `app.stores` `status`, `isDirty`, `baseline`, `config`, `push`, `pull`, `reset`, `revert`, `commit` |
 | `sse` | `import { sse } from 'rousejs/sse'` | `rz-sse`, `rz-close`, the `sse-[name]` trigger, `app.sse()` |
 
 - Without the plugin, its markup does nothing. The development build warns once per element (`::status` once per app), and its `app.stores` methods and `app.sse()` throw an install hint. The production build stays silent. In TypeScript the plugin's options and methods don't exist until its module is imported.
@@ -489,7 +489,7 @@ Requires the sync plugin. `@name::status` in markup, `app.stores.status(name)` i
 | `error` | `{ code, message }` from the last failed push or pull, else `null`. Cleared when the next one starts |
 | `lastSync` | Timestamp (ms) of the last time the store took in server data, else `0` |
 | `dirty` | `true` while the store holds edits the server hasn't confirmed |
-| `dirtyRoots` | An object keyed by each top-level key with unsynced edits (`dirtyRoots.items`), not an array |
+| `dirtyRoots` | An object keyed by each top-level key with unsynced edits (`dirtyRoots.items`), not an array. List the keys with `Object.keys()` |
 
 ### Declarative stores
 
@@ -522,7 +522,6 @@ The script element is the store's declaration. Replacing it with a new script of
 | `has(name)` | `true` if the store exists | A `<script data-rz-store>` store exists only after `start()` |
 | `status(name)` *sync* | The store's status, or `undefined` | The same reactive object as `@name::status`; see [Store status](#store-status) |
 | `isDirty(name, root?)` *sync* | `true` if the store, or one top-level key, has unsynced edits | `root` is a top-level key (`'items'`), not a path. Updates a microtask after an edit |
-| `dirtyRoots(name)` *sync* | Array of top-level keys with unsynced edits; empty when clean | A copy: changing it doesn't affect the status |
 | `snapshot(name)` | Plain, non-reactive deep copy of the current data | Data fields only: getters and methods are dropped, and non-plain objects (`Date`, `Map`) become `{}` with a dev warning. Safe to serialize |
 | `baseline(name)` *sync* | Plain, non-reactive deep copy of the last synced data | What `revert()` restores and dirty checks compare against. Same copy rules as `snapshot()` |
 | `push(name)` / `pull(name)` *sync* | `Promise<void>`; never rejects | Syncs now; check `status(name).error` for the outcome. A push during another push waits and sends once |

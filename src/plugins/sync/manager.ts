@@ -595,17 +595,6 @@ export class StoreSync {
   }
 
   /**
-   * Returns the root keys that hold unsaved changes, or an empty array when there
-   * are none. The array is a copy, so changing it leaves the store's status alone.
-   *
-   * Like `isDirty()`, the answer updates a microtask after an edit.
-   */
-  dirtyRoots(storeName: string | null | undefined): string[] {
-    const entry = this._getStore(storeName);
-    return entry ? Object.keys(entry.status.dirtyRoots) : [];
-  }
-
-  /**
    * Patches `SyncPolicy` for a store. Warns if the store is missing.
    */
   config(storeName: string | null | undefined, config: Partial<SyncPolicy>) {

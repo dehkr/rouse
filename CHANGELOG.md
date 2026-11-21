@@ -15,11 +15,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Breaking:** Move store sync into the `sync` plugin. `rz-push`, `rz-pull`, `@store::status`, a store endpoint and request options, and the `app.stores` methods `status`, `isDirty`, `dirtyRoots`, `baseline`, `config`, `push`, `pull`, `reset`, `revert`, and `commit` now require it.
+- **Breaking:** Move store sync into the `sync` plugin. `rz-push`, `rz-pull`, `@store::status`, a store endpoint and request options, and the `app.stores` methods `status`, `isDirty`, `baseline`, `config`, `push`, `pull`, `reset`, `revert`, and `commit` now require it.
   - Installation: `import { sync } from 'rousejs/sync'`, then `rouse({ plugins: [sync] })`.
   - Import `StoreStatus`, `SyncPolicy`, and `SyncRequest` from `rousejs/sync` instead of `rousejs`.
 - **Breaking:** Move server-sent events into the `sse` plugin. `rz-sse`, `rz-close`, the `sse-[name]` trigger, and `app.sse()` now require it.
   - Installation: `import { sse } from 'rousejs/sse'`, then `rouse({ plugins: [sse] })`.
+- **Breaking:** Remove `app.stores.dirtyRoots()`. Read the store status instead, which holds the same keys.
 - **Breaking:** Remove the `rousejs/dev` and `rousejs/min` entry points. `rousejs` resolves to the dev build under the `development` condition and to the prod/min build otherwise.
   - Replace `rousejs/dev` with `rousejs`, and set the `development` condition in dev builds. Vite sets it by default; with esbuild, pass `--conditions=development`.
   - Replace `rousejs/min` with `rousejs`.

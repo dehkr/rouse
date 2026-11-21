@@ -40,15 +40,6 @@ declare module 'rousejs' {
      */
     isDirty(storeName: string | null | undefined, root?: string): boolean;
     /**
-     * Returns the root keys that hold unsaved changes, or an empty array when there
-     * are none. The array is a copy, so changing it leaves the store's status alone.
-     *
-     * Like `isDirty()`, the answer updates a microtask after an edit.
-     *
-     * Requires the `sync` plugin.
-     */
-    dirtyRoots(storeName: string | null | undefined): string[];
-    /**
      * Patches `SyncPolicy` for a store. Warns if the store is missing.
      *
      * Requires the `sync` plugin.
