@@ -119,6 +119,11 @@ export function unmarkRenderOwned(el: Element): void {
   renderOwned.delete(el);
 }
 
+/** Returns true if `el` is the root of a live `rz-render` instance. */
+export function isRenderOwned(el: Element): boolean {
+  return renderOwned.has(el);
+}
+
 /**
  * Returns the state an element's paths resolve against: the nearest render instance's
  * context or awake scope, searching no higher than `root`. Returns `EMPTY_SCOPE` when
@@ -259,13 +264,16 @@ export function teardownGlobalBindings(
 }
 
 /**
- * Resolves the scope root that owns a removed subtree. Returns null for globally
- * bound or unbound subtrees.
+ * Resolves the owner of a removed subtree:
+ *
+ * - the scope root, for a subtree a scope bound
+ * - `'global'`, for a subtree bound globally
+ * - `null`, for a subtree with no bindings, so the caller can skip a second walk
  *
  * Tries the element itself first, since the walk skips a scope root. Then stops at
  * the first bound descendant either registry knows: all share the same owner.
  */
-export function resolveRemovedOwner(el: Element): HTMLElement | null {
+export function resolveRemovedOwner(el: Element): HTMLElement | 'global' | null {
   const direct = scopeBindings.get(el);
   if (direct) {
     return direct;
@@ -277,7 +285,7 @@ export function resolveRemovedOwner(el: Element): HTMLElement | null {
       return owner;
     }
     if (globalBindings.has(boundEl)) {
-      return null;
+      return 'global';
     }
   }
 

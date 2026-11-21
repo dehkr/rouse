@@ -242,9 +242,10 @@ export function renderTemplate(
    * reuses, repositions, or removes instances so the DOM matches the new list.
    */
   function reconcile(normalized: NormalizedValue) {
-    if (normalized.mode !== currentMode) {
+    const { mode, items } = normalized;
+    if (mode !== currentMode) {
       teardownAll();
-      currentMode = normalized.mode;
+      currentMode = mode;
     }
 
     const parent = template.parentNode;
@@ -252,25 +253,58 @@ export function renderTemplate(
       return;
     }
 
-    let prev: ChildNode = template;
     let missing = 0;
     let dups = 0;
     let firstDup: string | number | null = null;
 
     const onMissing = __DEV__ ? () => missing++ : undefined;
-    const seen = new Set<string | number>();
+    const live = new Set<string | number>();
 
-    for (const [index, item] of normalized.items.entries()) {
-      const instanceKey = keyFor(item, index, normalized.mode, keyPath, onMissing);
-
-      if (seen.has(instanceKey)) {
+    // One key per item, `null` for an item whose key repeats an earlier one
+    const keys = items.map((item, index) => {
+      const key = keyFor(item, index, mode, keyPath, onMissing);
+      if (live.has(key)) {
         if (__DEV__) {
           dups++;
-          firstDup ??= instanceKey;
+          firstDup ??= key;
         }
+        return null;
+      }
+      live.add(key);
+      return key;
+    });
+
+    if (__DEV__) {
+      if (missing > 0 && !keyWarned) {
+        keyWarned = true;
+        warn(
+          `rz-key: '${keyPath}' could not be resolved on ${missing} item(s). Positional keys used.`,
+        );
+      }
+      if (dups > 0 && !dupWarned) {
+        dupWarned = true;
+        warn(
+          `rz-key: skipped ${dups} item(s) with duplicate '${keyPath}' values. First collision: '${firstDup}'.`,
+        );
+      }
+    }
+
+    // Tear down before placing. A removed instance left between two live ones puts
+    // the next one out of place, and every later instance moves after it.
+    for (const [key, rec] of records) {
+      if (!live.has(key)) {
+        rec.teardown();
+        records.delete(key);
+      }
+    }
+
+    let prev: ChildNode = template;
+
+    for (const [index, instanceKey] of keys.entries()) {
+      if (instanceKey === null) {
         continue;
       }
-      seen.add(instanceKey);
+      const item = items[index];
 
       let rec = records.get(instanceKey);
       if (rec) {
@@ -291,28 +325,6 @@ export function renderTemplate(
       // Teleported instances live in a remote target, so don't position inline
       if (!rec.target) {
         prev = placeAfter(parent, rec.roots, prev);
-      }
-    }
-
-    if (__DEV__) {
-      if (missing > 0 && !keyWarned) {
-        keyWarned = true;
-        warn(
-          `rz-key: '${keyPath}' could not be resolved on ${missing} item(s). Positional keys used.`,
-        );
-      }
-      if (dups > 0 && !dupWarned) {
-        dupWarned = true;
-        warn(
-          `rz-key: skipped ${dups} item(s) with duplicate '${keyPath}' values. First collision: '${firstDup}'.`,
-        );
-      }
-    }
-
-    for (const [k, rec] of records) {
-      if (!seen.has(k)) {
-        rec.teardown();
-        records.delete(k);
       }
     }
   }

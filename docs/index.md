@@ -315,7 +315,7 @@ The reactivity functions exported from `rousejs`.
 | `computed(fn)` | A cached derived value, read as `c()` | Derived values. Recomputes only after a value `fn` read changes. Keep `fn` pure |
 | `effect(fn)` | A stop function | Side effects that follow state. Runs `fn` now and whenever what it read changes. A function `fn` returns runs as cleanup before each re-run and on stop |
 | `effect(compute, apply, options?)` | A stop function | Side effects that follow one value. Runs `apply(value, prev, stop)` now and when `compute`'s value changes; only `compute` is tracked. `{ defer: true }` skips the first run. A function `apply` returns runs as cleanup, and effects `apply` creates stop with the next run |
-| `batch(fn)` | `fn`'s result | Several writes at once: `batch(() => { state.a = 1; state.b = 2; })`. Effects and bindings run once, when the outermost `batch()` returns. Reads inside `fn`, computeds included, stay current. Rarely needed: use it when an effect that reads the writes is expensive or does I/O |
+| `batch(fn)` | `fn`'s result | Several writes at once: `batch(() => { state.a = 1; state.b = 2; })`. Effects and bindings run once, when the outermost `batch()` returns. Reads inside `fn`, computeds included, stay current. Rarely needed: use it when an effect that reads the writes is expensive or does I/O, or to move a keyed `rz-render` item |
 
 ### Persistence
 
@@ -578,6 +578,7 @@ What `rz-render` renders for each kind of value, and what `~item` holds in each 
 `rz-key` on the `<template>` names a field on each item, as a dot path without `~item` (`id`, `user.id`). Instances are matched to items by that value across re-renders.
 
 - Without `rz-key`, instances are matched by position. DOM state (focus, input values, a running transition) stays at its index when items reorder. Key any list that reorders, filters, or is refetched.
+- A keyed instance that moves keeps its DOM nodes, input values, nested scopes, and standalone directives: setup doesn't re-run and `ready` requests aren't resent. It loses focus and any running CSS transition. Move an item in one write (reassigning the array, `sort()`, `reverse()`) or inside `batch()`.
 - An item whose key is missing or `null` is keyed by position, with a dev warning.
 - An item whose key repeats an earlier item's isn't rendered, with only a dev warning.
 - Give client-created items a key once, at creation: `items.push({ id: createKey(), text })`. Never call `createKey()` in a getter.
@@ -1102,6 +1103,7 @@ The development build warns about most authoring mistakes. These fail without an
 - **Unbatched writes each run `apply`.** `effect(() => [state.query, state.page], apply)` runs `apply` twice when a handler writes both fields. Wrap the writes in `batch()`.
 - **`apply` doesn't see its own writes.** When `apply` writes what `compute` reads, the effect doesn't re-run: `apply` never sees the written value, and the next `prev` is the value before the write. Normalize where the value is written.
 - **Duplicate keys drop items.** An item whose `rz-key` value repeats an earlier item's isn't rendered, with only a dev warning.
+- **Moving a keyed item takes one `batch()`.** `items.push(items.shift())` is two writes, and the first removes the item, so its instance is rebuilt without its input values or nested scope state. A swap also passes through a duplicate key and warns. Write `batch(() => items.push(items.shift()))`.
 - **Interceptors must return.** A `response` or `error` interceptor's return replaces `data` or `error`, so returning nothing sets it to `undefined`.
 - **Scope listeners and requests are app-wide.** `app.on` in a scope listens on the whole app unless you pass `host` first, and lasts as long as the app without `signal: term`. `app.fetch` likewise keeps running after teardown without `signal: term`.
 - **A removed element doesn't hear its own teardown.** Removing an element fires its remaining events (`rz:scope:disconnect`, `rz:scope:destroy`, the teardown `rz:sse:close`, an in-flight request's terminal events) from `app.root`. A listener on the element or a removed ancestor misses them. Use `app.on` and match `e.detail.host` or `e.detail.config.triggerEl`. Inside a scope, clean up with `term` instead.

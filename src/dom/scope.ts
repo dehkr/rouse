@@ -26,6 +26,12 @@ const pendingWakes = new WeakMap<HTMLElement, VoidFn>();
  * setup function from the registry, and mounting the reactive instance.
  */
 export function initScopeElement(el: HTMLElement, app: RouseApp) {
+  // A re-scan of a mounted or waiting host, such as a moved `rz-render` instance,
+  // must not attach a second wake gate: the first gate's cancel would be lost
+  if (instanceMap.has(el) || pendingWakes.has(el)) {
+    return;
+  }
+
   const scopeName = readScope(el);
   if (scopeName === null) {
     return;

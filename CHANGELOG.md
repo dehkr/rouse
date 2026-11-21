@@ -38,6 +38,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Rebind an element re-inserted into the same scope after its directives were ignored with a warning, so markup corrected while the element was detached takes effect, matching elements outside a scope.
 - Rebind an element moved to another app, whichever app started first, and fire its in-flight request events from the app that sent them.
 - Remount a nested app whose root element moves within the outer app.
+- Preserve nested scopes and standalone directives when a keyed `rz-render` reorder moves their instance, preventing scope state resets and repeated `ready` requests.
+- Tear down removed `rz-render` instances before placing the rest, so removing or filtering keyed items no longer moves every later instance.
 - Ignore non-function return values from `effect` callbacks, so a concise arrow such as `effect(() => el.textContent = state.label)` no longer throws on its next run.
 - Run the cleanup an `effect` returns from the run that stops it, so a timer or listener it releases isn't leaked.
 

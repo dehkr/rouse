@@ -36,6 +36,7 @@ import { rzStore } from '../directives/rz-store';
 import {
   closestScope,
   getApp,
+  isRenderOwned,
   mountGlobalBinding,
   resolveRemovedOwner,
   runCleanups,
@@ -277,11 +278,20 @@ function applyMutations(mutations: MutationRecord[]) {
     }
 
     for (const node of mutation.removedNodes) {
-      if (node.nodeType === Node.ELEMENT_NODE) {
+      if (node.nodeType === Node.ELEMENT_NODE && !isMovedInstance(node as Element)) {
         isolate(() => unmountRemoved(node as Element));
       }
     }
   }
+}
+
+/**
+ * Returns true for an `rz-render` instance root that `rz-render` moved rather than
+ * removed. An instance's teardown detaches and unmarks its roots, so a root that is
+ * still marked and connected only changed position. Its addition remounts nothing.
+ */
+function isMovedInstance(el: Element): boolean {
+  return el.isConnected && isRenderOwned(el);
 }
 
 /**
@@ -304,11 +314,11 @@ function unmountRemoved(removedEl: Element) {
   // Ownership resolved against the `scopeBindings` WeakMap, not DOM
   // ancestry. Survives detached parents, cross-boundary moves, and
   // sync-detachment edge cases.
-  const ownerScope = resolveRemovedOwner(removedEl);
-  if (!ownerScope) {
+  const owner = resolveRemovedOwner(removedEl);
+  if (owner === 'global') {
     teardownGlobalBindings(removedEl);
-  } else if (!hasDirective(removedEl, 'scope')) {
-    teardownScopeNode(ownerScope, removedEl);
+  } else if (owner && !hasDirective(removedEl, 'scope')) {
+    teardownScopeNode(owner, removedEl);
   }
 }
 
