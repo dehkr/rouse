@@ -32,12 +32,6 @@ export function deepEqual(a: any, b: any, seen = new WeakMap<object, any>()): bo
   if (a.constructor !== b.constructor) {
     return false;
   }
-  if (a instanceof Date) {
-    return a.getTime() === b.getTime();
-  }
-  if (a instanceof RegExp) {
-    return a.toString() === b.toString();
-  }
 
   // Arrays: match JSON behavior by converting functions/undefined to null
   if (Array.isArray(a)) {

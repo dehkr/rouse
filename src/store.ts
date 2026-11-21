@@ -212,20 +212,6 @@ export class StoreManager {
   }
 
   /**
-   * Merges a response payload into the store's data, as a framework write that
-   * changes the payload's roots.
-   *
-   * @internal
-   */
-  _patchPayload(entry: StoreEntry, payload: any) {
-    this._withPatchGuard(
-      entry,
-      () => patchState(entry.data, payload, 'merge'),
-      Object.keys(payload),
-    );
-  }
-
-  /**
    * Runs a framework write, then calls the `patched` hook for `roots` or the whole store.
    *
    * @internal

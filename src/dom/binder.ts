@@ -291,9 +291,7 @@ export function runCleanups(el: Element, cleanups: VoidFn[]): void {
     try {
       cleanup();
     } catch (error) {
-      if (__DEV__) {
-        err('Cleanup failed for element:', el, error);
-      }
+      err('Directive cleanup failed.', el, error);
     }
   }
 }

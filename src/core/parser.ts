@@ -103,9 +103,9 @@ function parseSegment(segment: string, pairs: ParsedDirectiveValue): void {
 
   let splitIndex = -1;
 
-  forEachSafeChar(trimmed, (i, char, text) => {
+  forEachSafeChar(trimmed, (i, char) => {
     // Colon + whitespace separates the `'key: value'` of a segment
-    if (char === ':' && hasTrailingWhitespace(text, i)) {
+    if (char === ':' && hasTrailingWhitespace(trimmed, i)) {
       splitIndex = i;
       // Stop at first valid separator
       return true;
@@ -541,7 +541,7 @@ export function safeJSONParse(text: string): unknown {
  */
 function forEachSafeChar(
   text: string,
-  callback: (index: number, char: string, fullText: string) => boolean | undefined,
+  callback: (index: number, char: string) => boolean | undefined,
 ): {
   depth: number;
   quote: string | null;
@@ -590,7 +590,7 @@ function forEachSafeChar(
 
     // Safe top-level character: trigger the callback
     else if (totalDepth === 0) {
-      if (callback(i, char, text)) {
+      if (callback(i, char)) {
         return { depth: totalDepth, quote, mismatched };
       }
     }

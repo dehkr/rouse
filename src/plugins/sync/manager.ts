@@ -529,7 +529,11 @@ export class StoreSync {
         // dirty state. Update the baseline first so the subsequent data patch's patched
         // hook sees both sides synchronized.
         this._patchBaseline(entry, payload);
-        this.stores._patchPayload(entry, payload);
+        this.stores._withPatchGuard(
+          entry,
+          () => core.patchState(entry.data, payload, 'merge'),
+          Object.keys(payload),
+        );
       }
 
       if (operation === 'pull') {

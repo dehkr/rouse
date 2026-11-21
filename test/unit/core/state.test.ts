@@ -94,12 +94,6 @@ describe('deepEqual', () => {
     expect(deepEqual({ a: 1, b: 2 }, { a: 1 })).toBe(false);
   });
 
-  it('compares Dates by time and RegExps by source', () => {
-    expect(deepEqual(new Date(5), new Date(5))).toBe(true);
-    expect(deepEqual(/a/g, /a/g)).toBe(true);
-    expect(deepEqual(/a/g, /a/i)).toBe(false);
-  });
-
   it('distinguishes an array from an object with the same keys', () => {
     expect(deepEqual([1], { 0: 1 })).toBe(false);
   });

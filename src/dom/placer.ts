@@ -149,7 +149,7 @@ function resolvePlacements(
   appRoot: Element,
   fromOverride: boolean,
 ): PlaceOperation[] {
-  const parsed = value?.trim() ? parseDirectiveValue(value) : [];
+  const parsed = parseDirectiveValue(value);
 
   if (parsed.length === 0) {
     // Prevent a store script that hosts an rz-sse stream from inserting HTML
