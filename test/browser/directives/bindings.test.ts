@@ -182,7 +182,7 @@ describe('rz-on', () => {
     expect(app.stores.get('cart')!.api.calls).toBe(1);
   });
 
-  it('calls an item method through % with this as the item, in and out of a scope', async () => {
+  it('calls an item method through ~item with this as the item, in and out of a scope', async () => {
     const item = () => ({
       done: false,
       toggle(this: { done: boolean }) {
@@ -191,10 +191,10 @@ describe('rz-on', () => {
     });
     const { $ } = await mount(
       `<ul data-rz-scope="s">
-        <template data-rz-render="items"><li class="scoped" data-rz-on="click: %.toggle" data-rz-text="%.done"></li></template>
+        <template data-rz-render="items"><li class="scoped" data-rz-on="click: ~item.toggle" data-rz-text="~item.done"></li></template>
       </ul>
       <ol>
-        <template data-rz-render="@list.items"><li class="global" data-rz-on="click: %.toggle" data-rz-text="%.done"></li></template>
+        <template data-rz-render="@list.items"><li class="global" data-rz-on="click: ~item.toggle" data-rz-text="~item.done"></li></template>
       </ol>`,
       {
         scopes: { s: () => ({ items: reactive([item()]) }) },
@@ -215,7 +215,7 @@ describe('rz-on', () => {
     const next = { id: 1, hits: 0, hit };
     const state = reactive({ items: [first] });
     const { $ } = await mount(
-      `<ul data-rz-scope="s"><template data-rz-render="items" data-rz-key="id"><li data-rz-on="click: %.hit"></li></template></ul>`,
+      `<ul data-rz-scope="s"><template data-rz-render="items" data-rz-key="id"><li data-rz-on="click: ~item.hit"></li></template></ul>`,
       { scopes: { s: () => state } },
     );
     const li = $('li');

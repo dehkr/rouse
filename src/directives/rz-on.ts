@@ -36,7 +36,7 @@ function bind(
   };
 
   // Resolved at bind so a typo warns before the first event, and again per event: a
-  // keyed `rz-render` instance can swap its item, and `%` must reach the current one
+  // keyed `rz-render` instance can swap its item, and `~item` must reach the current one
   if (!resolveMethod()) {
     return [];
   }

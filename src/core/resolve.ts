@@ -1,5 +1,5 @@
 import type { Scope } from '../types';
-import { ITEM_PREFIX, isItemNamespace, STORE_PREFIX } from './constants';
+import { ITEM_NAME, ITEM_PREFIX, isItemNamespace, STORE_PREFIX } from './constants';
 import { warn } from './diagnostics';
 import { parseDataSourcePath } from './parser';
 import { needsPlugin, PLUGIN_NAMESPACES } from './plugins';
@@ -33,8 +33,7 @@ export function resolveState<T = unknown>(
 
   const { source, namespace, nestedPath } = parseDataSourcePath(path);
 
-  // The item has no name, so anything between `%` and the path is unresolvable
-  if (isItem && source) {
+  if (isItem && source !== ITEM_NAME) {
     return undefined;
   }
 
@@ -102,7 +101,7 @@ export function writeState(
   // Render item or global store
   if (isItem || path.startsWith(STORE_PREFIX)) {
     const { source, namespace, nestedPath } = parseDataSourcePath(path);
-    if (isItem && source) {
+    if (isItem && source !== ITEM_NAME) {
       return;
     }
 

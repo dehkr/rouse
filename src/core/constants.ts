@@ -46,10 +46,12 @@ export function isDirectiveSlug(key: string): key is DirectiveSlug {
 export const APP_ROOT_SELECTOR = '[data-rouse-app]';
 
 export const STORE_PREFIX = '@';
-export const ITEM_PREFIX = '%';
+export const ITEM_PREFIX = '~';
+/** The one name `~` takes: `~item` is the current render item. */
+export const ITEM_NAME = 'item';
 
 /**
- * Render metadata readable through the `::` namespace on the item (`%::index`).
+ * Render metadata readable through the `::` namespace on the item (`~item::index`).
  * Kept small: the source value, CSS, or a key field covers the rest, and `last`
  * would subscribe every instance to the list's length.
  */

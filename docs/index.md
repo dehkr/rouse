@@ -91,8 +91,8 @@ Rouse markup is plain HTML. Directives are ordinary `data-*` attributes with an 
   <a data-rz-attr="href: profileUrl, aria-current: isCurrent">Profile</a>
   <ul>
     <template data-rz-render="@cart.items">
-      <!-- %.field: a field on the current rz-render item -->
-      <li data-rz-text="%.title"></li>
+      <!-- ~item.field: a field on the current rz-render item -->
+      <li data-rz-text="~item.title"></li>
     </template>
   </ul>
 </div>
@@ -113,9 +113,9 @@ How a directive value names state.
 | `@name` | A store | `@cart` |
 | `@name.path` | A field in a store | `@cart.items` |
 | `@name::status` | The store's read-only sync status | `@cart::status.syncing` |
-| `%` | The current `rz-render` item | `%` |
-| `%.path` | A field on the current item | `%.title` |
-| `%::index`, `%::position` | The item's zero-based and one-based position | `%::position` |
+| `~item` | The current `rz-render` item | `~item` |
+| `~item.path` | A field on the current item | `~item.title` |
+| `~item::index`, `~item::position` | The item's zero-based and one-based position | `~item::position` |
 
 - Paths are dot paths and may index arrays: `user.name`, `@names.list.0`.
 
@@ -163,13 +163,13 @@ Every directive, its job, and a typical value.
 | `rz-class` | Toggle the classes on the left by the state on the right, or write a class string or `{ class: bool }` object from a bare path | `data-rz-class="active selected: isChosen"`, `data-rz-class="themeClass"` |
 | `rz-style` | Toggle a quoted declaration, set one property, or write a declaration string or object from a bare path | `data-rz-style="'color: red; font-weight: bold': hasError, background: @theme.color"` |
 | `rz-model` | Two-way bind an input, textarea, select (`multiple` gives an array), checkbox, radio, or `contenteditable`. Default trigger, resolved at bind: `input` for text, textarea, and `contenteditable`; `change` for select, checkbox, and radio. Custom elements bind `.value` and need an explicit trigger | `data-rz-model="query"`, `data-rz-model="value-changed: @names.list.0"` |
-| `rz-on` | Call the method at a path (scope, `@store`, or `%`) on a trigger | `data-rz-on="click: save, submit: @cart.checkout"` |
+| `rz-on` | Call the method at a path (scope, `@store`, or `~item`) on a trigger | `data-rz-on="click: save, submit: @cart.checkout"` |
 | `rz-render` | On a `<template>`: render an array (per item), number (n copies), object (once), or boolean (if) | `<template data-rz-render="@todos.items">` |
 | `rz-key` | Stable key for `rz-render` lists that reorder or refetch | `data-rz-key="id"` |
 | `rz-fetch` | Request on a trigger; subject is `[METHOD] URL` (default GET), either part optional (`submit: PUT` keeps the form's `action`) | `data-rz-fetch="click: POST /todos"` |
 | `rz-place` | Where an HTML response goes: `position: selector`, a selector, a position, or `null`. Default: host `innerHTML` | `data-rz-place="beforeend: #log"` |
 | `rz-deposit` | Where a JSON response goes: whole stores, merged as JSON Merge Patch | `data-rz-deposit="@results"` |
-| `rz-send` | Payload: scope paths, `@store`/`@store.field`, `%`/`%.field`, inline JSON, `selector: <css>` | `data-rz-send='query, @filters, {"page": 2}'` |
+| `rz-send` | Payload: scope paths, `@store`/`@store.field`, `~item`/`~item.field`, inline JSON, `selector: <css>` | `data-rz-send='query, @filters, {"page": 2}'` |
 | `rz-headers` | Request headers for a fetch, or on a store script for its sync; `null` removes | `data-rz-headers="X-Tenant: 42"` |
 | `rz-request` | Fetch options: `timeout`, `abort-key`, `credentials`, `keepalive`, `redirect`, `cache` | `data-rz-request="timeout: 5s, keepalive"` |
 | `rz-indicator` | Elements that get the `rouse-request` class in flight (default: the trigger; `null` = none) | `data-rz-indicator="#spinner"` |
@@ -381,7 +381,7 @@ The markup inside `data-rz-scope="search"` names the keys the setup returned: `s
     <!-- One <li> per result, matched by id across re-renders -->
     <template data-rz-render="state.results" data-rz-key="id">
       <li>
-        <span data-rz-text="%::position"></span>. <span data-rz-text="%.title"></span>
+        <span data-rz-text="~item::position"></span>. <span data-rz-text="~item.title"></span>
         <button data-rz-on="click: remove">x</button>
       </li>
     </template>
@@ -406,7 +406,7 @@ The setup function receives `{ host, app, term, scan }` (`ScopeCtx`).
 
 ### Handler context
 
-Methods called from directives receive `{ el, e, render }` (`HandlerCtx`), with `this` as the object that holds the method, as in a JS method call: the scope for `save`, `actions` for `actions.save`, the store for `@cart.clear`, the item for `%.toggle`. `rz-on` resolves its path on each trigger, so a keyed `rz-render` instance calls its current item.
+Methods called from directives receive `{ el, e, render }` (`HandlerCtx`), with `this` as the object that holds the method, as in a JS method call: the scope for `save`, `actions` for `actions.save`, the store for `@cart.clear`, the item for `~item.toggle`. `rz-on` resolves its path on each trigger, so a keyed `rz-render` instance calls its current item.
 
 | Member | Is |
 | --- | --- |
@@ -535,13 +535,13 @@ The script element is the store's declaration. Replacing it with a new script of
 
 ## Render
 
-Most HTML comes from the server, but some markup has to follow client state: a filtered list, an empty-state message. `rz-render` covers those cases by repeating a `<template>` over a value. In each instance, `%` is that instance's item. Bare paths and `@store` paths resolve as they do outside the template.
+Most HTML comes from the server, but some markup has to follow client state: a filtered list, an empty-state message. `rz-render` covers those cases by repeating a `<template>` over a value. In each instance, `~item` is that instance's item. Bare paths and `@store` paths resolve as they do outside the template.
 
 ```html
-<!-- A keyed list from a store; each row reads its item through % -->
+<!-- A keyed list from a store; each row reads its item through `~item` -->
 <template data-rz-render="@todos.items" data-rz-key="id">
   <li>
-    <span data-rz-text="%::position"></span>. <span data-rz-text="%.title"></span>
+    <span data-rz-text="~item::position"></span>. <span data-rz-text="~item.title"></span>
     <!-- Stores are reachable and bare paths fall through to the enclosing scope -->
     <span data-rz-text="@todos.owner"></span>
   </li>
@@ -553,22 +553,22 @@ Most HTML comes from the server, but some markup has to follow client state: a f
 
 ### Render modes
 
-What `rz-render` renders for each kind of value, and what `%` holds in each instance.
+What `rz-render` renders for each kind of value, and what `~item` holds in each instance.
 
-| Value | Renders | `%` |
+| Value | Renders | `~item` |
 | --- | --- | --- |
 | Array | One instance per item | The item, of any type |
 | Plain object | One instance | The object |
 | Number | `n` instances, floored; negative or non-finite renders none | The number, in every instance |
 | Anything else (boolean mode) | One instance while truthy, none while falsy | The value |
 
-- `%` is the item in array mode and the rendered value in every other mode. `%.field` needs an object; on a primitive it's `undefined`. `%::index` / `%::position` work in every mode.
-- Each instance binds against its item: `%.field`, nested `%.user.name`. Metadata (`%::index`, `%::position`) is readable anywhere in the instance but read-only and not item data: `rz-model` can't write it and `rz-send` doesn't send it.
-- Bare paths fall through to the enclosing scope. `%` is the nearest item only; outer items aren't reachable.
+- `~item` is the item in array mode and the rendered value in every other mode. `~item.field` needs an object; on a primitive it's `undefined`. `~item::index` / `~item::position` work in every mode.
+- Each instance binds against its item: `~item.field`, nested `~item.user.name`. Metadata (`~item::index`, `~item::position`) is readable anywhere in the instance but read-only and not item data: `rz-model` can't write it and `rz-send` doesn't send it.
+- Bare paths fall through to the enclosing scope. `~item` is the nearest item only; outer items aren't reachable.
 
 ### Keys
 
-`rz-key` on the `<template>` names a field on each item, as a dot path without `%` (`id`, `user.id`). Instances are matched to items by that value across re-renders.
+`rz-key` on the `<template>` names a field on each item, as a dot path without `~item` (`id`, `user.id`). Instances are matched to items by that value across re-renders.
 
 - Without `rz-key`, instances are matched by position. DOM state (focus, input values, a running transition) stays at its index when items reorder. Key any list that reorders, filters, or is refetched.
 - An item whose key is missing or `null` is keyed by position, with a dev warning.
@@ -582,7 +582,7 @@ An item with a `renderTarget` field renders its instance there instead of beside
 ```html
 <!-- Each card renders into the column its renderTarget names -->
 <template data-rz-render="@board.cards" data-rz-key="id">
-  <article data-rz-text="%.title"></article>
+  <article data-rz-text="~item.title"></article>
 </template>
 <section id="todo"></section>
 <section id="done"></section>
@@ -1082,7 +1082,7 @@ widget.start();
 The development build warns about most authoring mistakes. These fail without an error, at most a dev warning. Most do nothing; some do the wrong thing.
 
 - **Modifiers need a pipe.** `click.debounce-[300ms]` is one event named `click.debounce` and never fires. Write `click|debounce-[300ms]`.
-- **Render fields need a dot.** `%name` is not `%.name`. The dot-less form reads `undefined` and writes nothing.
+- **The render item is always `~item`.** `~` takes no other name: `~row.title` reads `undefined` and writes nothing.
 - **Key names are exact.** `key-[entr]` never fires, and `keydown|enter` (no `key-[]`) fires on every key, with only a dev warning. `key-[ctrl]` is wrong: the key name is `control`, the held flag is `ctrl`.
 - **Scope state isn't reactive by default.** A plain field or `let` returned from setup renders once and never updates; return a `reactive` object, or a `signal` behind a getter.
 - **Only plain objects and arrays are reactive.** `reactive()` returns `Map`, `Set`, `Date`, and class instances unproxied, so changes inside them never update bindings.

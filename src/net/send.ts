@@ -30,7 +30,7 @@ type Payload = Record<string, unknown>;
  *
  * - `query`: a scope value, sent under its last path segment
  * - `@user`: a store's data. `@user.email` sends one field, as `email`
- * - `%`: the render item's data. `%.id` sends one field, as `id`
+ * - `~item`: the render item's data. `~item.id` sends one field, as `id`
  * - `{"page": 2}`: an inline JSON object
  * - `selector: <css>`: the fields a CSS selector matches. A form or fieldset sends
  *   its fields. Quote a selector list: `selector: '.a, .b'`
@@ -87,7 +87,7 @@ function readSource(
     if (parseDataSourcePath(entry).namespace) {
       if (__DEV__) {
         warn(
-          `rz-send: '${entry}' is render metadata, not item data. Use '%' or a field like '%.id'.`,
+          `rz-send: '${entry}' is render metadata, not item data. Use '~item' or a field like '~item.id'.`,
           el,
         );
       }
@@ -164,7 +164,7 @@ function readState(
  * can't be a selector, so it gets a warning that names the bare form instead.
  */
 function readSelector(selector: string, el: Element, app: RouseApp): Payload | null {
-  if (/^[@%{]/.test(selector)) {
+  if (/^[@~{]/.test(selector)) {
     if (__DEV__) {
       warn(
         `rz-send: '${selector}' isn't a selector. Write state references and JSON without 'selector:'.`,

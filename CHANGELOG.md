@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Breaking:** Move server-sent events into the `sse` plugin. `rz-sse`, `rz-close`, the `sse-[name]` trigger, and `app.sse()` now require it.
   - Installation: `import { sse } from 'rousejs/sse'`, then `rouse({ plugins: [sse] })`.
 - **Breaking:** Remove `app.stores.dirtyRoots()`. Read the store status instead, which holds the same keys.
+- **Breaking:** Rename the render item reference from `%` to `~item`, matching the prefix-and-name shape of `@store` references. E.g., `%.field` is now `~item.field`.
 - **Breaking:** Remove the `rousejs/dev` and `rousejs/min` entry points. `rousejs` resolves to the dev build under the `development` condition and to the prod/min build otherwise.
   - Replace `rousejs/dev` with `rousejs`, and set the `development` condition in dev builds. Vite sets it by default; with esbuild, pass `--conditions=development`.
   - Replace `rousejs/min` with `rousejs`.

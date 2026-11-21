@@ -288,8 +288,8 @@ describe('parseDataSourcePath', () => {
       namespace: 'status',
       nestedPath: 'syncing',
     });
-    expect(parseDataSourcePath('%::index')).toEqual({
-      source: '',
+    expect(parseDataSourcePath('~item::index')).toEqual({
+      source: 'item',
       namespace: 'index',
       nestedPath: '',
     });

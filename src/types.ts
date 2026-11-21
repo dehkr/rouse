@@ -333,7 +333,7 @@ export type Scope = Record<string, any> & {
 
 /**
  * One `rz-render` instance's own state: its item, its position, and the state it
- * layers over. Read by `%`, and snapshotted for handlers as `HandlerCtx.render`.
+ * layers over. Read by `~item`, and snapshotted for handlers as `HandlerCtx.render`.
  */
 export interface RenderFrame {
   /** The current item: the element in array mode, otherwise the rendered value itself. */

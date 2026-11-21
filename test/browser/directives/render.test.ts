@@ -9,7 +9,7 @@ describe('rz-render', () => {
   it('renders one instance per array item and follows mutations', async () => {
     const items = reactive([{ title: 'a' }, { title: 'b' }]);
     const { root } = await mount(
-      `<ul data-rz-scope="s"><template data-rz-render="items"><li data-rz-text="%.title"></li></template></ul>`,
+      `<ul data-rz-scope="s"><template data-rz-render="items"><li data-rz-text="~item.title"></li></template></ul>`,
       { scopes: { s: () => ({ items }) } },
     );
     expect(texts(root)).toEqual(['a', 'b']);
@@ -28,7 +28,7 @@ describe('rz-render', () => {
       { id: 2, title: 'b' },
     ]);
     const { root } = await mount(
-      `<ul data-rz-scope="s"><template data-rz-render="items" data-rz-key="id"><li data-rz-text="%.title"></li></template></ul>`,
+      `<ul data-rz-scope="s"><template data-rz-render="items" data-rz-key="id"><li data-rz-text="~item.title"></li></template></ul>`,
       { scopes: { s: () => ({ items }) } },
     );
     const [first, second] = root.querySelectorAll('li');
@@ -39,10 +39,10 @@ describe('rz-render', () => {
     expect(texts(root)).toEqual(['b', 'a']);
   });
 
-  it('updates %::position after a reorder', async () => {
+  it('updates ~item::position after a reorder', async () => {
     const items = reactive([{ id: 'x' }, { id: 'y' }]);
     const { root } = await mount(
-      `<ul data-rz-scope="s"><template data-rz-render="items" data-rz-key="id"><li><b data-rz-text="%::position"></b><i data-rz-text="%.id"></i></li></template></ul>`,
+      `<ul data-rz-scope="s"><template data-rz-render="items" data-rz-key="id"><li><b data-rz-text="~item::position"></b><i data-rz-text="~item.id"></i></li></template></ul>`,
       { scopes: { s: () => ({ items }) } },
     );
     items.reverse();
@@ -69,7 +69,7 @@ describe('rz-render', () => {
 
   it('calls an item function in a binding with this as the item', async () => {
     const { root } = await mount(
-      `<ul><template data-rz-render="@people.list"><li data-rz-text="%.label"></li></template></ul>`,
+      `<ul><template data-rz-render="@people.list"><li data-rz-text="~item.label"></li></template></ul>`,
       {
         stores: {
           people: {

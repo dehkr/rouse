@@ -39,7 +39,7 @@
       <button id="add" data-rz-on="click: @todos.add">Add</button>
       <ul id="todos">
         <template data-rz-render="@todos.items" data-rz-key="id">
-          <li data-rz-text="%.title"></li>
+          <li data-rz-text="~item.title"></li>
         </template>
       </ul>
     </section>

@@ -48,7 +48,7 @@ Directives are authored as `data-rz-<slug>` and named `rz-<slug>` everywhere els
 
 - **`src/app.ts`** (`RouseApp`) and **`src/store.ts`** (stores, and the hooks sync attaches to) — compose the layers below.
 - **`src/plugin-api.ts`** — the private contract with plugins: `CoreApi`, version check, install, and dev-build stubs. **`src/core/plugins.ts`** names what each plugin owns, for missing-plugin diagnostics.
-- **`src/core/`** — the bottom layer, with no runtime imports from the layers above (lint-enforced). Element helpers and directive attribute access (`elements.ts`), parsers (`parser.ts`), diagnostics, constants, timing. State addressing is split by dependency weight: `path.ts` (dot paths) → `state.ts` (`clone`, `patchState`; a leaf) → `resolve.ts` (`@store` / `%` / scope resolution).
+- **`src/core/`** — the bottom layer, with no runtime imports from the layers above (lint-enforced). Element helpers and directive attribute access (`elements.ts`), parsers (`parser.ts`), diagnostics, constants, timing. State addressing is split by dependency weight: `path.ts` (dot paths) → `state.ts` (`clone`, `patchState`; a leaf) → `resolve.ts` (`@store` / `~item` / scope resolution).
 - **`src/dom/`** — scope lifecycle (`scope.ts`), binding, ownership, and the app-root registry (`binder.ts`, `getApp`), scan passes (`observer.ts`), trigger sources, `app.on`, and `rz-wake` gates (`events.ts`), key modifiers (`modifiers.ts`), rendering (`renderer.ts`), payload routing, placement.
 - **`src/net/`** — `request()` and interceptors (`request.ts`), the fetch engine (`fetch-engine.ts`), the request lifecycle (`lifecycle.ts`), `rz-send` payload collection (`send.ts`), payloads.
 - **`src/directives/`** — core's scanned directives: `BOUND_DIRECTIVES` and `STANDALONE_DIRECTIVES` in `index.ts`, a file per directive with logic of its own, and the one-value writers in `writers.ts`. Layout rules in the header of `index.ts`.
@@ -69,7 +69,7 @@ Four directive groups, each with one registration mechanism:
 
 Apply these before adding or moving a config key, a directive, or a syntactic device.
 
-1. **One home per key, and the home is whatever the key describes.** Ask what it configures, not where it's convenient to write. A second spelling is rejected with a warning pointing at the home, never left working. Each syntactic device has one job (`@` addresses a store, `%` a render item).
+1. **One home per key, and the home is whatever the key describes.** Ask what it configures, not where it's convenient to write. A second spelling is rejected with a warning pointing at the home, never left working. Each syntactic device has one job (`@` addresses a store, `~` the render item).
 2. **Delete the question rather than answer it.** A rule written to manage a collision between two mechanisms is a smell; first check whether one mechanism can go. Prescribe a value only where Rouse owns both ends of the exchange (push's verb and body, yes; a fetch's encoding, no: declare it). Don't offer a knob that can't change an outcome.
 3. **Fail as early as the mechanism allows:** compile error, then init warning, then request-time warning, never silence. Start allow-lists narrow; adding a key later is non-breaking, removing one isn't.
 4. **The server owns the truth about the server.** Client config is a guess about an endpoint; a response header (`Rouse-Place`, `Rouse-Deposit`, `Rouse-Trigger`) is the answer for one response and wins.
@@ -108,7 +108,7 @@ The header of `src/core/diagnostics.ts` has the bare `err` sites and the message
 ### Parsing and config
 
 - **`parseDirectiveValue` yields `[key, string | null]`**: bare key → `null`, `key: ''` → `''`, dangling colon → warns and skips. Flag-style consumers coalesce with `?? ''`; consumers where "no value" matters branch on `null`. Decide which camp a new consumer is in.
-- **Config directive values are literal text**, with objects as inline JSON through `safeJSONParse`. `@` and `%` address state, never a payload; dynamic values belong in a scope, a store, or an interceptor. `rz-send` is the exception: its value is a list of data sources.
+- **Config directive values are literal text**, with objects as inline JSON through `safeJSONParse`. `@` and `~` address state, never a payload; dynamic values belong in a scope, a store, or an interceptor. `rz-send` is the exception: its value is a list of data sources.
 
 ### Coordinated changes
 

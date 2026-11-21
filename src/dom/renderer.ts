@@ -1,5 +1,5 @@
 /*
- * `%` resolves against the nearest instance only; there's no walk to an outer item.
+ * `~item` resolves against the nearest instance only; there's no walk to an outer item.
  *
  * Keys are positional unless `rz-key` names a field. Don't add an identity or
  * automatic key: an explicit key is the opt-in for lists that refetch or reorder.
