@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vite-plus/test';
 import { delay, HttpResponse, http, worker } from '../helpers/network';
-import { mount } from '../helpers/mount';
+import { mount, nextFrame } from '../helpers/mount';
 
 const html = (body: string, headers: Record<string, string> = {}) =>
   new HttpResponse(body, { headers: { 'Content-Type': 'text/html', ...headers } });
@@ -134,6 +134,34 @@ describe('rz-fetch', () => {
     );
     $('button').click();
     $('button').click();
+    await expect.poll(() => ends.mock.calls.length).toBe(1);
+    expect(calls).toBe(1);
+  });
+
+  it('drops a write from a re-attached trigger while its first write is in flight', async () => {
+    let calls = 0;
+    worker.use(
+      http.post('/api/save', async () => {
+        calls++;
+        await delay(100);
+        return html('saved');
+      }),
+    );
+    const ends = vi.fn();
+    const { app, $, root } = await mount(
+      `<button data-rz-fetch="click: POST /api/save" data-rz-place="null">Save</button>`,
+      { setup: (a) => a.on('rz:fetch:end', ends) },
+    );
+    const button = $('button');
+    button.click();
+
+    // A request from the detached trigger is skipped, and its key must survive that
+    button.remove();
+    await app.fetch('/api/save', { method: 'POST', triggerEl: button });
+    root.append(button);
+    await nextFrame();
+    button.click();
+
     await expect.poll(() => ends.mock.calls.length).toBe(1);
     expect(calls).toBe(1);
   });

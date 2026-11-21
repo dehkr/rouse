@@ -241,7 +241,7 @@ function resolveDisabled(host: Element | null, root: Element): Element[] {
 function holdDisabled(els: Element[]): Element[] {
   const held = els.filter((el) => heldDisabled.has(el) || !el.hasAttribute('disabled'));
   held.forEach((el) => {
-    heldDisabled.set(el, (heldDisabled.get(el) ?? 0) + 1);
+    bump(heldDisabled, el, 1);
     el.setAttribute('disabled', '');
   });
 
@@ -254,13 +254,9 @@ function holdDisabled(els: Element[]): Element[] {
  */
 function releaseDisabled(els: Element[]) {
   for (const el of els) {
-    const n = (heldDisabled.get(el) ?? 1) - 1;
-    if (n > 0) {
-      heldDisabled.set(el, n);
-      continue;
+    if (bump(heldDisabled, el, -1) === 0) {
+      el.removeAttribute('disabled');
     }
-    heldDisabled.delete(el);
-    el.removeAttribute('disabled');
   }
 }
 
@@ -269,11 +265,18 @@ function releaseDisabled(els: Element[]) {
  * overlapping requests sharing an indicator don't clear each other's request class.
  */
 function trackInFlight(els: Element[], delta: 1 | -1) {
-  for (const el of els) {
-    const n = Math.max(0, (inFlight.get(el) ?? 0) + delta);
-    inFlight.set(el, n);
-    el.classList.toggle(REQUEST_CLASS, n > 0);
+  els.forEach((el) => el.classList.toggle(REQUEST_CLASS, bump(inFlight, el, delta) > 0));
+}
+
+/** Adds `delta` to `el`'s request count and returns the new count, never below zero. */
+function bump(counts: WeakMap<Element, number>, el: Element, delta: 1 | -1): number {
+  const n = Math.max(0, (counts.get(el) ?? 0) + delta);
+  if (n > 0) {
+    counts.set(el, n);
+  } else {
+    counts.delete(el);
   }
+  return n;
 }
 
 /**

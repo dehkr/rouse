@@ -56,7 +56,6 @@ export async function runFetch(
     if (triggerEl) {
       // A debounced or queued trigger can fire after the element is gone
       if (!triggerEl.isConnected) {
-        abortKeys.delete(triggerEl);
         return fallbackResponse(options, 'Element disconnected from DOM');
       }
 
@@ -170,7 +169,7 @@ export async function runFetch(
         }
 
         try {
-          return await sendAndRoute(hostEl, triggerEl, finalOptions, app, handle);
+          return await sendAndRoute(hostEl, finalOptions, app, handle);
         } finally {
           if (marked) {
             writesInFlight.delete(marked);
@@ -192,11 +191,10 @@ export async function runFetch(
 /**
  * Sends the request and routes what comes back: server-directed redirects and
  * URL changes first, then the payload to its typed sub-event. Events fire from
- * `hostEl`; `triggerEl` is used only for abort-key bookkeeping.
+ * `hostEl`.
  */
 async function sendAndRoute(
   hostEl: Element,
-  triggerEl: Element | null,
   options: ResolvedRequest,
   app: RouseApp,
   handle: LifecycleHandle,
@@ -206,7 +204,7 @@ async function sendAndRoute(
     const rouseHeaders = extractRouseHeaders(result.headers);
 
     if (rouseHeaders.redirect) {
-      followRedirect(triggerEl, rouseHeaders.redirect);
+      window.location.assign(rouseHeaders.redirect);
       return result;
     }
 
@@ -215,7 +213,7 @@ async function sendAndRoute(
     // short-circuit in the error block below.
     if (result.response?.redirected) {
       if (isSameOrigin(result.response.url)) {
-        followRedirect(triggerEl, result.response.url);
+        window.location.assign(result.response.url);
         return result;
       }
       if (__DEV__) {
@@ -449,14 +447,6 @@ function dropFiles(
       return Array.isArray(val) && rest.length ? [[key, rest]] : [];
     }),
   );
-}
-
-/** Navigates to a server-directed redirect target. */
-function followRedirect(el: Element | null, url: string): void {
-  if (el) {
-    abortKeys.delete(el);
-  }
-  window.location.assign(url);
 }
 
 /**
