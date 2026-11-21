@@ -218,4 +218,25 @@ describe('rz-render', () => {
     expect(texts(root)).toEqual(['2', '3', '1']);
     expect(root.querySelectorAll('li')[2]).toBe(first);
   });
+
+  it('keeps focus and a running transition in a moved keyed instance', async () => {
+    const items = reactive([{ id: 1 }, { id: 2 }, { id: 3 }]);
+    const { root } = await mount(
+      `<ul data-rz-scope="s"><template data-rz-render="items" data-rz-key="id"><li><input /></li></template></ul>`,
+      { scopes: { s: () => ({ items }) } },
+    );
+    const li = root.querySelectorAll('li')[2]!;
+    const input = li.querySelector('input')!;
+    input.focus();
+    li.style.transition = 'opacity 10s';
+    // Flush styles so the opacity change starts a transition
+    getComputedStyle(li).getPropertyValue('opacity');
+    li.style.opacity = '0';
+    expect(li.getAnimations()).toHaveLength(1);
+
+    batch(() => items.unshift(items.pop()!));
+    expect(root.querySelector('li')).toBe(li);
+    expect(document.activeElement).toBe(input);
+    expect(li.getAnimations()).toHaveLength(1);
+  });
 });

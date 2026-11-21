@@ -109,15 +109,28 @@ function keyFor(
   return explicit as string | number;
 }
 
+/** `ParentNode.moveBefore()`, which TypeScript's DOM types don't include yet. */
+type MoveBefore = (node: ChildNode, child: ChildNode | null) => void;
+
 /**
  * Positions an instance's root nodes immediately after `prev`, moving only
  * what's out of place. Returns the new trailing node.
+ *
+ * Moves a placed node with `moveBefore()` where supported, which keeps focus and
+ * running transitions. It throws for a node outside `parent`'s connected tree, so a
+ * new instance, still in its fragment, is inserted.
  */
 function placeAfter(parent: ParentNode, roots: ChildNode[], prev: ChildNode): ChildNode {
+  const moveBefore =
+    'moveBefore' in parent ? (parent.moveBefore as MoveBefore) : undefined;
   let ref = prev;
   for (const node of roots) {
     if (ref.nextSibling !== node) {
-      parent.insertBefore(node, ref.nextSibling);
+      if (moveBefore && node.parentNode === parent && node.isConnected) {
+        moveBefore.call(parent, node, ref.nextSibling);
+      } else {
+        parent.insertBefore(node, ref.nextSibling);
+      }
     }
     ref = node;
   }

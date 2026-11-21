@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Render</title>
+    <script>
+      window.setup = (app, { batch }) => {
+        app.store('rows', {
+          items: [{ id: 1 }, { id: 2 }, { id: 3 }],
+          lastToFront() {
+            batch(() => this.items.unshift(this.items.pop()));
+          },
+        });
+      };
+    </script>
+    <script type="module" src="/boot.js"></script>
+  </head>
+  <body>
+    <ul id="rows">
+      <template data-rz-render="@rows.items" data-rz-key="id">
+        <li><input data-rz-attr="name: ~item.id" /></li>
+      </template>
+    </ul>
+  </body>
+</html>
