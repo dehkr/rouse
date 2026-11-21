@@ -34,7 +34,9 @@ export function resolveState<T = unknown>(
   const { source, namespace, nestedPath } = parseDataSourcePath(path);
 
   // The item has no name, so anything between `%` and the path is unresolvable
-  if (isItem && source) return undefined;
+  if (isItem && source) {
+    return undefined;
+  }
 
   let resolved: unknown;
   if (isItem) {
@@ -100,7 +102,9 @@ export function writeState(
   // Render item or global store
   if (isItem || path.startsWith(STORE_PREFIX)) {
     const { source, namespace, nestedPath } = parseDataSourcePath(path);
-    if (isItem && source) return;
+    if (isItem && source) {
+      return;
+    }
 
     if (namespace) {
       if (__DEV__) {
@@ -189,7 +193,9 @@ function hasNestedKey(obj: unknown, path: string): boolean {
  * Dedupes per-keystroke `rz-model` repeat warnings.
  */
 function warnWriteOnce(path: string, message: string): void {
-  if (warnedWrites.has(path)) return;
+  if (warnedWrites.has(path)) {
+    return;
+  }
   warnedWrites.add(path);
   warn(message);
 }

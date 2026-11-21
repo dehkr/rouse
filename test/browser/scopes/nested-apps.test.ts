@@ -6,7 +6,9 @@ import { mount, nextFrame } from '../helpers/mount';
 const nested: RouseApp[] = [];
 
 afterEach(() => {
-  for (const app of nested.splice(0)) app.destroy();
+  for (const app of nested.splice(0)) {
+    app.destroy();
+  }
 });
 
 /** Creates an app on `root` with a `label` store that records clicks under `name`. */

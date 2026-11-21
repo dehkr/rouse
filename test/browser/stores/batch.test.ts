@@ -146,7 +146,9 @@ describe('effects that write store data', () => {
   const sortItems = (s: { items: number[] }) =>
     track(() => {
       const sorted = [...s.items].sort((x, y) => x - y);
-      if (sorted.some((v, i) => v !== s.items[i])) s.items = sorted;
+      if (sorted.some((v, i) => v !== s.items[i])) {
+        s.items = sorted;
+      }
     });
 
   it('mark the store dirty and fire edit when reacting to a deposit', async () => {

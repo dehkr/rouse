@@ -198,7 +198,9 @@ async function runErrorInterceptors(
  */
 export function readHeaders(el: Element): Record<string, string | null> {
   const value = getDirectiveValue(el, 'headers');
-  if (!value) return {};
+  if (!value) {
+    return {};
+  }
 
   const headers: Record<string, string | null> = {};
 
@@ -264,7 +266,9 @@ const KEYS = {
  */
 function readRequest(el: Element): Partial<FetchRequest> {
   const value = getDirectiveValue(el, 'request');
-  if (!value) return {};
+  if (!value) {
+    return {};
+  }
 
   const config: Record<string, any> = {};
 

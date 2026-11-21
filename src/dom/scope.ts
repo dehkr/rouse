@@ -27,7 +27,9 @@ const pendingWakes = new WeakMap<HTMLElement, VoidFn>();
  */
 export function initScopeElement(el: HTMLElement, app: RouseApp) {
   const scopeName = readScope(el);
-  if (scopeName === null) return;
+  if (scopeName === null) {
+    return;
+  }
 
   let setup: ScopeSetup;
 
@@ -63,7 +65,9 @@ export function initScopeElement(el: HTMLElement, app: RouseApp) {
  * Initializes a scope instance on a specific element.
  */
 function initScopeInstance(el: HTMLElement, app: RouseApp, setup: ScopeSetup) {
-  if (instanceMap.has(el)) return;
+  if (instanceMap.has(el)) {
+    return;
+  }
   instanceMap.set(el, createScope(el, app, setup));
 }
 
@@ -120,7 +124,9 @@ function createScope(el: HTMLElement, app: RouseApp, setup: ScopeSetup) {
   const abortCtrl = new AbortController();
 
   const destroy = () => {
-    if (isDestroyed) return;
+    if (isDestroyed) {
+      return;
+    }
     isDestroyed = true;
     abortCtrl.abort();
     // Reverse order: DOM bindings must dispose before the state they read

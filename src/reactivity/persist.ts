@@ -86,7 +86,9 @@ export function restore(target: object, persisted: PersistTarget) {
   let saved: unknown;
   try {
     const text = area(persisted).getItem(persisted.key);
-    if (text === null) return;
+    if (text === null) {
+      return;
+    }
     saved = JSON.parse(text);
   } catch (error) {
     report('restore', persisted, error);
@@ -100,7 +102,9 @@ export function restore(target: object, persisted: PersistTarget) {
   } else if (isPlainObject(saved)) {
     for (const key of Object.keys(saved)) {
       // `JSON.parse` makes `__proto__` an own key, and assigning it swaps the prototype
-      if (KEY_BLOCKLIST.includes(key) || hasAccessor(target, key)) continue;
+      if (KEY_BLOCKLIST.includes(key) || hasAccessor(target, key)) {
+        continue;
+      }
       (target as Record<string, unknown>)[key] = saved[key];
     }
     return;
@@ -118,7 +122,9 @@ export function startSaving(proxy: object, persisted: PersistTarget): () => void
   let pending: unknown;
 
   const write = () => {
-    if (pending === undefined) return;
+    if (pending === undefined) {
+      return;
+    }
     const snapshot = pending;
     pending = undefined;
     try {
@@ -132,7 +138,9 @@ export function startSaving(proxy: object, persisted: PersistTarget): () => void
     // `clone()` reads every data field through the proxy and skips accessors
     // without invoking them, so getters neither save nor trigger a save
     const snapshot = clone(proxy);
-    if (pending === undefined) queueMicrotask(write);
+    if (pending === undefined) {
+      queueMicrotask(write);
+    }
     pending = snapshot;
   };
 
@@ -157,7 +165,9 @@ function report(
   detail: unknown,
 ) {
   const id = `${phase}:${storage}:${key}`;
-  if (reported.has(id)) return;
+  if (reported.has(id)) {
+    return;
+  }
   reported.add(id);
 
   err(`Could not ${phase} '${key}' in ${storage}Storage.`, detail);
@@ -169,7 +179,9 @@ function claim({ storage, key }: PersistTarget): () => void {
   claims!.set(id, (claims!.get(id) ?? 0) + 1);
 
   queueMicrotask(() => {
-    if ((claims!.get(id) ?? 0) < 2 || warnedClaims!.has(id)) return;
+    if ((claims!.get(id) ?? 0) < 2 || warnedClaims!.has(id)) {
+      return;
+    }
     warnedClaims!.add(id);
     warn(
       `'${key}' in ${storage}Storage has more than one live owner, so each overwrites the other's saves. Give each persisted object its own 'persistKey'.`,

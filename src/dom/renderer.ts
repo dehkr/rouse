@@ -247,7 +247,9 @@ export function renderTemplate(
     }
 
     const parent = template.parentNode;
-    if (!parent) return;
+    if (!parent) {
+      return;
+    }
 
     let prev: ChildNode = template;
     let missing = 0;

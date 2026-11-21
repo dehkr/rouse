@@ -9,7 +9,9 @@ const warnedDuplicates = new Set<string>();
  * Call inside `if (__DEV__)`.
  */
 function warnDuplicateOnce(name: string): void {
-  if (warnedDuplicates.has(name)) return;
+  if (warnedDuplicates.has(name)) {
+    return;
+  }
   warnedDuplicates.add(name);
 
   warn(

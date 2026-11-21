@@ -45,7 +45,9 @@ export function preparePayload(options: FetchRequest, baseUrl: string) {
   // A param replaces any value the URL already carries for its key
   if (params) {
     for (const [key, val] of Object.entries(params)) {
-      if (val == null) continue;
+      if (val == null) {
+        continue;
+      }
       urlObj.searchParams.delete(key);
       for (const v of Array.isArray(val) ? val : [val]) {
         urlObj.searchParams.append(key, String(v));

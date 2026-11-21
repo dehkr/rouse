@@ -19,7 +19,9 @@ const initialized = new WeakSet<HTMLScriptElement>();
  * <script data-rz-store="user: /api/user" type="application/json">
  */
 function initialize(el: HTMLScriptElement, app: RouseApp) {
-  if (initialized.has(el)) return;
+  if (initialized.has(el)) {
+    return;
+  }
 
   const parsed = parseStoreValue(getDirectiveValue(el, 'store'));
   if (!parsed) {

@@ -11,13 +11,17 @@ export function getNestedVal<T = unknown>(
   obj: any,
   path: string | undefined,
 ): T | undefined {
-  if (!obj || !path) return undefined;
+  if (!obj || !path) {
+    return undefined;
+  }
 
   const parts = getPathParts(path);
   let current = obj;
 
   for (const part of parts) {
-    if (current == null) return undefined;
+    if (current == null) {
+      return undefined;
+    }
     current = current[part];
   }
 
@@ -28,19 +32,25 @@ export function getNestedVal<T = unknown>(
  * Sets a value at a dot-notation path.
  */
 export function setNestedVal(obj: any, path: string | undefined, value: any): void {
-  if (!obj || typeof obj !== 'object' || !path) return;
+  if (!obj || typeof obj !== 'object' || !path) {
+    return;
+  }
 
   const parts = getPathParts(path);
   const lastKey = parts[parts.length - 1];
 
   // Early exit if last key is on block list
-  if (lastKey === undefined || KEY_BLOCKLIST.includes(lastKey)) return;
+  if (lastKey === undefined || KEY_BLOCKLIST.includes(lastKey)) {
+    return;
+  }
 
   let current = obj;
 
   for (let i = 0; i < parts.length - 1; i++) {
     const part = parts[i] as string;
-    if (KEY_BLOCKLIST.includes(part)) return;
+    if (KEY_BLOCKLIST.includes(part)) {
+      return;
+    }
 
     if (!(part in current) || current[part] == null) {
       // Convert to empty object to enable traversal
@@ -61,7 +71,9 @@ export function setNestedVal(obj: any, path: string | undefined, value: any): vo
  * empty. Maps a nested path back to its root store/scope key.
  */
 export function getPathRoot(path: string | undefined): string | undefined {
-  if (!path) return;
+  if (!path) {
+    return;
+  }
   return getPathParts(path)[0];
 }
 

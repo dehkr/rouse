@@ -16,7 +16,9 @@ const computedCache = new WeakMap<object, Map<string | symbol, () => any>>();
 
 export const handlers: ProxyHandler<object> = {
   get(target: object, key: string | symbol, receiver: object): any {
-    if (key === '__proto__') return target;
+    if (key === '__proto__') {
+      return target;
+    }
 
     const isArray = Array.isArray(target);
     if (isArray && Object.hasOwn(methodIntercepts, key)) {
@@ -213,7 +215,9 @@ export function adoptTracker(
   rootKey: string,
 ) {
   const raw = getRaw(child);
-  if (dirtyTrackers.has(raw)) return;
+  if (dirtyTrackers.has(raw)) {
+    return;
+  }
 
   dirtyTrackers.set(raw, tracker);
   objectRootKeys.set(raw, rootKey);

@@ -551,7 +551,9 @@ function extractRouseHeaders(headers: Record<string, string> | null) {
  */
 function applyUrlChange(pushUrl: string | null, replaceUrl: string | null): void {
   const url = pushUrl ?? replaceUrl;
-  if (url === null) return;
+  if (url === null) {
+    return;
+  }
 
   if (__DEV__ && pushUrl && replaceUrl) {
     warn(`Both 'Rouse-Push-Url' and 'Rouse-Replace-Url' present. Using Push.`);

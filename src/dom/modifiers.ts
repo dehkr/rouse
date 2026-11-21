@@ -32,7 +32,9 @@ const SYS_MODIFIER_FLAGS = Object.values(sysModifierMap);
  * where keys keep their real casing (`{ key: 'ArrowUp' }`).
  */
 function expectedKeys(key: TriggerModifiers['key']): string[] {
-  if (key === undefined) return [];
+  if (key === undefined) {
+    return [];
+  }
   return (Array.isArray(key) ? key : [key]).map((k) => k.toLowerCase());
 }
 
@@ -131,8 +133,12 @@ export function compileModifiers(
         const pressedCode = e.code.toLowerCase();
 
         const isMatch = keys.some((expected) => {
-          if (!expected) return false;
-          if (pressedKey === expected) return true;
+          if (!expected) {
+            return false;
+          }
+          if (pressedKey === expected) {
+            return true;
+          }
 
           // Fallback to fix macOS 'alt' dead key
           if (expected.length === 1) {
@@ -145,7 +151,9 @@ export function compileModifiers(
           return false;
         });
 
-        if (!isMatch) return false;
+        if (!isMatch) {
+          return false;
+        }
       }
     }
 

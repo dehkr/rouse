@@ -188,7 +188,9 @@ export function* boundElements(
 ): Generator<Element> {
   // If root is itself a scope and the caller hasn't opted in,
   // the entire subtree is scope-owned.
-  if (!options?.acceptScopeRoot && root.matches(SCOPE_SELECTOR)) return;
+  if (!options?.acceptScopeRoot && root.matches(SCOPE_SELECTOR)) {
+    return;
+  }
 
   // Render-owned subtrees are bound by `rz-render` itself, with item context
   if (renderOwned.has(root)) {

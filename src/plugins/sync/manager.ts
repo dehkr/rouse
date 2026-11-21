@@ -148,7 +148,9 @@ export class StoreSync {
         // The declared data, so `reset()` restores defaults, not the saved copy
         entry.initial = declared;
 
-        if (policy) this._setConfig(entry, policy);
+        if (policy) {
+          this._setConfig(entry, policy);
+        }
         this._updateLastGood(entry, entry.data);
       },
       redeclared: (stored, policy) => {
@@ -247,7 +249,9 @@ export class StoreSync {
         // Accessors and methods are absent from `lastGood` (clone strips them), so
         // comparing them would mark every getter permanently dirty. A key missing
         // from `data` entirely is a deleted root and must still be compared.
-        if (core.hasAccessor(data, key)) continue;
+        if (core.hasAccessor(data, key)) {
+          continue;
+        }
 
         if (deepEqual(data[key], baseline[key])) {
           delete status.dirtyRoots[key];
@@ -274,7 +278,9 @@ export class StoreSync {
     options: SyncRequest = {},
   ) {
     const entry = this._getStore(storeName);
-    if (!entry) return;
+    if (!entry) {
+      return;
+    }
 
     const { data, config, name } = entry;
     const policy: Partial<SyncPolicy> = config ?? {};
@@ -373,7 +379,9 @@ export class StoreSync {
       },
     });
 
-    if (!outcome) return;
+    if (!outcome) {
+      return;
+    }
 
     // Sent after `:end`, so listeners never see a follow-up start inside this request.
     // A store that matches the baseline again has nothing left to send. Compared live,
@@ -503,7 +511,9 @@ export class StoreSync {
       { storeName, operation, data, payload: result.data },
       { cancelable: true },
     );
-    if (beforeEvent.defaultPrevented) return;
+    if (beforeEvent.defaultPrevented) {
+      return;
+    }
 
     // Whole `result.data`, mutable by listeners (matches the router's deposit path)
     const payload = beforeEvent.detail.payload;
@@ -579,8 +589,12 @@ export class StoreSync {
    */
   isDirty(storeName: string | null | undefined, root?: string): boolean {
     const entry = this._getStore(storeName);
-    if (!entry) return false;
-    if (!root) return entry.status.dirty;
+    if (!entry) {
+      return false;
+    }
+    if (!root) {
+      return entry.status.dirty;
+    }
 
     // A path is checked as its root, which can only over-report. That's safer than a
     // `false` that reads as no unsaved changes.
@@ -599,7 +613,9 @@ export class StoreSync {
    */
   config(storeName: string | null | undefined, config: Partial<SyncPolicy>) {
     const entry = this._getStore(storeName, 'configure');
-    if (!entry) return;
+    if (!entry) {
+      return;
+    }
     if (entry.stopSaving && config.url) {
       failPersistUrl(entry.name);
     }
@@ -652,7 +668,9 @@ export class StoreSync {
   deferPush(storeName: string | null | undefined, send: VoidFn): void {
     const entry = this._find(storeName);
     const flight = entry?.inFlight;
-    if (!entry || !flight) return;
+    if (!entry || !flight) {
+      return;
+    }
 
     // Without this check, a remembered second click would send an edit made after it
     if (deepEqual(entry.data, this._expectedBaseline(entry, flight))) {
@@ -689,7 +707,9 @@ export class StoreSync {
    * `pull('user', { url: '/api/user?fields=name' })`.
    */
   async pull(storeName: string | null | undefined, options?: SyncRequest): Promise<void> {
-    if (this.status(storeName)?.syncing === 'push') return;
+    if (this.status(storeName)?.syncing === 'push') {
+      return;
+    }
     return this._request(storeName, 'pull', options);
   }
 
@@ -701,7 +721,9 @@ export class StoreSync {
    */
   reset(storeName: string | null | undefined) {
     const entry = this._getStore(storeName, 'reset');
-    if (!entry) return;
+    if (!entry) {
+      return;
+    }
 
     this.stores._reseed(entry, core.clone(entry.initial));
   }
@@ -715,8 +737,12 @@ export class StoreSync {
    */
   revert(storeName: string | null | undefined, path?: string): boolean {
     const entry = this._getStore(storeName, 'revert');
-    if (!entry) return false;
-    if (!this._isSliceDirty(entry, path)) return false;
+    if (!entry) {
+      return false;
+    }
+    if (!this._isSliceDirty(entry, path)) {
+      return false;
+    }
 
     const value = core.clone(sliceAt(entry.lastGood, path));
     this.stores._withPatchGuard(
@@ -741,7 +767,9 @@ export class StoreSync {
    */
   commit(storeName: string | null | undefined) {
     const entry = this._getStore(storeName, 'commit');
-    if (!entry) return;
+    if (!entry) {
+      return;
+    }
 
     this._updateLastGood(entry, entry.data);
   }

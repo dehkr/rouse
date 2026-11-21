@@ -81,13 +81,19 @@ export const headingJump: ScopeSetup = ({ host }) => {
    * -1 = No match
    */
   function rank(text: string, query: string) {
-    if (text.startsWith(query)) return 0;
-    if (` ${text}`.includes(` ${query}`)) return 1;
+    if (text.startsWith(query)) {
+      return 0;
+    }
+    if (` ${text}`.includes(` ${query}`)) {
+      return 1;
+    }
 
     const letters = query.replaceAll(' ', '');
     let i = 0;
     for (const c of text) {
-      if (c === letters[i]) i++;
+      if (c === letters[i]) {
+        i++;
+      }
     }
 
     return i === letters.length ? 2 : -1;
@@ -140,7 +146,9 @@ export const headingJump: ScopeSetup = ({ host }) => {
 
   function step(delta: number) {
     const n = list.shown.length;
-    if (!n) return;
+    if (!n) {
+      return;
+    }
     highlight(list.active < 0 ? (delta > 0 ? 0 : n - 1) : (list.active + delta + n) % n);
   }
 
@@ -179,12 +187,18 @@ export const headingJump: ScopeSetup = ({ host }) => {
     pick: ({ render }: RenderHandlerCtx<Item>) => go(render.item),
     pickActive: () => {
       const item = list.shown[list.active];
-      if (item) go(item);
+      if (item) {
+        go(item);
+      }
     },
     shortcut: ({ e, el }: HandlerCtx) => {
       const t = e.target;
-      if (!(t instanceof HTMLElement)) return;
-      if (t.isContentEditable || t.closest('input, textarea, select')) return;
+      if (!(t instanceof HTMLElement)) {
+        return;
+      }
+      if (t.isContentEditable || t.closest('input, textarea, select')) {
+        return;
+      }
       e.preventDefault();
       el.focus();
     },

@@ -216,7 +216,9 @@ describe('arrays', () => {
     let sum = 0;
     const runs = track(() => {
       sum = 0;
-      for (const n of list) sum += n;
+      for (const n of list) {
+        sum += n;
+      }
     });
     list[0] = 10;
     expect(runs).toHaveBeenCalledTimes(2);
@@ -311,7 +313,9 @@ describe('trackDirty', () => {
     const dirty = vi.fn();
     trackDirty(state, dirty);
     for (const row of state.grid) {
-      for (const cell of row) cell.on = true;
+      for (const cell of row) {
+        cell.on = true;
+      }
     }
     expect(dirty).toHaveBeenCalledWith('grid');
   });

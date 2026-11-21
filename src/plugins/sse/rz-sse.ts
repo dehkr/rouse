@@ -51,7 +51,9 @@ function bindSsePairs(el: Element, app: RouseApp, pairs: TriggerSubjectPair[]): 
 
   const open = () => {
     // Repeat triggers on a live stream are a no-op, not a second connection
-    if (release) return;
+    if (release) {
+      return;
+    }
     // A stream that closes for good frees the element, so its next open trigger reconnects
     release =
       openStream(app, url, { triggerEl: el }, () => {

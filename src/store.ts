@@ -243,7 +243,9 @@ export class StoreManager {
   private _scheduleFlush(entry: StoreEntry) {
     const wasEmpty = this._pendingFlush.size === 0;
     this._pendingFlush.add(entry);
-    if (!wasEmpty) return;
+    if (!wasEmpty) {
+      return;
+    }
 
     queueMicrotask(() => {
       // Cleared before iterating, so a throwing listener can't stall later flushes
@@ -272,7 +274,9 @@ export class StoreManager {
    */
   _onEdit(storeName: string | null | undefined, callback: EditListener): VoidFn {
     const entry = this._getStore(storeName);
-    if (!entry) return () => {};
+    if (!entry) {
+      return () => {};
+    }
 
     const listeners = (entry.listeners ??= new Set());
     listeners.add(callback);
@@ -312,15 +316,21 @@ export class StoreManager {
       );
     }
 
-    if (__DEV__) warnNullFields(storeName, state);
+    if (__DEV__) {
+      warnNullFields(storeName, state);
+    }
 
     const { created } = this._hooks;
     const declared = created && clone(state);
-    if (persisted) restore(state, persisted);
+    if (persisted) {
+      restore(state, persisted);
+    }
 
     const proxyState = reactive(state);
     const entry = { name: storeName, data: proxyState } as StoreEntry;
-    if (el) entry.el = el;
+    if (el) {
+      entry.el = el;
+    }
 
     // Before registering, so a hook that rejects the store leaves nothing behind
     if (created) {
@@ -335,8 +345,12 @@ export class StoreManager {
     // reference kept after `remove()` would still report edits through it. With
     // nothing to notify, a batch of edits isn't worth a flush.
     trackDirty(proxyState, (rootKey: string) => {
-      if (this._isPatching || !this._isRegistered(entry)) return;
-      if (!entry.listeners && !this._hooks.edited) return;
+      if (this._isPatching || !this._isRegistered(entry)) {
+        return;
+      }
+      if (!entry.listeners && !this._hooks.edited) {
+        return;
+      }
       entry.touched ??= new Set();
       entry.touched.add(rootKey);
       this._scheduleFlush(entry);
@@ -386,7 +400,9 @@ export class StoreManager {
     }
 
     if (state) {
-      if (__DEV__) warnNullFields(storeName, state);
+      if (__DEV__) {
+        warnNullFields(storeName, state);
+      }
       this._reseed(entry, state);
     }
 
@@ -410,7 +426,9 @@ export class StoreManager {
       fail(storeName ? `Store '${storeName}' does not exist.` : 'Store name is missing.');
     }
     assertStoreState(entry.name, state);
-    if (__DEV__) warnNullFields(entry.name, state);
+    if (__DEV__) {
+      warnNullFields(entry.name, state);
+    }
 
     this._reseed(entry, state);
 
@@ -448,7 +466,9 @@ export class StoreManager {
     options?: { response?: RouseResponse; operation?: 'fetch' | 'sse' },
   ): boolean {
     const entry = this._getStore(storeName);
-    if (!entry) return false;
+    if (!entry) {
+      return false;
+    }
 
     const { data, name } = entry;
     const response = options?.response;
@@ -517,7 +537,9 @@ export class StoreManager {
    */
   remove(storeName: string | null | undefined) {
     const entry = this._find(storeName);
-    if (!entry) return;
+    if (!entry) {
+      return;
+    }
 
     // A running flush has its own copy of the queue, so listeners can also be cleared
     this._hooks.removed?.(entry);

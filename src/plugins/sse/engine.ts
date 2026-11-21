@@ -164,7 +164,9 @@ export function openBoundStream(
  * a stream carries. There's no unsubscribe: the set is bounded by the app's names.
  */
 export function subscribeNamed(name: string): void {
-  if (!name || name === DEFAULT_EVENT || subscribedNames.has(name)) return;
+  if (!name || name === DEFAULT_EVENT || subscribedNames.has(name)) {
+    return;
+  }
 
   subscribedNames.add(name);
   entries.forEach((entry) => attachNamed(entry, name));
@@ -180,13 +182,17 @@ function connect(entry: StreamEntry) {
   // A server message named `open` or `error` reaches these listeners too, as a
   // `MessageEvent`. The connection's own events are plain `Event`s.
   source.addEventListener('open', (e) => {
-    if (e instanceof MessageEvent) return;
+    if (e instanceof MessageEvent) {
+      return;
+    }
     entry.attempt = 0;
     emit(entry, 'rz:sse:open', {});
   });
 
   source.addEventListener('error', (e) => {
-    if (e instanceof MessageEvent) return;
+    if (e instanceof MessageEvent) {
+      return;
+    }
     onError(entry);
   });
 
@@ -196,7 +202,9 @@ function connect(entry: StreamEntry) {
 
 function attachNamed(entry: StreamEntry, name: string) {
   const { source } = entry;
-  if (!source || entry.attached.has(name)) return;
+  if (!source || entry.attached.has(name)) {
+    return;
+  }
 
   entry.attached.add(name);
   // `sse-[open]` and `sse-[error]` also hear the connection's own events, which carry no data
@@ -238,7 +246,9 @@ function onMessage(entry: StreamEntry, event: string, e: MessageEvent) {
  */
 function onError(entry: StreamEntry) {
   const { source } = entry;
-  if (!source) return;
+  if (!source) {
+    return;
+  }
 
   entry.attempt += 1;
 
@@ -270,7 +280,9 @@ function finalize(entry: StreamEntry, reason: SseCloseReason) {
 }
 
 function release(entry: StreamEntry, ref: StreamRef, reason: SseCloseReason) {
-  if (!entry.refs.delete(ref)) return;
+  if (!entry.refs.delete(ref)) {
+    return;
+  }
 
   if (entry.refs.size === 0) {
     entry.source?.close();
@@ -312,7 +324,9 @@ function emit<E extends 'rz:sse:open' | 'rz:sse:error' | 'rz:sse:close'>(
  */
 function parseMessageData(raw: string): unknown {
   const trimmed = raw.trim();
-  if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) return raw;
+  if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) {
+    return raw;
+  }
 
   try {
     return core.safeJSONParse(trimmed);

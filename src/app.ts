@@ -105,7 +105,9 @@ let bannerLogged = false;
 
 /** One-time dev-build notice. Message and latch are both stripped from the min build. */
 function logBuildBanner() {
-  if (bannerLogged) return;
+  if (bannerLogged) {
+    return;
+  }
   bannerLogged = true;
   info(`v${__VERSION__} development build. Switch to rouse.min.js in production.`);
 }
@@ -520,7 +522,9 @@ export class RouseApp {
     mountSubtree(this.root, this);
 
     requestAnimationFrame(() => {
-      if (this._destroyed) return;
+      if (this._destroyed) {
+        return;
+      }
       this.isReady = true;
       dispatchFrom(this.root, this.root, 'rz:app:ready', { app: this });
     });
@@ -556,7 +560,9 @@ export class RouseApp {
    * started or is already gone.
    */
   destroy() {
-    if (!this._hasStarted || this._destroyed) return;
+    if (!this._hasStarted || this._destroyed) {
+      return;
+    }
     this._destroyed = true;
 
     unobserveApp(this);

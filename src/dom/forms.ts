@@ -116,7 +116,9 @@ function readSubmitter(submitter: HTMLElement | null): Record<string, string> {
  * check is `:disabled`, which matches what the browser leaves out.
  */
 function submittedValue(field: Field): FieldValue | null {
-  if (!field.name || field.matches(':disabled')) return null;
+  if (!field.name || field.matches(':disabled')) {
+    return null;
+  }
 
   if (field instanceof HTMLInputElement) {
     if ((field.type === 'checkbox' || field.type === 'radio') && !field.checked) {

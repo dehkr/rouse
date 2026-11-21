@@ -36,7 +36,9 @@ export function updateText(el: Element, value: BindableValue) {
  */
 export function updateHtml(el: Element, value: BindableValue) {
   const htmlVal = String(value ?? '');
-  if (prevHtml.get(el) === htmlVal) return;
+  if (prevHtml.get(el) === htmlVal) {
+    return;
+  }
 
   prevHtml.set(el, htmlVal);
   el.innerHTML = htmlVal;
@@ -47,7 +49,9 @@ export function updateHtml(el: Element, value: BindableValue) {
  * Text-like inputs write only when the value differs, so the caret doesn't jump.
  */
 export function setModelableValue(el: Element, value: BindableValue) {
-  if (!(el instanceof HTMLElement)) return;
+  if (!(el instanceof HTMLElement)) {
+    return;
+  }
 
   if (el.isContentEditable) {
     setStringValue(el, 'innerText', value);
@@ -94,7 +98,9 @@ export function setModelableValue(el: Element, value: BindableValue) {
  * an array.
  */
 export function getModelableValue(el: Element): BindableValue {
-  if (!(el instanceof HTMLElement)) return;
+  if (!(el instanceof HTMLElement)) {
+    return;
+  }
 
   if (el.isContentEditable) {
     return el.innerText;
@@ -157,7 +163,9 @@ export function updateClass(el: Element, value: BindableValue) {
  * Adds or removes every declaration in a style string, leaving other properties intact.
  */
 export function applyStyles(el: Element, decl: string, active: boolean) {
-  if (!canBeStyled(el)) return;
+  if (!canBeStyled(el)) {
+    return;
+  }
 
   for (const [prop, value] of parseDeclarations(decl)) {
     if (active) {
@@ -172,7 +180,9 @@ export function applyStyles(el: Element, decl: string, active: boolean) {
  * Sets one CSS property to a resolved value. Null or undefined clears it.
  */
 export function setStyleProperty(el: Element, prop: string, value: BindableValue) {
-  if (!canBeStyled(el)) return;
+  if (!canBeStyled(el)) {
+    return;
+  }
 
   if (value == null) {
     el.style.removeProperty(prop);
@@ -189,7 +199,9 @@ export function setStyleProperty(el: Element, prop: string, value: BindableValue
  * Assigning `el.style[prop] = ''` silently fails for kebab-case and custom properties.
  */
 export function updateStyle(el: Element, value: BindableValue) {
-  if (!canBeStyled(el)) return;
+  if (!canBeStyled(el)) {
+    return;
+  }
 
   for (const prop of prevStyles.get(el) ?? []) {
     el.style.removeProperty(prop);
@@ -238,7 +250,9 @@ export function updateAttr(el: Element, attr: string, value: BindableValue) {
  * setter fails silently rather than throwing, so the failure is reported once.
  */
 export function updateProp(el: Element, name: string, value: BindableValue) {
-  if (Reflect.set(el, name, value)) return;
+  if (Reflect.set(el, name, value)) {
+    return;
+  }
   if (__DEV__) {
     warnPropOnce(el, name);
   }
@@ -253,7 +267,9 @@ function warnPropOnce(el: Element, name: string): void {
     seen = new Set();
     warnedProps.set(el, seen);
   }
-  if (seen.has(name)) return;
+  if (seen.has(name)) {
+    return;
+  }
   seen.add(name);
   warn(`rz-prop: cannot set property '${name}'. It is read-only or has no setter.`, el);
 }

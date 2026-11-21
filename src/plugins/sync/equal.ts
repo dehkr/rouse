@@ -51,19 +51,27 @@ export function deepEqual(a: any, b: any, seen = new WeakMap<object, any>()): bo
   // Objects
   let validKeysA = 0;
   for (const key in a) {
-    if (!isOwnDataProp(a, key)) continue;
+    if (!isOwnDataProp(a, key)) {
+      continue;
+    }
     const valA = a[key];
     if (valA !== undefined) {
       validKeysA++;
-      if (!Object.hasOwn(b, key)) return false;
-      if (!deepEqual(valA, b[key], seen)) return false;
+      if (!Object.hasOwn(b, key)) {
+        return false;
+      }
+      if (!deepEqual(valA, b[key], seen)) {
+        return false;
+      }
     }
   }
 
   // Count valid keys in B to ensure no extra serializable keys exist
   let validKeysB = 0;
   for (const key in b) {
-    if (!isOwnDataProp(b, key)) continue;
+    if (!isOwnDataProp(b, key)) {
+      continue;
+    }
     const valB = b[key];
     if (valB !== undefined) {
       validKeysB++;

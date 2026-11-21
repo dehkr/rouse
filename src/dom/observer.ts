@@ -63,7 +63,9 @@ let standaloneSelector = '';
 
 /** Adds a slug to the selector the removal path tears down through. */
 export function addStandaloneSlug(slug: DirectiveSlug): void {
-  if (standaloneSlugs.has(slug)) return;
+  if (standaloneSlugs.has(slug)) {
+    return;
+  }
   standaloneSlugs.add(slug);
   standaloneSelector = [...standaloneSlugs].map((s) => directiveSelector(s)).join(', ');
 }
@@ -75,7 +77,9 @@ export function addStandaloneSlug(slug: DirectiveSlug): void {
 function mountStandalone(el: Element, app: RouseApp, directive: StandaloneDirective) {
   const { slug } = directive;
   let record = mounted.get(el);
-  if (record?.has(slug)) return;
+  if (record?.has(slug)) {
+    return;
+  }
 
   const pairs = parseTriggerSubjectPairs(getDirectiveValue(el, slug));
   if (__DEV__ && pairs.length === 0) {
@@ -93,7 +97,9 @@ function mountStandalone(el: Element, app: RouseApp, directive: StandaloneDirect
 /** Runs the cleanups of every standalone directive mounted on `el`, in mount order. */
 function teardownStandalone(el: Element) {
   const record = mounted.get(el);
-  if (!record) return;
+  if (!record) {
+    return;
+  }
   mounted.delete(el);
   record.forEach((cleanups) => runCleanups(el, cleanups));
 }
@@ -105,7 +111,9 @@ function teardownStandalone(el: Element) {
  */
 function warnUnknownDirectives(root: Element, app: RouseApp) {
   for (const el of queryTargets(root, '*')) {
-    if (!getApp(el, app)) continue;
+    if (!getApp(el, app)) {
+      continue;
+    }
 
     unknownDirectiveNames(el).forEach((name) =>
       warn(
@@ -116,7 +124,9 @@ function warnUnknownDirectives(root: Element, app: RouseApp) {
   }
 
   PLUGIN_DIRECTIVES.forEach((plugin, slug) => {
-    if (hasPlugin(app, plugin)) return;
+    if (hasPlugin(app, plugin)) {
+      return;
+    }
     forEachOwned(root, directiveSelector(slug), app, (el) =>
       warn(`rz-${slug}: ${needsPlugin(plugin)}`, el),
     );

@@ -54,7 +54,9 @@ function getTimingConfig(options: TriggerModifiers): TimingConfig | null {
       : throttleOpt !== undefined
         ? 'throttle'
         : null;
-  if (!strategy) return null;
+  if (!strategy) {
+    return null;
+  }
 
   const value = debounceOpt ?? throttleOpt;
   const explicitWait =
@@ -168,7 +170,9 @@ export function applyTiming<T extends AnyFn>(
   options: TriggerModifiers,
 ): TimedFn<T> | null {
   const config = getTimingConfig(options);
-  if (!config) return null;
+  if (!config) {
+    return null;
+  }
 
   return config.strategy === 'debounce' ? debounce(fn, config) : throttle(fn, config);
 }
@@ -187,8 +191,12 @@ export function applyTiming<T extends AnyFn>(
  */
 export function parseTime(val?: string | number): number {
   // Treat empty or falsy values as valid zero states
-  if (!val) return 0;
-  if (typeof val === 'number') return val;
+  if (!val) {
+    return 0;
+  }
+  if (typeof val === 'number') {
+    return val;
+  }
 
   const normalized = val.trim().toLowerCase();
   const match = normalized.match(TIME_REGEX);
@@ -203,6 +211,8 @@ export function parseTime(val?: string | number): number {
   const [, amountStr = '0', unit] = match;
   const amount = parseFloat(amountStr);
 
-  if (unit === 'm') return amount * 60000;
+  if (unit === 'm') {
+    return amount * 60000;
+  }
   return unit === 's' ? amount * 1000 : amount;
 }

@@ -63,7 +63,9 @@ export function parseDirectiveValue(
   value: string | null | undefined,
 ): ParsedDirectiveValue {
   let cleanedValue = value?.trim();
-  if (!cleanedValue) return [];
+  if (!cleanedValue) {
+    return [];
+  }
 
   // Strip trailing commas to allow for multi-line HTML formatting
   if (cleanedValue.endsWith(',')) {
@@ -99,7 +101,9 @@ export function parseDirectiveValue(
  */
 function parseSegment(segment: string, pairs: ParsedDirectiveValue): void {
   const trimmed = segment.trim();
-  if (!trimmed) return;
+  if (!trimmed) {
+    return;
+  }
 
   let splitIndex = -1;
 
@@ -166,7 +170,9 @@ export function parseTriggerSubjectPairs(
  * `null` when the token carries no argument.
  */
 function parseArgToken(token: string): [name: string, arg: string] | null {
-  if (!token.endsWith(']')) return null;
+  if (!token.endsWith(']')) {
+    return null;
+  }
 
   const open = token.indexOf('-[');
   return open > 0 ? [token.slice(0, open), token.slice(open + 2, -1).trim()] : null;
@@ -243,7 +249,9 @@ function normalizeModifiers(tokens: string[], trigger: string): TriggerModifiers
  */
 export function parseTriggers(value: string | null | undefined): TriggerDef[] {
   let raw = value?.trim();
-  if (!raw) return [];
+  if (!raw) {
+    return [];
+  }
 
   raw = stripQuotes(raw);
 
@@ -261,7 +269,9 @@ export function parseTriggers(value: string | null | undefined): TriggerDef[] {
   // A single '|' separates the event from its modifiers, which are then dot-separated.
   // Both splits ignore delimiters inside quotes or boundaries.
   for (const trigger of triggers) {
-    if (!trigger) continue;
+    if (!trigger) {
+      continue;
+    }
 
     const [event = '', modifierGroup, ...extraGroups] = splitOnSafeDelimiter(
       trigger,
@@ -603,7 +613,9 @@ function forEachSafeChar(
  * Checks if a string is enclosed in matching quotation marks.
  */
 function isInQuotes(val: string) {
-  if (val.length < 2) return false;
+  if (val.length < 2) {
+    return false;
+  }
   const first = val[0];
   const last = val[val.length - 1];
 

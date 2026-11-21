@@ -46,7 +46,9 @@ function bindStorePairs(
 
   return pairs.flatMap(({ trigger, subject }) => {
     const storeName = resolveTarget(el, op, subject);
-    if (!storeName) return [];
+    if (!storeName) {
+      return [];
+    }
 
     const isEdit = trigger.event === 'edit';
 
@@ -98,7 +100,9 @@ function triggerStoreSync(
   storeName: string,
 ): void {
   // A debounced or queued trigger can fire after the element is gone
-  if (!triggerEl.isConnected || isDisabled(triggerEl)) return;
+  if (!triggerEl.isConnected || isDisabled(triggerEl)) {
+    return;
+  }
 
   const status = app.stores.status(storeName);
   if (!status) {

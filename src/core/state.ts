@@ -45,7 +45,9 @@ export function clone<T>(obj: T, seen = new WeakMap(), path = 'root'): T {
   seen.set(obj as any, result);
 
   for (const key in obj) {
-    if (!isOwnDataProp(obj as object, key)) continue;
+    if (!isOwnDataProp(obj as object, key)) {
+      continue;
+    }
     const val = (obj as Record<string, any>)[key];
     if (val !== undefined) {
       result[key] = clone(val, seen, __DEV__ ? `${path}.${key}` : '');
@@ -61,11 +63,15 @@ export function clone<T>(obj: T, seen = new WeakMap(), path = 'root'): T {
  * value rather than a tombstone.
  */
 export function nullPaths(obj: unknown, seen = new WeakSet(), path = ''): string[] {
-  if (!isPlainObject(obj) || seen.has(obj)) return [];
+  if (!isPlainObject(obj) || seen.has(obj)) {
+    return [];
+  }
   seen.add(obj);
 
   return Object.keys(obj).flatMap((key) => {
-    if (!isOwnDataProp(obj, key)) return [];
+    if (!isOwnDataProp(obj, key)) {
+      return [];
+    }
 
     const val = obj[key];
     const keyPath = path ? `${path}.${key}` : key;
@@ -99,7 +105,9 @@ export function patchState(
   // Replace
   if (action === 'replace') {
     for (const key of Object.keys(target)) {
-      if (!isOwnDataProp(target, key)) continue;
+      if (!isOwnDataProp(target, key)) {
+        continue;
+      }
       if (!Object.hasOwn(source, key)) {
         delete target[key];
       }
@@ -108,7 +116,9 @@ export function patchState(
     // Writing through a getter-only accessor would throw, and even when a setter
     // exists, this loop is for data-property merge.
     for (const key of Object.keys(source)) {
-      if (hasAccessor(target, key)) continue;
+      if (hasAccessor(target, key)) {
+        continue;
+      }
       target[key] = source[key];
     }
     return;
@@ -116,10 +126,14 @@ export function patchState(
 
   // Merge
   for (const sourceKey of Object.keys(source)) {
-    if (!isOwnDataProp(source, sourceKey)) continue;
+    if (!isOwnDataProp(source, sourceKey)) {
+      continue;
+    }
 
     const sourceVal = (source as Record<string, any>)[sourceKey];
-    if (sourceVal === undefined) continue;
+    if (sourceVal === undefined) {
+      continue;
+    }
 
     // Skip derived state, on the target or on the live object it mirrors
     if (

@@ -141,9 +141,13 @@ const routes: Record<string, Handler> = {
 
 async function serveStatic(res: ServerResponse, pathname: string) {
   for (const [prefix, dir] of Object.entries(STATIC_DIRS)) {
-    if (!pathname.startsWith(prefix)) continue;
+    if (!pathname.startsWith(prefix)) {
+      continue;
+    }
     const relative = normalize(pathname.slice(prefix.length) || 'index.html');
-    if (relative.startsWith('..')) break;
+    if (relative.startsWith('..')) {
+      break;
+    }
     try {
       const file = await readFile(join(dir, relative));
       res.writeHead(200, { 'Content-Type': TYPES[extname(relative)] ?? 'text/plain' });
@@ -168,7 +172,9 @@ const server = createServer(async (req, res) => {
         headers: req.headers,
       });
     }
-    if (!route) return send(res, 404, `No route for ${req.method} ${url.pathname}`);
+    if (!route) {
+      return send(res, 404, `No route for ${req.method} ${url.pathname}`);
+    }
     return route(req, res, url);
   }
   return serveStatic(res, url.pathname);

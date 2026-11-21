@@ -48,7 +48,9 @@ export async function mount(html: string, options: MountOptions = {}): Promise<M
 
   const $ = <T extends Element = HTMLElement>(selector: string): T => {
     const el = root.querySelector<T>(selector);
-    if (!el) throw new Error(`mount: no element matches '${selector}'`);
+    if (!el) {
+      throw new Error(`mount: no element matches '${selector}'`);
+    }
     return el;
   };
 

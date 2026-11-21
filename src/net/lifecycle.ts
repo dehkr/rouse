@@ -89,7 +89,9 @@ export async function runRequestLifecycle(
     cancelable: true,
   });
 
-  if (configEvent.defaultPrevented) return PREVENTED;
+  if (configEvent.defaultPrevented) {
+    return PREVENTED;
+  }
 
   // Resolved after the `:config` gate so listeners can retarget `indicator`
   const indicators = resolveIndicators(el, root, configDetail.config.indicator);
@@ -105,7 +107,9 @@ export async function runRequestLifecycle(
 
   let released = false;
   const release = () => {
-    if (released) return;
+    if (released) {
+      return;
+    }
     released = true;
     releaseDisabled(disabled);
   };
@@ -127,7 +131,9 @@ export async function runRequestLifecycle(
    * `Rouse-Trigger` event can start a request from them.
    */
   const settle = (result: RouseResponse) => {
-    if (settled) return;
+    if (settled) {
+      return;
+    }
     settled = true;
     release();
 
@@ -210,10 +216,14 @@ function resolveIndicators(
  * matching elements that can be disabled for CSS selectors.
  */
 function resolveDisabled(host: Element | null, root: Element): Element[] {
-  if (!host) return [];
+  if (!host) {
+    return [];
+  }
 
   const selector = readDisable(host);
-  if (selector === undefined) return [];
+  if (selector === undefined) {
+    return [];
+  }
 
   const els = selector === '' ? [host] : queryTargets(root, selector);
   if (__DEV__ && !els.length) {
@@ -222,7 +232,9 @@ function resolveDisabled(host: Element | null, root: Element): Element[] {
 
   // Filter out elements that don't support the native `disabled` property (e.g. <div>, <a>)
   return els.filter((match) => {
-    if ('disabled' in match) return true;
+    if ('disabled' in match) {
+      return true;
+    }
     if (__DEV__) {
       warn(
         `rz-disable: <${match.localName}> can't be disabled. Name a form control or a fieldset.`,
@@ -290,10 +302,14 @@ function bump(counts: WeakMap<Element, number>, el: Element, delta: 1 | -1): num
  */
 function readIndicator(el: Element): string | null | undefined {
   const value = getDirectiveValue(el, 'indicator')?.trim();
-  if (!value) return undefined;
+  if (!value) {
+    return undefined;
+  }
 
   // Checked before stripping quotes, so `'null'` is still a selector
-  if (value === 'null') return null;
+  if (value === 'null') {
+    return null;
+  }
 
   return stripQuotes(value) || undefined;
 }
@@ -313,7 +329,9 @@ function readIndicator(el: Element): string | null | undefined {
  */
 function readDisable(el: Element): string | undefined {
   const value = getDirectiveValue(el, 'disable');
-  if (value === null) return undefined;
+  if (value === null) {
+    return undefined;
+  }
 
   // An empty string names the host element
   return stripQuotes(value.trim());

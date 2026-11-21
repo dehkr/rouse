@@ -7,8 +7,14 @@
  */
 export function isOwnDataProp(obj: object, key: string): boolean {
   const desc = Object.getOwnPropertyDescriptor(obj, key);
-  if (!desc) return false;
-  if (desc.get || desc.set) return false;
-  if (typeof desc.value === 'function') return false;
+  if (!desc) {
+    return false;
+  }
+  if (desc.get || desc.set) {
+    return false;
+  }
+  if (typeof desc.value === 'function') {
+    return false;
+  }
   return true;
 }

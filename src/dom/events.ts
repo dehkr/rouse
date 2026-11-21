@@ -95,7 +95,9 @@ function attachListener<D = any>(
   const { capture, once, passive } = triggerOptions;
   const passes = compileModifiers(el, triggerOptions);
   const listener = (e: Event) => {
-    if (!passes(e)) return;
+    if (!passes(e)) {
+      return;
+    }
 
     // Native `once` would consume the listener on filtered-out events,
     // so removal happens here, after the modifiers pass.
@@ -222,7 +224,9 @@ export function dispatchTrigger(
   const suppressNavigation = base.suppressNavigation ?? true;
 
   const wrapCleanup = (cleanup: VoidFn | null): VoidFn => {
-    if (!timed) return cleanup ?? (() => {});
+    if (!timed) {
+      return cleanup ?? (() => {});
+    }
     return () => {
       timed.cancel();
       cleanup?.();
@@ -237,7 +241,9 @@ export function dispatchTrigger(
       const resolved = source.fromArg
         ? source.fromArg(trigger.arg, base.el)
         : trigger.arg;
-      if (resolved === null) return () => {};
+      if (resolved === null) {
+        return () => {};
+      }
       arg = resolved;
     }
 
@@ -297,7 +303,9 @@ function attachTriggerSource(
   let fired = false;
 
   ctx.action = (e?: Event) => {
-    if (fired) return;
+    if (fired) {
+      return;
+    }
     fired = true;
     cleanup?.();
     action(e);
@@ -356,7 +364,9 @@ export function attachWakeStrategies(
       app,
       suppressNavigation: false,
       action: () => {
-        if (satisfied) return;
+        if (satisfied) {
+          return;
+        }
         satisfied = true;
         satisfy();
       },
@@ -497,7 +507,9 @@ export const triggerSources: Record<string, TriggerSource> = {
           for (const entry of entries) {
             // A threshold fires on both crossings, and the way out still reports
             // `isIntersecting`, so the ratio is checked too
-            if (!entry.isIntersecting || entry.intersectionRatio < threshold) continue;
+            if (!entry.isIntersecting || entry.intersectionRatio < threshold) {
+              continue;
+            }
             action();
             break;
           }
@@ -571,7 +583,9 @@ export const triggerSources: Record<string, TriggerSource> = {
       }
 
       const ref = parseStoreRef(`${STORE_PREFIX}${path}`);
-      if (!ref) return null;
+      if (!ref) {
+        return null;
+      }
 
       const rootKey = getPathRoot(ref.nestedPath);
 

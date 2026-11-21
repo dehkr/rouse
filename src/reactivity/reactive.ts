@@ -60,14 +60,18 @@ export function reactive<T extends object>(target: T, options?: ReactiveOptions)
   }
 
   // Restore before the proxy exists, so restoring triggers no effects
-  if (persisted) restore(target, persisted);
+  if (persisted) {
+    restore(target, persisted);
+  }
 
   const proxy = new Proxy(target, handlers as ProxyHandler<any>);
 
   proxyCache.set(target, proxy);
   rawCache.set(proxy, target);
 
-  if (persisted) startSaving(proxy, persisted);
+  if (persisted) {
+    startSaving(proxy, persisted);
+  }
 
   return proxy as T;
 }
@@ -76,8 +80,12 @@ export function reactive<T extends object>(target: T, options?: ReactiveOptions)
  * Accepts arrays and plain objects only. Matches `isPlainObject` in `core/state`.
  */
 export function proxiable(target: unknown): target is object {
-  if (target === null || typeof target !== 'object') return false;
-  if (Array.isArray(target)) return true;
+  if (target === null || typeof target !== 'object') {
+    return false;
+  }
+  if (Array.isArray(target)) {
+    return true;
+  }
 
   // Class instances keep their own prototype; proxying them breaks private fields.
   const proto = Object.getPrototypeOf(target);

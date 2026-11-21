@@ -41,7 +41,9 @@ function runOnRaw(proxy: any[], method: string, args: any[], wrapResult = false)
   const thisArg = isReduce ? proxy : (args[1] ?? proxy);
 
   const wrappedArgs = args.map((arg) => {
-    if (isData || typeof arg !== 'function') return arg;
+    if (isData || typeof arg !== 'function') {
+      return arg;
+    }
 
     // For reduce methods, pass the accumulator through unproxied; it's the callback's
     // own value, not an array element, so wrapping it would proxy an object the caller

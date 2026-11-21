@@ -46,6 +46,7 @@ export default defineConfig({
     rules: {
       'vite-plus/prefer-vite-plus-imports': 'error',
       'no-unused-expressions': 'error',
+      curly: ['error', 'all'],
       'typescript/no-base-to-string': 'off',
       'typescript/restrict-template-expressions': 'off',
       'typescript/unbound-method': 'off',

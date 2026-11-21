@@ -11,7 +11,9 @@ beforeAll(async () => {
     // Only API requests are checked: Vitest loads its own modules through the same
     // service worker, and those must pass through.
     onUnhandledFrame: ({ frame, defaults }) => {
-      if (!(frame instanceof HttpNetworkFrame)) return;
+      if (!(frame instanceof HttpNetworkFrame)) {
+        return;
+      }
       const { request } = frame.data;
       if (new URL(request.url).pathname.startsWith(API_PREFIX)) {
         unhandled.push(`${request.method} ${request.url}`);

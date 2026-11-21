@@ -30,7 +30,9 @@ export function initPayloadRouters(app: RouseApp, signal: AbortSignal) {
     // An empty fetch response arrives as `null`. It places only under `Rouse-Place`,
     // where the header itself is the instruction, so a plain 204 leaves the page alone.
     const content = data == null && placeOverride ? '' : data;
-    if (typeof content !== 'string') return;
+    if (typeof content !== 'string') {
+      return;
+    }
 
     for (const { targets, position } of readPlace(host, app.root, placeOverride)) {
       targets.forEach((targetEl) =>
@@ -43,7 +45,9 @@ export function initPayloadRouters(app: RouseApp, signal: AbortSignal) {
     const { data, depositOverride } = detail;
 
     const stores = readDeposit(host, depositOverride);
-    if (stores.length === 0) return;
+    if (stores.length === 0) {
+      return;
+    }
 
     if (!isPlainObject(data)) {
       if (__DEV__) {
@@ -81,7 +85,9 @@ function listenForPayloads(
       name,
       (e) => {
         // Skip payloads from nested apps, whose own routers would have already handled them
-        if (!getApp(e.target as Element, app)) return;
+        if (!getApp(e.target as Element, app)) {
+          return;
+        }
 
         // The destination is read off the trigger, never the event target. Without a
         // trigger the target is the app root, where `rz-place`'s host default would
@@ -90,9 +96,13 @@ function listenForPayloads(
         const triggerEl = detail.config?.triggerEl;
 
         if (!detail[override]) {
-          if (e.type.includes('error')) return;
+          if (e.type.includes('error')) {
+            return;
+          }
           // No originating element means no destination or host for the declarative path
-          if (!triggerEl) return;
+          if (!triggerEl) {
+            return;
+          }
         }
 
         route(detail, source, triggerEl ?? app.root);
