@@ -1,9 +1,8 @@
 import type { RouseApp } from '../app';
-import { STORE_PREFIX } from '../core/constants';
 import { warn } from '../core/diagnostics';
-import { invokeHandler } from '../core/invoke';
-import { parseStoreRef, parseTriggers } from '../core/parser';
-import { getNestedVal } from '../core/path';
+import { holderOf, invokeHandler } from '../core/invoke';
+import { parseTriggers } from '../core/parser';
+import { resolveState } from '../core/resolve';
 import { dispatchTrigger } from '../dom/events';
 import type { AnyFn, BoundDirective, Scope, VoidFn } from '../types';
 
@@ -14,7 +13,8 @@ function bind(
   key: string,
   value: string,
 ): VoidFn[] {
-  if (!value) {
+  const path = value.trim();
+  if (!path) {
     if (__DEV__) {
       warn(
         `rz-on: value '${key}' is incomplete; at least one trigger and a handler are required.`,
@@ -24,48 +24,20 @@ function bind(
     return [];
   }
 
-  const methodName = value.trim();
-
-  let method: unknown;
-  let context: unknown;
-
-  // Global store (e.g., `@theme.toggleMode`)
-  if (methodName.startsWith(STORE_PREFIX)) {
-    const ref = parseStoreRef(methodName, 'on');
-    if (!ref) return [];
-
-    const { source: storeName, nestedPath } = ref;
-    const storeData = app.stores.get(storeName);
-
-    if (storeData === undefined) {
-      if (__DEV__) {
-        warn(`rz-on: store '@${storeName}' not found.`, el);
-      }
-      return [];
+  const resolveMethod = (): AnyFn | null => {
+    const method = resolveState(path, scope, app.stores);
+    if (typeof method === 'function') {
+      return method as AnyFn;
     }
-
-    if (!nestedPath) {
-      if (__DEV__) {
-        warn(`rz-on: '@${storeName}' needs a handler (e.g., @${storeName}.save).`, el);
-      }
-      return [];
-    }
-
-    method = getNestedVal(storeData, nestedPath);
-    context = storeData;
-  }
-
-  // Local scope method
-  else {
-    method = scope[methodName];
-    context = scope;
-  }
-
-  // Validate that the resolved target is actually a function
-  if (typeof method !== 'function') {
     if (__DEV__) {
-      warn(`rz-on: handler '${methodName}' is undefined or not a function.`, el);
+      warn(`rz-on: handler '${path}' is undefined or not a function.`, el);
     }
+    return null;
+  };
+
+  // Resolved at bind so a typo warns before the first event, and again per event: a
+  // keyed `rz-render` instance can swap its item, and `%` must reach the current one
+  if (!resolveMethod()) {
     return [];
   }
 
@@ -73,15 +45,19 @@ function bind(
     dispatchTrigger(trigger, {
       el,
       app,
-      action: (e?: Event) =>
-        invokeHandler(
-          method as AnyFn,
-          context,
-          methodName,
-          scope,
-          el,
-          e ?? new CustomEvent(trigger.event),
-        ),
+      action: (e?: Event) => {
+        const method = resolveMethod();
+        if (method) {
+          invokeHandler(
+            method,
+            holderOf(path, scope, app.stores),
+            path,
+            scope,
+            el,
+            e ?? new CustomEvent(trigger.event),
+          );
+        }
+      },
     }),
   );
 }

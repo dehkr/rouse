@@ -149,6 +149,82 @@ describe('rz-on', () => {
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
     expect(submit).toHaveBeenCalledOnce();
   });
+
+  it('calls a method at a nested path with this as the object holding it', async () => {
+    const actions = {
+      saved: 0,
+      save(this: { saved: number }) {
+        this.saved++;
+      },
+    };
+    const { app, $ } = await mount(
+      `<div data-rz-scope="s">
+        <button class="scope" data-rz-on="click: actions.save"></button>
+        <button class="store" data-rz-on="click: @cart.api.load"></button>
+      </div>`,
+      {
+        scopes: { s: () => ({ actions }) },
+        stores: {
+          cart: {
+            api: {
+              calls: 0,
+              load(this: { calls: number }) {
+                this.calls++;
+              },
+            },
+          },
+        },
+      },
+    );
+    $('.scope').click();
+    $('.store').click();
+    expect(actions.saved).toBe(1);
+    expect(app.stores.get('cart')!.api.calls).toBe(1);
+  });
+
+  it('calls an item method through % with this as the item, in and out of a scope', async () => {
+    const item = () => ({
+      done: false,
+      toggle(this: { done: boolean }) {
+        this.done = !this.done;
+      },
+    });
+    const { $ } = await mount(
+      `<ul data-rz-scope="s">
+        <template data-rz-render="items"><li class="scoped" data-rz-on="click: %.toggle" data-rz-text="%.done"></li></template>
+      </ul>
+      <ol>
+        <template data-rz-render="@list.items"><li class="global" data-rz-on="click: %.toggle" data-rz-text="%.done"></li></template>
+      </ol>`,
+      {
+        scopes: { s: () => ({ items: reactive([item()]) }) },
+        stores: { list: { items: [item()] } },
+      },
+    );
+    $('.scoped').click();
+    $('.global').click();
+    expect($('.scoped').textContent).toBe('true');
+    expect($('.global').textContent).toBe('true');
+  });
+
+  it('calls the current item after a keyed instance swaps it', async () => {
+    const hit = function (this: { hits: number }) {
+      this.hits++;
+    };
+    const first = { id: 1, hits: 0, hit };
+    const next = { id: 1, hits: 0, hit };
+    const state = reactive({ items: [first] });
+    const { $ } = await mount(
+      `<ul data-rz-scope="s"><template data-rz-render="items" data-rz-key="id"><li data-rz-on="click: %.hit"></li></template></ul>`,
+      { scopes: { s: () => state } },
+    );
+    const li = $('li');
+    state.items = [next];
+    expect($('li')).toBe(li);
+    li.click();
+    expect(next.hits).toBe(1);
+    expect(first.hits).toBe(0);
+  });
 });
 
 describe('scope lifecycle', () => {

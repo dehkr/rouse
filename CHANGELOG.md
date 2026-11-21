@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Breaking:** Remove the `rousejs/dev` and `rousejs/min` entry points. `rousejs` resolves to the dev build under the `development` condition and to the prod/min build otherwise.
   - Replace `rousejs/dev` with `rousejs`, and set the `development` condition in dev builds. Vite sets it by default; with esbuild, pass `--conditions=development`.
   - Replace `rousejs/min` with `rousejs`.
+- Accept any state path as an `rz-on` handler, including nested scope paths (`actions.save`) and render item paths (`%.toggle`), resolved on each trigger so a keyed `rz-render` instance calls its current item.
 
 ### Fixed
 

@@ -67,6 +67,27 @@ describe('rz-render', () => {
     expect(root.querySelector('p')?.textContent).toBe('shown');
   });
 
+  it('calls an item function in a binding with this as the item', async () => {
+    const { root } = await mount(
+      `<ul><template data-rz-render="@people.list"><li data-rz-text="%.label"></li></template></ul>`,
+      {
+        stores: {
+          people: {
+            list: [
+              {
+                name: 'Ada',
+                label(this: { name: string }) {
+                  return this.name.toUpperCase();
+                },
+              },
+            ],
+          },
+        },
+      },
+    );
+    expect(texts(root)).toEqual(['ADA']);
+  });
+
   it('reads an item by index from a store after a reorder', async () => {
     const { app, $ } = await mount(`<span data-rz-text="@list.items.0.name"></span>`, {
       stores: { list: { items: [{ name: 'a' }, { name: 'b' }] } },

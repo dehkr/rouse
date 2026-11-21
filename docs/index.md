@@ -163,7 +163,7 @@ Every directive, its job, and a typical value.
 | `rz-class` | Toggle the classes on the left by the state on the right, or write a class string or `{ class: bool }` object from a bare path | `data-rz-class="active selected: isChosen"`, `data-rz-class="themeClass"` |
 | `rz-style` | Toggle a quoted declaration, set one property, or write a declaration string or object from a bare path | `data-rz-style="'color: red; font-weight: bold': hasError, background: @theme.color"` |
 | `rz-model` | Two-way bind an input, textarea, select (`multiple` gives an array), checkbox, radio, or `contenteditable`. Default trigger, resolved at bind: `input` for text, textarea, and `contenteditable`; `change` for select, checkbox, and radio. Custom elements bind `.value` and need an explicit trigger | `data-rz-model="query"`, `data-rz-model="value-changed: @names.list.0"` |
-| `rz-on` | Call a scope or store method on a trigger | `data-rz-on="click: save, submit: send"` |
+| `rz-on` | Call the method at a path (scope, `@store`, or `%`) on a trigger | `data-rz-on="click: save, submit: @cart.checkout"` |
 | `rz-render` | On a `<template>`: render an array (per item), number (n copies), object (once), or boolean (if) | `<template data-rz-render="@todos.items">` |
 | `rz-key` | Stable key for `rz-render` lists that reorder or refetch | `data-rz-key="id"` |
 | `rz-fetch` | Request on a trigger; subject is `[METHOD] URL` (default GET), either part optional (`submit: PUT` keeps the form's `action`) | `data-rz-fetch="click: POST /todos"` |
@@ -406,7 +406,7 @@ The setup function receives `{ host, app, term, scan }` (`ScopeCtx`).
 
 ### Handler context
 
-Scope and store methods called from directives receive `{ el, e, render }` (`HandlerCtx`).
+Methods called from directives receive `{ el, e, render }` (`HandlerCtx`), with `this` as the object that holds the method, as in a JS method call: the scope for `save`, `actions` for `actions.save`, the store for `@cart.clear`, the item for `%.toggle`. `rz-on` resolves its path on each trigger, so a keyed `rz-render` instance calls its current item.
 
 | Member | Is |
 | --- | --- |
@@ -414,7 +414,7 @@ Scope and store methods called from directives receive `{ el, e, render }` (`Han
 | `e` | The triggering event. For a function called by a binding (`rz-text`, `rz-attr`, …), a synthetic `CustomEvent` |
 | `render` | `{ item, index }` of the enclosing `rz-render` instance; both `null` outside one |
 
-- A scope or store function named in `rz-text`, `rz-attr`, … is called with the handler context, and its return value is written.
+- A function at a path in `rz-text`, `rz-attr`, … is called the same way, and its return value is written.
 
 ### Lifecycle hooks
 

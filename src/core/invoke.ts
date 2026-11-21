@@ -1,7 +1,5 @@
 import type { AnyFn, BindableValue, DirectiveSlug, HandlerCtx, Scope } from '../types';
-import { STORE_PREFIX } from './constants';
 import { err } from './diagnostics';
-import { parseDataSourcePath } from './parser';
 import { renderCtxOf } from './render-context';
 import { resolveState } from './resolve';
 import type { StoreManager } from '../store';
@@ -44,8 +42,8 @@ export function invokeHandler(
 
 /**
  * Resolves a one-way binding value that may target a static property or a
- * function. If the target is a function, it is invoked with a `HandlerCtx` whose
- * `e` is a synthetic CustomEvent typed `rz:${slug}`.
+ * function. If the target is a function, it is invoked on its holder (`holderOf`)
+ * with a `HandlerCtx` whose `e` is a synthetic CustomEvent typed `rz:${slug}`.
  *
  * Returns `undefined` when the key resolves to nothing. An absent path is a
  * valid empty state, not an error, so callers render it as empty rather than
@@ -62,13 +60,9 @@ export function resolveBoundValue(
   const state = resolveState<unknown>(key, scope, storeManager);
 
   if (typeof state === 'function') {
-    const context = key.startsWith(STORE_PREFIX)
-      ? storeManager.get(parseDataSourcePath(key).source)
-      : scope;
-
     return invokeHandler(
       state as AnyFn,
-      context,
+      holderOf(key, scope, storeManager),
       key,
       scope,
       el,
@@ -77,4 +71,17 @@ export function resolveBoundValue(
   }
 
   return state as BindableValue;
+}
+
+/**
+ * Returns the object holding the value at `path`, which a function there runs on, as
+ * `a.b.fn()` runs `fn` on `a.b`. A path with one part is held by the scope.
+ */
+export function holderOf(
+  path: string,
+  scope: Scope,
+  storeManager: StoreManager,
+): unknown {
+  const dot = path.lastIndexOf('.');
+  return dot === -1 ? scope : resolveState(path.slice(0, dot), scope, storeManager);
 }
