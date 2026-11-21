@@ -5,8 +5,7 @@ import { isPlainObject } from '../core/state';
 import type { RouseResponse, RoutablePayload } from '../types';
 import { placeInto, readPlace } from './placer';
 import { getDirectiveValue } from '../core/elements';
-import { STORE_PREFIX } from '../core/constants';
-import { parseDirectiveValue, parseStoreRef } from '../core/parser';
+import { parseDirectiveValue, parseStoreName } from '../core/parser';
 
 /** What produced a routable payload. */
 type PayloadSource = 'fetch' | 'sse';
@@ -121,26 +120,10 @@ function listenForPayloads(
  */
 function readDeposit(el: Element, overrideValue?: string | null): string[] {
   const value = overrideValue || getDirectiveValue(el, 'deposit');
-  const label = __DEV__ ? (overrideValue ? 'Rouse-Deposit' : 'rz-deposit') : '';
+  const label = __DEV__ && overrideValue ? 'Rouse-Deposit' : undefined;
 
   return parseDirectiveValue(value).flatMap(([key]) => {
-    if (!key.startsWith(STORE_PREFIX)) {
-      if (__DEV__) {
-        warn(`${label}: '${key}' is not a store reference. Use '@name'.`, el);
-      }
-      return [];
-    }
-
-    const ref = parseStoreRef(key, 'deposit');
-    if (!ref) return [];
-
-    if (ref.nestedPath) {
-      if (__DEV__) {
-        warn(`${label}: '${key}' targets a slice. A deposit writes a whole store.`, el);
-      }
-      return [];
-    }
-
-    return [ref.source];
+    const storeName = parseStoreName(key, 'deposit', el, label);
+    return storeName ? [storeName] : [];
   });
 }

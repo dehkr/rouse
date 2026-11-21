@@ -119,7 +119,7 @@ Each spans files and breaks quietly if done partially.
 - **Adding an interceptor phase** — extend `InterceptorPhase` (`types.ts`), add its `Set` to `RouseApp._interceptors` and initialize it, add an `app.interceptor()` overload, and add the execution site in `request()`.
 - **Adding a lifecycle event** — extend the `LifecycleEvent` union, add the `LifecycleEventMap` entry, and add a detail type, sharing fields through a `Base*` interface. A new request family also needs a `RequestLifecycleOptions` member; see the header of `src/net/lifecycle.ts`. Then list the event in `docs/index.md`.
 - **Adding a trigger source** — see the header of `src/dom/events.ts`.
-- **Adding a plugin-owned name** (directive, trigger, store namespace, `app.stores` method) — register it in the plugin's `install`, and add it to the matching table in `core/plugins.ts` (or `SYNC_METHODS` in `plugin-api.ts`) so an app without the plugin warns. A core function the plugin needs goes on `CoreApi`.
+- **Adding a plugin-owned name** (directive, trigger, store namespace, `app.stores` method) — register it in the plugin's `install`, and add it to the matching table in `core/plugins.ts` (or `SYNC_METHODS` in `core/constants.ts`) so an app without the plugin warns. A core function the plugin needs goes on `CoreApi`.
 
 ### Project posture
 

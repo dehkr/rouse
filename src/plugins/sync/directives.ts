@@ -1,5 +1,4 @@
 import type { RouseApp } from '../../app';
-import { STORE_PREFIX } from '../../core/constants';
 import { warn } from '../../core/diagnostics';
 import { hasDirective, isDisabled } from '../../core/elements';
 import type { StandaloneDirective, TriggerSubjectPair, VoidFn } from '../../types';
@@ -83,40 +82,7 @@ function resolveTarget(el: Element, op: SyncOp, subject: string | null): string 
     return null;
   }
 
-  if (!subject.startsWith(STORE_PREFIX)) {
-    if (__DEV__) {
-      warn(`rz-${op}: target '${subject}' must be a store reference (e.g., '@cart').`);
-    }
-    return null;
-  }
-
-  const target = core.parseStoreRef(subject, op);
-  if (!target) {
-    return null;
-  }
-
-  const { source: storeName, nestedPath } = target;
-
-  if (!storeName) {
-    if (__DEV__) {
-      warn(`rz-${op}: invalid store reference '${subject}'.`);
-    }
-    return null;
-  }
-
-  // A server changes one field by nesting it in its payload, so sync needs no path.
-  // Don't add one.
-  if (nestedPath) {
-    if (__DEV__) {
-      warn(
-        `rz-${op}: '${subject}' names a path, but a store syncs as a whole. Use '@${storeName}'.`,
-        el,
-      );
-    }
-    return null;
-  }
-
-  return storeName;
+  return core.parseStoreName(subject, op, el);
 }
 
 /**

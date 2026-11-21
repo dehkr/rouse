@@ -28,6 +28,7 @@ import {
   isHttpMethod,
   isListenTarget,
   KEY_BLOCKLIST,
+  STORE_PREFIX,
 } from './constants';
 import { warn } from './diagnostics';
 
@@ -420,6 +421,48 @@ export function parseStoreRef(
   }
 
   return { source, nestedPath };
+}
+
+/**
+ * Resolves a reference to a whole store (`@cart`) into the store's name. Warns and
+ * returns `null` when `ref` isn't a store reference, names a namespace, or names a
+ * path. A server changes one field by nesting it in its payload, so a whole store is
+ * always enough. Don't accept a path.
+ *
+ * @param label - Leads the warnings in place of `rz-<slug>`, for a response header.
+ */
+export function parseStoreName(
+  ref: string,
+  slug: DirectiveSlug,
+  el: Element,
+  label?: string,
+): string | null {
+  const parsed = ref.startsWith(STORE_PREFIX) ? parseStoreRef(ref, slug) : undefined;
+  // A namespace, which `parseStoreRef` already warned about
+  if (parsed === null) {
+    return null;
+  }
+
+  const lead = __DEV__ ? (label ?? `rz-${slug}`) : '';
+
+  if (!parsed?.source) {
+    if (__DEV__) {
+      warn(`${lead}: '${ref}' isn't a store reference. Use '@name'.`, el);
+    }
+    return null;
+  }
+
+  if (parsed.nestedPath) {
+    if (__DEV__) {
+      warn(
+        `${lead}: '${ref}' names a path. Use the whole store, '@${parsed.source}'.`,
+        el,
+      );
+    }
+    return null;
+  }
+
+  return parsed.source;
 }
 
 /**

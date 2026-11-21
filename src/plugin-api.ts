@@ -13,10 +13,10 @@
  * Anything per app, such as the app's own tables, is reached through `app`.
  */
 import type { RouseApp } from './app';
-import type { SyncMethod } from './plugins/sync';
+import { SYNC_METHODS } from './core/constants';
 import { fail } from './core/diagnostics';
 import { hasPlugin, needsPlugin, type PluginName } from './core/plugins';
-import { parseStoreRef, parseTriggers, safeJSONParse } from './core/parser';
+import { parseStoreName, parseTriggers, safeJSONParse } from './core/parser';
 import { getNestedVal, getPathRoot, setNestedVal } from './core/path';
 import { clone, hasAccessor, isPlainObject, patchState } from './core/state';
 import { dispatchTrigger } from './dom/events';
@@ -39,7 +39,7 @@ export interface CoreApi {
   getPathRoot: typeof getPathRoot;
   hasAccessor: typeof hasAccessor;
   isPlainObject: typeof isPlainObject;
-  parseStoreRef: typeof parseStoreRef;
+  parseStoreName: typeof parseStoreName;
   parseTriggers: typeof parseTriggers;
   patchState: typeof patchState;
   reactive: typeof reactive;
@@ -68,21 +68,6 @@ export interface RousePlugin {
   install(api: PluginApi): void;
 }
 
-// The methods the sync plugin adds to `app.stores`, stubbed in the dev build without
-// it. A record, so the compiler requires every method and no others.
-const SYNC_METHODS: Record<SyncMethod, true> = {
-  baseline: true,
-  status: true,
-  isDirty: true,
-  dirtyRoots: true,
-  config: true,
-  push: true,
-  pull: true,
-  reset: true,
-  revert: true,
-  commit: true,
-};
-
 const core: CoreApi = {
   batch,
   clone,
@@ -92,7 +77,7 @@ const core: CoreApi = {
   getPathRoot,
   hasAccessor,
   isPlainObject,
-  parseStoreRef,
+  parseStoreName,
   parseTriggers,
   patchState,
   reactive,
@@ -134,7 +119,7 @@ export function installPlugins(app: RouseApp, plugins: readonly RousePlugin[]): 
     (app as any).sse = () => fail(`app.sse() ${needsPlugin('sse')}`);
   }
   if (__DEV__ && !hasPlugin(app, 'sync')) {
-    Object.keys(SYNC_METHODS).forEach((method) => {
+    SYNC_METHODS.forEach((method) => {
       (app.stores as any)[method] = () =>
         fail(`app.stores.${method}() ${needsPlugin('sync')}`);
     });

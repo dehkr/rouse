@@ -4,6 +4,7 @@ import {
   parseDeclarations,
   parseDirectiveValue,
   parseFetchSubject,
+  parseStoreName,
   parseStoreRef,
   parseStoreValue,
   parseTriggerSubjectPairs,
@@ -304,6 +305,30 @@ describe('parseStoreRef', () => {
     const warn = silenceWarn();
     expect(parseStoreRef('@cart::status', 'push')).toBeNull();
     expect(warn.mock.calls[0]?.[0]).toContain('rz-push:');
+  });
+});
+
+describe('parseStoreName', () => {
+  const el = {} as Element;
+
+  it('returns the name of a whole-store reference', () => {
+    expect(parseStoreName('@cart', 'deposit', el)).toBe('cart');
+  });
+
+  it.each(['cart', '@', '@cart.items', '@cart::status'])(
+    "warns once and returns null for '%s'",
+    (ref) => {
+      const warn = silenceWarn();
+      expect(parseStoreName(ref, 'push', el)).toBeNull();
+      expect(warn).toHaveBeenCalledOnce();
+      expect(warn.mock.calls[0]?.[0]).toContain('rz-push:');
+    },
+  );
+
+  it('leads its warnings with the label it is given', () => {
+    const warn = silenceWarn();
+    expect(parseStoreName('@cart.items', 'deposit', el, 'Rouse-Deposit')).toBeNull();
+    expect(warn.mock.calls[0]?.[0]).toContain('Rouse-Deposit:');
   });
 });
 

@@ -1,4 +1,5 @@
 import type { RousePlugin, StoreManager } from 'rousejs';
+import { SYNC_METHODS, type SyncMethod } from '../../core/constants';
 import { setCore } from '../core';
 import { rzPull, rzPush } from './directives';
 import { StoreSync } from './manager';
@@ -110,25 +111,7 @@ declare module 'rousejs' {
   }
 }
 
-const METHODS = [
-  'baseline',
-  'status',
-  'isDirty',
-  'dirtyRoots',
-  'config',
-  'push',
-  'pull',
-  'reset',
-  'revert',
-  'commit',
-] as const satisfies readonly (keyof StoreSync & keyof StoreManager)[];
-
-/**
- * A method the plugin adds to `app.stores`.
- *
- * @internal
- */
-export type SyncMethod = (typeof METHODS)[number];
+const METHODS = SYNC_METHODS satisfies readonly (keyof StoreSync & keyof StoreManager)[];
 
 /**
  * Syncs stores with a server endpoint: `rz-push`, `rz-pull`, `@store::status`, the

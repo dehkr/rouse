@@ -183,3 +183,22 @@ export type ListenTarget = (typeof LISTEN_TARGETS)[number];
 
 export const isListenTarget = (val: string): val is ListenTarget =>
   (LISTEN_TARGETS as readonly string[]).includes(val);
+
+/**
+ * The methods the sync plugin adds to `app.stores`. Without the plugin, the dev build
+ * stubs each with an install hint.
+ */
+export const SYNC_METHODS = [
+  'baseline',
+  'status',
+  'isDirty',
+  'dirtyRoots',
+  'config',
+  'push',
+  'pull',
+  'reset',
+  'revert',
+  'commit',
+] as const;
+
+export type SyncMethod = (typeof SYNC_METHODS)[number];
