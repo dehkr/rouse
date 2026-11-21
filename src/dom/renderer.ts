@@ -4,12 +4,13 @@
  * Keys are positional unless `rz-key` names a field. Don't add an identity or
  * automatic key: an explicit key is the opt-in for lists that refetch or reorder.
  */
-import { effect, signal } from 'alien-signals';
+import { signal } from 'alien-signals';
 import type { RouseApp } from '../app';
 import { RENDER_FRAME } from '../core/constants';
 import { warn } from '../core/diagnostics';
 import { getNestedVal } from '../core/path';
 import { isPlainObject } from '../core/state';
+import { effect } from '../reactivity/effect';
 import { getRaw, reactive, untracked } from '../reactivity/reactive';
 import type { RenderContext, RenderFrame, Scope, VoidFn } from '../types';
 import {
@@ -316,12 +317,14 @@ export function renderTemplate(
     }
   }
 
-  const stop = effect(() => {
-    // `source()` runs tracked so it subscribes to the source array/value.
-    // `reconcile()` runs untracked so instance binding doesn't link to this effect.
-    const normalized = normalize(source());
-    untracked(() => reconcile(normalized));
-  });
+  // Only the source is tracked. `reconcile` reads key fields and instance signals,
+  // and none of those reads should re-run the whole render. Untrack it inside `apply`
+  // too: `apply`'s effect scope would otherwise hold a link per read until the next
+  // pass, and `buildInstance` already keeps instance bindings out of that scope.
+  const stop = effect(
+    () => normalize(source()),
+    (normalized) => untracked(() => reconcile(normalized)),
+  );
 
   return () => {
     stop();

@@ -39,6 +39,21 @@ describe('rz-render', () => {
     expect(texts(root)).toEqual(['b', 'a']);
   });
 
+  it('tracks only the source, not the key fields it reads while reconciling', async () => {
+    const items = reactive([
+      { id: 1, title: 'a' },
+      { id: 2, title: 'b' },
+    ]);
+    const { root } = await mount(
+      `<ul data-rz-scope="s"><template data-rz-render="items" data-rz-key="id"><li data-rz-text="~item.id"></li></template></ul>`,
+      { scopes: { s: () => ({ items }) } },
+    );
+    const [first] = root.querySelectorAll('li');
+    items[0]!.id = 3;
+    expect(root.querySelector('li')).toBe(first);
+    expect(texts(root)).toEqual(['3', '2']);
+  });
+
   it('updates ~item::position after a reorder', async () => {
     const items = reactive([{ id: 'x' }, { id: 'y' }]);
     const { root } = await mount(

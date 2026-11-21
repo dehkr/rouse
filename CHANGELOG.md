@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add the `plugins` option to `rouse()`, installing optional features per app. Plugins load from `rousejs/sync` and `rousejs/sse`, or from `dist/sync[.min].js` and `dist/sse[.min].js` on a CDN, and must come from the same release as core.
 - Add the `persist` and `persistKey` options to `reactive()` and `app.store()`, saving state to `localStorage` or `sessionStorage` once per task after a change and restoring it on the next page load.
 - Add `batch(fn)` to group reactive writes; effects and bindings run once when the outermost `batch()` returns.
+- Add `effect(compute, apply, options?)`, which tracks only `compute` and runs `apply(value, prev, stop)` untracked when its value changes, with `defer: true` to skip the first run.
 
 ### Changed
 
@@ -25,18 +26,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Breaking:** Remove the `rousejs/dev` and `rousejs/min` entry points. `rousejs` resolves to the dev build under the `development` condition and to the prod/min build otherwise.
   - Replace `rousejs/dev` with `rousejs`, and set the `development` condition in dev builds. Vite sets it by default; with esbuild, pass `--conditions=development`.
   - Replace `rousejs/min` with `rousejs`.
-- Accept any state path as an `rz-on` handler, including nested scope paths (`actions.save`) and render item paths (`%.toggle`), resolved on each trigger so a keyed `rz-render` instance calls its current item.
+- Accept any state path as an `rz-on` handler, including nested scope paths (`actions.save`) and render item paths (`~item.toggle`), resolved on each trigger so a keyed `rz-render` instance calls its current item.
 
 ### Fixed
 
 - Reconnect `rz-sse` streams closed by a prevented `rz:sse:error` or a rejected connection. Firing the element's open trigger again, or adding another `rz-sse` element for that URL, now opens a new connection instead of reusing the closed one.
 - Ignore server-sent messages named `open` or `error` in connection handling, so they no longer count as failed attempts, fire `rz:sse:error` or `rz:sse:open`, or close the stream. `sse-[open]` and `sse-[error]` triggers now receive them instead of throwing on connection events.
 - Fire `edit` triggers when an effect mutates a store in reaction to a framework write (sync response, deposit, `update()`, `reset()`, or `revert()`), so a push on `edit` sends the effect's changes.
-- Mark a store dirty and fire `edit` triggers for edits to an array item reached through an array method (`find()`, `map()`, `for...of`), including `rz-model` bindings on `rz-render` items (`%.done`).
+- Mark a store dirty and fire `edit` triggers for edits to an array item reached through an array method (`find()`, `map()`, `for...of`), including `rz-model` bindings on `rz-render` items (`~item.done`).
 - Return the reactive array from array mutators that return the array itself (such as `sort()` and `reverse()`), so writes chained on the result re-run effects and mark a store dirty.
 - Rebind an element re-inserted into the same scope after its directives were ignored with a warning, so markup corrected while the element was detached takes effect, matching elements outside a scope.
 - Rebind an element moved to another app, whichever app started first, and fire its in-flight request events from the app that sent them.
 - Remount a nested app whose root element moves within the outer app.
+- Ignore non-function return values from `effect` callbacks, so a concise arrow such as `effect(() => el.textContent = state.label)` no longer throws on its next run.
+- Run the cleanup an `effect` returns from the run that stops it, so a timer or listener it releases isn't leaked.
 
 ## [0.17.0] - 2026-11-14
 

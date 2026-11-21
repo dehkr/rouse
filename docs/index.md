@@ -255,7 +255,7 @@ Triggers that aren't DOM events:
 | `intersect`, `intersect-[ratio]` | Each time the element enters the viewport, at least `ratio` visible (0–1, default 0) | `intersect-[0.5]\|once` |
 | `interact` | On each `pointerover` or `focusin` on the element; add `once` for the first only | `interact\|once` |
 | `idle` | Once, when the browser is idle | `idle` |
-| `edit-[@store]`, `edit-[@store.key]` | When your code (handlers, effects, timers) or `rz-model` edits the store, or that top-level key. Sync responses, deposits, `update()`, `reset()`, and `revert()` don't count | `edit-[@cart]\|debounce-[500ms]` |
+| `edit-[@store]`, `edit-[@store.key]` | When your code (handlers, effects, timers) or `rz-model` edits the store, or that top-level key. Sync responses, deposits, `update()`, `reset()`, and `revert()` don't count. To follow every change, use `effect` | `edit-[@cart]\|debounce-[500ms]` |
 | `sse-[name]` | SSE plugin. On a server-sent event named `name` from this element's stream or its descendants'; `sse-[message]` for unnamed messages | `sse-[done]`, `sse-[tick]\|root` |
 
 On a source only `once`, timing, and its argument apply (`sse` also takes `root`); other modifiers are ignored without a warning.
@@ -279,6 +279,9 @@ const label = computed(() => `${form.name} (${count()})`);
 // runs now and after each change
 const stop = effect(() => console.log(label()));
 
+// tracks only form.name: count() inside the second function isn't tracked
+effect(() => form.name, (name) => { document.title = `${name} (${count()})`; });
+
 // the effect runs once, after both writes
 const text = batch(() => {                                
   form.name = 'Ada';
@@ -295,8 +298,11 @@ const text = batch(() => {
 - Array mutators (`push`, `splice`, `sort`, …) notify once per call. Callbacks of `map`, `find`, `forEach`, … receive reactive items.
 - Reactivity lives in the proxy and the signal, not in values read out of them. `const { name } = form`, or a returned field set to `count()`, is a snapshot. Expose a getter instead.
 - To expose a `signal` to bindings, return a getter, plus a setter if `rz-model` writes it: `get count() { return count(); }, set count(v) { count(v); }`. Getters on the returned object aren't cached: they re-run on every read. Move expensive logic into a `computed` or a getter on the `reactive` state.
-- An `effect` created during setup or in `connect()` stops with the scope. One created later (in a handler, a timer, or after an `await`) runs until stopped: `term.addEventListener('abort', effect(fn))`.
-- A function returned from an `effect` callback is its cleanup. It runs before each re-run and on stop, and reads inside it aren't tracked: `effect(() => { const id = setInterval(tick, state.delay); return () => clearInterval(id); })`.
+- Use `effect(fn)` when everything `fn` reads should re-run it. Use `effect(compute, apply)` when what triggers it differs from what it reads: syncing `document.title`, the URL, or a chart library with state.
+- `effect(compute, apply)` tracks only `compute`. It runs `apply(value, prev, stop)` now and whenever `compute`'s value changes (`!==`), with `prev` `undefined` on the first call. `{ defer: true }` skips the first call. `stop` ends the effect from any call, including the first. A signal works as `compute`: `effect(count, apply)`.
+- An `effect` created during setup or in `connect()` stops with the scope. One created later (in a handler, a timer, or after an `await`) runs until stopped: `term.addEventListener('abort', effect(fn))`. An effect created inside `apply` stops before the next `apply` and when the outer effect stops.
+- A function returned from an `effect` callback or from `apply` is its cleanup. It runs before each re-run and on stop, and reads inside it aren't tracked: `effect(() => { const id = setInterval(tick, state.delay); return () => clearInterval(id); })`. Any other return value is ignored.
+- A throw in `fn`, `compute`, or `apply` propagates to the write that caused it, or out of `effect()`. The effect keeps tracking.
 
 ### Reactivity API
 
@@ -308,6 +314,7 @@ The reactivity functions exported from `rousejs`.
 | `reactive(object, options?)` | A deep proxy of a plain object or array | Objects and lists, returned from a scope as-is and mutated in place. `options` persists it; see [Persistence](#persistence) |
 | `computed(fn)` | A cached derived value, read as `c()` | Derived values. Recomputes only after a value `fn` read changes. Keep `fn` pure |
 | `effect(fn)` | A stop function | Side effects that follow state. Runs `fn` now and whenever what it read changes. A function `fn` returns runs as cleanup before each re-run and on stop |
+| `effect(compute, apply, options?)` | A stop function | Side effects that follow one value. Runs `apply(value, prev, stop)` now and when `compute`'s value changes; only `compute` is tracked. `{ defer: true }` skips the first run. A function `apply` returns runs as cleanup, and effects `apply` creates stop with the next run |
 | `batch(fn)` | `fn`'s result | Several writes at once: `batch(() => { state.a = 1; state.b = 2; })`. Effects and bindings run once, when the outermost `batch()` returns. Reads inside `fn`, computeds included, stay current. Rarely needed: use it when an effect that reads the writes is expensive or does I/O |
 
 ### Persistence
@@ -1000,7 +1007,7 @@ Named exports from `rousejs`. The plugins are `sync` from `rousejs/sync` and `ss
 | `rouse(config?)` | An app (`RouseApp`) | Also the default export. One app per root |
 | `signal(value)` | A signal: `s()` reads, `s(v)` writes | See [Reactivity API](#reactivity-api) |
 | `computed(fn)` | A cached derived value, read as `c()` | See [Reactivity API](#reactivity-api) |
-| `effect(fn)` | A stop function | See [Reactivity API](#reactivity-api) |
+| `effect(fn)`, `effect(compute, apply, options?)` | A stop function | See [Reactivity API](#reactivity-api) |
 | `reactive(object, options?)` | A deep proxy of a plain object or array | See [Reactivity API](#reactivity-api) |
 | `batch(fn)` | `fn`'s result | See [Reactivity API](#reactivity-api) |
 | `dispatch(el, name, detail?, init?)` | The `CustomEvent` | Dispatches a bubbling event from `el`. Use it to signal between nested scopes |
@@ -1044,6 +1051,7 @@ Import these with `import type { … } from 'rousejs'`.
 | `RenderHandlerCtx<Item, E>` | `HandlerCtx` narrowed for a handler bound only inside `rz-render`: `render.item` is `Item`, `render.index` is never `null`. Same object at runtime |
 | `BindableValue` | What a binding can write |
 | `ReactiveOptions` | `reactive()`'s options: `persist` with `persistKey` |
+| `EffectOptions` | `effect(compute, apply, options?)`'s options: `defer` |
 | `PersistStorage` | `'local' \| 'session'`, the `persist` values |
 | `LifecycleEvent` | Union of every lifecycle event name |
 | `LifecycleEventMap` | Lifecycle event name → `detail` type |
@@ -1088,7 +1096,11 @@ The development build warns about most authoring mistakes. These fail without an
 - **Only plain objects and arrays are reactive.** `reactive()` returns `Map`, `Set`, `Date`, and class instances unproxied, so changes inside them never update bindings.
 - **Late effects outlive the scope.** An `effect` created in a handler, a timer, or after an `await` isn't stopped on teardown. Stop it when `term` aborts.
 - **`batch()` ends at the first `await`.** Writes after an `await` inside the callback run unbatched, with only a dev warning. Batch the synchronous writes on each side of the `await` separately.
-- **A returned function is a cleanup.** A concise arrow that evaluates to a function, such as `effect(() => state.onSave)`, calls it before every re-run and on stop. Use a block body.
+- **A returned function is a cleanup.** A concise arrow that evaluates to a function, such as `effect(() => state.onSave)` or an `apply` of `(v) => handlers[v]`, calls it before every re-run and on stop. Use a block body.
+- **`compute` tracks only what it reads.** `effect(() => state.items, apply)` misses a `push`, and returning the same proxy compares equal, so mutations never reach `apply`. Return what matters: `state.items.length` or `[...state.items]`.
+- **`compute` must return.** Without `return` it yields `undefined` every time, so `apply` runs once and never again.
+- **Unbatched writes each run `apply`.** `effect(() => [state.query, state.page], apply)` runs `apply` twice when a handler writes both fields. Wrap the writes in `batch()`.
+- **`apply` doesn't see its own writes.** When `apply` writes what `compute` reads, the effect doesn't re-run: `apply` never sees the written value, and the next `prev` is the value before the write. Normalize where the value is written.
 - **Duplicate keys drop items.** An item whose `rz-key` value repeats an earlier item's isn't rendered, with only a dev warning.
 - **Interceptors must return.** A `response` or `error` interceptor's return replaces `data` or `error`, so returning nothing sets it to `undefined`.
 - **Scope listeners and requests are app-wide.** `app.on` in a scope listens on the whole app unless you pass `host` first, and lasts as long as the app without `signal: term`. `app.fetch` likewise keeps running after teardown without `signal: term`.
