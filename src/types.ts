@@ -38,26 +38,8 @@ export interface FetchConfigDetail {
 /** Detail for `rz:fetch:success`: the full response object. */
 export type FetchSuccessDetail = RouseResponse;
 
-/** Detail for `rz:fetch:success:json`: response with a parsed-JSON body (object/array). */
-export type FetchSuccessJsonDetail = RouseResponse<Record<string, any> | any[]>;
-
-/** Detail for `rz:fetch:success:html`: response with an HTML/text body, or an empty one carrying `Rouse-Place`. */
-export type FetchSuccessHtmlDetail = RouseResponse<string>;
-
-/** Detail for `rz:fetch:success:file`: response with a binary body (Blob/ArrayBuffer). */
-export type FetchSuccessFileDetail = RouseResponse<Blob | ArrayBuffer>;
-
 /** Detail for `rz:fetch:error`: the full response object. */
 export type FetchErrorDetail = RouseResponse;
-
-/** Detail for `rz:fetch:error:json`: error response with a parsed-JSON body (object/array). */
-export type FetchErrorJsonDetail = RouseResponse<Record<string, any> | any[]>;
-
-/** Detail for `rz:fetch:error:html`: error response with an HTML/text body, or an empty one carrying `Rouse-Place`. */
-export type FetchErrorHtmlDetail = RouseResponse<string>;
-
-/** Detail for `rz:fetch:error:file`: error response with a binary body (Blob/ArrayBuffer). */
-export type FetchErrorFileDetail = RouseResponse<Blob | ArrayBuffer>;
 
 /** Detail for `rz:push` and `rz:pull` `:config`, `:start`, `:abort`, and `:end`. */
 export interface PushPullConfigDetail {
@@ -121,12 +103,6 @@ export interface SseMessageDetail<T = unknown> extends SseConnectionDetail {
   /** The server's `id:` field, or an empty string when absent. */
   lastEventId: string;
 }
-
-/** Detail for `rz:sse:message:json`: a message whose body parsed to an object or array. */
-export type SseMessageJsonDetail = SseMessageDetail<Record<string, any> | any[]>;
-
-/** Detail for `rz:sse:message:html`: a message whose body is text. */
-export type SseMessageHtmlDetail = SseMessageDetail<string>;
 
 /**
  * Detail for `rz:sse:error`; cancelable. The connection dropped, and the default
@@ -221,20 +197,8 @@ export interface LifecycleEventMap {
   'rz:fetch:end': FetchConfigDetail;
   /** Fires when the request completes with an OK status. */
   'rz:fetch:success': FetchSuccessDetail;
-  /** Fires after `rz:fetch:success` when the body is parsed JSON (object/array). */
-  'rz:fetch:success:json': FetchSuccessJsonDetail;
-  /** Fires after `rz:fetch:success` when the body is HTML/text. */
-  'rz:fetch:success:html': FetchSuccessHtmlDetail;
-  /** Fires after `rz:fetch:success` when the body is a Blob/ArrayBuffer. */
-  'rz:fetch:success:file': FetchSuccessFileDetail;
   /** Fires when the request fails (non-OK status, network error, or timeout). */
   'rz:fetch:error': FetchErrorDetail;
-  /** Fires after `rz:fetch:error` when the body is parsed JSON (object/array). */
-  'rz:fetch:error:json': FetchErrorJsonDetail;
-  /** Fires after `rz:fetch:error` when the body is HTML/text. */
-  'rz:fetch:error:html': FetchErrorHtmlDetail;
-  /** Fires after `rz:fetch:error` when the body is a Blob/ArrayBuffer. */
-  'rz:fetch:error:file': FetchErrorFileDetail;
   /** Fires before a push is sent; cancelable. Listeners can mutate `config`. */
   'rz:push:config': PushPullConfigDetail;
   /** Fires when the push starts, after config. */
@@ -265,10 +229,6 @@ export interface LifecycleEventMap {
   'rz:sse:open': SseConnectionDetail;
   /** Fires for every message the server sends, named or unnamed. */
   'rz:sse:message': SseMessageDetail;
-  /** Fires after `rz:sse:message` when the body parsed to an object or array. */
-  'rz:sse:message:json': SseMessageJsonDetail;
-  /** Fires after `rz:sse:message` when the body is text. */
-  'rz:sse:message:html': SseMessageHtmlDetail;
   /** Fires when the connection drops; cancelable. Preventing it suppresses the reconnect. */
   'rz:sse:error': SseErrorDetail;
   /** Fires when the stream has ended and will not reopen on its own. */
@@ -648,7 +608,7 @@ export interface RouseResponse<T = any> {
 
 /**
  * The minimum a payload needs to be routed by `rz-place` or `rz-deposit`. `RouseResponse`
- * satisfies it structurally, so both the fetch and stream paths reach the same routers
+ * satisfies it structurally, so both the fetch and stream paths reach the same router
  * without either one adopting the other's detail type.
  */
 export interface RoutablePayload {
@@ -656,6 +616,8 @@ export interface RoutablePayload {
   data: unknown;
   /** Carries the element whose `rz-place` or `rz-deposit` names the destination. */
   config?: { triggerEl?: Element };
+  /** Set on a failed fetch, which routes only to a destination the server names. */
+  error?: RequestError | null;
   /** Server-supplied `rz-place` override. Never set on the stream path. */
   placeOverride?: string | null;
   /** Server-supplied `rz-deposit` override. Never set on the stream path. */

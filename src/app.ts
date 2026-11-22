@@ -29,7 +29,6 @@ import {
   unmountSubtree,
   unobserveApp,
 } from './dom/observer';
-import { initPayloadRouters } from './dom/payload-router';
 import { placeContent } from './dom/placer';
 import { runFetch } from './net/fetch-engine';
 import type {
@@ -513,8 +512,6 @@ export class RouseApp {
     this._hasStarted = true;
 
     dispatchFrom(this.root, this.root, 'rz:app:start', { app: this });
-
-    initPayloadRouters(this, this._abortController.signal);
 
     // Observing first means DOM that a scope adds while mounting is still scanned
     observeApp(this);

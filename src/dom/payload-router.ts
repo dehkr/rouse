@@ -1,4 +1,9 @@
-import { getApp } from './binder';
+/*
+ * Routing is a direct call from the code that received the payload, never a DOM event.
+ * An event would let `stopPropagation()` on an ancestor block placement and deposit,
+ * and would cross nested app roots, so each router would have to filter out payloads
+ * that bubbled up from another app.
+ */
 import type { RouseApp } from '../app';
 import { warn } from '../core/diagnostics';
 import { isPlainObject } from '../core/state';
@@ -6,114 +11,156 @@ import type { RouseResponse, RoutablePayload } from '../types';
 import { placeInto, readPlace } from './placer';
 import { getDirectiveValue } from '../core/elements';
 import { parseDirectiveValue, parseStoreName } from '../core/parser';
+import { isFileType, isJsonType } from '../net/response';
 
 /** What produced a routable payload. */
 type PayloadSource = 'fetch' | 'sse';
 
 /**
- * Listens to the app root for routable payloads from fetch responses and stream
- * messages, and sends each to its destination. HTML goes to the DOM targets named by
- * `rz-place` or a server `Rouse-Place` header. JSON goes to the stores named by
- * `rz-deposit` or a server `Rouse-Deposit` header, as a merge patch through
- * `app.stores.deposit()`.
+ * Sends a fetch response or stream message to its destination. HTML goes to the DOM
+ * targets named by `rz-place` or a server `Rouse-Place` header. JSON goes to the stores
+ * named by `rz-deposit` or a server `Rouse-Deposit` header, as a merge patch through
+ * `app.stores.deposit()`. A file goes nowhere.
  *
- * A programmatic fetch doesn't have an element, so it doesn't route by default. A
- * server-named destination can route the payload, or the caller can place or deposit
- * it. The `triggerEl` option is configurable, however, so a pre-configured element can
- * be triggered remotely. Error responses route only when the server names a
+ * The destination is read off `config.triggerEl`. A payload without one routes only
+ * when the server names a destination, since `rz-place`'s host default would otherwise
+ * replace the whole app. An error response also routes only when the server names a
  * destination, since `rz-place` and `rz-deposit` are success-only output.
  */
-export function initPayloadRouters(app: RouseApp, signal: AbortSignal) {
-  listenForPayloads(app, signal, 'html', 'placeOverride', (detail, source, host) => {
-    const { data, placeOverride } = detail;
+export function routePayload(
+  app: RouseApp,
+  payload: RoutablePayload,
+  source: PayloadSource,
+): void {
+  const { data, error, placeOverride, depositOverride } = payload;
+  const triggerEl = payload.config?.triggerEl;
+  const host = triggerEl ?? app.root;
 
-    // An empty fetch response arrives as `null`. It places only under `Rouse-Place`,
-    // where the header itself is the instruction, so a plain 204 leaves the page alone.
-    const content = data == null && placeOverride ? '' : data;
-    if (typeof content !== 'string') {
-      return;
+  // A server removing an element usually sends no body, which leaves nothing to
+  // classify. `Rouse-Place` names the placement by itself, so an empty body that
+  // carries it routes as HTML.
+  const kind = data == null && placeOverride ? 'html' : payloadKind(data);
+
+  if (kind === null) {
+    // Ignore null/undefined (e.g., 204 No Content), but warn on unhandled complex types
+    if (__DEV__ && data != null) {
+      warn(`Unsupported payload: '${data?.constructor?.name || typeof data}'.`);
     }
+    return;
+  }
 
-    for (const { targets, position } of readPlace(host, app.root, placeOverride)) {
-      targets.forEach((targetEl) =>
-        placeInto(targetEl, app.root, content, position, source),
-      );
-    }
-  });
+  if (__DEV__) {
+    warnMismatchedPayload(payload, kind, host);
+  }
 
-  listenForPayloads(app, signal, 'json', 'depositOverride', (detail, operation, host) => {
-    const { data, depositOverride } = detail;
+  if (kind === 'file') {
+    return;
+  }
 
-    const stores = readDeposit(host, depositOverride);
-    if (stores.length === 0) {
-      return;
-    }
+  const override = kind === 'html' ? placeOverride : depositOverride;
+  if (!override && (error || !triggerEl)) {
+    return;
+  }
 
-    if (!isPlainObject(data)) {
-      if (__DEV__) {
-        warn('Cannot route JSON payload to a store. Expected a JSON object.', data);
-      }
-      return;
-    }
+  if (kind === 'html') {
+    placeHtml(app, payload, source, host);
+  } else {
+    depositJson(app, payload, source, host);
+  }
+}
 
-    // Only the fetch listeners are registered with a `RouseResponse` detail
-    const response = operation === 'fetch' ? (detail as RouseResponse) : undefined;
+/** Classifies a payload by the router that handles it. */
+function payloadKind(data: unknown): 'file' | 'json' | 'html' | null {
+  if (isFileType(data)) {
+    return 'file';
+  }
+  // The store router needs parsed objects to merge state
+  if (Array.isArray(data) || isPlainObject(data)) {
+    return 'json';
+  }
+  if (typeof data === 'string') {
+    return 'html';
+  }
 
-    stores.forEach((storeName) =>
-      app.stores.deposit(storeName, data, { response, operation }),
-    );
-  });
+  return null;
 }
 
 /**
- * Listens on the app root for one kind of payload, and hands each to `route` with its
- * source and the element whose directive names the destination.
- *
- * `override` names the server header field that can stand in for the element's
- * directive. Without it, an error response routes nothing, and neither does a payload
- * with no originating element.
+ * Warns when a server header or the response's Content-Type disagrees with how the
+ * payload is routed. Each router reads only its own override, so a header aimed at
+ * the other router would otherwise be dropped without a trace.
  */
-function listenForPayloads(
-  app: RouseApp,
-  signal: AbortSignal,
-  kind: 'html' | 'json',
-  override: 'placeOverride' | 'depositOverride',
-  route: (detail: RoutablePayload, source: PayloadSource, host: Element) => void,
+function warnMismatchedPayload(
+  payload: RoutablePayload,
+  kind: 'file' | 'json' | 'html',
+  host: Element,
 ) {
-  const listen = (name: string, source: PayloadSource) => {
-    app.root.addEventListener(
-      name,
-      (e) => {
-        // Skip payloads from nested apps, whose own routers would have already handled them
-        if (!getApp(e.target as Element, app)) {
-          return;
-        }
-
-        // The destination is read off the trigger, never the event target. Without a
-        // trigger the target is the app root, where `rz-place`'s host default would
-        // replace the whole app.
-        const { detail } = e as CustomEvent<RoutablePayload>;
-        const triggerEl = detail.config?.triggerEl;
-
-        if (!detail[override]) {
-          if (e.type.includes('error')) {
-            return;
-          }
-          // No originating element means no destination or host for the declarative path
-          if (!triggerEl) {
-            return;
-          }
-        }
-
-        route(detail, source, triggerEl ?? app.root);
-      },
-      { signal },
+  if (payload.placeOverride && kind !== 'html') {
+    warn(
+      `Rouse-Place applies only to HTML responses, but this one was routed as ${kind === 'json' ? 'JSON' : 'a file'}. Ignoring it.`,
+      host,
     );
-  };
+  }
+  if (payload.depositOverride && kind !== 'json') {
+    warn(
+      `Rouse-Deposit applies only to JSON responses, but this one was routed as ${kind === 'html' ? 'HTML' : 'a file'}. Ignoring it.`,
+      host,
+    );
+  }
 
-  listen(`rz:fetch:success:${kind}`, 'fetch');
-  listen(`rz:fetch:error:${kind}`, 'fetch');
-  listen(`rz:sse:message:${kind}`, 'sse');
+  if (kind === 'html' && typeof payload.data === 'string') {
+    const response = (payload as RouseResponse).response;
+    if (isJsonType(response?.headers.get('Content-Type') || '')) {
+      warn(`Content-Type is JSON but data is a string. Defaulting to HTML.`);
+    }
+  }
+}
+
+function placeHtml(
+  app: RouseApp,
+  payload: RoutablePayload,
+  source: PayloadSource,
+  host: Element,
+) {
+  const { data, placeOverride } = payload;
+
+  // An empty fetch response arrives as `null`. It places only under `Rouse-Place`,
+  // where the header itself is the instruction, so a plain 204 leaves the page alone.
+  const content = data == null ? '' : (data as string);
+
+  for (const { targets, position } of readPlace(host, app.root, placeOverride)) {
+    targets.forEach((targetEl) =>
+      placeInto(targetEl, app.root, content, position, source),
+    );
+  }
+}
+
+function depositJson(
+  app: RouseApp,
+  payload: RoutablePayload,
+  operation: PayloadSource,
+  host: Element,
+) {
+  const { data } = payload;
+
+  const stores = readDeposit(host, payload.depositOverride);
+  if (stores.length === 0) {
+    return;
+  }
+
+  if (!isPlainObject(data)) {
+    if (__DEV__) {
+      warn('Cannot route JSON payload to a store. Expected a JSON object.', data);
+    }
+    return;
+  }
+
+  // Only the fetch path passes a `RouseResponse`
+  const response = operation === 'fetch' ? (payload as RouseResponse) : undefined;
+
+  stores.forEach((storeName) =>
+    app.stores.deposit(storeName, data, { response, operation }),
+  );
 }
 
 /**

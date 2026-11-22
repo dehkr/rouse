@@ -43,6 +43,16 @@ describe('rz-sse', () => {
     await expect.poll(() => $('div').innerHTML).toBe('<b>one</b>');
   });
 
+  it('places a message when an ancestor stops rz:sse:message', async () => {
+    const s = stream('/api/events');
+    const { $ } = await mountSse(
+      `<section><div data-rz-sse="ready: /api/events"></div></section>`,
+    );
+    $('section').addEventListener('rz:sse:message', (e) => e.stopPropagation());
+    (await s.open()).send({ data: '<b>one</b>' });
+    await expect.poll(() => $('div').innerHTML).toBe('<b>one</b>');
+  });
+
   it('deposits unnamed JSON messages into a store', async () => {
     const s = stream('/api/feed');
     const { $ } = await mountSse(`

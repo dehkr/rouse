@@ -12,16 +12,15 @@ import type { RouseApp } from '../app';
 import { hasDirective, isDisabled } from '../core/elements';
 import { isSafeMethod } from '../core/constants';
 import { err, warn } from '../core/diagnostics';
-import { dispatchFrom } from '../core/dispatch';
 import { createKey } from '../core/keys';
-import { isPlainObject } from '../core/state';
 import { readTriggerValues } from '../dom/forms';
+import { routePayload } from '../dom/payload-router';
 import type { FetchRequest, ResolvedRequest, RouseResponse } from '../types';
 import { type LifecycleHandle, PREVENTED, runRequestLifecycle } from './lifecycle';
 import { resolveUrl } from './payload';
 import { readSend } from './send';
 import { request, resolveRequestConfig } from './request';
-import { fallbackResponse, isFileType, isJsonType } from './response';
+import { fallbackResponse, isJsonType } from './response';
 
 const abortKeys = new WeakMap<Element, string>();
 const writesInFlight = new Set<string | symbol>();
@@ -190,7 +189,7 @@ export async function runFetch(
 
 /**
  * Sends the request and routes what comes back: server-directed redirects and
- * URL changes first, then the payload to its typed sub-event. Events fire from
+ * URL changes first, then the payload to its destination. Events fire from
  * `hostEl`.
  */
 async function sendAndRoute(
@@ -222,14 +221,8 @@ async function sendAndRoute(
 
     handle.settle(result);
 
-    if (result.error) {
-      if (result.error.code !== 'CANCELED' && result.response) {
-        routePayload(hostEl, app, result, 'error');
-      }
-      return result;
-    }
-    if (result.response) {
-      routePayload(hostEl, app, result, 'success');
+    if (result.response && result.error?.code !== 'CANCELED') {
+      routePayload(app, result, 'fetch');
     }
     return result;
   } catch (error: any) {
@@ -447,71 +440,6 @@ function getAbortKey(el: Element): string {
   }
 
   return key;
-}
-
-/**
- * Dispatches the typed payload sub-event (`:file` / `:json` / `:html`) under the
- * given `rz:fetch:{success,error}` prefix, driving JSON and HTML routing.
- */
-function routePayload(
-  hostEl: Element,
-  app: RouseApp,
-  result: RouseResponse,
-  type: 'success' | 'error',
-) {
-  const data = result.data;
-  // A server removing an element usually sends no body, which leaves nothing to
-  // classify. `Rouse-Place` names the placement by itself, so an empty body that
-  // carries it routes as HTML.
-  const kind = data == null && result.placeOverride ? 'html' : payloadKind(data);
-
-  if (kind === null) {
-    // Ignore null/undefined (e.g., 204 No Content), but warn on unhandled complex types
-    if (__DEV__ && data != null) {
-      warn(`Unsupported payload: '${data?.constructor?.name || typeof data}'.`);
-    }
-    return;
-  }
-
-  // Each router reads only its own override, so a header aimed at the other
-  // router would otherwise be dropped without a trace.
-  if (__DEV__ && result.placeOverride && kind !== 'html') {
-    warn(
-      `Rouse-Place applies only to HTML responses, but this one was routed as ${kind === 'json' ? 'JSON' : 'a file'}. Ignoring it.`,
-      hostEl,
-    );
-  }
-  if (__DEV__ && result.depositOverride && kind !== 'json') {
-    warn(
-      `Rouse-Deposit applies only to JSON responses, but this one was routed as ${kind === 'html' ? 'HTML' : 'a file'}. Ignoring it.`,
-      hostEl,
-    );
-  }
-
-  if (__DEV__ && typeof data === 'string') {
-    const contentType = result.response?.headers.get('Content-Type') || '';
-    if (isJsonType(contentType)) {
-      warn(`Content-Type is JSON but data is a string. Defaulting to HTML.`);
-    }
-  }
-
-  dispatchFrom(hostEl, app.root, `rz:fetch:${type}:${kind}`, result);
-}
-
-/** Classifies a response body by the router that handles it. */
-function payloadKind(data: unknown): 'file' | 'json' | 'html' | null {
-  if (isFileType(data)) {
-    return 'file';
-  }
-  // The store router needs parsed objects to merge state
-  if (Array.isArray(data) || isPlainObject(data)) {
-    return 'json';
-  }
-  if (typeof data === 'string') {
-    return 'html';
-  }
-
-  return null;
 }
 
 /**

@@ -21,6 +21,7 @@ import { getNestedVal, getPathRoot, setNestedVal } from './core/path';
 import { clone, hasAccessor, isPlainObject, patchState } from './core/state';
 import { dispatchTrigger } from './dom/events';
 import { resolveListenerTarget } from './dom/modifiers';
+import { routePayload } from './dom/payload-router';
 import { runRequestLifecycle } from './net/lifecycle';
 import { resolveUrl } from './net/payload';
 import { request } from './net/request';
@@ -46,6 +47,7 @@ export interface CoreApi {
   request: typeof request;
   resolveListenerTarget: typeof resolveListenerTarget;
   resolveUrl: typeof resolveUrl;
+  routePayload: typeof routePayload;
   runRequestLifecycle: typeof runRequestLifecycle;
   safeJSONParse: typeof safeJSONParse;
   setNestedVal: typeof setNestedVal;
@@ -84,6 +86,7 @@ const core: CoreApi = {
   request,
   resolveListenerTarget,
   resolveUrl,
+  routePayload,
   runRequestLifecycle,
   safeJSONParse,
   setNestedVal,

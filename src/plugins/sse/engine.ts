@@ -3,8 +3,8 @@
  * message is an event, heard only by `sse-[name]` triggers: `EventSource` has no
  * wildcard, so a name arrives only once a trigger subscribes it.
  *
- * Gate routing in `onMessage`, not in the routers. `subscribedNames` is shared by every
- * connection, so a name one trigger subscribes arrives on every stream, and routers
+ * Gate routing in `onMessage`, not in the router. `subscribedNames` is shared by every
+ * connection, so a name one trigger subscribes arrives on every stream, and a router
  * gating on payload type alone would make one element depend on unrelated markup.
  *
  * A stream never reaches `request()`. `EventSource` sends no headers, so request config,
@@ -35,8 +35,8 @@ export type SseRelease = (reason?: SseCloseReason) => void;
 interface StreamRef {
   /** Dispatch node for this holder's events, and the `rz-place` host. */
   el: Element;
-  /** The app root, where events fire once `el` has left the DOM. */
-  root: Element;
+  /** The app that opened it. Events fire from its root once `el` has left the DOM. */
+  app: RouseApp;
   config: SseConnectionConfig;
   /** Called when the connection closes for good, before `rz:sse:close`. */
   onEnd?: VoidFn;
@@ -100,7 +100,7 @@ export function openStream(
   const key = streamKey(config.url, config.withCredentials);
   let entry = entries.get(key);
 
-  const ref: StreamRef = { el, root: app.root, config, onEnd };
+  const ref: StreamRef = { el, app, config, onEnd };
 
   if (!entry) {
     entry = {
@@ -222,21 +222,22 @@ function onMessage(entry: StreamEntry, event: string, e: MessageEvent) {
   // Only unnamed messages should route to `rz-place` or `rz-deposit`. Named
   // messages are events and can be handled using `sse-[name]` triggers.
   const routable = event === DEFAULT_EVENT;
+  // A body that didn't parse to an object or array routes as HTML, as sent
+  const payload = Array.isArray(data) || core.isPlainObject(data) ? data : raw;
 
   for (const ref of entry.refs) {
-    const base = { config: ref.config, event, raw, lastEventId: e.lastEventId };
-
-    // Routing before the trigger source, so an `sse-[name]` handler observes the
-    // DOM already placed. The sub-event leading its parent is deliberate.
+    // Routing before the dispatch, so a message listener observes the DOM already placed
     if (routable) {
-      if (Array.isArray(data) || core.isPlainObject(data)) {
-        dispatchFrom(ref.el, ref.root, 'rz:sse:message:json', { ...base, data });
-      } else {
-        dispatchFrom(ref.el, ref.root, 'rz:sse:message:html', { ...base, data: raw });
-      }
+      core.routePayload(ref.app, { config: ref.config, data: payload }, 'sse');
     }
 
-    dispatchFrom(ref.el, ref.root, 'rz:sse:message', { ...base, data });
+    dispatchFrom(ref.el, ref.app.root, 'rz:sse:message', {
+      config: ref.config,
+      event,
+      data,
+      raw,
+      lastEventId: e.lastEventId,
+    });
   }
 }
 
@@ -289,7 +290,7 @@ function release(entry: StreamEntry, ref: StreamRef, reason: SseCloseReason) {
     entries.delete(entry.key);
   }
 
-  dispatchFrom(ref.el, ref.root, 'rz:sse:close', { config: ref.config, reason });
+  dispatchFrom(ref.el, ref.app.root, 'rz:sse:close', { config: ref.config, reason });
 }
 
 /**
@@ -307,7 +308,7 @@ function emit<E extends 'rz:sse:open' | 'rz:sse:error' | 'rz:sse:close'>(
   for (const ref of entry.refs) {
     const event = dispatchFrom(
       ref.el,
-      ref.root,
+      ref.app.root,
       name,
       { config: ref.config, ...detail } as any,
       { cancelable },

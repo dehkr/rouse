@@ -14,7 +14,10 @@ declare module 'rousejs' {
      *
      * @example
      * const close = app.sse('/api/feed');
-     * app.on('rz:sse:message:html', (e) => app.place(feedEl, e.detail.data, { position: 'beforeend' }));
+     * app.on('rz:sse:message', (e) => {
+     *   const { event, data } = e.detail;
+     *   if (event === 'message' && typeof data === 'string') app.place(feedEl, data, { position: 'beforeend' });
+     * });
      */
     sse: RouseSse;
   }

@@ -96,6 +96,17 @@ describe('response headers', () => {
 });
 
 describe('placement events', () => {
+  it('places a response when an ancestor stops rz:fetch:success', async () => {
+    worker.use(http.get('/api/x', () => html('<b>new</b>')));
+    const { $ } = await mount(
+      `<section><button data-rz-fetch="click: /api/x" data-rz-place="#out">Go</button></section>
+       <div id="out"></div>`,
+    );
+    $('section').addEventListener('rz:fetch:success', (e) => e.stopPropagation());
+    $('button').click();
+    await expect.poll(() => $('#out').innerHTML).toBe('<b>new</b>');
+  });
+
   it('cancels a placement from rz:dom:place:before', async () => {
     worker.use(http.get('/api/x', () => html('<b>new</b>')));
     const placed = vi.fn();

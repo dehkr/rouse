@@ -711,14 +711,15 @@ Rouse-Trigger: entry-added
 
 ### Response routing
 
-How Rouse routes a fetch response from markup, by content type. Code can take any response itself, from the `app.fetch` result or the event in the last column, and merge JSON into a store with `app.stores.deposit(name, data)`.
+How Rouse routes a fetch response from markup, by its parsed body (`data`). Code can take any response itself, from the `app.fetch` result or `rz:fetch:success`, and merge JSON into a store with `app.stores.deposit(name, data)`.
 
-| Response | Goes to | Event |
-| --- | --- | --- |
-| HTML | The `rz-place` targets (default: the trigger's `innerHTML`; `data-rz-place="null"` for none) | `rz:fetch:success:html` |
-| JSON | The `rz-deposit` stores, merged as JSON Merge Patch. Nowhere without `rz-deposit` | `rz:fetch:success:json` |
-| File | Nowhere | `rz:fetch:success:file` |
+| `data` | Goes to |
+| --- | --- |
+| HTML: a string | The `rz-place` targets (default: the trigger's `innerHTML`; `data-rz-place="null"` for none) |
+| JSON: an object or array | The `rz-deposit` stores, merged as JSON Merge Patch. Nowhere without `rz-deposit` |
+| File: a `Blob` | Nowhere |
 
+- **Routing isn't an event.** Placement and deposit run right after `:success` or `:error`, so stopping an event's propagation can't block them.
 - **Not routed:** error responses, an empty body, and an `app.fetch` without `triggerEl`, unless the server sends `Rouse-Place` or `Rouse-Deposit`. An empty body with `Rouse-Place` places `''`, so a `204` with `Rouse-Place: delete` removes the trigger. See [Errors](#errors) for routing error responses.
 
 ### Response headers
@@ -764,7 +765,7 @@ data: {}
 ```
 
 - **Opening.** Any trigger opens the stream: `ready`, `wake`, `click`, …. One stream per element; a trigger on a live stream does nothing. `app.sse(url, options?)` opens one from JavaScript and returns a close function. Elements and `app.sse` calls on the same URL share one connection.
-- **Unnamed messages.** A JSON object or array goes to the element's `rz-deposit` stores. Anything else is HTML for `rz-place`, which defaults to the element's `innerHTML`; `data-rz-place="null"` opts out. `app.sse` without `triggerEl` routes nothing: listen for `rz:sse:message:{html,json}`.
+- **Unnamed messages.** A JSON object or array goes to the element's `rz-deposit` stores. Anything else is HTML for `rz-place`, which defaults to the element's `innerHTML`; `data-rz-place="null"` opts out. `app.sse` without `triggerEl` routes nothing: listen for `rz:sse:message` and branch on `event` (`'message'` when unnamed) and `data`.
 - **Named messages.** `sse-[name]` hears the stream on its own element or a descendant; add `|root` to hear every stream in the app. Any directive takes it: `rz-on`, `rz-fetch`, `rz-pull`, `rz-close`.
 - **Reconnects.** The browser reconnects after a dropped connection and resends `Last-Event-ID`. Each loss fires `rz:sse:error`; `preventDefault()` closes the stream instead. A non-200 response or a wrong `Content-Type` closes it for good.
 - **Closing.** `rz-close` triggers, the `app.sse` close function or its `signal`, removing the element, or `app.destroy()`. After a stream closes by `rz-close`, a prevented `rz:sse:error`, or a rejected connection, the element's next open trigger opens a new connection. So does another `rz-sse` element or an `app.sse` call for that URL.
@@ -842,7 +843,6 @@ app.interceptor('error', (error) => {
 
 - **Clear field errors.** Send every field on each response, with `""` for valid ones, and send `Rouse-Deposit` on the success response too. A field left out keeps its old message.
 - **Expired sessions.** Answer Rouse requests (`Rouse-Request: true`) with a `401` and `Rouse-Redirect: /login`. A `302` to the login page is followed by the browser and routes the login page into the fetch's target.
-- **Typed sub-events.** `rz:fetch:error:html` and `rz:fetch:error:json` fire right after `rz:fetch:error`, filtered by the error body's content type.
 - **Bubbling.** Error events bubble to `app.root`, so one listener on a container handles every trigger inside it.
 - **Order.** Error interceptors run before any error event.
 - **Cancellations aren't errors.** `CANCELED` from a newer request or a signal fires `:abort`, not `:error`, so it needs no error UI.
@@ -911,7 +911,7 @@ Every event bubbles to `app.root`. Each fires from the element it describes. Onc
 | Destination (what a response changed) | `rz:store:patch*`, `rz:dom:place*` | The store's script (else `app.root`), or the placement target (its parent for `outerHTML` / `delete`) | `storeName`, `target` |
 | Connection (a stream) | `rz:sse:*` | The `rz-sse` element | `config.triggerEl` |
 
-- `rz:push:*` and `rz:pull:*` have the same events as `rz:fetch:*`, minus the per-content-type ones.
+- `rz:push:*` and `rz:pull:*` have the same events as `rz:fetch:*`.
 - A destination event's `operation` or `source` names the cause.
 
 ### All lifecycle events
@@ -928,9 +928,7 @@ Every `rz:*` event, when it fires, and its `detail`.
 | `rz:fetch:config` | Before sending. **Cancelable**: prevented, nothing else fires. Edit `config` in place (absolute `url`, `method`, `headers`); it's the object sent | `{ config }`; push/pull add `storeName` |
 | `rz:fetch:start` | Sent | as `:config` |
 | `rz:fetch:success` | 2xx response. Exactly one of `:success`, `:error`, `:abort` fires | Fetch: the response `{ data, error, status, headers, response, config }`. Push/pull: `{ storeName, result }` |
-| `rz:fetch:success:{html,json,file}` | Right after `:success`, per content type; what `rz-place` and `rz-deposit` route | the response |
 | `rz:fetch:error` | Error status, network failure, or timeout | as `:success` |
-| `rz:fetch:error:{html,json,file}` | Right after `:error`, per content type | the response |
 | `rz:fetch:abort` | Aborted by a newer request or a signal | as `:config` |
 | `rz:fetch:end` | Always last | as `:config` |
 | `rz:store:patch:before` | Before a payload is applied. **Cancelable**; `payload` can be rewritten | `{ storeName, operation, data, payload }` |
@@ -940,8 +938,7 @@ Every `rz:*` event, when it fires, and its `detail`.
 | `rz:dom:place` | Placed | `{ target, position, payload, source }` |
 | `rz:sse:config` | Before the first connection, once. **Cancelable**; edit `config` in place | `{ config }` |
 | `rz:sse:open` | Each successful (re)connection | `{ config }` |
-| `rz:sse:message:{html,json}` | Unnamed messages, before `:message`; what `rz-place` and `rz-deposit` route | as `:message` |
-| `rz:sse:message` | Every message | `{ config, event, data, raw, lastEventId }` |
+| `rz:sse:message` | Every message. An unnamed one is placed or deposited first | `{ config, event, data, raw, lastEventId }` |
 | `rz:sse:error` | Connection lost. **Cancelable**: prevented, no reconnect | `{ config, attempt }` |
 | `rz:sse:close` | Stream closed | `{ config, reason }` |
 
@@ -966,8 +963,9 @@ app.place('#log', '<li>Done</li>', { position: 'beforeend' });
 
 // With the sse plugin: open a stream and append each unnamed HTML message to #log
 const close = app.sse('/events');
-app.on('rz:sse:message:html', (e) => {
-  app.place('#log', e.detail.data, { position: 'beforeend' });
+app.on('rz:sse:message', (e) => {
+  const { event, data } = e.detail;
+  if (event === 'message' && typeof data === 'string') app.place('#log', data, { position: 'beforeend' });
 });
 ```
 

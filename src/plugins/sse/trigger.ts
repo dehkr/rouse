@@ -1,3 +1,11 @@
+/*
+ * `sse-[name]` hears messages as the bubbling `rz:sse:message` event, so a listener
+ * that stops its propagation between the stream's element and the trigger silences
+ * the trigger. Payload routing is a direct call and doesn't share this weakness.
+ * Moving the source to a direct subscription needs its own design: it relies on
+ * bubbling, since an element hears its descendants' streams and `|root` hears every
+ * stream in the app.
+ */
 import { warn } from '../../core/diagnostics';
 import type { TriggerSource } from '../../dom/events';
 import type { SseMessageDetail } from '../../types';
