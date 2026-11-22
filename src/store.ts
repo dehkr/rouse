@@ -20,7 +20,7 @@ import type { RouseApp } from './app';
 import { fail, warn } from './core/diagnostics';
 import { needsPlugin } from './core/plugins';
 import { dispatchFrom } from './core/dispatch';
-import { clone, nullPaths, patchState } from './core/state';
+import { clone, patchState } from './core/state';
 
 /** Receives the store roots that changed in one batch of user edits. */
 export type EditListener = (roots: ReadonlySet<string>) => void;
@@ -107,18 +107,6 @@ function assertStoreState(storeName: string, state: unknown) {
       `Store '${storeName}' must be an object, not ${Array.isArray(state) ? 'an array' : String(state)}.`,
     );
   }
-}
-
-/**
- * Warns for each object property holding `null` in a baseline the caller is
- * asserting. Dev-only; gate every call with `__DEV__`.
- */
-function warnNullFields(storeName: string, state: object) {
-  nullPaths(state).forEach((path) =>
-    warn(
-      `Store '${storeName}': '${path}' is null. Sync reads null as a delete (RFC 7396), so it cannot rest as a value. Use '' or omit the key.`,
-    ),
-  );
 }
 
 /**
@@ -316,10 +304,6 @@ export class StoreManager {
       );
     }
 
-    if (__DEV__) {
-      warnNullFields(storeName, state);
-    }
-
     const { created } = this._hooks;
     const declared = created && clone(state);
     if (persisted) {
@@ -400,9 +384,6 @@ export class StoreManager {
     }
 
     if (state) {
-      if (__DEV__) {
-        warnNullFields(storeName, state);
-      }
       this._reseed(entry, state);
     }
 
@@ -426,9 +407,6 @@ export class StoreManager {
       fail(storeName ? `Store '${storeName}' does not exist.` : 'Store name is missing.');
     }
     assertStoreState(entry.name, state);
-    if (__DEV__) {
-      warnNullFields(entry.name, state);
-    }
 
     this._reseed(entry, state);
 
@@ -437,7 +415,7 @@ export class StoreManager {
 
   /**
    * Replaces the store's data and calls the `reseeded` hook. Shared by `update()`,
-   * `reset()`, and a re-declared script. Callers passing new state warn on null fields.
+   * `reset()`, and a re-declared script.
    *
    * @internal
    */
@@ -487,8 +465,7 @@ export class StoreManager {
 
     const applied = beforeEvent.detail.payload as object;
 
-    // Unlike a pull, there's no mid-flight guard, and no null-field warning: a
-    // deposit's `null` is its delete.
+    // Unlike a pull, there's no mid-flight guard
     this._frameworkWrite(
       () => patchState(data, applied, 'merge'),
       () => this._hooks.deposited?.(entry, applied),

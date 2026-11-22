@@ -1,12 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import { deepEqual } from '../../../src/plugins/sync/equal';
-import {
-  clone,
-  hasAccessor,
-  isPlainObject,
-  nullPaths,
-  patchState,
-} from '../../../src/core/state';
+import { clone, hasAccessor, isPlainObject, patchState } from '../../../src/core/state';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -57,21 +51,6 @@ describe('clone', () => {
     expect(clone(3)).toBe(3);
     expect(clone(null)).toBeNull();
     expect(clone('s')).toBe('s');
-  });
-});
-
-describe('nullPaths', () => {
-  it('collects the dot-path of every null in nested objects', () => {
-    expect(nullPaths({ a: null, b: { c: null, d: 1 } })).toEqual(['a', 'b.c']);
-  });
-
-  it('does not descend into arrays', () => {
-    expect(nullPaths({ list: [null, { x: null }] })).toEqual([]);
-  });
-
-  it('returns [] for anything but a plain object', () => {
-    expect(nullPaths(null)).toEqual([]);
-    expect(nullPaths([null])).toEqual([]);
   });
 });
 

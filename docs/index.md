@@ -1116,7 +1116,7 @@ The development build warns about most authoring mistakes. These fail without an
 - **Wake waits for every trigger.** `rz-wake` is AND: `interact timeout-[5s]` waits for both.
 - **Wake and close need a host directive.** `rz-wake` does nothing without `rz-scope`, and `rz-close` nothing without `rz-sse`.
 - **Saved values beat changed defaults.** A persisted field restores its saved value on reload, so a new default, or an initial value read from a `data-*` attribute, applies only while nothing is saved. A field removed from the initial object also comes back from saved data.
-- **Null deletes synced fields.** In a synced store `null` deletes the key, so leave a field absent instead of `null`. A server serializer that omits empty values (Go `omitempty`) can never clear a field.
+- **Null in a payload deletes.** A store can hold `null`, but a pushed `null` removes the field on the server, and a `null` in a response or deposit removes the key from the store. A server serializer that omits empty values (Go `omitempty`) can never clear a field.
 - **Placement defaults to the host.** A stream element without `rz-place` writes every unnamed HTML message into its own `innerHTML`. Use `data-rz-place="null"` to opt out.
 - **Edit triggers watch data fields.** `edit-[@store.key]` filters on data fields. A setter writes its underlying field, so watching the accessor's key never fires.
 - **CORS must allow Rouse headers.** A cross-origin server must list the `Rouse-*` headers in `Access-Control-Allow-Headers` (or sync requests fail as `Failed to fetch`) and `Access-Control-Expose-Headers` (or response headers are ignored).
