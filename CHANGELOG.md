@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Breaking:** Remove `rousejs/dev` and `rousejs/min` entry points. `rousejs` now resolves via the `development` export condition (default in Vite; pass `--conditions=development` in esbuild).
 - **Breaking:** Remove the `REDIRECTED` error code; cross-origin redirects now route their final response unless `redirect: error` is set in `rz-request`.
 - **Breaking:** Remove the `Rouse-Push-Url` response header. Use `Rouse-Replace-Url` to update the URL in place, or `Rouse-Redirect` to navigate and add a history entry.
+- **Breaking:** Remove `rz:scope:init` and `rz:scope:destroy`. Use `rz:scope:connect` (post-binding) and `rz:scope:disconnect` (post-teardown), or wrap the setup function in `app.scope()` to run pre-binding logic.
 
 ### Fixed
 

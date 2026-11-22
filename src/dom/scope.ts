@@ -9,7 +9,6 @@
 import { effectScope } from 'alien-signals';
 import type { RouseApp } from '../app';
 import { err, fail, warn } from '../core/diagnostics';
-import { dispatchFrom } from '../core/dispatch';
 import type { ScopeCtx, ScopeSetup, VoidFn, TriggerDef } from '../types';
 import { bindScope } from './binder';
 import { attachWakeStrategies } from './events';
@@ -80,22 +79,14 @@ function initScopeInstance(el: HTMLElement, app: RouseApp, setup: ScopeSetup) {
 /**
  * Tears down the instance on `el`, or cancels its pending `rz-wake` gate so setup
  * never runs on a detached host. `_destroy()` fires `rz:scope:disconnect` while
- * unbinding. `rz:scope:destroy` is the final "instance gone" signal, so it
- * dispatches last.
+ * unbinding.
  */
 export function destroyInstance(el: HTMLElement) {
   pendingWakes.get(el)?.();
   pendingWakes.delete(el);
 
-  const inst = instanceMap.get(el);
-  if (inst) {
-    inst._destroy();
-    dispatchFrom(el, inst.root, 'rz:scope:destroy', {
-      instance: inst.instance,
-      host: el,
-    });
-    instanceMap.delete(el);
-  }
+  instanceMap.get(el)?._destroy();
+  instanceMap.delete(el);
 }
 
 /**
@@ -113,10 +104,9 @@ export function teardownScopeNode(el: HTMLElement, removedNode: Element) {
 }
 
 /**
- * Builds a scope instance on an HTML element. Runs `setup`, dispatches
- * `rz:scope:init`, then binds the subtree. Setup state and DOM bindings each
- * get their own `effectScope`, so bindings tear down before the state they
- * read. Returns an internal handle.
+ * Builds a scope instance on an HTML element. Runs `setup`, then binds the subtree.
+ * Setup state and DOM bindings each get their own `effectScope`, so bindings tear
+ * down before the state they read. Returns an internal handle.
  */
 function createScope(el: HTMLElement, app: RouseApp, setup: ScopeSetup) {
   let instance: any;
@@ -176,9 +166,6 @@ function createScope(el: HTMLElement, app: RouseApp, setup: ScopeSetup) {
   cleanups.push(stopSetupScope);
 
   if (!setupFailed) {
-    // State exists but not bound to DOM yet
-    dispatchFrom(el, app.root, 'rz:scope:init', { context, instance });
-
     // `effectScope` for bindings wraps the logic that connects the reactive state
     // to the DOM. Captures effects created by bindings (text, atts, etc.) so the
     // UI auto updates.
@@ -192,8 +179,6 @@ function createScope(el: HTMLElement, app: RouseApp, setup: ScopeSetup) {
   }
 
   return {
-    instance,
-    root: app.root,
     _scan: scan,
     _teardown: (node: Element) => binding?.teardown(node),
     _destroy: destroy,

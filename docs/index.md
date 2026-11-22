@@ -429,8 +429,8 @@ Methods called from directives receive `{ el, e, render }` (`HandlerCtx`), with 
 
 | Hook | Runs | Order |
 | --- | --- | --- |
-| `connect()` | Once per instance, after the region's directives bind | setup -> `rz:scope:init` -> bind -> `connect()` -> `rz:scope:connect` |
-| `disconnect()` | On teardown: the host leaves the DOM, or `app.destroy()` | `term` aborts -> bindings detach -> `disconnect()` -> `rz:scope:disconnect` -> `rz:scope:destroy` |
+| `connect()` | Once per instance, after the region's directives bind | setup -> bind -> `connect()` -> `rz:scope:connect` |
+| `disconnect()` | On teardown: the host leaves the DOM, or `app.destroy()` | `term` aborts -> bindings detach -> `disconnect()` -> `rz:scope:disconnect` |
 
 - Use `connect()` for work that needs bound DOM: measuring, focusing, or mounting a third-party widget. Setup runs before any directive binds.
 - With `rz-wake`, `connect()` waits for activation. Setup waits too, and never runs if the host leaves the DOM first.
@@ -906,7 +906,7 @@ Every event bubbles to `app.root`. Each fires from the element it describes. Onc
 | Category | Events | Fires from | Identified by |
 | --- | --- | --- | --- |
 | App | `rz:app:*` | `app.root` | |
-| Scope | `rz:scope:*` | The scope's host | `host` (`context.host` on `:init`) |
+| Scope | `rz:scope:*` | The scope's host | `host` |
 | Request (a network operation) | `rz:fetch:*`, `rz:push:*`, `rz:pull:*` | The trigger element, else `app.root` | `config.triggerEl` (`result.config.triggerEl` on push/pull `:success` / `:error`); push/pull also `storeName` |
 | Destination (what a response changed) | `rz:store:patch*`, `rz:dom:place*` | The store's script (else `app.root`), or the placement target (its parent for `outerHTML` / `delete`) | `storeName`, `target` |
 | Connection (a stream) | `rz:sse:*` | The `rz-sse` element | `config.triggerEl` |
@@ -923,10 +923,8 @@ Every `rz:*` event, when it fires, and its `detail`.
 | `rz:app:start` | `start()` begins, before the scan | `{ app }` |
 | `rz:app:ready` | The frame after the first scan | `{ app }` |
 | `rz:app:destroy` | `destroy()` | `{ app }` |
-| `rz:scope:init` | Setup returned | `{ context, instance }` |
-| `rz:scope:connect` | Bindings attached, after `rz-wake` | `{ instance, host }` |
-| `rz:scope:disconnect` | Bindings detached | `{ instance, host }` |
-| `rz:scope:destroy` | Torn down; fires last. `instance` is for recognizing the scope, not calling it | `{ instance, host }` |
+| `rz:scope:connect` | Bindings attached, after `rz-wake`. Not fired when setup throws | `{ instance, host }` |
+| `rz:scope:disconnect` | Bindings detached; fires once for each `connect`. `instance` is for recognizing the scope, not calling it | `{ instance, host }` |
 | `rz:fetch:config` | Before sending. **Cancelable**: prevented, nothing else fires. Edit `config` in place (absolute `url`, `method`, `headers`); it's the object sent | `{ config }`; push/pull add `storeName` |
 | `rz:fetch:start` | Sent | as `:config` |
 | `rz:fetch:success` | 2xx response. Exactly one of `:success`, `:error`, `:abort` fires | Fetch: the response `{ data, error, status, headers, response, config }`. Push/pull: `{ storeName, result }` |
@@ -1105,7 +1103,7 @@ The development build warns about most authoring mistakes. These fail without an
 - **Moving a keyed item takes one `batch()`.** `items.push(items.shift())` is two writes, and the first removes the item, so its instance is rebuilt without its input values or nested scope state. A swap also passes through a duplicate key and warns. Write `batch(() => items.push(items.shift()))`.
 - **Interceptors must return.** A `response` or `error` interceptor's return replaces `data` or `error`, so returning nothing sets it to `undefined`.
 - **Scope listeners and requests are app-wide.** `app.on` in a scope listens on the whole app unless you pass `host` first, and lasts as long as the app without `signal: term`. `app.fetch` likewise keeps running after teardown without `signal: term`.
-- **A removed element doesn't hear its own teardown.** Removing an element fires its remaining events (`rz:scope:disconnect`, `rz:scope:destroy`, the teardown `rz:sse:close`, an in-flight request's terminal events) from `app.root`. A listener on the element or a removed ancestor misses them. Use `app.on` and match `e.detail.host` or `e.detail.config.triggerEl`. Inside a scope, clean up with `term` instead.
+- **A removed element doesn't hear its own teardown.** Removing an element fires its remaining events (`rz:scope:disconnect`, the teardown `rz:sse:close`, an in-flight request's terminal events) from `app.root`. A listener on the element or a removed ancestor misses them. Use `app.on` and match `e.detail.host` or `e.detail.config.triggerEl`. Inside a scope, clean up with `term` instead.
 - **A removed trigger's response still lands.** Removing a trigger doesn't cancel its request, so a slow response can overwrite newer content in a shared target. Give competing triggers a shared `rz-request="abort-key: …"`.
 - **Plugin markup needs its plugin.** Without `sync` or `sse` installed in that app, `rz-push`, `rz-pull`, `@store::status`, a store endpoint, `rz-sse`, and `sse-[name]` do nothing. The production build doesn't warn.
 - **Register before scanning.** A store registered after the markup reading it was scanned stays `undefined` in those bindings for good.

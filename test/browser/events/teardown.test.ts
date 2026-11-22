@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vite-plus/test';
+import { describe, expect, it, vi } from 'vite-plus/test';
 import { sse as ssePlugin } from '../../../src/plugins/sse';
 import { delay, HttpResponse, http, sse, worker } from '../helpers/network';
 import { mount } from '../helpers/mount';
@@ -17,7 +17,7 @@ function record(target: EventTarget, events: string[]) {
 
 const names = (heard: CustomEvent[]) => heard.map((e) => e.type);
 
-const SCOPE_TEARDOWN = ['rz:scope:disconnect', 'rz:scope:destroy'];
+const SCOPE_TEARDOWN = ['rz:scope:disconnect'];
 
 // "Event origins": an event fires from the element it describes, or from `app.root`
 // once that element has left the DOM, with `detail` naming the element.
@@ -132,5 +132,33 @@ describe('event origins for detached elements', () => {
     root.addEventListener('rz:store:patch', (e) => (target = e.target));
     app.stores.deposit('cart', { n: 1 });
     expect(target).toBe(root);
+  });
+});
+
+describe('scope events', () => {
+  it('pairs every connect with one disconnect, and fires neither when setup throws', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const heard: string[] = [];
+    const { root } = await mount(
+      `<section id="broken" data-rz-scope="broken"></section>
+       <section id="ok" data-rz-scope=""></section>`,
+      {
+        scopes: {
+          broken: () => {
+            throw new Error('boom');
+          },
+        },
+        setup: (app) =>
+          (['rz:scope:connect', 'rz:scope:disconnect'] as const).forEach((type) =>
+            app.on(type, (e) => heard.push(`${type} #${e.detail.host.id}`)),
+          ),
+      },
+    );
+
+    root.replaceChildren();
+    await expect
+      .poll(() => heard)
+      .toEqual(['rz:scope:connect #ok', 'rz:scope:disconnect #ok']);
+    error.mockRestore();
   });
 });
