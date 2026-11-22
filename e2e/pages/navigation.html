@@ -3,13 +3,32 @@
   <head>
     <meta charset="utf-8" />
     <title>Navigation</title>
+    <script>
+      // Records the terminal event, which fires before Rouse-Redirect unloads the page
+      window.setup = (app) =>
+        ['success', 'error'].forEach((type) =>
+          app.on(`rz:fetch:${type}`, (e) =>
+            sessionStorage.setItem('terminal', `${type} ${e.detail.status}`),
+          ),
+        );
+    </script>
     <script type="module" src="/boot.js"></script>
   </head>
   <body>
-    <button id="redirect-header" data-rz-fetch="click: /api/redirect-header">
+    <button id="redirect-200" data-rz-fetch="click: /api/redirect-header">
       Redirect
     </button>
-    <button id="redirect-302" data-rz-fetch="click: /api/redirect-302">Follow</button>
+    <button id="redirect-401" data-rz-fetch="click: /api/redirect-header?status=401">
+      Redirect on 401
+    </button>
+    <button
+      id="redirect-302"
+      data-rz-fetch="click: /api/redirect-302"
+      data-rz-place="#followed"
+    >
+      Follow
+    </button>
+    <div id="followed"></div>
     <button id="tab-2" data-rz-fetch="click: /api/push-url?tab=2" data-rz-place="#panel">
       Tab 2
     </button>

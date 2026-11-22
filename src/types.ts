@@ -517,15 +517,13 @@ export interface StandaloneDirective {
  * - `NETWORK_ERROR`: Fetch failed (offline, DNS, CORS, etc.).
  * - `PARSE_ERROR`: Response body couldn't be parsed.
  * - `INTERNAL_ERROR`: Unexpected error in request engine.
- * - `REDIRECTED`: Cross-origin redirect refused by the fetch engine.
  */
 export type CustomErrorCode =
   | 'CANCELED'
   | 'TIMEOUT'
   | 'NETWORK_ERROR'
   | 'PARSE_ERROR'
-  | 'INTERNAL_ERROR'
-  | 'REDIRECTED';
+  | 'INTERNAL_ERROR';
 
 /** An HTTP status code, or a custom error code. */
 export type ErrorCode = CustomErrorCode | number;

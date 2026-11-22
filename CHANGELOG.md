@@ -19,15 +19,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Breaking:** Move store sync to the `sync` plugin (`import { sync } from 'rousejs/sync'`), covering `rz-push`, `rz-pull`, `@store::status`, store endpoints/request options, `app.stores` sync methods, and the `StoreStatus`, `SyncPolicy`, and `SyncRequest` types.
 - **Breaking:** Move server-sent events to the `sse` plugin (`import { sse } from 'rousejs/sse'`), covering `rz-sse`, `rz-close`, `sse-[name]` triggers, and `app.sse()`.
 - **Breaking:** Rename the render item reference from `%` to `~item` (e.g., `%.field` becomes `~item.field`), matching `@store` prefix syntax.
+- **Breaking:** Route the final response of a browser-followed redirect to `rz-place` or `rz-deposit` instead of navigating the page (use the `Rouse-Redirect` header for full-page redirects).
 - Accept any state path as an `rz-on` handler, including nested scope paths (`actions.save`) and render item paths (`~item.toggle`).
 
 ### Removed
 
 - **Breaking:** Remove `app.stores.dirtyRoots()`. Read the store status object instead, which holds the same keys.
 - **Breaking:** Remove `rousejs/dev` and `rousejs/min` entry points. `rousejs` now resolves via the `development` export condition (default in Vite; pass `--conditions=development` in esbuild).
+- **Breaking:** Remove the `REDIRECTED` error code; cross-origin redirects now route their final response unless `redirect: error` is set in `rz-request`.
 
 ### Fixed
 
+- Fire `rz:fetch:success` or `rz:fetch:error` before `Rouse-Redirect` navigates the page, ensuring a terminal event precedes `:end`.
 - Allow `rz-sse` streams closed by a prevented `rz:sse:error` or rejected connection to reconnect when triggered again or mounted on a new element.
 - Route server-sent events named `open` or `error` to `sse-[open]` and `sse-[error]` triggers instead of treating them as connection lifecycle events.
 - Fire `edit` triggers when an effect mutates a store in response to a framework write (sync response, deposit, `update()`, `reset()`, or `revert()`).

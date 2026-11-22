@@ -203,26 +203,12 @@ async function sendAndRoute(
     const result = await request(options, app);
     const rouseHeaders = extractRouseHeaders(result.headers);
 
+    // Settles so listeners see the terminal event, but doesn't route into a page
+    // that's about to unload
     if (rouseHeaders.redirect) {
+      handle.settle(result);
       window.location.assign(rouseHeaders.redirect);
       return result;
-    }
-
-    // Native browser-followed redirect (e.g., expired session -> login page).
-    // Server intent via Rouse-Redirect wins. Falls through to the redirected
-    // short-circuit in the error block below.
-    if (result.response?.redirected) {
-      if (isSameOrigin(result.response.url)) {
-        window.location.assign(result.response.url);
-        return result;
-      }
-      if (__DEV__) {
-        warn(`Cross-origin redirect blocked: '${result.response.url}'.`);
-      }
-      result.error = {
-        message: 'Cross-origin redirect blocked',
-        code: 'REDIRECTED',
-      };
     }
 
     applyUrlChange(rouseHeaders.pushUrl, rouseHeaders.replaceUrl);
@@ -237,8 +223,7 @@ async function sendAndRoute(
     handle.settle(result);
 
     if (result.error) {
-      const { code } = result.error;
-      if (code !== 'CANCELED' && code !== 'REDIRECTED' && result.response) {
+      if (result.error.code !== 'CANCELED' && result.response) {
         routePayload(hostEl, app, result, 'error');
       }
       return result;

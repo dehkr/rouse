@@ -730,11 +730,11 @@ The server can override the client with response headers. The header wins over t
 | `Rouse-Place` | Replaces `rz-place` for this response, same grammar (`beforeend: #log`, `delete`). Beats `rz-place="null"` | fetch |
 | `Rouse-Deposit` | Replaces `rz-deposit` for this response (`@results`) | fetch |
 | `Rouse-Trigger` | Dispatches the named event from the trigger element after `:success`; `detail` is the response | fetch, push, pull |
-| `Rouse-Redirect` | Navigates the page to the URL; the rest of the response is ignored | fetch |
+| `Rouse-Redirect` | Navigates the page to the URL after `:success` or `:error` fires; the response doesn't route | fetch |
 | `Rouse-Push-Url` | `history.pushState` to the URL; same origin only | fetch |
 | `Rouse-Replace-Url` | `history.replaceState` to the URL; same origin only. `Rouse-Push-Url` wins if both are sent | fetch |
 
-A redirect the browser follows (`3xx`) navigates the page to the final URL when it's same-origin, and fails with `REDIRECTED` when it isn't.
+A redirect the browser follows (`3xx`) routes its final response like any other, whatever its origin. To refuse redirects, set `data-rz-request="redirect: error"`, which fails the request with `NETWORK_ERROR`.
 
 ## Server-sent events
 
@@ -786,7 +786,6 @@ A failed request is a result, not an exception. It never rejects: it resolves wi
 | `CANCELED` | Aborted by a newer request or a signal (fires `:abort`, not `:error`), prevented in `:config`, or dropped by a guard |
 | `NETWORK_ERROR` | No response; `original` is the thrown error |
 | `PARSE_ERROR` | A 2xx body that couldn't be parsed: malformed JSON, or an event stream (open it with `rz-sse`) |
-| `REDIRECTED` | The browser followed a redirect to another origin |
 | `INTERNAL_ERROR` | Rouse threw unexpectedly |
 
 ### Handling strategies
@@ -843,6 +842,7 @@ app.interceptor('error', (error) => {
 ```
 
 - **Clear field errors.** Send every field on each response, with `""` for valid ones, and send `Rouse-Deposit` on the success response too. A field left out keeps its old message.
+- **Expired sessions.** Answer Rouse requests (`Rouse-Request: true`) with a `401` and `Rouse-Redirect: /login`. A `302` to the login page is followed by the browser and routes the login page into the fetch's target.
 - **Typed sub-events.** `rz:fetch:error:html` and `rz:fetch:error:json` fire right after `rz:fetch:error`, filtered by the error body's content type.
 - **Bubbling.** Error events bubble to `app.root`, so one listener on a container handles every trigger inside it.
 - **Order.** Error interceptors run before any error event.

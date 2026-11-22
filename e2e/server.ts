@@ -95,8 +95,10 @@ const routes: Record<string, Handler> = {
     ),
 
   // Navigation
-  'GET /api/redirect-header': (_req, res) =>
-    send(res, 200, '', { 'Rouse-Redirect': '/landing.html?via=header' }),
+  'GET /api/redirect-header': (_req, res, url) =>
+    send(res, Number(url.searchParams.get('status') ?? 200), '', {
+      'Rouse-Redirect': '/landing.html?via=header',
+    }),
   'GET /api/redirect-302': (_req, res) => {
     res.writeHead(302, { Location: '/api/after-redirect' });
     res.end();
