@@ -25,13 +25,3 @@ test('places the final response of a followed redirect without navigating', asyn
   await expect(page.locator('#followed')).toHaveText('followed');
   await expect(page).toHaveURL('/navigation.html');
 });
-
-test('pushes a history entry with Rouse-Push-Url that Back undoes', async ({ page }) => {
-  await open(page, '/navigation.html');
-  await page.click('#tab-2');
-  await expect(page.locator('#panel')).toHaveText('tab 2');
-  await expect(page).toHaveURL('/navigation.html?tab=2');
-
-  await page.goBack();
-  await expect(page).toHaveURL('/navigation.html');
-});

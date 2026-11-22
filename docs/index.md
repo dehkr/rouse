@@ -731,8 +731,7 @@ The server can override the client with response headers. The header wins over t
 | `Rouse-Deposit` | Replaces `rz-deposit` for this response (`@results`) | fetch |
 | `Rouse-Trigger` | Dispatches the named event from the trigger element after `:success`; `detail` is the response | fetch, push, pull |
 | `Rouse-Redirect` | Navigates the page to the URL after `:success` or `:error` fires; the response doesn't route | fetch |
-| `Rouse-Push-Url` | `history.pushState` to the URL; same origin only | fetch |
-| `Rouse-Replace-Url` | `history.replaceState` to the URL; same origin only. `Rouse-Push-Url` wins if both are sent | fetch |
+| `Rouse-Replace-Url` | `history.replaceState` to the URL; same origin only. For a history entry, send `Rouse-Redirect` | fetch |
 
 A redirect the browser follows (`3xx`) routes its final response like any other, whatever its origin. To refuse redirects, set `data-rz-request="redirect: error"`, which fails the request with `NETWORK_ERROR`.
 

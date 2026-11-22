@@ -104,10 +104,6 @@ const routes: Record<string, Handler> = {
     res.end();
   },
   'GET /api/after-redirect': (_req, res) => send(res, 200, '<p>followed</p>'),
-  'GET /api/push-url': (_req, res, url) =>
-    send(res, 200, `<p>tab ${url.searchParams.get('tab')}</p>`, {
-      'Rouse-Push-Url': `?tab=${url.searchParams.get('tab')}`,
-    }),
 
   // Store sync: push merges into the server copy and answers with a server-owned field
   'GET /api/store': (_req, res) => json(res, 200, store),

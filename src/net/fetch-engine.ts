@@ -211,7 +211,7 @@ async function sendAndRoute(
       return result;
     }
 
-    applyUrlChange(rouseHeaders.pushUrl, rouseHeaders.replaceUrl);
+    replacePageUrl(rouseHeaders.replaceUrl);
 
     if (rouseHeaders.place) {
       result.placeOverride = rouseHeaders.place;
@@ -525,52 +525,30 @@ function extractRouseHeaders(headers: Record<string, string> | null) {
     redirect: headers?.['rouse-redirect'] || null,
     place: headers?.['rouse-place'] || null,
     deposit: headers?.['rouse-deposit'] || null,
-    pushUrl: headers?.['rouse-push-url'] || null,
     replaceUrl: headers?.['rouse-replace-url'] || null,
   };
 }
 
 /**
- * Applies a server-directed URL change via history.pushState / replaceState.
+ * Replaces the page URL with a server-directed one without adding a history entry.
  * Rejects cross-origin URLs to defend against a compromised backend.
  */
-function applyUrlChange(pushUrl: string | null, replaceUrl: string | null): void {
-  const url = pushUrl ?? replaceUrl;
+function replacePageUrl(url: string | null): void {
   if (url === null) {
     return;
   }
 
-  if (__DEV__ && pushUrl && replaceUrl) {
-    warn(`Both 'Rouse-Push-Url' and 'Rouse-Replace-Url' present. Using Push.`);
-  }
-
-  if (!isSameOrigin(url)) {
-    const headerName = pushUrl ? 'Rouse-Push-Url' : 'Rouse-Replace-Url';
-    if (__DEV__) {
-      warn(`'${headerName}' rejected: cross-origin URL '${url}'.`);
-    }
-    return;
-  }
-
-  const method = pushUrl ? 'pushState' : 'replaceState';
-
   try {
-    history[method]({}, '', url);
+    if (new URL(url, location.href).origin !== location.origin) {
+      if (__DEV__) {
+        warn(`'Rouse-Replace-Url' rejected: cross-origin URL '${url}'.`);
+      }
+      return;
+    }
+    history.replaceState({}, '', url);
   } catch (error) {
     if (__DEV__) {
-      warn(`${method} failed for URL '${url}'.`, error);
+      warn(`'Rouse-Replace-Url' failed for URL '${url}'.`, error);
     }
-  }
-}
-
-/**
- * Resolves `url` against the document and compares origins. Malformed URLs
- * are not same-origin.
- */
-function isSameOrigin(url: string): boolean {
-  try {
-    return new URL(url, window.location.href).origin === window.location.origin;
-  } catch {
-    return false;
   }
 }

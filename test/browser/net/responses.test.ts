@@ -79,10 +79,10 @@ describe('response headers', () => {
       expect(history.length).toBe(length);
     });
 
-    it('ignores a cross-origin Rouse-Push-Url', async () => {
+    it('ignores a cross-origin Rouse-Replace-Url', async () => {
       worker.use(
         http.get('/api/tab', () =>
-          html('tab', { 'Rouse-Push-Url': 'https://example.com/x' }),
+          html('tab', { 'Rouse-Replace-Url': 'https://example.com/x' }),
         ),
       );
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
