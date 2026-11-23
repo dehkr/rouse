@@ -205,6 +205,7 @@ Rouse doesn't guess when something should happen: triggers are written out on ev
 - A bracketed argument follows `-[`: `debounce-[300ms]`, `key-[enter]`, `timeout-[5s]`, `media-[(min-width: 640px)]`. One argument only; commas inside brackets are data.
 - A trigger is any DOM or custom event name, including Rouse's lifecycle events (`data-rz-on="rz:fetch:success: stamp"`) and an event a server sends with `Rouse-Trigger`. Colons inside a name are fine, because only colon plus whitespace ends the trigger. Any trigger works on any of these directives: `data-rz-fetch="edit-[@filters]|debounce-[400ms]: /search"`.
 - Triggers are always explicit, except on `rz-model`. A colon-less value on the network directives and `rz-on` is triggers only (`data-rz-fetch="click"` takes its URL from `href`/`action`).
+- A directive trigger on a link's `click` or a form's `submit` cancels the native navigation; `app.on` and `rz-wake` don't. A link click with Ctrl, Cmd, Shift, or Alt held stays with the browser (new tab, new window, or download) unless the trigger names a modifier, as in `click|ctrl`.
 - A second `|` (`click|a|b`), an empty segment (`click||once`), or a leading `|` warns and skips the trigger. An unknown modifier warns. An argument on an event that takes none is ignored.
 - `rz-wake` and `rz-close` take a trigger list: the whole value is space-separated triggers, no subject. A comma there warns.
 

@@ -34,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Fire `rz:fetch:success` or `rz:fetch:error` before `Rouse-Redirect` navigates the page, ensuring a terminal event precedes `:end`.
+- Let the browser handle link clicks with Ctrl, Cmd, Shift, or Alt held on directive triggers unless the trigger explicitly names a modifier (`click|ctrl`).
 - Allow `rz-sse` streams closed by a prevented `rz:sse:error` or rejected connection to reconnect when triggered again or mounted on a new element.
 - Route server-sent events named `open` or `error` to `sse-[open]` and `sse-[error]` triggers instead of treating them as connection lifecycle events.
 - Fire `edit` triggers when an effect mutates a store in response to a framework write (sync response, deposit, `update()`, `reset()`, or `revert()`).

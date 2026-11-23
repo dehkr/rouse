@@ -76,12 +76,28 @@ function isNativeNavigation(el: Element, e: Event): boolean {
 }
 
 /**
+ * Checks for a link click with a system modifier held, which the browser turns into
+ * a new tab, a new window, or a download.
+ */
+function isModifiedLinkClick(el: Element, e: Event): boolean {
+  return (
+    e.type === 'click' &&
+    el instanceof HTMLAnchorElement &&
+    e instanceof MouseEvent &&
+    (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey)
+  );
+}
+
+/**
  * Attaches a DOM event listener, applying the parsed modifiers: listener options,
  * event-argument filters, and target resolution. Execution timing is not applied here;
  * `dispatchTrigger`, its only caller, wraps the callback before calling in.
  *
  * `once` is enforced manually rather than natively so a modifier-filtered event doesn't
  * consume the listener. Trigger sources get their own via `attachTriggerSource`.
+ *
+ * When the trigger takes over navigation, a modified link click is left to the
+ * browser unless the trigger names a system modifier.
  *
  * @returns Cleanup function that removes the listener.
  */
@@ -91,10 +107,18 @@ function attachListener<D = any>(
   callback: (ev: CustomEvent<D>) => void,
   triggerOptions: TriggerModifiers,
   app: RouseApp,
+  suppressNavigation: boolean,
 ): VoidFn {
-  const { capture, once, passive } = triggerOptions;
+  const { capture, once, passive, ctrl, meta, shift, alt } = triggerOptions;
   const passes = compileModifiers(el, triggerOptions);
+  const ignoresModifiedClicks = suppressNavigation && !(ctrl || meta || shift || alt);
+
   const listener = (e: Event) => {
+    // Checked before the modifiers, which would apply `prevent` and `stop` to a click
+    // the browser handles, and before `once`, which would disarm the trigger
+    if (ignoresModifiedClicks && isModifiedLinkClick(el, e)) {
+      return;
+    }
     if (!passes(e)) {
       return;
     }
@@ -208,7 +232,8 @@ export function on(
  *
  * Native navigation is suppressed for form submits and anchor clicks unless the
  * caller opts out with `suppressNavigation: false`, which `app.on` and
- * `attachWakeStrategies` do.
+ * `attachWakeStrategies` do. A link click with a system modifier held stays with the
+ * browser unless the trigger names one.
  *
  * A source's argument comes from the trigger's own bracketed text when it has one,
  * otherwise from `base.arg`, which callers pass already typed.
@@ -277,6 +302,7 @@ export function dispatchTrigger(
     },
     trigger.options,
     base.app,
+    suppressNavigation,
   );
 
   return wrapCleanup(cleanup);

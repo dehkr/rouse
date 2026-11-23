@@ -1,6 +1,8 @@
-import { describe, expect, it } from 'vite-plus/test';
+import { describe, expect, it, vi } from 'vite-plus/test';
 import { compileModifiers } from '../../../src/dom/modifiers';
 import type { TriggerModifiers } from '../../../src/types';
+import { HttpResponse, http, worker } from '../helpers/network';
+import { mount } from '../helpers/mount';
 
 const el = document.createElement('button');
 
@@ -47,5 +49,61 @@ describe('compileModifiers', () => {
   it('passes a bare trigger whatever modifiers are held', () => {
     expect(passes({}, key('a', { shiftKey: true }))).toBe(true);
     expect(passes({}, click({ metaKey: true }))).toBe(true);
+  });
+});
+
+describe('modified link clicks', () => {
+  /**
+   * Clicks `link` and returns whether Rouse prevented the default. A listener on
+   * `document` hears the click after Rouse and cancels it, so the test frame stays put.
+   */
+  function clickLink(link: Element, init: MouseEventInit = {}): boolean {
+    let prevented = false;
+    const probe = (e: Event) => {
+      prevented = e.defaultPrevented;
+      e.preventDefault();
+    };
+    document.addEventListener('click', probe, { once: true });
+    link.dispatchEvent(
+      new MouseEvent('click', { bubbles: true, cancelable: true, ...init }),
+    );
+    return prevented;
+  }
+
+  /** Mocks `/api/page` and counts the requests that reach it. */
+  function page() {
+    const hit = vi.fn(() => new HttpResponse('<p>loaded</p>'));
+    worker.use(http.get('/api/page', hit));
+    return hit;
+  }
+
+  it('leaves a click with a system modifier held to the browser', async () => {
+    const hit = page();
+    const { $ } = await mount(
+      `<a href="/api/page" data-rz-fetch="click|once" data-rz-place="null">Page</a>`,
+    );
+
+    for (const init of [
+      { ctrlKey: true },
+      { metaKey: true },
+      { shiftKey: true },
+      { altKey: true },
+    ]) {
+      expect(clickLink($('a'), init)).toBe(false);
+    }
+
+    // `once` is still armed, so a plain click fetches
+    expect(clickLink($('a'))).toBe(true);
+    await expect.poll(() => hit).toHaveBeenCalledOnce();
+  });
+
+  it('fetches on a modified click the trigger names', async () => {
+    const hit = page();
+    const { $ } = await mount(
+      `<a href="/api/page" data-rz-fetch="click|ctrl" data-rz-place="null">Page</a>`,
+    );
+
+    expect(clickLink($('a'), { ctrlKey: true })).toBe(true);
+    await expect.poll(() => hit).toHaveBeenCalledOnce();
   });
 });
