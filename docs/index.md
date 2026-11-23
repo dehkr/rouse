@@ -673,16 +673,17 @@ Per-request options, written as `rz-request` pairs in markup or `app.fetch` opti
 
 ### Request headers
 
-Headers Rouse sends with every fetch, push, and pull, so the server can tell its requests apart.
+Headers Rouse adds to fetches, pushes, and pulls, so the server can tell its requests apart.
 
 | Header | Value | Sent by |
 | --- | --- | --- |
-| `Rouse-Request` | `true` | Every request |
+| `Rouse-Request` | `true` | Requests to the page's origin |
 | `Rouse-Sync` | `push` or `pull` | Push and pull |
 | `Rouse-Store` | The store's name | Push and pull |
 | `Accept` | `application/json, text/html, image/svg+xml, */*;q=0.8` | Every request |
 
 - A `null` value in `rz-headers`, app `headers`, or `app.fetch` `headers` drops any of them.
+- `Rouse-Request` stays off cross-origin requests, where a custom header forces a CORS preflight that a third-party API may reject. A cross-origin server that reads it declares it: `rouse({ headers: { 'Rouse-Request': 'true' } })` or `data-rz-headers="Rouse-Request: true"`.
 
 ### Overlapping requests
 

@@ -56,12 +56,16 @@ export function preparePayload(options: FetchRequest, baseUrl: string) {
   }
 
   const reqHeaders = new Headers();
-  reqHeaders.set('Rouse-Request', 'true');
+  // Same-origin only: a custom header forces a CORS preflight, and only the app's own
+  // server reads it. Compare with the page's origin, as the browser does, not `baseUrl`.
+  if (urlObj.origin === location.origin) {
+    reqHeaders.set('Rouse-Request', 'true');
+  }
   reqHeaders.set('Accept', 'application/json, text/html, image/svg+xml, */*;q=0.8');
 
-  // To omit a header (e.g., suppressing a framework default like Rouse-Request),
-  // set its value to null or undefined. An empty string is sent as an empty
-  // header value. All other values, including false and 0, are sent literally.
+  // To omit a header (e.g., suppressing a framework default like Rouse-Request on a
+  // same-origin request), set its value to null or undefined. An empty string is sent
+  // as an empty header value. All other values, including false and 0, are sent literally.
   for (const [key, val] of Object.entries(headers)) {
     if (val == null) {
       reqHeaders.delete(key);

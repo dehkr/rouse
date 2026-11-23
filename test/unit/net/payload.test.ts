@@ -4,6 +4,7 @@ import type { FetchRequest } from '../../../src/types';
 
 beforeEach(() => {
   vi.stubGlobal('document', { baseURI: 'https://app.test/page/' });
+  vi.stubGlobal('location', { origin: 'https://app.test' });
 });
 
 afterEach(() => {
@@ -73,6 +74,30 @@ describe('preparePayload', () => {
     expect(url.searchParams.getAll('tag')).toEqual(['a', 'b']);
     expect(url.searchParams.get('keep')).toBe('y');
     expect(url.searchParams.has('skip')).toBe(false);
+  });
+
+  describe('Rouse-Request', () => {
+    it.each(['/api', 'https://app.test/api'])('is sent to the page origin: %s', (url) => {
+      expect(prepare({ url }).reqHeaders.get('Rouse-Request')).toBe('true');
+    });
+
+    it('is left out for another origin', () => {
+      const { reqHeaders } = prepare({ url: 'https://api.other.test/x' });
+      expect(reqHeaders.has('Rouse-Request')).toBe(false);
+    });
+
+    it('is left out when a cross-origin baseUrl resolves the URL', () => {
+      const { reqHeaders } = prepare({ url: 'x' }, 'https://api.other.test');
+      expect(reqHeaders.has('Rouse-Request')).toBe(false);
+    });
+
+    it('is sent to another origin when headers declare it', () => {
+      const { reqHeaders } = prepare({
+        url: 'https://api.other.test/x',
+        headers: { 'Rouse-Request': 'true' },
+      });
+      expect(reqHeaders.get('Rouse-Request')).toBe('true');
+    });
   });
 
   it('removes a header set to null and sends falsy values literally', () => {

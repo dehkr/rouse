@@ -137,6 +137,25 @@ describe('store pull', () => {
     expect(app.stores.status('profile')!.lastSync).toBeGreaterThan(0);
   });
 
+  it('sends the sync headers but not Rouse-Request to another origin', async () => {
+    let request: Request | undefined;
+    worker.use(
+      http.get('https://sync.other.test/profile', ({ request: r }) => {
+        request = r;
+        return HttpResponse.json({});
+      }),
+    );
+    const { app } = await mount('', {
+      setup: (a) =>
+        a.store('profile', { name: 'Ada' }, { url: 'https://sync.other.test/profile' }),
+    });
+    await app.stores.pull('profile');
+
+    expect(request!.headers.get('Rouse-Sync')).toBe('pull');
+    expect(request!.headers.get('Rouse-Store')).toBe('profile');
+    expect(request!.headers.has('Rouse-Request')).toBe(false);
+  });
+
   it('reads clean after the server deletes a root with null', async () => {
     worker.use(http.get('/api/profile', () => HttpResponse.json({ bio: null })));
     const { app } = await mount('', {
