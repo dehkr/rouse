@@ -52,7 +52,7 @@ describe('compileModifiers', () => {
   });
 });
 
-describe('modified link clicks', () => {
+describe('link navigation', () => {
   /**
    * Clicks `link` and returns whether Rouse prevented the default. A listener on
    * `document` hears the click after Rouse and cancels it, so the test frame stays put.
@@ -106,4 +106,22 @@ describe('modified link clicks', () => {
     expect(clickLink($('a'), { ctrlKey: true })).toBe(true);
     await expect.poll(() => hit).toHaveBeenCalledOnce();
   });
+
+  // `window` is left out: its listener runs after the probe on `document`
+  for (const target of ['outside', 'document', 'root']) {
+    it(`leaves another link's clicks to the browser on click|${target}`, async () => {
+      const run = vi.fn();
+      const { $ } = await mount(
+        `<div data-rz-scope="s">
+          <a class="host" href="/elsewhere" data-rz-on="click|${target}: run">Host</a>
+          <a class="other" href="/elsewhere">Other</a>
+        </div>`,
+        { scopes: { s: () => ({ run }) } },
+      );
+
+      expect(clickLink($('.other'))).toBe(false);
+      expect(clickLink($('.other'), { ctrlKey: true })).toBe(false);
+      expect(run).toHaveBeenCalledTimes(2);
+    });
+  }
 });

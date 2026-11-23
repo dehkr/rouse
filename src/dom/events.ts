@@ -96,8 +96,11 @@ function isModifiedLinkClick(el: Element, e: Event): boolean {
  * `once` is enforced manually rather than natively so a modifier-filtered event doesn't
  * consume the listener. Trigger sources get their own via `attachTriggerSource`.
  *
- * When the trigger takes over navigation, a modified link click is left to the
- * browser unless the trigger names a system modifier.
+ * **Navigation:** with `suppressNavigation`, a listener on the element itself cancels
+ * the element's link click or form submit. A modified link click stays with the
+ * browser unless the trigger names a system modifier. A listener moved elsewhere
+ * (`window`, `document`, `root`, `outside`) hears other elements' events, so it
+ * cancels nothing.
  *
  * @returns Cleanup function that removes the listener.
  */
@@ -111,7 +114,9 @@ function attachListener<D = any>(
 ): VoidFn {
   const { capture, once, passive, ctrl, meta, shift, alt } = triggerOptions;
   const passes = compileModifiers(el, triggerOptions);
-  const ignoresModifiedClicks = suppressNavigation && !(ctrl || meta || shift || alt);
+  const target = resolveListenerTarget(el, triggerOptions, app);
+  const ownsNavigation = suppressNavigation && target === el;
+  const ignoresModifiedClicks = ownsNavigation && !(ctrl || meta || shift || alt);
 
   const listener = (e: Event) => {
     // Checked before the modifiers, which would apply `prevent` and `stop` to a click
@@ -128,10 +133,12 @@ function attachListener<D = any>(
     if (once) {
       cleanup();
     }
+    if (ownsNavigation && isNativeNavigation(el, e)) {
+      e.preventDefault();
+    }
     callback(e as CustomEvent<D>);
   };
 
-  const target = resolveListenerTarget(el, triggerOptions, app);
   const cleanup = () => {
     target.removeEventListener(name, listener, capture);
   };
@@ -232,8 +239,7 @@ export function on(
  *
  * Native navigation is suppressed for form submits and anchor clicks unless the
  * caller opts out with `suppressNavigation: false`, which `app.on` and
- * `attachWakeStrategies` do. A link click with a system modifier held stays with the
- * browser unless the trigger names one.
+ * `attachWakeStrategies` do. `attachListener` owns the rules.
  *
  * A source's argument comes from the trigger's own bracketed text when it has one,
  * otherwise from `base.arg`, which callers pass already typed.
@@ -246,7 +252,6 @@ export function dispatchTrigger(
 ): VoidFn {
   const timed = applyTiming(base.action, trigger.options);
   const action = timed ?? base.action;
-  const suppressNavigation = base.suppressNavigation ?? true;
 
   const wrapCleanup = (cleanup: VoidFn | null): VoidFn => {
     if (!timed) {
@@ -294,15 +299,10 @@ export function dispatchTrigger(
   const cleanup = attachListener(
     base.el,
     trigger.event,
-    (e: Event) => {
-      if (suppressNavigation && isNativeNavigation(base.el, e)) {
-        e.preventDefault();
-      }
-      action(e);
-    },
+    action,
     trigger.options,
     base.app,
-    suppressNavigation,
+    base.suppressNavigation ?? true,
   );
 
   return wrapCleanup(cleanup);
