@@ -50,6 +50,32 @@ describe('rz-fetch', () => {
     expect(app.stores.get('user')?.role).toBe('admin');
   });
 
+  it('places nothing for a JSON string response', async () => {
+    worker.use(http.post('/api/like', () => HttpResponse.json('ok')));
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { $ } = await mount(
+      `<button data-rz-fetch="click: POST /api/like">Like</button>`,
+    );
+    const ended = new Promise((resolve) =>
+      $('button').addEventListener('rz:fetch:end', resolve, { once: true }),
+    );
+    $('button').click();
+    await ended;
+    expect($('button').textContent).toBe('Like');
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it('returns a JSON scalar to app.fetch without a trigger, without a warning', async () => {
+    worker.use(http.get('/api/count', () => HttpResponse.json(3)));
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { app } = await mount(`<div></div>`);
+    const { data } = await app.fetch('/api/count');
+    expect(data).toBe(3);
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
   it('sends the Rouse-Request header and a field’s own name and value', async () => {
     let request: Request | undefined;
     worker.use(

@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Breaking:** Rename the render item reference from `%` to `~item` (e.g., `%.field` becomes `~item.field`), matching `@store` prefix syntax.
 - **Breaking:** Route the final response of a browser-followed redirect to `rz-place` or `rz-deposit` instead of navigating the page (use the `Rouse-Redirect` header for full-page redirects).
 - **Breaking:** Send the `Rouse-Request` header only on same-origin requests. Set it explicitly for cross-origin APIs via `rouse({ headers: { 'Rouse-Request': 'true' } })` or `data-rz-headers="Rouse-Request: true"`.
+- **Breaking:** Stop placing a string body from a fetch response with a JSON `Content-Type` as HTML. Send HTML as `text/html`.
 - Accept any state path as an `rz-on` handler, including nested scope paths (`actions.save`) and render item paths (`~item.toggle`).
 - Report a fetch that can't be sent as written (a body on GET or HEAD, or a missing or unresolvable URL) as `INVALID_REQUEST` instead of `INTERNAL_ERROR`.
 

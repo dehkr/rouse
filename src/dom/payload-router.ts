@@ -20,7 +20,7 @@ type PayloadSource = 'fetch' | 'sse';
  * Sends a fetch response or stream message to its destination. HTML goes to the DOM
  * targets named by `rz-place` or a server `Rouse-Place` header. JSON goes to the stores
  * named by `rz-deposit` or a server `Rouse-Deposit` header, as a merge patch through
- * `app.stores.deposit()`. A file goes nowhere.
+ * `app.stores.deposit()`. A file, or a string from a JSON response, goes nowhere.
  *
  * The destination is read off `config.triggerEl`. A payload without one routes only
  * when the server names a destination, since `rz-place`'s host default would otherwise
@@ -35,15 +35,19 @@ export function routePayload(
   const { data, error, placeOverride, depositOverride } = payload;
   const triggerEl = payload.config?.triggerEl;
   const host = triggerEl ?? app.root;
+  // Without a destination the server names, only a successful payload from a trigger routes
+  const routesByDefault = !error && !!triggerEl;
 
   // A server removing an element usually sends no body, which leaves nothing to
   // classify. `Rouse-Place` names the placement by itself, so an empty body that
   // carries it routes as HTML.
-  const kind = data == null && placeOverride ? 'html' : payloadKind(data);
+  const kind = data == null && placeOverride ? 'html' : payloadKind(payload);
 
   if (kind === null) {
-    // Ignore null/undefined (e.g., 204 No Content), but warn on unhandled complex types
-    if (__DEV__ && data != null) {
+    // An empty body has nothing to route. Any other payload warns only where it would
+    // have routed, since code reading an `app.fetch` result routes nothing.
+    const hasDestination = routesByDefault || !!placeOverride || !!depositOverride;
+    if (__DEV__ && data != null && hasDestination) {
       warn(`Unsupported payload: '${data?.constructor?.name || typeof data}'.`);
     }
     return;
@@ -58,7 +62,7 @@ export function routePayload(
   }
 
   const override = kind === 'html' ? placeOverride : depositOverride;
-  if (!override && (error || !triggerEl)) {
+  if (!override && !routesByDefault) {
     return;
   }
 
@@ -70,7 +74,8 @@ export function routePayload(
 }
 
 /** Classifies a payload by the router that handles it. */
-function payloadKind(data: unknown): 'file' | 'json' | 'html' | null {
+function payloadKind(payload: RoutablePayload): 'file' | 'json' | 'html' | null {
+  const { data } = payload;
   if (isFileType(data)) {
     return 'file';
   }
@@ -78,7 +83,10 @@ function payloadKind(data: unknown): 'file' | 'json' | 'html' | null {
   if (Array.isArray(data) || isPlainObject(data)) {
     return 'json';
   }
-  if (typeof data === 'string') {
+  // A string under a JSON Content-Type is JSON data, not markup. Only a fetch
+  // response carries one; a stream message string is always HTML.
+  const contentType = (payload as RouseResponse).response?.headers.get('Content-Type');
+  if (typeof data === 'string' && !isJsonType(contentType || '')) {
     return 'html';
   }
 
@@ -86,9 +94,9 @@ function payloadKind(data: unknown): 'file' | 'json' | 'html' | null {
 }
 
 /**
- * Warns when a server header or the response's Content-Type disagrees with how the
- * payload is routed. Each router reads only its own override, so a header aimed at
- * the other router would otherwise be dropped without a trace.
+ * Warns when a server header disagrees with how the payload is routed. Each router
+ * reads only its own override, so a header aimed at the other router would otherwise
+ * be dropped without a trace.
  */
 function warnMismatchedPayload(
   payload: RoutablePayload,
@@ -106,13 +114,6 @@ function warnMismatchedPayload(
       `Rouse-Deposit applies only to JSON responses, but this one was routed as ${kind === 'html' ? 'HTML' : 'a file'}. Ignoring it.`,
       host,
     );
-  }
-
-  if (kind === 'html' && typeof payload.data === 'string') {
-    const response = (payload as RouseResponse).response;
-    if (isJsonType(response?.headers.get('Content-Type') || '')) {
-      warn(`Content-Type is JSON but data is a string. Defaulting to HTML.`);
-    }
   }
 }
 

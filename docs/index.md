@@ -764,8 +764,9 @@ How Rouse routes a fetch response from markup, by its parsed body (`data`). Code
 
 | `data` | Goes to |
 | --- | --- |
-| HTML: a string | The `rz-place` targets (default: the trigger's `innerHTML`; `data-rz-place="null"` for none) |
+| HTML: a string, from a response that isn't JSON | The `rz-place` targets (default: the trigger's `innerHTML`; `data-rz-place="null"` for none) |
 | JSON: an object or array | The `rz-deposit` stores, merged as JSON Merge Patch. Nowhere without `rz-deposit` |
+| JSON: a string, number, or boolean | Nowhere, with a dev warning |
 | File: a `Blob` | Nowhere |
 
 - **Routing isn't an event.** Placement and deposit run right after `:success` or `:error`, so stopping an event's propagation can't block them.
