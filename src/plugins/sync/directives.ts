@@ -66,7 +66,9 @@ function bindStorePairs(
         }
       : sync;
 
-    return [core.dispatchTrigger(trigger, { el, app, action: fire })];
+    return [
+      core.dispatchTrigger(trigger, { el, app, action: fire, suppressNavigation: true }),
+    ];
   });
 }
 

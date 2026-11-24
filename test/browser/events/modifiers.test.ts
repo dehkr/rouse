@@ -97,6 +97,37 @@ describe('link navigation', () => {
     await expect.poll(() => hit).toHaveBeenCalledOnce();
   });
 
+  it('leaves a link click and a form submit to the browser on rz-on', async () => {
+    const run = vi.fn();
+    const { $ } = await mount(
+      `<div data-rz-scope="s">
+        <a href="/elsewhere" data-rz-on="click: run">Link</a>
+        <form data-rz-on="submit: run"></form>
+      </div>`,
+      { scopes: { s: () => ({ run }) } },
+    );
+
+    expect(clickLink($('a'))).toBe(false);
+    const submit = new SubmitEvent('submit', { bubbles: true, cancelable: true });
+    $('form').dispatchEvent(submit);
+    expect(submit.defaultPrevented).toBe(false);
+    expect(run).toHaveBeenCalledTimes(2);
+  });
+
+  it('cancels a plain click with click|prevent and leaves a modified one to the browser', async () => {
+    const run = vi.fn();
+    const { $ } = await mount(
+      `<div data-rz-scope="s"><a href="/elsewhere" data-rz-on="click|prevent: run">Link</a></div>`,
+      { scopes: { s: () => ({ run }) } },
+    );
+
+    expect(clickLink($('a'))).toBe(true);
+    expect(run).toHaveBeenCalledOnce();
+
+    expect(clickLink($('a'), { ctrlKey: true })).toBe(false);
+    expect(run).toHaveBeenCalledOnce();
+  });
+
   it('fetches on a modified click the trigger names', async () => {
     const hit = page();
     const { $ } = await mount(

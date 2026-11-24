@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Breaking:** Route the final response of a browser-followed redirect to `rz-place` or `rz-deposit` instead of navigating the page (use the `Rouse-Redirect` header for full-page redirects).
 - **Breaking:** Send the `Rouse-Request` header only on same-origin requests. Set it explicitly for cross-origin APIs via `rouse({ headers: { 'Rouse-Request': 'true' } })` or `data-rz-headers="Rouse-Request: true"`.
 - **Breaking:** Stop placing a string body from a fetch response with a JSON `Content-Type` as HTML. Send HTML as `text/html`.
+- **Breaking:** Stop cancelling a link's navigation or a form's submission on `rz-on` triggers. Add `prevent` to cancel it: `data-rz-on="click|prevent: open"`.
 - Accept any state path as an `rz-on` handler, including nested scope paths (`actions.save`) and render item paths (`~item.toggle`).
 - Report a fetch that can't be sent as written (a body on GET or HEAD, or a missing or unresolvable URL) as `INVALID_REQUEST` instead of `INTERNAL_ERROR`.
 
@@ -38,8 +39,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Fire `rz:fetch:success` or `rz:fetch:error` before `Rouse-Redirect` navigates the page, ensuring a terminal event precedes `:end`.
-- Let the browser handle link clicks with Ctrl, Cmd, Shift, or Alt held on directive triggers unless the trigger explicitly names a modifier (`click|ctrl`).
-- Cancel native navigation only for triggers listening on the link or form itself, so a trigger with `outside`, `window`, `document`, or `root` doesn't block every link click or form submit on the page.
+- Let the browser handle link clicks with Ctrl, Cmd, Shift, or Alt held on network directive triggers and `prevent` triggers unless the trigger explicitly names a modifier (`click|ctrl`).
+- Cancel native navigation only for network directive triggers listening on the link or form itself, so a trigger with `outside`, `window`, `document`, or `root` doesn't block every link click or form submit on the page.
 - Allow `rz-sse` streams closed by a prevented `rz:sse:error` or rejected connection to reconnect when triggered again or mounted on a new element.
 - Route server-sent events named `open` or `error` to `sse-[open]` and `sse-[error]` triggers instead of treating them as connection lifecycle events.
 - Include form-associated custom elements, `formdata` listener entries, `dirname` values, and empty file inputs in form payloads, matching native form submission.

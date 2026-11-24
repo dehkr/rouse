@@ -69,7 +69,7 @@ function bindSsePairs(el: Element, app: RouseApp, pairs: TriggerSubjectPair[]): 
 
   return [
     ...shared.map(({ trigger }) =>
-      core.dispatchTrigger(trigger, { el, app, action: open }),
+      core.dispatchTrigger(trigger, { el, app, action: open, suppressNavigation: true }),
     ),
     ...readClose(el).map((trigger) =>
       core.dispatchTrigger(trigger, { el, app, action: () => close('released') }),

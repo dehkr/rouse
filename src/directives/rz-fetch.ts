@@ -64,6 +64,7 @@ function bindFetchPairs(
       dispatchTrigger(trigger, {
         el,
         app,
+        suppressNavigation: true,
         action: (e?: Event) => {
           const submitter = e instanceof SubmitEvent ? e.submitter : null;
           // A form can take its URL from the submitter's `formaction` at submit time

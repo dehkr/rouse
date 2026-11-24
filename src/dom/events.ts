@@ -43,13 +43,10 @@ export interface TriggerContext {
   options: TriggerModifiers;
   action: ActionFn;
   /**
-   * Whether to suppress the browser's native navigation before running the action.
-   *
-   * Defaults to `true`: directives on anchors and forms take ownership of the
-   * interaction. `app.on` and `rz-wake` default to `false` — a programmatic
-   * listener observes an element rather than taking control of it, and a wake gate
-   * only watches for the moment to activate. Those callers can opt in with the
-   * `prevent` modifier.
+   * Whether to cancel the element's link click or form submit before running the
+   * action. Defaults to `false`, matching `addEventListener`. The network directives
+   * pass `true`, since their request replaces the navigation. Any other trigger
+   * cancels with the `prevent` modifier.
    */
   suppressNavigation?: boolean;
 }
@@ -96,11 +93,12 @@ function isModifiedLinkClick(el: Element, e: Event): boolean {
  * `once` is enforced manually rather than natively so a modifier-filtered event doesn't
  * consume the listener. Trigger sources get their own via `attachTriggerSource`.
  *
- * **Navigation:** with `suppressNavigation`, a listener on the element itself cancels
- * the element's link click or form submit. A modified link click stays with the
- * browser unless the trigger names a system modifier. A listener moved elsewhere
- * (`window`, `document`, `root`, `outside`) hears other elements' events, so it
- * cancels nothing.
+ * **Navigation:**
+ * - With `suppressNavigation`, a listener on the element itself cancels the element's
+ *   link click or form submit. A listener moved elsewhere (`window`, `document`,
+ *   `root`, `outside`) hears other elements' events, so it cancels nothing by default.
+ * - A listener on a link that cancels its navigation, by default or through `prevent`,
+ *   leaves a modified click to the browser unless the trigger names a system modifier.
  *
  * @returns Cleanup function that removes the listener.
  */
@@ -112,11 +110,12 @@ function attachListener<D = any>(
   app: RouseApp,
   suppressNavigation: boolean,
 ): VoidFn {
-  const { capture, once, passive, ctrl, meta, shift, alt } = triggerOptions;
+  const { capture, once, passive, prevent, ctrl, meta, shift, alt } = triggerOptions;
   const passes = compileModifiers(el, triggerOptions);
   const target = resolveListenerTarget(el, triggerOptions, app);
   const ownsNavigation = suppressNavigation && target === el;
-  const ignoresModifiedClicks = ownsNavigation && !(ctrl || meta || shift || alt);
+  const cancelsNavigation = ownsNavigation || (prevent && target === el);
+  const ignoresModifiedClicks = cancelsNavigation && !(ctrl || meta || shift || alt);
 
   const listener = (e: Event) => {
     // Checked before the modifiers, which would apply `prevent` and `stop` to a click
@@ -221,7 +220,7 @@ export function on(
 
   const cleanup = dispatchTrigger(
     { event: name, options: modifiers },
-    { el: target as Element, app, arg, action, suppressNavigation: false },
+    { el: target as Element, app, arg, action },
   );
 
   signal?.addEventListener('abort', cleanup, { once: true });
@@ -237,9 +236,8 @@ export function on(
  * trigger sources and DOM events both receive timed actions. The returned cleanup
  * also cancels any pending timed calls.
  *
- * Native navigation is suppressed for form submits and anchor clicks unless the
- * caller opts out with `suppressNavigation: false`, which `app.on` and
- * `attachWakeStrategies` do. `attachListener` owns the rules.
+ * A form submit or link click is cancelled only when the caller passes
+ * `suppressNavigation`, as the network directives do. `attachListener` owns the rules.
  *
  * A source's argument comes from the trigger's own bracketed text when it has one,
  * otherwise from `base.arg`, which callers pass already typed.
@@ -302,7 +300,7 @@ export function dispatchTrigger(
     action,
     trigger.options,
     base.app,
-    base.suppressNavigation ?? true,
+    base.suppressNavigation ?? false,
   );
 
   return wrapCleanup(cleanup);
@@ -383,12 +381,9 @@ export function attachWakeStrategies(
   cleanups = triggers.map((trigger) => {
     let satisfied = false;
 
-    // A wake gate observes the element to decide when to activate; it doesn't take
-    // ownership of it, so a `submit` or `click` gate must not swallow the navigation.
     return dispatchTrigger(trigger, {
       el,
       app,
-      suppressNavigation: false,
       action: () => {
         if (satisfied) {
           return;
