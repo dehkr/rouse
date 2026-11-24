@@ -108,7 +108,7 @@ function logBuildBanner() {
     return;
   }
   bannerLogged = true;
-  info(`v${__VERSION__} development build. Switch to rouse.min.js in production.`);
+  info(`v${__VERSION__} development build.`);
 }
 
 registerBoundDirectives(BOUND_DIRECTIVES);
