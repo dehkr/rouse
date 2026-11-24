@@ -23,7 +23,7 @@ app.on('rz:fetch:error', showToast);       // hears lifecycle events from the wh
 app.start(); // scans the root and binds directives
 ```
 
-`start()` scans the DOM once and then watches for added nodes. Registration applies to DOM scanned afterward and never retroactively. `<script data-rz-store>` stores don't exist until `start()`. `destroy()` is terminal.
+`start()` scans the DOM once and then watches for added and removed nodes. A node moved within the app isn't torn down: scopes keep their state, `ready` triggers don't fire again, and bindings follow the scope the node lands in. Registration applies to DOM scanned afterward and never retroactively. `<script data-rz-store>` stores don't exist until `start()`. `destroy()` is terminal.
 
 ### Install
 
@@ -432,12 +432,12 @@ Methods called from directives receive `{ el, e, render }` (`HandlerCtx`), with 
 | Hook | Runs | Order |
 | --- | --- | --- |
 | `connect()` | Once per instance, after the region's directives bind | setup -> bind -> `connect()` -> `rz:scope:connect` |
-| `disconnect()` | On teardown: the host leaves the DOM, or `app.destroy()` | `term` aborts -> bindings detach -> `disconnect()` -> `rz:scope:disconnect` |
+| `disconnect()` | On teardown: the host is removed or moves to another app, or `app.destroy()` | `term` aborts -> bindings detach -> `disconnect()` -> `rz:scope:disconnect` |
 
 - Use `connect()` for work that needs bound DOM: measuring, focusing, or mounting a third-party widget. Setup runs before any directive binds.
 - With `rz-wake`, `connect()` waits for activation. Setup waits too, and never runs if the host leaves the DOM first.
 - Prefer `signal: term` for cleanup. It also covers a setup that throws partway, which runs neither hook. Keep `disconnect()` for undo work `term` can't reach, such as a widget's own `destroy()`.
-- Moving the host is a removal and an insertion: the instance tears down and setup runs again. State that must survive a move belongs in a store.
+- Moving the host within the app keeps the instance: setup and hooks don't run again. A move into another app, or reinserting the host after an `await` or in a later event, tears it down and runs setup again.
 - A throwing hook is logged; the mount or teardown still completes.
 
 ## Stores

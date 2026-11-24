@@ -1,6 +1,6 @@
-import { afterEach, describe, expect, it } from 'vite-plus/test';
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import type { RouseApp } from '../../../src/app';
-import { rouse } from '../../../src/index';
+import { reactive, rouse } from '../../../src/index';
 import { delay, HttpResponse, http, worker } from '../helpers/network';
 import { mount, nextFrame } from '../helpers/mount';
 
@@ -170,21 +170,146 @@ describe('an element moved to another app', () => {
 });
 
 describe('a nested app whose root moves inside the outer app', () => {
-  it('mounts the nested app again where its root lands', async () => {
+  it('keeps the nested app mounted', async () => {
     const { $ } = await mount(
-      `<div id="inner"><div data-rz-scope="s"><span data-rz-text="run"></span></div></div>
+      `<div id="inner"><div data-rz-scope="s"><span data-rz-text="state.n"></span></div></div>
        <section></section>`,
     );
-    let runs = 0;
+    const state = reactive({ n: 1 });
+    const setup = vi.fn(() => ({ state }));
     const inner = rouse({ root: $<HTMLElement>('#inner') });
     created.push(inner);
-    inner.scope('s', () => ({ run: ++runs }));
+    inner.scope('s', setup);
     inner.start();
     await nextFrame();
 
     $('section').append($('#inner'));
     await nextFrame();
+    state.n = 2;
 
     expect($('#inner span').textContent).toBe('2');
+    expect(setup).toHaveBeenCalledOnce();
+  });
+});
+
+type Move = (host: Element, list: Element, other: Element) => void;
+
+const moves: [string, Move][] = [
+  ['within its parent', (host, list) => list.append(host)],
+  ['to another parent', (host, _list, other) => other.append(host)],
+  [
+    'with moveBefore()',
+    (host, _list, other) =>
+      (
+        other as unknown as { moveBefore(node: Node, child: Node | null): void }
+      ).moveBefore(host, null),
+  ],
+];
+
+describe('an element moved within its app', () => {
+  it.each(moves)('keeps a scope mounted when its host moves %s', async (_name, move) => {
+    const state = reactive({ n: 1 });
+    const disconnect = vi.fn();
+    const setup = vi.fn(() => ({ state, disconnect }));
+    const { $ } = await mount(
+      `<ul><li data-rz-scope="card"><span data-rz-text="state.n"></span></li><li></li></ul>
+       <ol></ol>`,
+      { scopes: { card: setup } },
+    );
+    const host = $('[data-rz-scope]');
+
+    move(host, $('ul'), $('ol'));
+    await nextFrame();
+    state.n = 2;
+
+    expect(host.textContent).toBe('2');
+    expect(setup).toHaveBeenCalledOnce();
+    expect(disconnect).not.toHaveBeenCalled();
+  });
+
+  it('binds a bound element to the scope it moves into', async () => {
+    const a = reactive({ name: 'a' });
+    const b = reactive({ name: 'b' });
+    const { $ } = await mount(
+      `<div data-rz-scope="a"><span data-rz-text="state.name"></span></div>
+       <div data-rz-scope="b" id="b"></div>`,
+      { scopes: { a: () => ({ state: a }), b: () => ({ state: b }) } },
+    );
+    const span = $('span');
+
+    $('#b').append(span);
+    await nextFrame();
+    expect(span.textContent).toBe('b');
+
+    a.name = 'a, edited';
+    b.name = 'b, edited';
+    expect(span.textContent).toBe('b, edited');
+  });
+
+  it('binds an element moved out of its scope against the stores', async () => {
+    const { app, $ } = await mount(
+      `<div data-rz-scope="s"><span data-rz-text="@label.text"></span></div><section></section>`,
+      { scopes: { s: () => ({}) }, stores: { label: { text: 'one' } } },
+    );
+    const span = $('span');
+
+    $('section').append(span);
+    await nextFrame();
+    $('[data-rz-scope]').remove();
+    await nextFrame();
+    app.stores.get('label')!.text = 'two';
+
+    expect(span.textContent).toBe('two');
+  });
+
+  it('does not resend a ready request when its trigger moves', async () => {
+    worker.use(http.get('/api/ping', () => new HttpResponse('pong')));
+    let sent = 0;
+    const { $ } = await mount(
+      `<div><button data-rz-fetch="ready: /api/ping" data-rz-place="null"></button></div>
+       <section></section>`,
+      {
+        setup: (a) =>
+          a.interceptor('request', () => {
+            sent++;
+          }),
+      },
+    );
+    await expect.poll(() => sent).toBe(1);
+
+    $('section').append($('button'));
+    await nextFrame();
+
+    expect(sent).toBe(1);
+  });
+
+  it('keeps unsaved store edits when the store script moves', async () => {
+    const { app, $ } = await mount(
+      `<div><script type="application/json" data-rz-store="draft">{"text":"saved"}</script></div>
+       <section></section>`,
+    );
+    app.stores.get('draft')!.text = 'edited';
+
+    $('section').append($('script'));
+    await nextFrame();
+
+    expect(app.stores.get('draft')!.text).toBe('edited');
+  });
+
+  it('tears down a host reinserted after the observer ran', async () => {
+    const disconnect = vi.fn();
+    const setup = vi.fn(() => ({ disconnect }));
+    const { $ } = await mount(`<div data-rz-scope="card"></div><section></section>`, {
+      scopes: { card: setup },
+    });
+    const host = $('[data-rz-scope]');
+
+    host.remove();
+    await nextFrame();
+    $('section').append(host);
+    await nextFrame();
+
+    expect(disconnect).toHaveBeenCalledOnce();
+    expect(setup).toHaveBeenCalledTimes(2);
   });
 });

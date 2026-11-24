@@ -35,7 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Breaking:** Remove `rousejs/dev` and `rousejs/min` entry points. `rousejs` now resolves via the `development` export condition (default in Vite; pass `--conditions=development` in esbuild).
 - **Breaking:** Remove the `REDIRECTED` error code; cross-origin redirects now route their final response unless `redirect: error` is set in `rz-request`.
 - **Breaking:** Remove the `Rouse-Push-Url` response header. Use `Rouse-Replace-Url` to update the URL in place, or `Rouse-Redirect` to navigate and add a history entry.
-- **Breaking:** Remove the `Rouse-Sync` and `Rouse-Store` request headers from push and pull so a cross-origin pull doesn't force a CORS preflight. Read the request method for the operation and route by URL. The store name can be added to the store's `headers` option if needed`.
+- **Breaking:** Remove the `Rouse-Sync` and `Rouse-Store` request headers from push and pull so a cross-origin pull doesn't force a CORS preflight. Read the request method for the operation and route by URL. The store name can be added to the store's `headers` option if needed.
 - **Breaking:** Remove `rz:scope:init` and `rz:scope:destroy`. Use `rz:scope:connect` (post-binding) and `rz:scope:disconnect` (post-teardown), or wrap the setup function in `app.scope()` to run pre-binding logic.
 - **Breaking:** Remove content-typed events (`rz:fetch:success:{html,json,file}`, `rz:fetch:error:{html,json,file}`, `rz:sse:message:{html,json}`). Listen to `rz:fetch:success`, `rz:fetch:error`, or `rz:sse:message` and branch on `detail.data` instead.
 
@@ -52,7 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Mark stores dirty and fire `edit` triggers when mutating array items retrieved via array methods (`find()`, `map()`, `for...of`), including `rz-model` bindings on `rz-render` items (`~item.done`).
 - Return the reactive proxy from in-place array mutators (`sort()`, `reverse()`) so chained writes remain tracked.
 - Rebind elements re-inserted into the same scope after their directives were skipped, and rebind elements moved across apps regardless of initialization order.
-- Remount nested apps when their root element moves within an outer app.
+- Keep elements mounted when they move within their app (drag and drop, reordering, or a nested app's root), so scopes keep their state, store scripts keep unsaved edits, `ready` triggers don't fire again, and bound directives follow the scope they land in.
 - Preserve nested scopes, standalone directives, focus, and active CSS transitions when reordering keyed `rz-render` items using `moveBefore()` (in browsers where supported).
 - Tear down removed `rz-render` instances before reordering remaining items to avoid shifting trailing instances.
 - Ignore non-function return values from `effect` callbacks instead of throwing on subsequent runs, and execute cleanup functions when an effect stops itself.

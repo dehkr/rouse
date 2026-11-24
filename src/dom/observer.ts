@@ -19,6 +19,12 @@
  * first would find the source app's records on the node and skip it. Code that reads
  * the registries synchronously (`start()`, `destroy()`, a nested app's release) flushes
  * queued mutations first.
+ *
+ * A removed node that's back under the same app root when the observer runs only moved,
+ * and stays mounted. Every mount on the addition path must skip an element it has a
+ * record for, or a moved node mounts twice. Bound directives whose owner changed are
+ * released on removal and bound again on addition. A node reinserted after the observer
+ * ran can't be told from a new one, so it tears down.
  */
 import type { RouseApp } from '../app';
 import {
@@ -33,10 +39,10 @@ import { warn } from '../core/diagnostics';
 import { parseTriggerSubjectPairs } from '../core/parser';
 import { hasPlugin, needsPlugin, PLUGIN_DIRECTIVES } from '../core/plugins';
 import { rzStore } from '../directives/rz-store';
+import { APP_ROOT_SELECTOR } from '../core/constants';
 import {
   closestScope,
   getApp,
-  isRenderOwned,
   mountGlobalBinding,
   resolveRemovedOwner,
   runCleanups,
@@ -278,20 +284,33 @@ function applyMutations(mutations: MutationRecord[]) {
     }
 
     for (const node of mutation.removedNodes) {
-      if (node.nodeType === Node.ELEMENT_NODE && !isMovedInstance(node as Element)) {
-        isolate(() => unmountRemoved(node as Element));
+      if (node.nodeType !== Node.ELEMENT_NODE) {
+        continue;
       }
+      const el = node as Element;
+      isolate(() =>
+        movedWithinApp(el, mutation.target) ? rebindMoved(el) : unmountRemoved(el),
+      );
     }
   }
 }
 
 /**
- * Returns true for an `rz-render` instance root that `rz-render` moved rather than
- * removed. An instance's teardown detaches and unmarks its roots, so a root that is
- * still marked and connected only changed position. Its addition remounts nothing.
+ * Returns true for a removed node that only moved: it's back in the page, and its new
+ * parent is under the same app root as the parent it left.
  */
-function isMovedInstance(el: Element): boolean {
-  return el.isConnected && isRenderOwned(el);
+function movedWithinApp(el: Element, oldParent: Node): boolean {
+  const newParent = el.parentElement;
+  if (
+    !newParent ||
+    !el.isConnected ||
+    !oldParent.isConnected ||
+    oldParent.nodeType !== Node.ELEMENT_NODE
+  ) {
+    return false;
+  }
+  const appRoot = newParent.closest(APP_ROOT_SELECTOR);
+  return !!appRoot && appRoot === (oldParent as Element).closest(APP_ROOT_SELECTOR);
 }
 
 /**
@@ -310,15 +329,32 @@ function mountAdded(node: Element) {
 
 function unmountRemoved(removedEl: Element) {
   unmountSubtree(removedEl);
+  releaseBindings(removedEl, resolveRemovedOwner(removedEl));
+}
 
-  // Ownership resolved against the `scopeBindings` WeakMap, not DOM
-  // ancestry. Survives detached parents, cross-boundary moves, and
-  // sync-detachment edge cases.
-  const owner = resolveRemovedOwner(removedEl);
+/**
+ * Keeps a moved subtree mounted, and releases its bound directives if the move changed
+ * their owner, so its addition binds them to the new one. A scope host or app root
+ * owns its own subtree, so it always resolves to the owner it had.
+ */
+function rebindMoved(movedEl: Element) {
+  const owner = resolveRemovedOwner(movedEl);
+  const app = owner ? getApp(movedEl) : undefined;
+  if (app && owner !== (closestScope(movedEl, app) ?? 'global')) {
+    releaseBindings(movedEl, owner);
+  }
+}
+
+/**
+ * Tears down the bound directives `owner` set up in `el`'s subtree. The owner comes
+ * from the `scopeBindings` WeakMap, not DOM ancestry, since a removed node's parent is
+ * gone or is already its new one. A scope host's own bindings go with its instance.
+ */
+function releaseBindings(el: Element, owner: ReturnType<typeof resolveRemovedOwner>) {
   if (owner === 'global') {
-    teardownGlobalBindings(removedEl);
-  } else if (owner && !hasDirective(removedEl, 'scope')) {
-    teardownScopeNode(owner, removedEl);
+    teardownGlobalBindings(el);
+  } else if (owner && !hasDirective(el, 'scope')) {
+    teardownScopeNode(owner, el);
   }
 }
 

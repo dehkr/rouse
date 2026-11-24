@@ -119,11 +119,6 @@ export function unmarkRenderOwned(el: Element): void {
   renderOwned.delete(el);
 }
 
-/** Returns true if `el` is the root of a live `rz-render` instance. */
-export function isRenderOwned(el: Element): boolean {
-  return renderOwned.has(el);
-}
-
 /**
  * Returns the state an element's paths resolve against: the nearest render instance's
  * context or awake scope, searching no higher than `root`. Returns `EMPTY_SCOPE` when
