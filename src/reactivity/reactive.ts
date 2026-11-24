@@ -1,5 +1,6 @@
 import { endBatch, setActiveSub, startBatch } from 'alien-signals';
 import { warn } from '../core/diagnostics';
+import { isPlainObject } from '../core/serializable';
 import { handlers } from './handlers';
 import { type PersistOptions, resolvePersist, restore, startSaving } from './persist';
 
@@ -77,19 +78,11 @@ export function reactive<T extends object>(target: T, options?: ReactiveOptions)
 }
 
 /**
- * Accepts arrays and plain objects only. Matches `isPlainObject` in `core/serializable`.
+ * Accepts arrays and plain objects only. Proxying a class instance breaks its private
+ * fields.
  */
 export function proxiable(target: unknown): target is object {
-  if (target === null || typeof target !== 'object') {
-    return false;
-  }
-  if (Array.isArray(target)) {
-    return true;
-  }
-
-  // Class instances keep their own prototype; proxying them breaks private fields.
-  const proto = Object.getPrototypeOf(target);
-  return proto === Object.prototype || proto === null;
+  return Array.isArray(target) || isPlainObject(target);
 }
 
 /**

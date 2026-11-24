@@ -579,7 +579,7 @@ What `rz-render` renders for each kind of value, and what `~item` holds in each 
 `rz-key` on the `<template>` names a field on each item, as a dot path without `~item` (`id`, `user.id`). Instances are matched to items by that value across re-renders.
 
 - Without `rz-key`, instances are matched by position. DOM state (focus, input values, a running transition) stays at its index when items reorder. Key any list that reorders, filters, or is refetched.
-- A keyed instance that moves keeps its DOM nodes, input values, nested scopes, and standalone directives: setup doesn't re-run and `ready` requests aren't resent. It keeps focus and running CSS transitions only in browsers with `moveBefore()` (see [caniuse.com](https://caniuse.com/wf-move-before)). Move an item in one write (reassigning the array, `sort()`, `reverse()`) or inside `batch()`.
+- A keyed instance that moves keeps its DOM nodes and input values. It keeps focus and running CSS transitions only in browsers with `moveBefore()` (see [caniuse.com](https://caniuse.com/wf-move-before)). Move an item in one write (reassigning the array, `sort()`, `reverse()`) or inside `batch()`.
 - An item whose key is missing or `null` is keyed by position, with a dev warning.
 - An item whose key repeats an earlier item's isn't rendered, with only a dev warning.
 - Give client-created items a key once, at creation: `items.push({ id: createKey(), text })`. Never call `createKey()` in a getter.
@@ -699,7 +699,7 @@ Per-request options, written as `rz-request` pairs in markup or `app.fetch` opti
 
 ### Request headers
 
-Headers Rouse adds to fetches, pushes, and pulls, so the server can tell its requests apart.
+Headers Rouse adds to fetches, pushes, and pulls.
 
 | Header | Value | Sent by |
 | --- | --- | --- |
