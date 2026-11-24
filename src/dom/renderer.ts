@@ -11,7 +11,7 @@ import { warn } from '../core/diagnostics';
 import { getNestedVal } from '../core/path';
 import { isPlainObject } from '../core/state';
 import { effect } from '../reactivity/effect';
-import { getRaw, reactive, untracked } from '../reactivity/reactive';
+import { reactive, untracked } from '../reactivity/reactive';
 import type { RenderContext, RenderFrame, Scope, VoidFn } from '../types';
 import {
   bindDirectives,
@@ -44,7 +44,6 @@ interface InstanceRecord {
   itemSig: ItemSignal;
   indexSig: IndexSignal;
   roots: ChildNode[];
-  target: Element | null;
   teardown: VoidFn;
 }
 
@@ -159,8 +158,7 @@ export function renderTemplate(
 
   /**
    * Creates one rendered instance. Clones the template contents, layers the item
-   * and index onto a render context, binds the cloned directives against it,
-   * and teleports the nodes to a target when the item requests one.
+   * and index onto a render context, and binds the cloned directives against it.
    */
   function buildInstance(item: unknown, index: number): InstanceRecord {
     const frag = template.content.cloneNode(true) as DocumentFragment;
@@ -200,33 +198,6 @@ export function renderTemplate(
       collected.flatMap((e) => bindDirectives(e, ctx, app)),
     );
 
-    // Per-item teleport. `renderTarget` accepts a selector string or
-    // a direct Element reference.
-    const rt =
-      item && typeof item === 'object'
-        ? (getRaw(item) as Record<string, unknown>).renderTarget
-        : undefined;
-
-    let target: Element | null = null;
-    if (typeof rt === 'string' && rt) {
-      target = app.root.querySelector(rt);
-      if (__DEV__ && !target) {
-        warn(`rz-render: render target '${rt}' not found.`);
-      }
-    } else if (rt instanceof Element) {
-      // Kept inside the app root, as `rz-place` is, so the instance stays in the
-      // observed subtree
-      if (app.root.contains(rt)) {
-        target = rt;
-      } else {
-        if (__DEV__) {
-          warn(`rz-render: render target is outside the app root; ignoring.`, rt);
-        }
-      }
-    }
-
-    target?.append(...roots);
-
     const teardown = () => {
       runCleanups(template, cleanups);
       roots.forEach((node) => node.remove());
@@ -238,7 +209,6 @@ export function renderTemplate(
       itemSig,
       indexSig,
       roots,
-      target,
       teardown,
     };
   }
@@ -335,10 +305,7 @@ export function renderTemplate(
         records.set(instanceKey, rec);
       }
 
-      // Teleported instances live in a remote target, so don't position inline
-      if (!rec.target) {
-        prev = placeAfter(parent, rec.roots, prev);
-      }
+      prev = placeAfter(parent, rec.roots, prev);
     }
   }
 

@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 - **Breaking:** Remove `app.stores.dirtyRoots()`. Read the store status object instead, which holds the same keys.
+- **Breaking:** Remove per-item relocation through a `renderTarget` field in `rz-render` item data. Render each destination from its own list:`<template data-rz-render="@board.done" data-rz-key="id">`, with a `done` getter on the store that filters `cards` by column.
 - **Breaking:** Remove `rousejs/dev` and `rousejs/min` entry points. `rousejs` now resolves via the `development` export condition (default in Vite; pass `--conditions=development` in esbuild).
 - **Breaking:** Remove the `REDIRECTED` error code; cross-origin redirects now route their final response unless `redirect: error` is set in `rz-request`.
 - **Breaking:** Remove the `Rouse-Push-Url` response header. Use `Rouse-Replace-Url` to update the URL in place, or `Rouse-Redirect` to navigate and add a history entry.

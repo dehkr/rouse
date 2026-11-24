@@ -632,27 +632,6 @@ app.scope('todos', ({ app }) => {
 | Store data, or more than one selected item | `selection()`, which keeps UI state out of synced data |
 | One open section at a time | `<details name="group">`, with no JavaScript |
 
-### Render targets
-
-An item with a `renderTarget` field renders its instance there instead of beside the template.
-
-```html
-<!-- Each card renders into the column its renderTarget names -->
-<template data-rz-render="@board.cards" data-rz-key="id">
-  <article data-rz-text="~item.title"></article>
-</template>
-<section id="todo"></section>
-<section id="done"></section>
-
-<!-- @board.cards: [{ "id": 1, "title": "Write docs", "renderTarget": "#done" }] -->
-```
-
-- A string is a selector, matched within the app root (first match). An element is used only if it's inside the app root. Otherwise the instance renders in place, with a dev warning.
-- It's read once, when the instance is built. Changing `renderTarget` later doesn't move a reused instance; it moves only when the instance is rebuilt under a new key.
-- Instances are appended to the target in the order they're built, and reordering the list doesn't reorder them there.
-- A moved instance still binds against its item and the template's scope.
-- `renderTarget` is ordinary item data, so a synced store pushes it with the item. Use a selector there; an element can't be serialized.
-
 ## Networking
 
 Rouse speaks HTTP the way the browser does. Forms, methods, and encodings work as HTML defines them, and the server can steer a response with a header. There are three ways to talk to a server. Each has a directive and a JavaScript equivalent.
