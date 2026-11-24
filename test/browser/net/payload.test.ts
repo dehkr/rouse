@@ -87,6 +87,38 @@ describe('request payloads', () => {
     expect(JSON.parse(seen.body!)).toEqual({ title: 'Hi', dark: true, size: 3, page: 2 });
   });
 
+  it('adds rz-send sources to a form’s fields, and a source wins on a shared key', async () => {
+    const seen = capture('/api/filter');
+    const { $ } = await mount(
+      `<form action="/api/filter" method="post" data-rz-fetch="submit" data-rz-send="@filters">
+        <input name="q" value="shoes">
+        <input name="sort" value="price">
+        <button name="go" value="1">Go</button>
+      </form>`,
+      { stores: { filters: { sort: 'rating', size: 'm' } } },
+    );
+    $('button').click();
+    await expect.poll(() => seen.request).toBeDefined();
+    expect(Object.fromEntries(new URLSearchParams(seen.body))).toEqual({
+      q: 'shoes',
+      sort: 'rating',
+      size: 'm',
+      go: '1',
+    });
+  });
+
+  it('sends a field’s own value alongside its rz-send sources', async () => {
+    const seen = capture('/api/search');
+    const { $ } = await mount(
+      `<input name="q" value="shoes" data-rz-fetch="change: /api/search" data-rz-send='{"page": 2}'>`,
+    );
+    $('input').dispatchEvent(new Event('change'));
+    await expect.poll(() => seen.request).toBeDefined();
+    const params = new URL(seen.request!.url).searchParams;
+    expect(params.get('q')).toBe('shoes');
+    expect(params.get('page')).toBe('2');
+  });
+
   it('sends rz-send on GET as query parameters, repeating array keys', async () => {
     const seen = capture('/api/search');
     const { $ } = await mount(

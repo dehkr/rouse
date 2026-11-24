@@ -247,9 +247,9 @@ type Encoding = 'json' | 'urlencoded' | 'multipart';
 type FormPair = [string, string | File];
 
 /**
- * Builds what the element sends: its `rz-send` payload when it has one, else its own
- * field or form. GET and HEAD carry it as query parameters. Other methods carry it as
- * a body, encoded as declared.
+ * Builds the element's payload: its own field or form values, plus its `rz-send`
+ * sources, which win on a shared key. GET and HEAD carry the payload as query
+ * parameters. Other methods carry it as a body, encoded as declared.
  */
 function resolvePayload(
   el: Element,

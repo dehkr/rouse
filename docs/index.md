@@ -667,7 +667,7 @@ Rouse speaks HTTP the way the browser does. Forms, methods, and encodings work a
 
 ## Fetch requests
 
-`rz-fetch` extends what links and forms already do: send the element's data and put the response where it belongs, without a page load. A form's `action`, `method`, and `enctype` work as written. Payload precedence: `rz-send` -> the element's own field -> a form's or fieldset's enabled fields. GET and HEAD send it as query parameters. Other methods send a body in the encoding you declare.
+`rz-fetch` extends what links and forms already do: send the element's data and put the response where it belongs, without a page load. A form's `action`, `method`, and `enctype` work as written. The payload is the element's own values plus its `rz-send` sources. Precedence on a shared key: a later `rz-send` source -> an earlier one -> the element's own values. GET and HEAD send it as query parameters. Other methods send a body in the encoding you declare.
 
 ```html
 <!-- GET /search?q=…: a field sends its own name and value -->
@@ -686,7 +686,7 @@ Rouse speaks HTTP the way the browser does. Forms, methods, and encodings work a
 </form>
 ```
 
-- **Payload.** `rz-send` replaces the element's own data. A field sends `{ name: value }`; a nameless field sends nothing. A form or fieldset sends its enabled fields plus the submitter's name and value, and a submitter's `formaction`, `formmethod`, and `formenctype` beat the form's. Any other element sends nothing without `rz-send`.
+- **Payload.** A field sends `{ name: value }`; a nameless field sends nothing. A form or fieldset sends its enabled fields plus the submitter's name and value, and a submitter's `formaction`, `formmethod`, and `formenctype` beat the form's. Any other element sends only its `rz-send` sources.
 - **Encoding**, for methods with a body. Precedence: `Content-Type` header (app `headers` or `rz-headers`) -> button `formenctype` -> form `enctype` -> `application/x-www-form-urlencoded`. Never inferred from the payload. A `Content-Type` that isn't JSON, urlencoded, or multipart sends form data under that type, with a dev warning.
 - **`app.fetch` body.** An object is sent as JSON, `URLSearchParams` as urlencoded, and strings and native bodies (`FormData`, `Blob`, …) as is; a declared `Content-Type` wins. A body on GET or HEAD throws: pass `params`. A `body` replaces the trigger element's data, and `rz-send` is ignored with a warning.
 
