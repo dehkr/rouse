@@ -686,7 +686,7 @@ Rouse speaks HTTP the way the browser does. Forms, methods, and encodings work a
 </form>
 ```
 
-- **Payload.** A field sends `{ name: value }`; a nameless field sends nothing. A form or fieldset sends its enabled fields plus the submitter's name and value, and a submitter's `formaction`, `formmethod`, and `formenctype` beat the form's. Any other element sends only its `rz-send` sources.
+- **Payload.** A field sends `{ name: value }`; a nameless field sends nothing. A form sends what native submission would (`FormData`): its enabled fields, form-associated custom elements, `dirname` values, entries a `formdata` listener adds, and the submitter's name and value. A submitter's `formaction`, `formmethod`, and `formenctype` beat the form's. A fieldset or a `selector:` source sends enabled native fields only: no form-associated custom elements, `dirname` values, or `formdata` entries. Any other element sends only its `rz-send` sources.
 - **Encoding**, for methods with a body. Precedence: `Content-Type` header (app `headers` or `rz-headers`) -> button `formenctype` -> form `enctype` -> `application/x-www-form-urlencoded`. Never inferred from the payload. A `Content-Type` that isn't JSON, urlencoded, or multipart sends form data under that type, with a dev warning.
 - **`app.fetch` body.** An object is sent as JSON, `URLSearchParams` as urlencoded, and strings and native bodies (`FormData`, `Blob`, …) as is; a declared `Content-Type` wins. A body on GET or HEAD fails as `INVALID_REQUEST`: pass `params`. A `body` replaces the trigger element's data, and `rz-send` is ignored with a warning.
 
@@ -701,7 +701,7 @@ How each payload value is sent under each encoding. GET and HEAD query parameter
 | Array | Kept | Repeated keys | Repeated keys |
 | Nested object | Kept | Dropped, with a dev warning | Dropped, with a dev warning |
 | `null`, `undefined` | `null` kept; an `undefined` key is omitted | Dropped | Dropped |
-| File | Dropped, with a dev warning | Its name, with a dev warning | Sent |
+| File | Dropped, with a dev warning. A file input with nothing selected drops silently | Its name, with a dev warning | Sent |
 
 ### Request options
 

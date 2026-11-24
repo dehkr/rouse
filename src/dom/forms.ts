@@ -1,3 +1,5 @@
+import { warn } from '../core/diagnostics';
+
 /** A form control that carries a value of its own. */
 export type Field = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
 /** One value a field submits: text, or a file from a file input. */
@@ -7,6 +9,7 @@ type FieldEntry = string | File;
  * by several fields, is a list.
  */
 type FieldValue = FieldEntry | FieldEntry[];
+type FieldValues = Record<string, FieldValue>;
 
 /** Input types a form submits only as its submitter, never as one of its fields. */
 const BUTTON_TYPES = new Set(['submit', 'button', 'reset', 'image']);
@@ -23,6 +26,11 @@ export function isFieldContainer(
   el: Element,
 ): el is HTMLFormElement | HTMLFieldSetElement {
   return el instanceof HTMLFormElement || el instanceof HTMLFieldSetElement;
+}
+
+/** Returns true for a field a form submits as one of its fields. */
+function isSubmittable(el: Element): el is Field {
+  return isField(el) && !BUTTON_TYPES.has(el.type);
 }
 
 /**
@@ -43,37 +51,119 @@ function readField(field: Field): FieldValue | null {
 
 /**
  * Collects what a set of elements would submit, keyed by name. A form or fieldset
- * contributes its fields, and a field reached twice counts once. A name shared by
- * more than one non-radio field is always a list, so the shape follows the markup
- * rather than how many boxes are checked.
+ * contributes its fields, and a field reached twice counts once. Only native field
+ * values contribute. Form-associated custom elements, `dirname` values, and
+ * `formdata` listener entries come only from `FormData` on a form.
  */
-export function collectFields(elements: Iterable<Element>): Record<string, FieldValue> {
+export function collectFields(elements: Iterable<Element>): FieldValues {
   const fields = new Set<Field>();
 
   for (const el of elements) {
     for (const member of isFieldContainer(el) ? el.elements : [el]) {
-      if (isField(member) && !BUTTON_TYPES.has(member.type)) {
+      if (isSubmittable(member)) {
         fields.add(member);
       }
     }
   }
 
-  const pairs: Record<string, FieldValue> = {};
-  const named = new Set<string>();
-  const shared = new Set<string>();
+  const pairs: FieldValues = {};
 
   for (const field of fields) {
-    if (field.name && field.type !== 'radio') {
-      (named.has(field.name) ? shared : named).add(field.name);
-    }
-
     const value = submittedValue(field);
-    if (value !== null) {
-      appendValue(pairs, field.name, value);
+    if (value === null) {
+      continue;
     }
+    appendValue(pairs, field.name, value);
   }
 
-  for (const name of shared) {
+  return withListShape(pairs, fields);
+}
+
+/**
+ * Reads what a trigger submits on its own: a field's value, a fieldset's fields, or a
+ * form's entries with its submitter's. Returns `null` for any other element, and for
+ * a field that submits nothing. A nameless field is silent, since a field bound
+ * through `rz-model` often has no name.
+ */
+export function readTriggerValues(
+  el: Element,
+  submitter: HTMLElement | null = null,
+): FieldValues | null {
+  if (isField(el)) {
+    const value = readField(el);
+    return value === null ? null : { [el.name]: value };
+  }
+
+  if (el instanceof HTMLFormElement) {
+    return readForm(el, submitter);
+  }
+
+  return el instanceof HTMLFieldSetElement ? collectFields([el]) : null;
+}
+
+/**
+ * Reads a form's entries through `FormData`, as native submission builds them, so
+ * form-associated custom elements, `dirname`, and `formdata` listeners contribute.
+ */
+function readForm(form: HTMLFormElement, submitter: HTMLElement | null): FieldValues {
+  const pairs: FieldValues = {};
+
+  for (const [name, value] of formDataOf(form, submitter)) {
+    appendValue(pairs, name, value);
+  }
+
+  return withListShape(pairs, Array.from(form.elements).filter(isSubmittable));
+}
+
+/**
+ * Builds a form's `FormData` with its submitter. `FormData` throws for an element that
+ * isn't one of the form's submit buttons, before any `formdata` listener runs. The
+ * form is then sent without that element, with a dev warning.
+ */
+function formDataOf(form: HTMLFormElement, submitter: HTMLElement | null): FormData {
+  if (!submitter) {
+    return new FormData(form);
+  }
+
+  try {
+    return new FormData(form, submitter);
+  } catch {
+    if (__DEV__) {
+      warn(
+        `'submitter' isn't a submit button of the form. Sending the form without it.`,
+        submitter,
+      );
+    }
+    return new FormData(form);
+  }
+}
+
+/**
+ * Wraps a value in a list when its name always submits one: a multi-select, a
+ * multiple file input, or a name shared by more than one non-radio field. The shape
+ * then follows the markup rather than how many options are chosen.
+ */
+function withListShape(pairs: FieldValues, fields: Iterable<Field>): FieldValues {
+  const named = new Set<string>();
+  const lists = new Set<string>();
+
+  for (const field of fields) {
+    if (!field.name || field.type === 'radio') {
+      continue;
+    }
+
+    const multiple =
+      field instanceof HTMLSelectElement
+        ? field.multiple
+        : field instanceof HTMLInputElement && field.type === 'file' && field.multiple;
+
+    if (multiple || named.has(field.name)) {
+      lists.add(field.name);
+    }
+    named.add(field.name);
+  }
+
+  for (const name of lists) {
     const value = pairs[name];
     if (value !== undefined && !Array.isArray(value)) {
       pairs[name] = [value];
@@ -81,33 +171,6 @@ export function collectFields(elements: Iterable<Element>): Record<string, Field
   }
 
   return pairs;
-}
-
-/**
- * Reads what a trigger submits on its own: a field's value, or a form's fields plus
- * its submitter's value. Returns `null` for any other element, and for a field that
- * submits nothing. A nameless field is silent, since a field bound through
- * `rz-model` often has no name.
- */
-export function readTriggerValues(
-  el: Element,
-  submitter: HTMLElement | null = null,
-): Record<string, FieldValue> | null {
-  if (isField(el)) {
-    const value = readField(el);
-    return value === null ? null : { [el.name]: value };
-  }
-
-  return isFieldContainer(el)
-    ? { ...collectFields([el]), ...readSubmitter(submitter) }
-    : null;
-}
-
-/** Reads the name and value a form's submitter adds to the submission. */
-function readSubmitter(submitter: HTMLElement | null): Record<string, string> {
-  const isButton =
-    submitter instanceof HTMLButtonElement || submitter instanceof HTMLInputElement;
-  return isButton && submitter.name ? { [submitter.name]: submitter.value } : {};
 }
 
 /**
@@ -142,7 +205,7 @@ function submittedValue(field: Field): FieldValue | null {
 }
 
 /** Sets `name` to `value`, collecting into a list when the name already has one. */
-function appendValue(pairs: Record<string, FieldValue>, name: string, value: FieldValue) {
+function appendValue(pairs: FieldValues, name: string, value: FieldValue) {
   const prev = pairs[name];
   pairs[name] = prev === undefined ? value : [prev, value].flat();
 }

@@ -399,8 +399,9 @@ function toParams(pairs: FormPair[]): QueryParams {
 }
 
 /**
- * Removes files from a JSON payload, since JSON can't carry one. Each removal warns,
- * because the file's contents are lost.
+ * Removes files from a JSON payload, since JSON can't carry one. A removed file warns,
+ * since its contents are lost. An empty unnamed file drops silently: it's what a file
+ * input with nothing selected submits.
  */
 function dropFiles(
   payload: Record<string, unknown>,
@@ -409,11 +410,12 @@ function dropFiles(
   return Object.fromEntries(
     Object.entries(payload).flatMap(([key, val]): [string, unknown][] => {
       const items = Array.isArray(val) ? val : [val];
-      if (!items.some((item) => item instanceof File)) {
+      const files = items.filter((item): item is File => item instanceof File);
+      if (!files.length) {
         return [[key, val]];
       }
 
-      if (__DEV__) {
+      if (__DEV__ && files.some((file) => file.name || file.size)) {
         warn(`File in '${key}' can't be sent as JSON. Ignoring it.`, el);
       }
       const rest = items.filter((item) => !(item instanceof File));

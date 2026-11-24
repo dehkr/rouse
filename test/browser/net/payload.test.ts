@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vite-plus/test';
+import { describe, expect, it, vi } from 'vite-plus/test';
 import { delay, HttpResponse, http, worker } from '../helpers/network';
 import { mount } from '../helpers/mount';
 
@@ -14,6 +14,19 @@ function capture(path: string, wait = 0) {
     }),
   );
   return seen;
+}
+
+/** A form-associated custom element that submits its `value` attribute. */
+class TagInput extends HTMLElement {
+  static formAssociated = true;
+  internals = this.attachInternals();
+
+  connectedCallback() {
+    this.internals.setFormValue(this.getAttribute('value'));
+  }
+}
+if (!customElements.get('rz-test-tag-input')) {
+  customElements.define('rz-test-tag-input', TagInput);
 }
 
 describe('request payloads', () => {
@@ -141,6 +154,111 @@ describe('request payloads', () => {
     await expect.poll(() => seen.request).toBeDefined();
     expect(seen.request!.headers.get('X-Tenant')).toBe('42');
     expect(seen.request!.headers.has('Rouse-Request')).toBe(false);
+  });
+});
+
+describe('form collection', () => {
+  it('sends a form-associated custom element’s value', async () => {
+    const seen = capture('/api/tags');
+    const { $ } = await mount(`
+      <form action="/api/tags" method="post" data-rz-fetch="submit">
+        <rz-test-tag-input name="tags" value="a,b"></rz-test-tag-input>
+        <button>Go</button>
+      </form>
+    `);
+    $('button').click();
+    await expect.poll(() => seen.request).toBeDefined();
+    expect(new URLSearchParams(seen.body).get('tags')).toBe('a,b');
+  });
+
+  it('sends values a formdata listener adds', async () => {
+    const seen = capture('/api/form');
+    const { $ } = await mount(`
+      <form action="/api/form" method="post" data-rz-fetch="submit">
+        <input name="a" value="1"><button>Go</button>
+      </form>
+    `);
+    $('form').addEventListener('formdata', (e) => e.formData.append('b', '2'));
+    $('button').click();
+    await expect.poll(() => seen.request).toBeDefined();
+    expect(Object.fromEntries(new URLSearchParams(seen.body))).toEqual({
+      a: '1',
+      b: '2',
+    });
+  });
+
+  it('sends a dirname field’s direction', async () => {
+    const seen = capture('/api/form');
+    const { $ } = await mount(`
+      <form action="/api/form" method="post" data-rz-fetch="submit">
+        <input name="note" value="hi" dir="rtl" dirname="note.dir">
+        <button>Go</button>
+      </form>
+    `);
+    $('button').click();
+    await expect.poll(() => seen.request).toBeDefined();
+    expect(new URLSearchParams(seen.body).get('note.dir')).toBe('rtl');
+  });
+
+  it('sends an empty file part for a file input with no file selected', async () => {
+    const seen = capture('/api/upload');
+    const { $ } = await mount(`
+      <form action="/api/upload" method="post" enctype="multipart/form-data" data-rz-fetch="submit">
+        <input type="file" name="avatar"><button>Go</button>
+      </form>
+    `);
+    $('button').click();
+    await expect.poll(() => seen.request).toBeDefined();
+    expect(seen.body).toContain('name="avatar"; filename=""');
+  });
+
+  it('drops a file input with no file selected from a JSON body, without a warning', async () => {
+    const seen = capture('/api/upload');
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { $ } = await mount(`
+      <form action="/api/upload" method="post" data-rz-fetch="submit" data-rz-headers="Content-Type: application/json">
+        <input name="title" value="pic">
+        <input type="file" name="avatar">
+        <input type="file" name="photos" multiple>
+        <button>Go</button>
+      </form>
+    `);
+    $('button').click();
+    await expect.poll(() => seen.request).toBeDefined();
+    expect(JSON.parse(seen.body!)).toEqual({ title: 'pic' });
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it('sends a list for a multi-select or a shared name, whatever is chosen', async () => {
+    const seen = capture('/api/filter');
+    const { $ } = await mount(`
+      <form action="/api/filter" method="post" data-rz-fetch="submit" data-rz-headers="Content-Type: application/json">
+        <select name="size" multiple><option selected>m</option><option>l</option></select>
+        <input type="checkbox" name="color" value="red" checked>
+        <input type="checkbox" name="color" value="blue">
+        <input type="radio" name="ship" value="fast" checked>
+        <input type="radio" name="ship" value="slow">
+        <button>Go</button>
+      </form>
+    `);
+    $('button').click();
+    await expect.poll(() => seen.request).toBeDefined();
+    expect(JSON.parse(seen.body!)).toEqual({ size: ['m'], color: ['red'], ship: 'fast' });
+  });
+
+  it('leaves out a submitter that isn’t one of the form’s submit buttons', async () => {
+    const seen = capture('/api/form');
+    const { app, $ } = await mount(`
+      <form><input name="a" value="1"></form>
+      <button type="button" name="b" value="2">Other</button>
+    `);
+    await app.fetch('/api/form', {
+      method: 'POST',
+      triggerEl: $('form'),
+      submitter: $<HTMLButtonElement>('button'),
+    });
+    expect(Object.fromEntries(new URLSearchParams(seen.body))).toEqual({ a: '1' });
   });
 });
 

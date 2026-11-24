@@ -41,6 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Cancel native navigation only for triggers listening on the link or form itself, so a trigger with `outside`, `window`, `document`, or `root` doesn't block every link click or form submit on the page.
 - Allow `rz-sse` streams closed by a prevented `rz:sse:error` or rejected connection to reconnect when triggered again or mounted on a new element.
 - Route server-sent events named `open` or `error` to `sse-[open]` and `sse-[error]` triggers instead of treating them as connection lifecycle events.
+- Include form-associated custom elements, `formdata` listener entries, `dirname` values, and empty file inputs in form payloads, matching native form submission.
 - Fire `edit` triggers when an effect mutates a store in response to a framework write (sync response, deposit, `update()`, `reset()`, or `revert()`).
 - Mark stores dirty and fire `edit` triggers when mutating array items retrieved via array methods (`find()`, `map()`, `for...of`), including `rz-model` bindings on `rz-render` items (`~item.done`).
 - Return the reactive proxy from in-place array mutators (`sort()`, `reverse()`) so chained writes remain tracked.
