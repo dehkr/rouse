@@ -41,23 +41,15 @@ describe('store operations update bindings once', () => {
     expect(runs).toHaveBeenCalledOnce();
   });
 
-  it('reset(), revert(), and update()', async () => {
+  it('revert() and update()', async () => {
     const { app } = await mountAbc();
     const s = app.stores.get('abc')!;
     const runs = track(() => s.a + s.b + s.c);
 
-    const editAll = () => {
-      s.a = 1;
-      s.b = 1;
-      s.c = 1;
-      runs.mockClear();
-    };
-
-    editAll();
-    app.stores.reset('abc');
-    expect(runs).toHaveBeenCalledOnce();
-
-    editAll();
+    s.a = 1;
+    s.b = 1;
+    s.c = 1;
+    runs.mockClear();
     app.stores.revert('abc');
     expect(runs).toHaveBeenCalledOnce();
 

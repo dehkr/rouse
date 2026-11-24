@@ -72,20 +72,9 @@ declare module 'rousejs' {
      */
     pull(storeName: string | null | undefined, options?: SyncRequest): Promise<void>;
     /**
-     * Restores the store to its initial state, and makes that the new baseline,
-     * so nothing reads as dirty afterward.
-     *
-     * To restore the last state the server confirmed instead, use `revert()`.
-     *
-     * Requires the `sync` plugin.
-     */
-    reset(storeName: string | null | undefined): void;
-    /**
      * Discards unsaved changes, restoring the store to the last synced state, which
      * `baseline()` returns. Pass a dot path to revert a single field or branch
      * instead of the whole store. Returns `true` if anything changed.
-     *
-     * To restore the state the store started with, use `reset()`.
      *
      * Requires the `sync` plugin.
      */

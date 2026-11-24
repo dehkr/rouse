@@ -61,15 +61,10 @@ export interface StoreEntry {
  */
 export interface StoreHooks {
   /**
-   * A store is about to register. `declared` is its state before `persist` restored a
-   * saved copy, and `policy` is unset when no config was passed. Throwing rejects it.
+   * A store is about to register. `policy` is unset when no config was passed.
+   * Throwing rejects it.
    */
-  created(
-    entry: StoreEntry,
-    declared: object,
-    policy: StoreOptions | undefined,
-    persisted: boolean,
-  ): void;
+  created(entry: StoreEntry, policy: StoreOptions | undefined, persisted: boolean): void;
   /** A `<script data-rz-store>` re-declared the store, with the policy it declares. */
   redeclared(entry: StoreEntry, policy: DeclaredSync): void;
   /** The store's data was replaced whole, by `update()` or a re-declared script. */
@@ -305,7 +300,6 @@ export class StoreManager {
     }
 
     const { created } = this._hooks;
-    const declared = created && clone(state);
     if (persisted) {
       restore(state, persisted);
     }
@@ -318,7 +312,7 @@ export class StoreManager {
 
     // Before registering, so a hook that rejects the store leaves nothing behind
     if (created) {
-      created(entry, declared!, config && policy, !!persisted);
+      created(entry, config && policy, !!persisted);
     } else if (__DEV__) {
       warnSyncOptions(storeName, policy);
     }
@@ -399,7 +393,8 @@ export class StoreManager {
 
   /**
    * Replaces the store's data. Sends nothing. With the `sync` plugin, the new data is
-   * also what `reset()` and `revert()` restore, and the store has no unsaved changes.
+   * also what `revert()` restores, and the store has no unsaved changes. Use it for
+   * data the server already holds, such as a server render.
    */
   update<T extends object = any>(storeName: string | null | undefined, state: object): T {
     const entry = this._find(storeName);
@@ -414,12 +409,10 @@ export class StoreManager {
   }
 
   /**
-   * Replaces the store's data and calls the `reseeded` hook. Shared by `update()`,
-   * `reset()`, and a re-declared script.
-   *
-   * @internal
+   * Replaces the store's data and calls the `reseeded` hook. Shared by `update()` and a
+   * re-declared script.
    */
-  _reseed(entry: StoreEntry, state: object) {
+  private _reseed(entry: StoreEntry, state: object) {
     this._frameworkWrite(
       () => patchState(entry.data, state, 'replace'),
       () => this._hooks.reseeded?.(entry),
@@ -433,8 +426,7 @@ export class StoreManager {
    * the payload.
    *
    * With the `sync` plugin, the payload's keys count as synced, as after a pull. Keys
-   * it leaves out keep any unsaved changes, and `reset()` still restores the state the
-   * store started with.
+   * it leaves out keep any unsaved changes.
    *
    * @returns `false` if the store does not exist or a listener canceled the patch.
    */

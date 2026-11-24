@@ -56,7 +56,7 @@ Store sync and server-sent events are plugins. Core never loads them: pass each 
 
 | Plugin | Import | Adds |
 | --- | --- | --- |
-| `sync` | `import { sync } from 'rousejs/sync'` | `rz-push`, `rz-pull`, `@store::status`, a store endpoint and request options (`app.store()` config, `data-rz-store="name: /url"`, `rz-headers` on a store script), and `app.stores` `status`, `isDirty`, `baseline`, `config`, `push`, `pull`, `reset`, `revert`, `commit` |
+| `sync` | `import { sync } from 'rousejs/sync'` | `rz-push`, `rz-pull`, `@store::status`, a store endpoint and request options (`app.store()` config, `data-rz-store="name: /url"`, `rz-headers` on a store script), and `app.stores` `status`, `isDirty`, `baseline`, `config`, `push`, `pull`, `revert`, `commit` |
 | `sse` | `import { sse } from 'rousejs/sse'` | `rz-sse`, `rz-close`, the `sse-[name]` trigger, `app.sse()` |
 
 - Without the plugin, its markup does nothing. The development build warns once per element (`::status` once per app), and its `app.stores` methods and `app.sse()` throw an install hint. The production build stays silent. In TypeScript the plugin's options and methods don't exist until its module is imported.
@@ -257,7 +257,7 @@ Triggers that aren't DOM events:
 | `intersect`, `intersect-[ratio]` | Each time the element enters the viewport, at least `ratio` visible (0–1, default 0) | `intersect-[0.5]\|once` |
 | `interact` | On each `pointerover` or `focusin` on the element; add `once` for the first only | `interact\|once` |
 | `idle` | Once, when the browser is idle | `idle` |
-| `edit-[@store]`, `edit-[@store.key]` | When your code (handlers, effects, timers) or `rz-model` edits the store, or that top-level key. Sync responses, deposits, `update()`, `reset()`, and `revert()` don't count. To follow every change, use `effect` | `edit-[@cart]\|debounce-[500ms]` |
+| `edit-[@store]`, `edit-[@store.key]` | When your code (handlers, effects, timers) or `rz-model` edits the store, or that top-level key. Sync responses, deposits, `update()`, and `revert()` don't count. To follow every change, use `effect` | `edit-[@cart]\|debounce-[500ms]` |
 | `sse-[name]` | SSE plugin. On a server-sent event named `name` from this element's stream or its descendants'; `sse-[message]` for unnamed messages | `sse-[done]`, `sse-[tick]\|root` |
 
 On a source only `once`, timing, and its argument apply (`sse` also takes `root`); other modifiers are ignored without a warning.
@@ -293,7 +293,7 @@ const text = batch(() => {
 ```
 
 - Writing the value a signal or key already holds triggers nothing.
-- Writes are synchronous: the DOM reflects state right after a write, so a handler can write and then query an element `rz-render` just added. Inside `batch(fn)`, the DOM updates when the outermost `batch()` returns. Store operations (sync responses, deposits, `update()`, `reset()`, `revert()`) each update bindings once.
+- Writes are synchronous: the DOM reflects state right after a write, so a handler can write and then query an element `rz-render` just added. Inside `batch(fn)`, the DOM updates when the outermost `batch()` returns. Store operations (sync responses, deposits, `update()`, `revert()`) each update bindings once.
 - `reactive()` proxies plain objects and arrays only. `Map`, `Set`, `Date`, and class instances are returned unproxied, and changes inside them update nothing.
 - Nested objects become reactive on first read. `reactive(x)` always returns the same proxy, and passing a proxy returns it unchanged.
 - Getters on a reactive object are cached computeds, as in stores. Keep them pure.
@@ -477,7 +477,7 @@ The `url`, `app.stores.push()`, and the `edit`-to-push pattern need the sync plu
 ```
 
 - `app.store(name, data, config?)` takes the endpoint as `config.url`, plus request options (`headers`, `timeout`, `credentials`, …), with the sync plugin. It returns the store itself, the same object `app.stores.get(name)` returns.
-- `config` takes `persist` and `persistKey` to keep the store in Web Storage; see [Persistence](#persistence). With sync, `reset()` restores the declared data (or the last `update()`), never the copy loaded from storage, and saves it. `remove()` and `destroy()` stop saving and leave the saved entry. `<script data-rz-store>` can't persist.
+- `config` takes `persist` and `persistKey` to keep the store in Web Storage; see [Persistence](#persistence). `remove()` and `destroy()` stop saving and leave the saved entry. `<script data-rz-store>` can't persist.
 - A persisted store has no standing endpoint: with sync, `persist` with `url` throws, in `app.store()` and `app.stores.config()`. A one-off push or pull with its own URL (`app.stores.pull('prefs', { url: '/api/prefs' })`) still runs, applies its response like a deposit, and saves the result.
 
 ### Store sync
@@ -506,7 +506,7 @@ A `<script type="application/json" data-rz-store="name: /endpoint">` declares a 
 
 The script element is the store's declaration. Replacing it with a new script of the same name re-declares the store:
 
-- **Data.** The new body replaces the data and becomes the new `reset()` and `revert()` target. Unsaved edits are discarded, and the store reads clean.
+- **Data.** The new body replaces the data and becomes the new `revert()` target. Unsaved edits are discarded, and the store reads clean.
 - **Config.** With sync, the endpoint and headers come from the new script. A missing endpoint or `rz-headers` clears that setting, including headers set in JS. Other options (`timeout`, `credentials`, …) are kept.
 - **Empty body.** The data is kept; only the config is replaced.
 
@@ -535,9 +535,8 @@ The script element is the store's declaration. Replacing it with a new script of
 | `baseline(name)` *sync* | Plain, non-reactive deep copy of the last synced data | What `revert()` restores and dirty checks compare against. Same copy rules as `snapshot()` |
 | `push(name)` / `pull(name)` *sync* | `Promise<void>`; never rejects | Syncs now; check `status(name).error` for the outcome. A push during another push waits and sends once |
 | `revert(name, path?)` *sync* | `true` if anything changed | Restores the last synced data. With `path`, restores one field or branch |
-| `reset(name)` *sync* | | Restores the initial data: from creation, the last `update()`, or the last re-declared script. The store then reads clean |
 | `commit(name)` *sync* | | Marks the current data synced; sends nothing. Use it when the data reached the server another way |
-| `update(name, state)` | The store | Replaces the data. With sync, it becomes the new `reset()` and `revert()` target, and the store reads clean. Sends nothing |
+| `update(name, state)` | The store | Replaces the data. With sync, it becomes the new `revert()` target and the store reads clean, so use it for data the server already holds, such as a server render. Sends nothing |
 | `deposit(name, payload)` | `false` if the store is missing or a listener canceled | Merges a payload as JSON Merge Patch, the way `rz-deposit` does. With sync, the payload's keys become synced; other unsaved edits stay |
 | `config(name, partial)` *sync* | | Merges `partial` into the sync config (`url`, `headers`, `timeout`, …). Throws on `url` for a persisted store |
 | `remove(name)` | | Deletes the store. Existing references keep working but stop syncing and firing `edit` triggers |
@@ -975,7 +974,7 @@ Every `rz:*` event, when it fires, and its `detail`.
 
 - Request order is always `:config` → `:start` → one of `:success` / `:error` / `:abort` → `:end`, and the request's outcome fires before any destination event (`rz:push:success` before `rz:store:patch:before`).
 - Destination events fire only when something changed, so failures appear only on the request events.
-- Only real network operations fire request events. `update()`, `reset()`, and triggers dropped by a guard (disconnected, disabled, a sync already running, a write in flight) fire nothing.
+- Only real network operations fire request events. `update()` and triggers dropped by a guard (disconnected, disabled, a sync already running, a write in flight) fire nothing.
 - A stream has no final event per message and no `:end`: it opens once and receives many messages.
 
 ## Programmatic API

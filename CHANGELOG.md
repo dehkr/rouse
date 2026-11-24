@@ -30,7 +30,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 - **Breaking:** Remove `app.stores.dirtyRoots()`. Read the store status object instead, which holds the same keys.
-- **Breaking:** Remove per-item relocation through a `renderTarget` field in `rz-render` item data. Render each destination from its own list:`<template data-rz-render="@board.done" data-rz-key="id">`, with a `done` getter on the store that filters `cards` by column.
+- **Breaking:** Remove `app.stores.reset()`. Use `app.stores.revert(name)` to discard unsaved edits, `app.stores.update(name, data)` to replace state cleanly with server-confirmed data, or assign cloned defaults directly to mark them dirty for push.
+- **Breaking:** Remove per-item relocation through a `renderTarget` field in `rz-render` item data. Render each destination from its own list: `<template data-rz-render="@board.done" data-rz-key="id">`, with a `done` getter on the store that filters `cards` by column.
 - **Breaking:** Remove `rousejs/dev` and `rousejs/min` entry points. `rousejs` now resolves via the `development` export condition (default in Vite; pass `--conditions=development` in esbuild).
 - **Breaking:** Remove the `REDIRECTED` error code; cross-origin redirects now route their final response unless `redirect: error` is set in `rz-request`.
 - **Breaking:** Remove the `Rouse-Push-Url` response header. Use `Rouse-Replace-Url` to update the URL in place, or `Rouse-Redirect` to navigate and add a history entry.
@@ -45,7 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Allow `rz-sse` streams closed by a prevented `rz:sse:error` or rejected connection to reconnect when triggered again or mounted on a new element.
 - Route server-sent events named `open` or `error` to `sse-[open]` and `sse-[error]` triggers instead of treating them as connection lifecycle events.
 - Include form-associated custom elements, `formdata` listener entries, `dirname` values, and empty file inputs in form payloads, matching native form submission.
-- Fire `edit` triggers when an effect mutates a store in response to a framework write (sync response, deposit, `update()`, `reset()`, or `revert()`).
+- Fire `edit` triggers when an effect mutates a store in response to a framework write (sync response, deposit, `update()`, or `revert()`).
 - Mark stores dirty and fire `edit` triggers when mutating array items retrieved via array methods (`find()`, `map()`, `for...of`), including `rz-model` bindings on `rz-render` items (`~item.done`).
 - Return the reactive proxy from in-place array mutators (`sort()`, `reverse()`) so chained writes remain tracked.
 - Rebind elements re-inserted into the same scope after their directives were skipped, and rebind elements moved across apps regardless of initialization order.

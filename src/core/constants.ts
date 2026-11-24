@@ -197,7 +197,6 @@ export const SYNC_METHODS = [
   'config',
   'push',
   'pull',
-  'reset',
   'revert',
   'commit',
 ] as const;

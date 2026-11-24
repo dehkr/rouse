@@ -4,7 +4,7 @@
  * server: a push's snapshot, then the response as applied to the data. Never copy
  * `data` into it there. On a 204 that saves a mid-flight edit and cancels its
  * follow-up, and after a pull it marks unsaved edits in omitted keys as saved. A
- * deposit follows the same rule. `reset()` leaving the belief wrong is accepted.
+ * deposit follows the same rule.
  *
  * Every dirty read, in HTML or JS, comes from `status.dirtyRoots` and `status.dirty`.
  * Don't give a JS read its own live comparison against `lastGood`.
@@ -90,8 +90,6 @@ function failPersistUrl(storeName: string): never {
 /** A store entry with the sync state the `created` hook adds to it. */
 export interface SyncEntry extends StoreEntry {
   status: StoreStatus;
-  /** The declared data, which `reset()` restores. */
-  initial: any;
   config?: SyncPolicy;
   lastGood?: any;
   /** The owning request, while it's in flight. A newer request replaces it. */
@@ -131,7 +129,7 @@ export class StoreSync {
   /** The store hooks that keep sync state current. */
   hooks(): StoreHooks {
     return {
-      created: (stored, declared, policy, persisted) => {
+      created: (stored, policy, persisted) => {
         const entry = stored as SyncEntry;
         if (persisted && policy?.url) {
           failPersistUrl(entry.name);
@@ -144,9 +142,6 @@ export class StoreSync {
           dirty: false,
           dirtyRoots: {},
         });
-
-        // The declared data, so `reset()` restores defaults, not the saved copy
-        entry.initial = declared;
 
         if (policy) {
           this._setConfig(entry, policy);
@@ -165,13 +160,9 @@ export class StoreSync {
         }
         entry.config = config;
       },
-      reseeded: (stored) => {
-        const entry = stored as SyncEntry;
-        // Both restore targets are cloned from the patched data rather than the new
-        // state, so they match what the store holds after the write
-        entry.initial = core.clone(entry.data);
-        this._updateLastGood(entry, entry.data);
-      },
+      // The baseline is cloned from the patched data rather than the new state, so it
+      // matches what the store holds after the write
+      reseeded: (entry) => this._updateLastGood(entry as SyncEntry, entry.data),
       patched: (entry, roots) => this._reconcileDirty(entry as SyncEntry, roots),
       deposited: (stored, payload) => {
         const entry = stored as SyncEntry;
@@ -714,26 +705,9 @@ export class StoreSync {
   }
 
   /**
-   * Restores the store to its initial state, and makes that the new baseline,
-   * so nothing reads as dirty afterward.
-   *
-   * To restore the last state the server confirmed instead, use `revert()`.
-   */
-  reset(storeName: string | null | undefined) {
-    const entry = this._getStore(storeName, 'reset');
-    if (!entry) {
-      return;
-    }
-
-    this.stores._reseed(entry, core.clone(entry.initial));
-  }
-
-  /**
    * Discards unsaved changes, restoring the store to the last synced state, which
    * `baseline()` returns. Pass a dot path to revert a single field or branch
    * instead of the whole store. Returns `true` if anything changed.
-   *
-   * To restore the state the store started with, use `reset()`.
    */
   revert(storeName: string | null | undefined, path?: string): boolean {
     const entry = this._getStore(storeName, 'revert');

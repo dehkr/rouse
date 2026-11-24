@@ -83,7 +83,7 @@ describe('persisted reactive() in a scope', () => {
 describe('persisted store', () => {
   const persist = { persist: 'local', persistKey: KEY } as const;
 
-  it('restores on creation, and reset() restores the declared data', async () => {
+  it('restores on creation, reading clean with sync', async () => {
     localStorage.setItem(KEY, JSON.stringify({ theme: 'dark' }));
     const { app, $ } = await mount(`<span data-rz-text="@prefs.theme"></span>`, {
       plugins: [sync],
@@ -92,12 +92,6 @@ describe('persisted store', () => {
 
     expect($('span').textContent).toBe('dark');
     expect(app.stores.isDirty('prefs')).toBe(false);
-
-    app.stores.reset('prefs');
-    await nextMicrotask();
-
-    expect(app.stores.get('prefs').theme).toBe('light');
-    expect(saved()).toEqual({ theme: 'light' });
   });
 
   it('stops saving on remove(), keeping the saved entry', async () => {

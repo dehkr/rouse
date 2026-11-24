@@ -54,7 +54,7 @@ function bindStorePairs(
 
     const sync = () => triggerStoreSync(op, el, app, storeName);
 
-    // A debounced edit can settle after the value was pushed, reset, or retyped
+    // A debounced edit can settle after the value was pushed, reverted, or retyped
     // back to the baseline, so the check runs when the timer fires, not when armed.
     // It tests the store being synced, which an `edit` argument naming another
     // store doesn't change.

@@ -341,8 +341,7 @@ export class RouseApp {
    *
    * **Persistence:** pass `persist` and `persistKey` to keep the data in the browser
    * across page loads.
-   * - The saved copy is restored on creation. With sync, `reset()` restores `data` (or
-   *   the data from the last `update()`), not the copy loaded from storage.
+   * - The saved copy is restored on creation.
    * - Every change saves the data fields as JSON.
    * - Saving stops on `stores.remove()` and `destroy()`. The saved copy stays in storage.
    *
