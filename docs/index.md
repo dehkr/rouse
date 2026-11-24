@@ -584,6 +584,53 @@ What `rz-render` renders for each kind of value, and what `~item` holds in each 
 - An item whose key repeats an earlier item's isn't rendered, with only a dev warning.
 - Give client-created items a key once, at creation: `items.push({ id: createKey(), text })`. Never call `createKey()` in a getter.
 
+### Selected items
+
+A binding can't compare `~item::index` with a value. To mark selected, expanded, or active items, return a `selection()` from setup. Its item methods take the handler context, so a binding or a handler names them directly.
+
+```js
+import { selection } from 'rousejs';
+
+app.scope('todos', ({ app }) => {
+  const todos = app.stores.get('todos');
+  // Clears when the user picks another filter
+  return { selected: selection({ key: 'id', clearOn: () => todos.filter }) };
+});
+```
+
+```html
+<!-- `shown` is a store getter that applies `filter` to `items` -->
+<template data-rz-render="@todos.shown" data-rz-key="id">
+  <li data-rz-class="active: selected.isSelected" data-rz-on="click: selected.toggle"></li>
+</template>
+```
+
+| Member | Does |
+| --- | --- |
+| `isSelected(ctx)` | Returns whether the item is selected. A change re-runs only the bindings whose result flips |
+| `toggle(ctx)` | Selects or deselects the item, and returns whether it's now selected |
+| `select(ctx)`, `deselect(ctx)` | Selects or deselects the item |
+| `clear()` | Deselects every item |
+| `set(keys)` | Replaces the selection from code |
+| `keys` | The selected keys, in selection order. Reactive |
+
+| Option | Default | Effect |
+| --- | --- | --- |
+| `multiple` | `false` | Selects items independently. Without it, selecting an item deselects the rest, and `set()` keeps the last key |
+| `key` | Position | A field path that identifies an item (`'id'`). Without it, the selection stays on a position when the list reorders |
+| `clearOn` | None | Clears the selection when the value it returns changes. Created during setup, it stops with the scope |
+
+- Use `key` for a list that reorders or comes from a store, naming the same field as `rz-key`.
+- `clearOn` fires when its value changes (`!==`). A sync response or deposit that includes an array replaces it, so `clearOn: () => todos.items` clears after every round trip. Follow the value that picks the list, such as a filter or page.
+- An item without a key can't be selected, with a dev warning. That covers a missing field, and a call outside `rz-render` without `key`.
+- Methods work detached, and `reactive()` doesn't wrap the selection.
+
+| Case | Approach |
+| --- | --- |
+| A list a scope getter derives | A flag on the item (`~item.open`). The getter rebuilds the items, which clears it |
+| Store data, or more than one selected item | `selection()`, which keeps UI state out of synced data |
+| One open section at a time | `<details name="group">`, with no JavaScript |
+
 ### Render targets
 
 An item with a `renderTarget` field renders its instance there instead of beside the template.
@@ -1008,6 +1055,7 @@ Named exports from `rousejs`. The plugins are `sync` from `rousejs/sync` and `ss
 | `effect(fn)`, `effect(compute, apply, options?)` | A stop function | See [Reactivity API](#reactivity-api) |
 | `reactive(object, options?)` | A deep proxy of a plain object or array | See [Reactivity API](#reactivity-api) |
 | `batch(fn)` | `fn`'s result | See [Reactivity API](#reactivity-api) |
+| `selection(options?)` | A selection (`Selection`) | See [Selected items](#selected-items) |
 | `dispatch(el, name, detail?, init?)` | The `CustomEvent` | Dispatches a bubbling event from `el`. Use it to signal between nested scopes |
 | `createKey(prefix?)` | A key unique for the page's lifetime | For `rz-key` on client-created items. Assign it once at creation, never in a getter |
 
@@ -1051,6 +1099,8 @@ Import these with `import type { … } from 'rousejs'`.
 | `ReactiveOptions` | `reactive()`'s options: `persist` with `persistKey` |
 | `EffectOptions` | `effect(compute, apply, options?)`'s options: `defer` |
 | `PersistStorage` | `'local' \| 'session'`, the `persist` values |
+| `Selection<Key>` | What `selection()` returns; `Key` types `keys` and `set()` |
+| `SelectionOptions` | `selection()`'s options: `multiple`, `key`, `clearOn` |
 | `LifecycleEvent` | Union of every lifecycle event name |
 | `LifecycleEventMap` | Lifecycle event name → `detail` type |
 | `RousePlugin` | A plugin passed to `rouse({ plugins })` |

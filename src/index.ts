@@ -5,6 +5,8 @@ export { createKey } from './core/keys';
 export type { RousePlugin } from './plugin-api';
 export { effect } from './reactivity/effect';
 export { batch, reactive } from './reactivity/reactive';
+export { selection } from './reactivity/selection';
+export type { Selection, SelectionOptions } from './reactivity/selection';
 export type { StoreManager, StoreOptions } from './store';
 export type { EffectOptions } from './reactivity/effect';
 export type { PersistStorage, ReactiveOptions } from './reactivity/reactive';

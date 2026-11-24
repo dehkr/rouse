@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add `persist` and `persistKey` options to `reactive()` and `app.store()` for persisting state to `localStorage` or `sessionStorage` across page loads.
 - Add `batch(fn)` to group reactive writes; effects and bindings are deferred until the outermost batch completes.
 - Add `effect(compute, apply, options?)` to track `compute` and run `apply(value, prev, stop)` untracked on change (supports `defer: true`).
+- Add `selection(options?)` to track selected `rz-render` items without mutating list data; bindings and handlers reference its methods directly (e.g., `active: days.isSelected`, `click: days.toggle`).
 
 ### Changed
 
