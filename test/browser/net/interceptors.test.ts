@@ -109,7 +109,7 @@ describe('interceptors', () => {
     expect(request).toHaveBeenCalledOnce();
   });
 
-  it('sees sync headers on a push config', async () => {
+  it('sees the merge-patch Content-Type on a push config', async () => {
     worker.use(http.patch('/api/s', () => HttpResponse.json({})));
     const headers = vi.fn();
     const { app } = await mount('', {
@@ -124,7 +124,7 @@ describe('interceptors', () => {
     app.stores.get('s')!.v = 1;
     await app.stores.push('s');
     expect(headers).toHaveBeenCalledWith(
-      expect.objectContaining({ 'Rouse-Sync': 'push', 'Rouse-Store': 's' }),
+      expect.objectContaining({ 'Content-Type': 'application/merge-patch+json' }),
     );
   });
 });

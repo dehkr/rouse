@@ -22,7 +22,6 @@ test('pulls on ready, then pushes an edit and merges the server reply', async ({
   const log = await (await request.get('/api/log')).json();
   const push = log.find((entry: { method: string }) => entry.method === 'PATCH');
   expect(push.headers['content-type']).toBe('application/merge-patch+json');
-  expect(push.headers['rouse-sync']).toBe('push');
 
   const server = await (await request.get('/api/store')).json();
   expect(server.name).toBe('Grace');

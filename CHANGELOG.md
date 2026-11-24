@@ -35,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Breaking:** Remove `rousejs/dev` and `rousejs/min` entry points. `rousejs` now resolves via the `development` export condition (default in Vite; pass `--conditions=development` in esbuild).
 - **Breaking:** Remove the `REDIRECTED` error code; cross-origin redirects now route their final response unless `redirect: error` is set in `rz-request`.
 - **Breaking:** Remove the `Rouse-Push-Url` response header. Use `Rouse-Replace-Url` to update the URL in place, or `Rouse-Redirect` to navigate and add a history entry.
+- **Breaking:** Remove the `Rouse-Sync` and `Rouse-Store` request headers from push and pull so a cross-origin pull doesn't force a CORS preflight. Read the request method for the operation and route by URL. The store name can be added to the store's `headers` option if needed`.
 - **Breaking:** Remove `rz:scope:init` and `rz:scope:destroy`. Use `rz:scope:connect` (post-binding) and `rz:scope:disconnect` (post-teardown), or wrap the setup function in `app.scope()` to run pre-binding logic.
 - **Breaking:** Remove content-typed events (`rz:fetch:success:{html,json,file}`, `rz:fetch:error:{html,json,file}`, `rz:sse:message:{html,json}`). Listen to `rz:fetch:success`, `rz:fetch:error`, or `rz:sse:message` and branch on `detail.data` instead.
 

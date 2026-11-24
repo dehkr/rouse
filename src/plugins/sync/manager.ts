@@ -61,27 +61,6 @@ function rootsFor(path?: string): string[] | undefined {
   return path ? [core.getPathRoot(path) as string] : undefined;
 }
 
-/**
- * Protocol headers describing the sync to the server. Merged under the user layers,
- * so `data-rz-headers="Rouse-Store: null"` can drop any of them.
- */
-function syncHeaders(
-  operation: 'push' | 'pull',
-  storeName: string,
-): Record<string, string> {
-  const headers: Record<string, string> = {
-    'Rouse-Sync': operation,
-    'Rouse-Store': storeName,
-  };
-
-  // A push body is a JSON Merge Patch (RFC 7396). A pull carries no body.
-  if (operation === 'push') {
-    headers['Content-Type'] = 'application/merge-patch+json';
-  }
-
-  return headers;
-}
-
 /** Rejects a persisted store with an endpoint: both would claim its state on load. */
 function failPersistUrl(storeName: string): never {
   fail(`Store '${storeName}' cannot combine 'persist' and 'url'.`);
@@ -301,8 +280,11 @@ export class StoreSync {
       return;
     }
 
-    // Both verbs are prescribed: a push is a merge patch, a pull carries no body.
+    // Both verbs are prescribed: a push is a JSON Merge Patch (RFC 7396), a pull
+    // carries no body. The method and URL identify the sync, so no header repeats them.
     const method = operation === 'push' ? 'PATCH' : 'GET';
+    const protocolHeaders: Record<string, string> =
+      operation === 'push' ? { 'Content-Type': 'application/merge-patch+json' } : {};
 
     // Layers, later wins: protocol defaults, app config, store policy, per-call
     // options. Headers merge per key so one layer never drops another's keys.
@@ -313,7 +295,7 @@ export class StoreSync {
       ...options,
       url,
       headers: {
-        ...syncHeaders(operation, name),
+        ...protocolHeaders,
         ...this.app.config.headers,
         ...policyHeaders,
         ...options.headers,

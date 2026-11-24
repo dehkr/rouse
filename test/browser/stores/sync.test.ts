@@ -7,7 +7,7 @@ const mount: typeof mountCore = (html, options) =>
   mountCore(html, { ...options, plugins: [sync] });
 
 describe('store push', () => {
-  it('sends the whole store as a merge-patch PATCH with sync headers', async () => {
+  it('sends the whole store as a merge-patch PATCH', async () => {
     let request: Request | undefined;
     let body: unknown;
     worker.use(
@@ -25,8 +25,6 @@ describe('store push', () => {
     await app.stores.push('cart');
 
     expect(request!.headers.get('Content-Type')).toBe('application/merge-patch+json');
-    expect(request!.headers.get('Rouse-Sync')).toBe('push');
-    expect(request!.headers.get('Rouse-Store')).toBe('cart');
     expect(body).toEqual({ items: [1], note: '' });
     expect(app.stores.isDirty('cart')).toBe(false);
   });
@@ -134,12 +132,10 @@ describe('store push', () => {
 
 describe('store pull', () => {
   it('merges the response as JSON Merge Patch and reads clean', async () => {
-    let sync: string | null = null;
     worker.use(
-      http.get('/api/profile', ({ request }) => {
-        sync = request.headers.get('Rouse-Sync');
-        return HttpResponse.json({ name: 'Grace', bio: null, tags: ['x'] });
-      }),
+      http.get('/api/profile', () =>
+        HttpResponse.json({ name: 'Grace', bio: null, tags: ['x'] }),
+      ),
     );
     const { app } = await mount('', {
       setup: (a) =>
@@ -152,14 +148,13 @@ describe('store pull', () => {
     await app.stores.pull('profile');
 
     const merged = { name: 'Grace', tags: ['x'], role: 'admin' };
-    expect(sync).toBe('pull');
     expect(app.stores.snapshot('profile')).toEqual(merged);
     expect(app.stores.baseline('profile')).toEqual(merged);
     expect(app.stores.isDirty('profile', 'name')).toBe(false);
     expect(app.stores.status('profile')!.lastSync).toBeGreaterThan(0);
   });
 
-  it('sends the sync headers but not Rouse-Request to another origin', async () => {
+  it('sends no Rouse headers to another origin', async () => {
     let request: Request | undefined;
     worker.use(
       http.get('https://sync.other.test/profile', ({ request: r }) => {
@@ -173,9 +168,9 @@ describe('store pull', () => {
     });
     await app.stores.pull('profile');
 
-    expect(request!.headers.get('Rouse-Sync')).toBe('pull');
-    expect(request!.headers.get('Rouse-Store')).toBe('profile');
-    expect(request!.headers.has('Rouse-Request')).toBe(false);
+    expect(
+      [...request!.headers.keys()].filter((key) => key.startsWith('rouse-')),
+    ).toEqual([]);
   });
 
   it('reads clean after the server deletes a root with null', async () => {

@@ -704,8 +704,6 @@ Headers Rouse adds to fetches, pushes, and pulls, so the server can tell its req
 | Header | Value | Sent by |
 | --- | --- | --- |
 | `Rouse-Request` | `true` | Requests to the page's origin |
-| `Rouse-Sync` | `push` or `pull` | Push and pull |
-| `Rouse-Store` | The store's name | Push and pull |
 | `Accept` | `application/json, text/html, image/svg+xml, */*;q=0.8` | Every request |
 
 - A `null` value in `rz-headers`, app `headers`, or `app.fetch` `headers` drops any of them.
@@ -895,7 +893,7 @@ app.interceptor('error', logError, { signal: term });
 ```
 
 - **Throws.** A throw in a `request` or `response` interceptor fails the request as `NETWORK_ERROR`, with the thrown error as `original`, and runs the `error` phase. The request is never re-sent.
-- **`config`** is the object that's sent: the same one `:config` listeners edit and `response.config` carries. `url` is absolute. A push or pull carries `Rouse-Sync` and `Rouse-Store` in `config.headers`.
+- **`config`** is the object that's sent: the same one `:config` listeners edit and `response.config` carries. `url` is absolute.
 - **Interceptor or `:config` listener.** A listener can be limited to a subtree and can cancel with `preventDefault()`, but runs synchronously. An interceptor applies to every request and can await.
 - **Opt-out.** `skipInterceptors: true` in `app.fetch` skips every phase for that call. Markup can't opt out.
 - **Lifetime.** `app.interceptor` returns a teardown and takes `{ signal }`. In a scope, pass `signal: term`.
@@ -1147,7 +1145,7 @@ The development build warns about most authoring mistakes. These fail without an
 - **Null in a payload deletes.** A store can hold `null`, but a pushed `null` removes the field on the server, and a `null` in a response or deposit removes the key from the store. A server serializer that omits empty values (Go `omitempty`) can never clear a field.
 - **Placement defaults to the host.** A stream element without `rz-place` writes every unnamed HTML message into its own `innerHTML`. Use `data-rz-place="null"` to opt out.
 - **Edit triggers watch data fields.** `edit-[@store.key]` filters on data fields. A setter writes its underlying field, so watching the accessor's key never fires.
-- **CORS must allow Rouse headers.** A cross-origin server must list the `Rouse-*` headers in `Access-Control-Allow-Headers` (or sync requests fail as `Failed to fetch`) and `Access-Control-Expose-Headers` (or response headers are ignored).
+- **CORS must allow the request and expose the response.** A cross-origin server must list every header the app adds in `Access-Control-Allow-Headers`, or the request fails as `Failed to fetch`. A push also needs `Content-Type` there and `PATCH` in `Access-Control-Allow-Methods`. The `Rouse-*` response headers need `Access-Control-Expose-Headers`, or Rouse ignores them.
 - **Push isn't plain JSON.** Push bodies are `application/merge-patch+json`. A server parsing only `application/json` (Express `express.json()`) sees an empty body.
 - **Streams send no headers.** `rz-headers`, `rz-request`, and interceptors don't apply to `rz-sse`; see [Server-sent events](#server-sent-events).
 - **URLs can read as methods.** A relative URL spelled like an HTTP method is read as one: write `./query`, not `query`.
