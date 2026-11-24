@@ -19,7 +19,7 @@ import type {
   ResolvedRequest,
   RouseResponse,
 } from '../types';
-import { preparePayload } from './payload';
+import { invalidReason, preparePayload } from './payload';
 import { errorResponse, mapCatchError, normalizeResponse } from './response';
 import { getDirectiveValue } from '../core/elements';
 import { warn } from '../core/diagnostics';
@@ -54,6 +54,19 @@ export async function request<T = any>(
       const error = await runErrorInterceptors(mapCatchError(e), config, app);
       return errorResponse(config, error);
     }
+  }
+
+  // Checked after the request interceptors, which can change the method, body, and URL
+  const invalid = invalidReason(config, app.config.baseUrl);
+  if (invalid) {
+    if (__DEV__) {
+      warn(invalid, ...(config.triggerEl ? [config.triggerEl] : []));
+    }
+    const error: RequestError = { message: invalid, code: 'INVALID_REQUEST' };
+    return errorResponse(
+      config,
+      config.skipInterceptors ? error : await runErrorInterceptors(error, config, app),
+    );
   }
 
   const { finalUrl, method, reqHeaders, finalBody, restOptions } = preparePayload(

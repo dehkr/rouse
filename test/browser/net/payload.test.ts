@@ -175,3 +175,44 @@ describe('in-flight state', () => {
     await expect.poll(() => codes).toEqual(['TIMEOUT']);
   });
 });
+
+describe('invalid requests', () => {
+  // Never sent: an unmocked /api/ request would fail the test in afterEach
+  it('fails a GET app.fetch with a body as INVALID_REQUEST and fires :error', async () => {
+    const codes: unknown[] = [];
+    const { app } = await mount('', {
+      setup: (a) => a.on('rz:fetch:error', (e) => codes.push(e.detail.error?.code)),
+    });
+    const { error } = await app.fetch('/api/never', { body: { a: 1 } });
+    expect(error?.code).toBe('INVALID_REQUEST');
+    expect(codes).toEqual(['INVALID_REQUEST']);
+  });
+
+  it('checks the method a :config listener sets', async () => {
+    const codes: unknown[] = [];
+    const { app } = await mount('', {
+      setup: (a) => {
+        a.on('rz:fetch:config', (e) => {
+          e.detail.config.method = 'GET';
+        });
+        a.on('rz:fetch:error', (e) => codes.push(e.detail.error?.code));
+      },
+    });
+    const { error } = await app.fetch('/api/never', { method: 'POST', body: { a: 1 } });
+    expect(error?.code).toBe('INVALID_REQUEST');
+    expect(codes).toEqual(['INVALID_REQUEST']);
+  });
+
+  it('fails an unresolvable URL before firing any event', async () => {
+    const fired: string[] = [];
+    const { app } = await mount('', {
+      setup: (a) => {
+        a.on('rz:fetch:config', (e) => fired.push(e.type));
+        a.on('rz:fetch:error', (e) => fired.push(e.type));
+      },
+    });
+    const { error } = await app.fetch('data:text/plain,hi');
+    expect(error?.code).toBe('INVALID_REQUEST');
+    expect(fired).toEqual([]);
+  });
+});

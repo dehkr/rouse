@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
-import { preparePayload, resolveUrl } from '../../../src/net/payload';
+import { invalidReason, preparePayload, resolveUrl } from '../../../src/net/payload';
 import type { FetchRequest } from '../../../src/types';
 
 beforeEach(() => {
@@ -47,6 +47,24 @@ describe('resolveUrl', () => {
   );
 });
 
+describe('invalidReason', () => {
+  const check = (options: Partial<FetchRequest>) =>
+    invalidReason({ url: '/api', ...options } as FetchRequest, '');
+
+  it.each(['GET', 'HEAD'] as const)('rejects a %s request with a body', (method) => {
+    expect(check({ method, body: { a: 1 } })).not.toBeNull();
+  });
+
+  it('rejects a URL that does not resolve', () => {
+    expect(check({ url: 'http://' })).not.toBeNull();
+  });
+
+  it('accepts a POST with a body and a GET without one', () => {
+    expect(check({ method: 'POST', body: { a: 1 } })).toBeNull();
+    expect(check({})).toBeNull();
+  });
+});
+
 describe('preparePayload', () => {
   it('defaults to GET and sets the Rouse request headers', () => {
     const { method, reqHeaders, finalBody } = prepare({});
@@ -58,10 +76,6 @@ describe('preparePayload', () => {
 
   it('uppercases the method', () => {
     expect(prepare({ method: 'post' as FetchRequest['method'] }).method).toBe('POST');
-  });
-
-  it.each(['GET', 'HEAD'] as const)('throws on a %s request with a body', (method) => {
-    expect(() => prepare({ method, body: { a: 1 } })).toThrow(TypeError);
   });
 
   it('replaces URL query values with params, repeating array values', () => {

@@ -4,11 +4,16 @@ import type { FetchRequest } from '../types';
 /**
  * Resolves a request URL against `baseUrl`, falling back to the document base.
  * A relative `baseUrl` is resolved against the document base. An absolute URL is
- * returned unchanged.
+ * returned unchanged. Returns `null` for a URL that doesn't parse, or that uses the
+ * `blob:` or `data:` scheme.
  */
-export function resolveUrl(url: string, baseUrl: string): URL {
+export function parseRequestUrl(url: string, baseUrl: string): URL | null {
+  if (/^(blob|data):/.test(url)) {
+    return null;
+  }
+
   try {
-    if (isAbsoluteUrl(url)) {
+    if (/^https?:\/\//i.test(url)) {
       return new URL(url);
     }
 
@@ -18,27 +23,45 @@ export function resolveUrl(url: string, baseUrl: string): URL {
       : document.baseURI;
 
     return new URL(url, base);
-  } catch (err) {
-    fail(`Failed to construct URL: '${url}'.`, TypeError, { cause: err });
+  } catch {
+    return null;
   }
 }
 
+/** Resolves a request URL as `parseRequestUrl` does, and throws when it can't. */
+export function resolveUrl(url: string, baseUrl: string): URL {
+  return parseRequestUrl(url, baseUrl) ?? fail(invalidUrl(url), TypeError);
+}
+
+/** Describes a URL that `parseRequestUrl` rejects. */
+export function invalidUrl(url: string): string {
+  return `Can't resolve the URL '${url}'. Use a path or an http(s) URL.`;
+}
+
 /**
- * Prepares the URL, headers, and body for a network request. `url` is left out of
- * `restOptions`, since it isn't a `RequestInit` field.
+ * Returns why a request can't be sent as written, or `null` when it can: a body on
+ * GET or HEAD, or a URL that doesn't resolve.
+ */
+export function invalidReason(options: FetchRequest, baseUrl: string): string | null {
+  const method = (options.method || 'GET').toUpperCase();
+
+  // Rejecting beats dropping the body, which sends a different request than the one
+  // written, and beats fetch's own throw, which reports as `NETWORK_ERROR`
+  if (options.body != null && (method === 'GET' || method === 'HEAD')) {
+    return `A ${method} request can't have a body. Pass query values as 'params', or use a method that takes a body.`;
+  }
+
+  const url = options.url as string;
+  return parseRequestUrl(url, baseUrl) ? null : invalidUrl(url);
+}
+
+/**
+ * Prepares the URL, headers, and body for a network request that `invalidReason`
+ * accepts. `url` is left out of `restOptions`, since it isn't a `RequestInit` field.
  */
 export function preparePayload(options: FetchRequest, baseUrl: string) {
   const { url, headers = {}, body, params, ...restOptions } = options;
   const method = (options.method || 'GET').toUpperCase();
-
-  // Failing beats dropping the body, which would send a different request than the one
-  // written, and beats fetch's own throw, which reads as a network error and is retried
-  if (body != null && (method === 'GET' || method === 'HEAD')) {
-    fail(
-      `A ${method} request can't have a body. Pass query values as 'params', or use a method that takes a body.`,
-      TypeError,
-    );
-  }
 
   const urlObj = resolveUrl(url as string, baseUrl);
 
@@ -113,11 +136,4 @@ function isNativeBinaryBody(body: unknown): body is BodyInit {
     ArrayBuffer.isView(body) || // Catches DataView and TypedArray
     body instanceof ReadableStream
   );
-}
-
-function isAbsoluteUrl(url: string): boolean {
-  if (/^(blob|data):/.test(url)) {
-    fail(`Unsupported URL scheme: '${url}'.`, TypeError);
-  }
-  return /^https?:\/\//i.test(url);
 }

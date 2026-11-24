@@ -688,7 +688,7 @@ Rouse speaks HTTP the way the browser does. Forms, methods, and encodings work a
 
 - **Payload.** A field sends `{ name: value }`; a nameless field sends nothing. A form or fieldset sends its enabled fields plus the submitter's name and value, and a submitter's `formaction`, `formmethod`, and `formenctype` beat the form's. Any other element sends only its `rz-send` sources.
 - **Encoding**, for methods with a body. Precedence: `Content-Type` header (app `headers` or `rz-headers`) -> button `formenctype` -> form `enctype` -> `application/x-www-form-urlencoded`. Never inferred from the payload. A `Content-Type` that isn't JSON, urlencoded, or multipart sends form data under that type, with a dev warning.
-- **`app.fetch` body.** An object is sent as JSON, `URLSearchParams` as urlencoded, and strings and native bodies (`FormData`, `Blob`, …) as is; a declared `Content-Type` wins. A body on GET or HEAD throws: pass `params`. A `body` replaces the trigger element's data, and `rz-send` is ignored with a warning.
+- **`app.fetch` body.** An object is sent as JSON, `URLSearchParams` as urlencoded, and strings and native bodies (`FormData`, `Blob`, …) as is; a declared `Content-Type` wins. A body on GET or HEAD fails as `INVALID_REQUEST`: pass `params`. A `body` replaces the trigger element's data, and `rz-send` is ignored with a warning.
 
 ### Body encoding
 
@@ -835,6 +835,7 @@ A failed request is a result, not an exception. It never rejects: it resolves wi
 | `CANCELED` | Aborted by a newer request or a signal (fires `:abort`, not `:error`), prevented in `:config`, or dropped by a guard |
 | `NETWORK_ERROR` | No response; `original` is the thrown error |
 | `PARSE_ERROR` | A 2xx body that couldn't be parsed: malformed JSON, or an event stream (open it with `rz-sse`) |
+| `INVALID_REQUEST` | Can't be sent as written: a body on GET or HEAD, or a URL that's missing or doesn't resolve. A bad URL in markup or the `app.fetch` call fires no events |
 | `INTERNAL_ERROR` | Rouse threw unexpectedly |
 
 ### Handling strategies

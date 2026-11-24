@@ -464,6 +464,8 @@ export interface StandaloneDirective {
  * - `TIMEOUT`: Request exceeded timeout threshold.
  * - `NETWORK_ERROR`: Fetch failed (offline, DNS, CORS, etc.).
  * - `PARSE_ERROR`: Response body couldn't be parsed.
+ * - `INVALID_REQUEST`: Request can't be sent as written (a body on GET or HEAD, or
+ *   a missing or unresolvable URL).
  * - `INTERNAL_ERROR`: Unexpected error in request engine.
  */
 export type CustomErrorCode =
@@ -471,6 +473,7 @@ export type CustomErrorCode =
   | 'TIMEOUT'
   | 'NETWORK_ERROR'
   | 'PARSE_ERROR'
+  | 'INVALID_REQUEST'
   | 'INTERNAL_ERROR';
 
 /** An HTTP status code, or a custom error code. */

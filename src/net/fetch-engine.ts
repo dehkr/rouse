@@ -17,7 +17,7 @@ import { readTriggerValues } from '../dom/forms';
 import { routePayload } from '../dom/payload-router';
 import type { FetchRequest, ResolvedRequest, RouseResponse } from '../types';
 import { type LifecycleHandle, PREVENTED, runRequestLifecycle } from './lifecycle';
-import { resolveUrl } from './payload';
+import { invalidUrl, parseRequestUrl } from './payload';
 import { readSend } from './send';
 import { request, resolveRequestConfig } from './request';
 import { fallbackResponse, isJsonType } from './response';
@@ -68,22 +68,17 @@ export async function runFetch(
       triggerEl instanceof HTMLFormElement ? (options.submitter ?? null) : null;
 
     const rawUrl = submitter?.getAttribute('formaction') ?? options.url;
-    if (!rawUrl) {
-      if (__DEV__) {
-        warn(
-          'Invalid or missing URL for the fetch request.',
-          ...(triggerEl ? [triggerEl] : []),
-        );
-      }
-      return fallbackResponse(
-        options,
-        'Invalid or missing URL for the fetch request.',
-        'INTERNAL_ERROR',
-      );
-    }
 
     // Resolved before `:config`, so listeners and interceptors see the URL that's sent
-    const url = resolveUrl(rawUrl, app.config.baseUrl).href;
+    const resolved = rawUrl ? parseRequestUrl(rawUrl, app.config.baseUrl) : null;
+    if (!resolved) {
+      const message = rawUrl ? invalidUrl(rawUrl) : 'Missing URL for the fetch request.';
+      if (__DEV__) {
+        warn(message, ...(triggerEl ? [triggerEl] : []));
+      }
+      return fallbackResponse(options, message, 'INVALID_REQUEST');
+    }
+    const url = resolved.href;
 
     const finalRequestInit = resolveRequestConfig(triggerEl, app);
     const formMethod =
