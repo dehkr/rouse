@@ -155,6 +155,7 @@ export default defineConfig({
       deps: depsFor(name),
       define: { __DEV__: 'false', __VERSION__: VERSION },
       outExtensions: () => ({ js: '.min.js' }),
+      outputOptions: { comments: { legal: true, annotation: false, jsdoc: false } },
       dts: false,
       clean: false,
       minify: true,
