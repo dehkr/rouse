@@ -647,7 +647,7 @@ Rouse speaks HTTP the way the browser does. Forms, methods, and encodings work a
 
 ## Fetch requests
 
-`rz-fetch` extends what links and forms already do: send the element's data and put the response where it belongs, without a page load. A form's `action`, `method`, and `enctype` work as written. The payload is the element's own values plus its `rz-send` sources. Precedence on a shared key: a later `rz-send` source -> an earlier one -> the element's own values. GET and HEAD send it as query parameters. Other methods send a body in the encoding you declare.
+`rz-fetch` extends what links and forms already do: send the element's data and put the response where it belongs, without a page load. A form's `action`, `method`, and `enctype` work as written. The payload is the element's own values plus its `rz-send` sources. An unset (`undefined`) source sends nothing. Precedence on a shared key: a later `rz-send` source -> an earlier one -> the element's own values. GET and HEAD send it as query parameters. Other methods send a body in the encoding you declare.
 
 ```html
 <!-- GET /search?q=…: a field sends its own name and value -->

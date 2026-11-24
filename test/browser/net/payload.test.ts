@@ -100,6 +100,26 @@ describe('request payloads', () => {
     expect(JSON.parse(seen.body!)).toEqual({ title: 'Hi', dark: true, size: 3, page: 2 });
   });
 
+  it('sends nothing for an unset rz-send source, without a warning', async () => {
+    const seen = capture('/api/notes');
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { $ } = await mount(
+      `<div data-rz-scope="s">
+        <button
+          data-rz-fetch="click: POST /api/notes"
+          data-rz-send="title, draft"
+          data-rz-headers="Content-Type: application/json"
+        >Save</button>
+      </div>`,
+      { scopes: { s: () => ({ title: 'Hi', draft: undefined }) } },
+    );
+    $('button').click();
+    await expect.poll(() => seen.request).toBeDefined();
+    expect(JSON.parse(seen.body!)).toEqual({ title: 'Hi' });
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
   it('adds rz-send sources to a form’s fields, and a source wins on a shared key', async () => {
     const seen = capture('/api/filter');
     const { $ } = await mount(

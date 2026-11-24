@@ -124,7 +124,7 @@ function readJson(entry: string, el: Element): Payload | null {
 
 /**
  * Reads a state path. A bare store or render item sends its fields. Any other path
- * sends its value under the path's last segment.
+ * sends its value under the path's last segment. An unset path sends nothing.
  */
 function readState(
   path: string,
@@ -132,11 +132,9 @@ function readState(
   scope: Scope,
   app: RouseApp,
 ): Payload | null {
+  // No warning: an unset value is valid state, as it is for the bound directives
   const value = resolveState(path, scope, app.stores);
   if (value === undefined) {
-    if (__DEV__) {
-      warn(`rz-send: '${path}' resolved to undefined. Ignoring.`, el);
-    }
     return null;
   }
 
