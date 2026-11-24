@@ -53,7 +53,7 @@ import { fail, info, warn } from './core/diagnostics';
 import { dispatchFrom } from './core/dispatch';
 import { parseTriggers } from './core/parser';
 import { ScopeRegistry } from './core/scope-registry';
-import { isPlainObject } from './core/state';
+import { isPlainObject } from './core/serializable';
 import { installPlugins, type RousePlugin, resolvePlugins } from './plugin-api';
 import type { PersistOptions } from './reactivity/persist';
 import { StoreManager, type StoreOptions } from './store';

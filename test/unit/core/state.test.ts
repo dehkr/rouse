@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import { deepEqual } from '../../../src/plugins/sync/equal';
-import { clone, hasAccessor, isPlainObject, patchState } from '../../../src/core/state';
+import { isPlainObject } from '../../../src/core/serializable';
+import { clone, hasAccessor, patchState } from '../../../src/core/state';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -40,11 +41,15 @@ describe('clone', () => {
     expect(copy.self).toBe(copy);
   });
 
-  it('warns and returns {} for a non-plain object', () => {
+  it('honors toJSON(), so a Date clones to its ISO string', () => {
+    expect(clone({ when: new Date(0) })).toEqual({ when: '1970-01-01T00:00:00.000Z' });
+  });
+
+  it('warns and returns {} for a non-plain object without toJSON()', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    expect(clone({ when: new Date(0) })).toEqual({ when: {} });
+    expect(clone({ tags: new Map() })).toEqual({ tags: {} });
     expect(warn).toHaveBeenCalledOnce();
-    expect(warn.mock.calls[0]?.[0]).toContain('root.when');
+    expect(warn.mock.calls[0]?.[0]).toContain('root.tags');
   });
 
   it('returns primitives as-is', () => {
@@ -87,6 +92,18 @@ describe('deepEqual', () => {
       list: [undefined, () => {}],
     };
     expect(deepEqual(src, clone(src))).toBe(true);
+  });
+
+  it('considers a Date, a Map, and a null-prototype object equal to their clones', () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const bare = Object.assign(Object.create(null), { a: 1 });
+    const src = { when: new Date(0), tags: new Map([['a', 1]]), bare };
+    expect(deepEqual(src, clone(src))).toBe(true);
+  });
+
+  it('compares Dates by their ISO strings', () => {
+    expect(deepEqual(new Date(0), new Date(0))).toBe(true);
+    expect(deepEqual(new Date(0), new Date(1))).toBe(false);
   });
 
   it('terminates on cycles', () => {

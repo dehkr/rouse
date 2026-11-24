@@ -108,6 +108,28 @@ describe('store push', () => {
     // An unmocked PATCH would fail the test in afterEach.
     expect(app.stores.get('user')!.name).toBe('Linus');
   });
+
+  it('pushes a Date as its ISO string and tracks its changes', async () => {
+    let body: unknown;
+    worker.use(
+      http.patch('/api/task', async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json({});
+      }),
+    );
+    const { app } = await mount('', {
+      setup: (a) => a.store('task', { due: new Date(0) }, { url: '/api/task' }),
+    });
+    expect(app.stores.isDirty('task')).toBe(false);
+
+    app.stores.get('task')!.due = new Date(1000);
+    await Promise.resolve();
+    expect(app.stores.isDirty('task')).toBe(true);
+
+    await app.stores.push('task');
+    expect(body).toEqual({ due: '1970-01-01T00:00:01.000Z' });
+    expect(app.stores.isDirty('task')).toBe(false);
+  });
 });
 
 describe('store pull', () => {
@@ -198,6 +220,22 @@ describe('store pull', () => {
 
     expect(app.stores.get('doc')!.text).toBe('mine');
     expect(skipped).toHaveBeenCalledOnce();
+  });
+
+  it('applies a response to a store holding a Date', async () => {
+    worker.use(http.get('/api/task', () => HttpResponse.json({ note: 'fresh' })));
+    const skipped = vi.fn();
+    const { app } = await mount('', {
+      setup: (a) => {
+        a.store('task', { due: new Date(0), note: 'stale' }, { url: '/api/task' });
+        a.on('rz:store:patch:skipped', skipped);
+      },
+    });
+    await app.stores.pull('task');
+
+    expect(app.stores.get('task')!.note).toBe('fresh');
+    expect(app.stores.isDirty('task')).toBe(false);
+    expect(skipped).not.toHaveBeenCalled();
   });
 });
 

@@ -1,12 +1,14 @@
 import { warn } from './diagnostics';
-import { isOwnDataProp } from './own-data';
+import { isOwnDataProp, isPlainObject, toJSONValue } from './serializable';
 
 /**
- * Deep-clone `obj`, stripping non-serializable properties (functions,
- * `undefined`, and accessors). Produces snapshots safe to JSON-serialize,
- * diff, or use as restore targets.
+ * Deep-clones `input` as JSON serialization encodes it. Honors `toJSON()` and strips
+ * functions, `undefined`, and accessors. Any other non-plain object becomes `{}`, with
+ * a dev warning. Produces snapshots safe to JSON-serialize, diff, or use as restore
+ * targets.
  */
-export function clone<T>(obj: T, seen = new WeakMap(), path = 'root'): T {
+export function clone<T>(input: T, seen = new WeakMap(), path = 'root'): T {
+  const obj = toJSONValue(input) as T;
   if (obj === null || typeof obj !== 'object') {
     return obj;
   }
@@ -143,18 +145,4 @@ export function patchState(
       target[sourceKey] = sourceVal;
     }
   }
-}
-
-/**
- * Checks that a value is a plain JavaScript object (POJO).
- * Excludes Arrays, Dates, Maps, and custom class instances.
- */
-export function isPlainObject(val: unknown): val is Record<string, any> {
-  if (typeof val !== 'object' || val === null || Array.isArray(val)) {
-    return false;
-  }
-  const proto = Object.getPrototypeOf(val);
-
-  // Matches {} (Object.prototype) and Object.create(null)
-  return proto === null || proto === Object.prototype;
 }

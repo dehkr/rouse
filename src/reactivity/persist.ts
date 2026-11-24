@@ -24,7 +24,8 @@
 import { effect } from 'alien-signals';
 import { isPersistStorage, KEY_BLOCKLIST, type PersistStorage } from '../core/constants';
 import { err, fail, warn } from '../core/diagnostics';
-import { clone, hasAccessor, isPlainObject } from '../core/state';
+import { isPlainObject } from '../core/serializable';
+import { clone, hasAccessor } from '../core/state';
 
 export type { PersistStorage };
 

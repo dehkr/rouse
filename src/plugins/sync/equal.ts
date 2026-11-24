@@ -1,10 +1,14 @@
-import { isOwnDataProp } from '../../core/own-data';
+import { isOwnDataProp, isPlainObject, toJSONValue } from '../../core/serializable';
 
 /**
- * Compare two values for deep equality. Skip the same properties `clone()` strips,
- * so a value always compares equal to its own clone.
+ * Compares two values for deep equality, as `clone()` copies them: `toJSON()` applied,
+ * any other non-plain object read as `{}`, and the properties `clone()` strips skipped.
+ * A value always compares equal to its own clone.
  */
 export function deepEqual(a: any, b: any, seen = new WeakMap<object, any>()): boolean {
+  a = asCloned(a);
+  b = asCloned(b);
+
   if (a === b) {
     return true;
   }
@@ -28,8 +32,8 @@ export function deepEqual(a: any, b: any, seen = new WeakMap<object, any>()): bo
   }
   seen.set(a, b);
 
-  // Fast path: constructor check
-  if (a.constructor !== b.constructor) {
+  // Only arrays and plain objects are left, so a mismatch is array against object
+  if (Array.isArray(a) !== Array.isArray(b)) {
     return false;
   }
 
@@ -79,4 +83,18 @@ export function deepEqual(a: any, b: any, seen = new WeakMap<object, any>()): bo
   }
 
   return validKeysA === validKeysB;
+}
+
+/**
+ * Returns `val` as `clone()` copies it, one level deep. A fresh `{}` per value, since a
+ * shared one would collide in `seen`.
+ */
+function asCloned(val: unknown): unknown {
+  const json = toJSONValue(val);
+  const isOther =
+    json !== null &&
+    typeof json === 'object' &&
+    !Array.isArray(json) &&
+    !isPlainObject(json);
+  return isOther ? {} : json;
 }

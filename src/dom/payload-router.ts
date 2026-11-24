@@ -6,7 +6,7 @@
  */
 import type { RouseApp } from '../app';
 import { warn } from '../core/diagnostics';
-import { isPlainObject } from '../core/state';
+import { isPlainObject } from '../core/serializable';
 import type { RouseResponse, RoutablePayload } from '../types';
 import { placeInto, readPlace } from './placer';
 import { getDirectiveValue } from '../core/elements';

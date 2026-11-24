@@ -77,7 +77,7 @@ export function reactive<T extends object>(target: T, options?: ReactiveOptions)
 }
 
 /**
- * Accepts arrays and plain objects only. Matches `isPlainObject` in `core/state`.
+ * Accepts arrays and plain objects only. Matches `isPlainObject` in `core/serializable`.
  */
 export function proxiable(target: unknown): target is object {
   if (target === null || typeof target !== 'object') {

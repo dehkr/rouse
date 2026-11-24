@@ -9,7 +9,8 @@ import {
   safeJSONParse,
 } from '../core/parser';
 import { resolveState } from '../core/resolve';
-import { clone, isPlainObject } from '../core/state';
+import { isPlainObject } from '../core/serializable';
+import { clone } from '../core/state';
 import { resolveOwnerState } from '../dom/binder';
 import {
   collectFields,

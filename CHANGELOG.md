@@ -47,6 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Route server-sent events named `open` or `error` to `sse-[open]` and `sse-[error]` triggers instead of treating them as connection lifecycle events.
 - Include form-associated custom elements, `formdata` listener entries, `dirname` values, and empty file inputs in form payloads, matching native form submission.
 - Fire `edit` triggers when an effect mutates a store in response to a framework write (sync response, deposit, `update()`, or `revert()`).
+- Honor `toJSON()` when snapshotting store and `rz-send` data, so a `Date` is sent as its ISO string instead of `{}`, and a store holding a `Date`, `Map`, or `Set` reads clean and applies sync responses.
 - Mark stores dirty and fire `edit` triggers when mutating array items retrieved via array methods (`find()`, `map()`, `for...of`), including `rz-model` bindings on `rz-render` items (`~item.done`).
 - Return the reactive proxy from in-place array mutators (`sort()`, `reverse()`) so chained writes remain tracked.
 - Rebind elements re-inserted into the same scope after their directives were skipped, and rebind elements moved across apps regardless of initialization order.

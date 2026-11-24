@@ -2,7 +2,7 @@ import type { RouseApp } from '../app';
 import { directiveSelector, getDirectiveValue } from '../core/elements';
 import { err, warn } from '../core/diagnostics';
 import { parseStoreValue } from '../core/parser';
-import { isPlainObject } from '../core/state';
+import { isPlainObject } from '../core/serializable';
 import type { DeclaredSync } from '../store';
 import { readHeaders } from '../net/request';
 

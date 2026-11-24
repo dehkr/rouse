@@ -442,7 +442,7 @@ Methods called from directives receive `{ el, e, render }` (`HandlerCtx`), with 
 
 ## Stores
 
-Stores hold what the whole app shares: state that outlives one region of the page, state the server needs to see, and behavior that doesn't belong to a single region. Any directive in the app reaches a store by its name prefixed with the `@` sigil (`@cart.items`, `click: @ui.openMenu`), including inside nested scopes. With the [sync plugin](#plugins), a store with an endpoint syncs with the server as a whole. A store is one flat reactive object: data, getters (cached computeds; keep them pure), and methods (`this` is the store). The root must be an object. Only JSON-serializable data syncs: getters and methods stay local and are never sent, and non-plain objects (`Date`, `Map`) serialize as `{}`.
+Stores hold what the whole app shares: state that outlives one region of the page, state the server needs to see, and behavior that doesn't belong to a single region. Any directive in the app reaches a store by its name prefixed with the `@` sigil (`@cart.items`, `click: @ui.openMenu`), including inside nested scopes. With the [sync plugin](#plugins), a store with an endpoint syncs with the server as a whole. A store is one flat reactive object: data, getters (cached computeds; keep them pure), and methods (`this` is the store). The root must be an object. Only JSON-serializable data syncs: getters and methods stay local and are never sent. A value with `toJSON()` syncs as its result (a `Date` as its ISO string), and any other non-plain object (`Map`, `Set`) as `{}`.
 
 ```js
 const cart = app.store('cart', {
@@ -531,7 +531,7 @@ The script element is the store's declaration. Replacing it with a new script of
 | `has(name)` | `true` if the store exists | A `<script data-rz-store>` store exists only after `start()` |
 | `status(name)` *sync* | The store's status, or `undefined` | The same reactive object as `@name::status`; see [Store status](#store-status) |
 | `isDirty(name, root?)` *sync* | `true` if the store, or one top-level key, has unsynced edits | `root` is a top-level key (`'items'`), not a path. Updates a microtask after an edit |
-| `snapshot(name)` | Plain, non-reactive deep copy of the current data | Data fields only: getters and methods are dropped, and non-plain objects (`Date`, `Map`) become `{}` with a dev warning. Safe to serialize |
+| `snapshot(name)` | Plain, non-reactive deep copy of the current data | Data fields only: getters and methods are dropped. A value with `toJSON()` becomes its result (a `Date` its ISO string), and any other non-plain object (`Map`, `Set`) becomes `{}` with a dev warning. Safe to serialize |
 | `baseline(name)` *sync* | Plain, non-reactive deep copy of the last synced data | What `revert()` restores and dirty checks compare against. Same copy rules as `snapshot()` |
 | `push(name)` / `pull(name)` *sync* | `Promise<void>`; never rejects | Syncs now; check `status(name).error` for the outcome. A push during another push waits and sends once |
 | `revert(name, path?)` *sync* | `true` if anything changed | Restores the last synced data. With `path`, restores one field or branch |

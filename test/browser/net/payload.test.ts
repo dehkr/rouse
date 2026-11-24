@@ -100,6 +100,23 @@ describe('request payloads', () => {
     expect(JSON.parse(seen.body!)).toEqual({ title: 'Hi', dark: true, size: 3, page: 2 });
   });
 
+  it('sends a Date rz-send source as its ISO string', async () => {
+    const seen = capture('/api/notes');
+    const { $ } = await mount(
+      `<div data-rz-scope="s">
+        <button
+          data-rz-fetch="click: POST /api/notes"
+          data-rz-send="due"
+          data-rz-headers="Content-Type: application/json"
+        >Save</button>
+      </div>`,
+      { scopes: { s: () => ({ due: new Date(0) }) } },
+    );
+    $('button').click();
+    await expect.poll(() => seen.request).toBeDefined();
+    expect(JSON.parse(seen.body!)).toEqual({ due: '1970-01-01T00:00:00.000Z' });
+  });
+
   it('sends nothing for an unset rz-send source, without a warning', async () => {
     const seen = capture('/api/notes');
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});

@@ -9,7 +9,7 @@ import type { RouseApp } from '../app';
 import { RENDER_FRAME } from '../core/constants';
 import { warn } from '../core/diagnostics';
 import { getNestedVal } from '../core/path';
-import { isPlainObject } from '../core/state';
+import { isPlainObject } from '../core/serializable';
 import { effect } from '../reactivity/effect';
 import { reactive, untracked } from '../reactivity/reactive';
 import type { RenderContext, RenderFrame, Scope, VoidFn } from '../types';
