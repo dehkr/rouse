@@ -25,7 +25,7 @@ export interface ScopeLifecycleDetail {
   instance: Scope;
 }
 
-/** Detail for `rz:fetch:config`, `rz:fetch:start`, `rz:fetch:abort`, and `rz:fetch:end`. */
+/** Detail for `rz:fetch:config`. */
 export interface FetchConfigDetail {
   /**
    * The request config, the same object the interceptors receive and the response
@@ -35,13 +35,22 @@ export interface FetchConfigDetail {
   config: ResolvedRequest;
 }
 
+/** Detail for `rz:fetch:start`, `rz:fetch:abort`, and `rz:fetch:end`. */
+export interface FetchRequestDetail {
+  /**
+   * The request config, the same object `rz:fetch:config` carries. Read-only here:
+   * change a request in a `rz:fetch:config` listener or a request interceptor.
+   */
+  config: ReadonlyRequest;
+}
+
 /** Detail for `rz:fetch:success`: the full response object. */
 export type FetchSuccessDetail = RouseResponse;
 
 /** Detail for `rz:fetch:error`: the full response object. */
 export type FetchErrorDetail = RouseResponse;
 
-/** Detail for `rz:push` and `rz:pull` `:config`, `:start`, `:abort`, and `:end`. */
+/** Detail for `rz:push:config` and `rz:pull:config`. */
 export interface PushPullConfigDetail {
   /** Name of the store being synced. */
   storeName: string;
@@ -51,6 +60,17 @@ export interface PushPullConfigDetail {
    * the object has no effect on the request.
    */
   config: ResolvedRequest;
+}
+
+/** Detail for `rz:push` and `rz:pull` `:start`, `:abort`, and `:end`. */
+export interface PushPullRequestDetail {
+  /** Name of the store being synced. */
+  storeName: string;
+  /**
+   * The request config, the same object `:config` carries. Read-only here: change a
+   * request in a `:config` listener or a request interceptor.
+   */
+  config: ReadonlyRequest;
 }
 
 /** A stream's resolved connection config, carried on every `rz:sse:*` detail. */
@@ -189,40 +209,40 @@ export interface LifecycleEventMap {
   'rz:scope:disconnect': ScopeLifecycleDetail;
   /** Fires before the request is sent; cancelable. Listeners can mutate `config`. */
   'rz:fetch:config': FetchConfigDetail;
-  /** Fires when the fetch starts, after config. */
-  'rz:fetch:start': FetchConfigDetail;
+  /** Fires once indicators apply. Request interceptors run and the request is sent after it. */
+  'rz:fetch:start': FetchRequestDetail;
   /** Fires if the fetch is aborted. */
-  'rz:fetch:abort': FetchConfigDetail;
+  'rz:fetch:abort': FetchRequestDetail;
   /** Fires when the request settles, after success, error, or abort. */
-  'rz:fetch:end': FetchConfigDetail;
+  'rz:fetch:end': FetchRequestDetail;
   /** Fires when the request completes with an OK status. */
   'rz:fetch:success': FetchSuccessDetail;
   /** Fires when the request fails (non-OK status, network error, or timeout). */
   'rz:fetch:error': FetchErrorDetail;
   /** Fires before a push is sent; cancelable. Listeners can mutate `config`. */
   'rz:push:config': PushPullConfigDetail;
-  /** Fires when the push starts, after config. */
-  'rz:push:start': PushPullConfigDetail;
+  /** Fires once indicators apply. Request interceptors run and the push is sent after it. */
+  'rz:push:start': PushPullRequestDetail;
   /** Fires if the push is canceled through the `signal` option. */
-  'rz:push:abort': PushPullConfigDetail;
+  'rz:push:abort': PushPullRequestDetail;
   /** Fires when the push completes with an OK status. */
   'rz:push:success': PushPullResultDetail;
   /** Fires when the push fails (non-OK status or network error). */
   'rz:push:error': PushPullResultDetail;
   /** Fires when the push settles, after success/error/abort. */
-  'rz:push:end': PushPullConfigDetail;
+  'rz:push:end': PushPullRequestDetail;
   /** Fires before a pull is sent; cancelable. Listeners can mutate `config`. */
   'rz:pull:config': PushPullConfigDetail;
-  /** Fires when the pull starts, after config. */
-  'rz:pull:start': PushPullConfigDetail;
+  /** Fires once indicators apply. Request interceptors run and the pull is sent after it. */
+  'rz:pull:start': PushPullRequestDetail;
   /** Fires if the pull is aborted (overlapping programmatic pulls sharing an abortKey). */
-  'rz:pull:abort': PushPullConfigDetail;
+  'rz:pull:abort': PushPullRequestDetail;
   /** Fires when the pull completes with an OK status. */
   'rz:pull:success': PushPullResultDetail;
   /** Fires when the pull fails (non-OK status or network error). */
   'rz:pull:error': PushPullResultDetail;
   /** Fires when the pull settles, after success/error/abort. */
-  'rz:pull:end': PushPullConfigDetail;
+  'rz:pull:end': PushPullRequestDetail;
   /** Fires once before the initial connection attempt; cancelable. Listeners can mutate `config`. */
   'rz:sse:config': SseConfigDetail;
   /** Fires when the stream connects, and again after every successful reconnect. */
@@ -555,6 +575,19 @@ export type FetchRequest = Omit<RequestInit, 'body' | 'headers'> & FetchConfig;
  */
 export type ResolvedRequest = FetchRequest &
   Required<Pick<FetchRequest, 'url' | 'method' | 'headers'>>;
+
+/**
+ * A request config as the events after `:config` see it: the same object, typed
+ * read-only. `headers`, `params`, and `body` are read-only too, since a nested edit
+ * would still reach the request.
+ */
+export type ReadonlyRequest = Readonly<
+  Omit<ResolvedRequest, 'headers' | 'params' | 'body'>
+> & {
+  readonly headers: Readonly<ResolvedRequest['headers']>;
+  readonly params?: Readonly<NonNullable<ResolvedRequest['params']>>;
+  readonly body?: Readonly<ResolvedRequest['body']>;
+};
 
 /**
  * The callable fetch surface. The HTTP method comes from `options.method`,

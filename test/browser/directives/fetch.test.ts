@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vite-plus/test';
+import type { LifecycleEventMap } from '../../../src/types';
 import { delay, HttpResponse, http, worker } from '../helpers/network';
 import { mount, nextFrame } from '../helpers/mount';
 
@@ -107,6 +108,46 @@ describe('rz-fetch', () => {
     await expect.poll(() => events.at(-1)).toBe('end');
     expect(events).toEqual(['config', 'start', 'success', 'end']);
     expect(app.root.contains($('button'))).toBe(true);
+  });
+
+  it('sends nothing when a rz:fetch:config listener cancels', async () => {
+    let served = 0;
+    worker.use(
+      http.get('/api/ok', () => {
+        served++;
+        return html('ok');
+      }),
+    );
+    const events: string[] = [];
+    const { app, $ } = await mount(`<button>Go</button>`, {
+      setup: (a) => {
+        for (const phase of ['config', 'start', 'success', 'error', 'abort', 'end']) {
+          a.on(`rz:fetch:${phase}`, () => events.push(phase));
+        }
+        a.on('rz:fetch:config', (e) => e.preventDefault());
+      },
+    });
+    const button = $('button');
+    const classChanges = new MutationObserver(() => {});
+    classChanges.observe(button, { attributeFilter: ['class'] });
+
+    const { error } = await app.fetch('/api/ok', { triggerEl: button });
+
+    expect(error?.code).toBe('CANCELED');
+    expect(events).toEqual(['config']);
+    expect(classChanges.takeRecords()).toHaveLength(0);
+    expect(served).toBe(0);
+  });
+
+  it('types the config as read-only on the events after :config', () => {
+    // Never called: `pnpm run types` fails if either edit compiles
+    const edit = (detail: LifecycleEventMap['rz:fetch:start' | 'rz:push:end']) => {
+      // @ts-expect-error -- change a request in `:config` or a request interceptor
+      detail.config.headers.Authorization = 'Bearer x';
+      // @ts-expect-error -- change a request in `:config` or a request interceptor
+      detail.config.url = '/elsewhere';
+    };
+    expect(edit).toBeTypeOf('function');
   });
 
   it('reports an error status through rz:fetch:error and leaves the DOM alone', async () => {

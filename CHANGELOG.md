@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Breaking:** Send the `Rouse-Request` header only on same-origin requests. Set it explicitly for cross-origin APIs via `rouse({ headers: { 'Rouse-Request': 'true' } })` or `data-rz-headers="Rouse-Request: true"`.
 - **Breaking:** Stop placing a string body from a fetch response with a JSON `Content-Type` as HTML. Send HTML as `text/html`.
 - **Breaking:** Stop cancelling a link's navigation or a form's submission on `rz-on` triggers. Add `prevent` to cancel it: `data-rz-on="click|prevent: open"`.
+- **Breaking:** Type `config` as read-only on the `:start`, `:abort`, and `:end` request events. Move an edit from one of those listeners to `:config`, which fires earlier with the same object.
 - Accept any state path as an `rz-on` handler, including nested scope paths (`actions.save`) and render item paths (`~item.toggle`).
 - Report a fetch that can't be sent as written (a body on GET or HEAD, or a missing or unresolvable URL) as `INVALID_REQUEST` instead of `INTERNAL_ERROR`.
 

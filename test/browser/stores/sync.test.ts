@@ -29,6 +29,33 @@ describe('store push', () => {
     expect(app.stores.isDirty('cart')).toBe(false);
   });
 
+  it('sends nothing when a rz:push:config listener cancels', async () => {
+    let served = 0;
+    worker.use(
+      http.patch('/api/cart', () => {
+        served++;
+        return HttpResponse.json({});
+      }),
+    );
+    const events: string[] = [];
+    const { app } = await mount('', {
+      setup: (a) => {
+        a.store('cart', { count: 0 }, { url: '/api/cart' });
+        for (const phase of ['config', 'start', 'success', 'error', 'abort', 'end']) {
+          a.on(`rz:push:${phase}`, () => events.push(phase));
+        }
+        a.on('rz:push:config', (e) => e.preventDefault());
+      },
+    });
+    app.stores.get('cart')!.count = 1;
+    await app.stores.push('cart');
+
+    expect(events).toEqual(['config']);
+    expect(served).toBe(0);
+    expect(app.stores.isDirty('cart')).toBe(true);
+    expect(app.stores.status('cart')!.syncing).toBe(false);
+  });
+
   it('keeps data and dirty state on failure and sets status.error', async () => {
     worker.use(http.patch('/api/cart', () => new HttpResponse(null, { status: 500 })));
     const { app } = await mount('', {

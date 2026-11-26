@@ -894,7 +894,8 @@ app.interceptor('error', logError, { signal: term });
 
 - **Throws.** A throw in a `request` or `response` interceptor fails the request as `NETWORK_ERROR`, with the thrown error as `original`, and runs the `error` phase. The request is never re-sent.
 - **`config`** is the object that's sent: the same one `:config` listeners edit and `response.config` carries. `url` is absolute.
-- **Interceptor or `:config` listener.** A listener can be limited to a subtree and can cancel with `preventDefault()`, but runs synchronously. An interceptor applies to every request and can await.
+- **Interceptor or `:config` listener.** A listener can be limited to a subtree, can cancel with `preventDefault()`, receives `storeName` on a push or pull, and runs before indicators apply. It runs synchronously. An interceptor applies to every request and can await.
+- **Some fields are read before interceptors run.** Indicators and `rz-disable` resolve first, so changing `indicator` or `triggerEl` in an interceptor has no effect. A write's protection under [Overlapping requests](#overlapping-requests) uses the `method` and `abortKey` from before the interceptors. Change these in `:config`.
 - **Opt-out.** `skipInterceptors: true` in `app.fetch` skips every phase for that call. Markup can't opt out.
 - **Lifetime.** `app.interceptor` returns a teardown and takes `{ signal }`. In a scope, pass `signal: term`.
 
@@ -904,7 +905,7 @@ What each phase receives, when it runs, and what its return does.
 
 | Phase | Function | Runs | Return |
 | --- | --- | --- | --- |
-| `request` | `(config) => config \| void` | After `:config` listeners, before sending | Merged into the config. Optional |
+| `request` | `(config) => config \| void` | After `:start`, before sending | Merged into the config. Optional |
 | `response` | `(data, response, config) => data` | On a 2xx response, before routing | Replaces `data`. Required |
 | `error` | `(error, config) => error` | On any failure, including HTTP errors, timeouts, and cancellations | Replaces `error`. Required |
 
@@ -954,7 +955,7 @@ Every `rz:*` event, when it fires, and its `detail`.
 | `rz:scope:connect` | Bindings attached, after `rz-wake`. Not fired when setup throws | `{ instance, host }` |
 | `rz:scope:disconnect` | Bindings detached; fires once for each `connect`. `instance` is for recognizing the scope, not calling it | `{ instance, host }` |
 | `rz:fetch:config` | Before sending. **Cancelable**: prevented, nothing else fires. Edit `config` in place (absolute `url`, `method`, `headers`); it's the object sent | `{ config }`; push/pull add `storeName` |
-| `rz:fetch:start` | Sent | as `:config` |
+| `rz:fetch:start` | Indicators applied. Request interceptors run and the request is sent next | as `:config` |
 | `rz:fetch:success` | 2xx response. Exactly one of `:success`, `:error`, `:abort` fires | Fetch: the response `{ data, error, status, headers, response, config }`. Push/pull: `{ storeName, result }` |
 | `rz:fetch:error` | Error status, network failure, or timeout | as `:success` |
 | `rz:fetch:abort` | Aborted by a newer request or a signal | as `:config` |
@@ -971,6 +972,7 @@ Every `rz:*` event, when it fires, and its `detail`.
 | `rz:sse:close` | Stream closed | `{ config, reason }` |
 
 - Request order is always `:config` → `:start` → one of `:success` / `:error` / `:abort` → `:end`, and the request's outcome fires before any destination event (`rz:push:success` before `rz:store:patch:before`).
+- `:config`, `:start`, `:abort`, and `:end` carry the same `config` object. Only `:config` listeners edit it: the others type it read-only.
 - Destination events fire only when something changed, so failures appear only on the request events.
 - Only real network operations fire request events. `update()` and triggers dropped by a guard (disconnected, disabled, a sync already running, a write in flight) fire nothing.
 - A stream has no final event per message and no `:end`: it opens once and receives many messages.
