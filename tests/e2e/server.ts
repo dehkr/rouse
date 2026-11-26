@@ -1,7 +1,7 @@
 /*
  * Fixture server for the end-to-end suite. Serves the built library from `dist/`, the
- * pages in `e2e/pages/`, and the API routes below. Playwright starts it through
- * `webServer` in `playwright.config.ts`; run it alone with `node e2e/server.ts` to open
+ * pages in `tests/e2e/pages/`, and the API routes below. Playwright starts it through
+ * `webServer` in `playwright.config.ts`; run it alone with `node tests/e2e/server.ts` to open
  * a page by hand.
  *
  * Keep routes generic and named for what they do, not for the spec that uses them.
@@ -14,7 +14,7 @@ import { extname, join, normalize } from 'node:path';
 
 const PORT = Number(process.env.PORT ?? 4317);
 
-const ROOT = join(import.meta.dirname, '..');
+const ROOT = join(import.meta.dirname, '../..');
 const STATIC_DIRS: Record<string, string> = {
   '/dist/': join(ROOT, 'dist'),
   '/': join(import.meta.dirname, 'pages'),

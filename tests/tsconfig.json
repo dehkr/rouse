@@ -1,0 +1,6 @@
+{
+  "extends": "../tsconfig.json",
+  "include": ["**/*.ts", "../src/globals.d.ts"],
+  // Has its own config: Node types, and the declaration fixtures
+  "exclude": ["e2e"]
+}

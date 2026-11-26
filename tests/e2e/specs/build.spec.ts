@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { type Build, expect, open, test } from './fixtures';
 
-const DIST = join(import.meta.dirname, '../../dist');
+const DIST = join(import.meta.dirname, '../../../dist');
 const PLUGIN_FILES = ['sync.js', 'sync.min.js', 'sse.js', 'sse.min.js'];
 
 // A plugin that imported a file would reach core through a second URL and run a

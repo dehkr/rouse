@@ -14,7 +14,7 @@ export default defineConfig({
     baseURL: `http://localhost:${PORT}`,
     trace: 'retain-on-failure',
   },
-  outputDir: '../node_modules/.e2e-results',
+  outputDir: '../../node_modules/.e2e-results',
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
     { name: 'firefox', use: { ...devices['Desktop Firefox'] } },

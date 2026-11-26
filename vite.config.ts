@@ -7,8 +7,8 @@ import pkg from './package.json';
 const VERSION = JSON.stringify(pkg.version);
 const DEV_DEFINES = { __DEV__: 'true', __VERSION__: VERSION };
 
-// Limits fmt and lint to authored TypeScript: src/, test/, and docs/scopes/
-const SOURCE_ONLY = ['/*', '!/src/', '!/test/', '!/e2e/', '!/docs/', '/docs/*', '!/docs/scopes/'];
+// Limits fmt and lint to authored TypeScript: src/, tests/, and docs/scopes/
+const SOURCE_ONLY = ['/*', '!/src/', '!/tests/', '!/docs/', '/docs/*', '!/docs/scopes/'];
 
 // One build per entry: a shared chunk would make each plugin import core by URL, and
 // a page that reached core through two URLs would run two copies of it
@@ -117,17 +117,17 @@ export default defineConfig({
       {
         extends: true,
         define: DEV_DEFINES,
-        test: { name: 'unit', include: ['test/unit/**/*.test.ts'], environment: 'node' },
+        test: { name: 'unit', include: ['tests/unit/**/*.test.ts'], environment: 'node' },
       },
       {
         extends: true,
         define: DEV_DEFINES,
-        // Serves mockServiceWorker.js so test/browser/setup.ts can start MSW
+        // Serves mockServiceWorker.js so tests/browser/setup.ts can start MSW
         plugins: [msw({ mode: 'worker-only' })],
         test: {
           name: 'browser',
-          include: ['test/browser/**/*.test.ts'],
-          setupFiles: ['test/browser/setup.ts'],
+          include: ['tests/browser/**/*.test.ts'],
+          setupFiles: ['tests/browser/setup.ts'],
           browser: {
             enabled: true,
             provider: playwright(),

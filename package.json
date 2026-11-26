@@ -66,13 +66,13 @@
     "check": "vp check",
     "format": "vp fmt",
     "test": "vp test",
-    "types": "tsc && tsc -p test && tsc -p e2e",
+    "types": "tsc && tsc -p tests && tsc -p tests/e2e",
     "docs:dev": "eleventy --serve",
     "docs:types": "tsc -p docs/scopes",
     "docs:build": "eleventy",
     "docs:release": "pnpm run docs:build && date -u +%FT%TZ > docs/rebuild.txt",
     "docs:vendor": "cp -R dist/. docs/assets/rouse/",
-    "e2e": "vp pack && playwright test -c e2e"
+    "e2e": "vp pack && playwright test -c tests/e2e"
   },
   "devDependencies": {
     "@11ty/eleventy": "^3.1.7",

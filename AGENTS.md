@@ -8,7 +8,7 @@ Guidance for coding agents working in this repository.
 pnpm run build    # Type-check, check, then build dist/ with vp pack (ESM, standard + minified)
 pnpm run check    # vp check: oxfmt + oxlint (type-aware), config in vite.config.ts
 pnpm run format   # vp fmt
-pnpm run types    # Type-check src/, test/, and e2e/ with tsc --noEmit
+pnpm run types    # Type-check src/ and tests/ (including tests/e2e/) with tsc --noEmit
 pnpm run test     # vp test: unit (Node) and browser (Chromium) projects
 pnpm run e2e      # Build dist/, then run the Playwright specs in Chromium, Firefox, and WebKit
 ```
@@ -19,12 +19,12 @@ Three layers. Put a test in the cheapest one that can observe the behavior.
 
 | Layer | Location | Runs against | Covers |
 | --- | --- | --- | --- |
-| Unit | `test/unit/` | Source, in Node | Pure modules: parsers, paths, state, timing, reactivity, payloads |
-| Browser | `test/browser/` | Source, in Chromium (Vitest browser mode), network mocked with MSW | Directives, scopes, stores, requests, lifecycle events |
-| End-to-end | `e2e/` | `dist/`, in three browsers, against `e2e/server.ts` | The shipped builds, page navigation, a real server and event stream |
+| Unit | `tests/unit/` | Source, in Node | Pure modules: parsers, paths, state, timing, reactivity, payloads |
+| Browser | `tests/browser/` | Source, in Chromium (Vitest browser mode), network mocked with MSW | Directives, scopes, stores, requests, lifecycle events |
+| End-to-end | `tests/e2e/` | `dist/`, in three browsers, against `tests/e2e/server.ts` | The shipped builds, page navigation, a real server and event stream |
 
-- **Browser tests mount through `mount()`** (`test/browser/helpers/mount.ts`), which waits for `rz:app:ready` and unmounts after each test. Mock each request with `worker.use(...)`. An unmocked request under `/api/` fails the test.
-- **Navigation belongs in `e2e/`.** `Rouse-Redirect` and followed redirects unload the page, which in browser mode is the test runner's frame.
+- **Browser tests mount through `mount()`** (`tests/browser/helpers/mount.ts`), which waits for `rz:app:ready` and unmounts after each test. Mock each request with `worker.use(...)`. An unmocked request under `/api/` fails the test.
+- **Navigation belongs in `tests/e2e/`.** `Rouse-Redirect` and followed redirects unload the page, which in browser mode is the test runner's frame.
 - **The e2e server keeps state** between requests. Specs run on one worker, and a spec that reads state back resets it first with `POST /api/reset`. Name routes for what they do, not for the spec that uses them.
 - **Record a known bug as `it.fails`** with a comment on the cause. It passes while the bug exists and fails once it's fixed: switch it to `it` then.
 - **Report what you ran.** `pnpm run test` for any source change; add `pnpm run e2e` when the change touches the build, navigation, or the SSE transport. Don't claim "tests pass" for a layer you didn't run.
