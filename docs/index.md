@@ -36,8 +36,8 @@ Rouse ships as ES modules only, in a development build (`[Rouse]` authoring warn
 <script type="importmap">
   {
     "imports": {
-      "rousejs": "https://cdn.jsdelivr.net/npm/rousejs@0.17.0/dist/rouse.min.js",
-      "rousejs/sync": "https://cdn.jsdelivr.net/npm/rousejs@0.17.0/dist/sync.min.js"
+      "rousejs": "https://cdn.jsdelivr.net/npm/rousejs@0.18.0/dist/rouse.min.js",
+      "rousejs/sync": "https://cdn.jsdelivr.net/npm/rousejs@0.18.0/dist/sync.min.js"
     }
   }
 </script>
@@ -624,7 +624,7 @@ app.scope('todos', ({ app }) => {
 - Use `key` for a list that reorders or comes from a store, naming the same field as `rz-key`.
 - `clearOn` fires when its value changes (`!==`). A sync response or deposit that includes an array replaces it, so `clearOn: () => todos.items` clears after every round trip. Follow the value that picks the list, such as a filter or page.
 - An item without a key can't be selected, with a dev warning. That covers a missing field, and a call outside `rz-render` without `key`.
-- Methods work detached, and `reactive()` doesn't wrap the selection.
+- Methods work detached, and a selection nested in a `reactive()` object stays unwrapped.
 
 | Case | Approach |
 | --- | --- |

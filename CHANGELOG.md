@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+No unreleased changes.
+
+## [0.18.0] - 2026-11-26
+
 ### Added
 
 - Add `plugins` option to `rouse()` to install optional features per app (`rousejs/sync`, `rousejs/sse`, or CDN `dist/{sync,sse}[.min].js` from the same release).
