@@ -15,17 +15,17 @@ Rouse is for applications that render HTML on the server but need rich client-si
 - **Direct DOM binding** – Works with server-rendered HTML. No virtual DOM, hydration step, or client-side copy of the page.
 - **Strict CSP compliance** – Directive values are names, never evaluated code. No `unsafe-eval` required.
 - **Buildless or bundled** – Load directly from a CDN or install from npm with bundled TypeScript definitions.
-- **Zero runtime dependencies** – 19.4 KB gzipped with reactivity, networking, and stores. Store sync (3.3 KB) and server-sent events (1.8 KB) are optional plugins.
+- **Zero runtime dependencies** – 19.9 KB gzipped with reactivity, networking, and stores. Store sync (3.4 KB) and server-sent events (1.8 KB) are optional plugins.
 
 ## Features
 
 ### Reactive state
 
-Model UI state in local scopes and app-wide stores. Stores are reactive out of the box. Scopes opt in with signal primitives (built on [alien-signals](https://github.com/stackblitz/alien-signals), bundled in) and a reactive proxy for ergonomic object and array mutations. Updates are fine-grained: only the bindings that read a changed value re-run.
+Model UI state in local scopes and app-wide stores. Stores are reactive by default, while scopes opt in with a reactive proxy and signal primitives (built on [alien-signals](https://github.com/stackblitz/alien-signals), bundled in). Updates are fine-grained: only the bindings that read a changed value re-run.
 
 ### Native client rendering
 
-Render dynamic lists and conditional views from reactive state with `<template>` elements. Keyed reconciliation reuses and reorders DOM instead of rebuilding it.
+Render dynamic lists and conditional views from reactive state with `<template>` elements. Keyed reconciliation reuses and reorders DOM instead of rebuilding it. Built-in selection tracking marks selected items without writing UI state into your data, and updates only the affected bindings.
 
 ### Networking
 
@@ -37,7 +37,7 @@ With the `sync` plugin, give a store an endpoint and keep it in sync with your s
 
 ### Local scopes, deferred activation
 
-Turn any element into a scope using a setup function that returns the API for the directives inside. Defer activation until the scope is needed: on visibility, user interaction, browser idle time, a media query match, or any DOM or custom event. Lifecycle hooks and built-in teardown give your code and third-party libraries a clean mount and unmount.
+Turn any element into a scope using a setup function that returns the state and methods for the directives inside. Defer activation until the scope is needed: on visibility, user interaction, browser idle time, a media query match, or any DOM or custom event. Lifecycle hooks and built-in teardown give your code and third-party libraries a clean mount and unmount.
 
 ### Isolated apps
 
@@ -55,7 +55,7 @@ Rouse builds on ideas from several influential tools:
 - **[Stimulus](https://stimulus.hotwired.dev)** showed that markup can wire behavior to organized, testable JavaScript. Rouse takes the same approach with scopes, and adds stores and server sync so state doesn't need a separate library.
 - **[Alpine](https://alpinejs.dev)** showed how natural reactivity can feel when declared in markup. Rouse keeps reactive bindings in HTML and moves the logic to JavaScript, so strict CSP works out of the box.
 
-The goal is a single, cohesive library that rouses HTML: it covers what most server-rendered apps need in the browser and provides a structured foundation for everything else.
+The goal is a single, fast, CSP-safe library that covers the common needs of server-rendered apps in the browser.
 
 ## Installation
 
@@ -85,8 +85,8 @@ An import map states the version once. Load core and every plugin from the same 
 <script type="importmap">
   {
     "imports": {
-      "rousejs": "https://cdn.jsdelivr.net/npm/rousejs@0.17.0/dist/rouse.js",
-      "rousejs/sync": "https://cdn.jsdelivr.net/npm/rousejs@0.17.0/dist/sync.js"
+      "rousejs": "https://cdn.jsdelivr.net/npm/rousejs@0.18.0/dist/rouse.js",
+      "rousejs/sync": "https://cdn.jsdelivr.net/npm/rousejs@0.18.0/dist/sync.js"
     }
   }
 </script>
@@ -111,18 +111,17 @@ From npm, `rousejs` and its plugins resolve to the minified build. A bundler tha
 Register your scopes, then call `app.start()` to scan the page and bind its directives.
 
 ```js
-import { rouse, signal } from 'rousejs';
+import { reactive, rouse } from 'rousejs';
 import { sync } from 'rousejs/sync';
 
 const app = rouse({ plugins: [sync] });
 
-// A scope's setup returns the API for the directives inside it
+// A scope's setup returns the state and methods for the directives inside it
 app.scope('counter', ({ host }) => {
-  const initial = Number(host.dataset.initial) || 0;
-  const count = signal(initial);
+  const state = reactive({ count: Number(host.dataset.initial) || 0 });
   return {
-    get count() { return count(); },
-    increment: () => count(count() + 1),
+    state,
+    increment: () => state.count++,
   };
 });
 
@@ -135,7 +134,7 @@ Directives are standard `data-*` attributes with the `rz-` prefix:
 <!-- Server-rendered; the scope takes over on start -->
 <div data-rz-scope="counter" data-initial="5">
   <button data-rz-on="click: increment">Add one</button>
-  <span data-rz-text="count">5</span>
+  <span data-rz-text="state.count">5</span>
 </div>
 
 <!-- A store declared in markup, synced with /api/user by the sync plugin -->
