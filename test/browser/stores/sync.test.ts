@@ -261,6 +261,121 @@ describe('store pull', () => {
   });
 });
 
+describe('a payload rewritten in rz:store:patch:before', () => {
+  const dirtyRoots = (app: { stores: { status(name: string): any } }, name: string) =>
+    Object.keys(app.stores.status(name)!.dirtyRoots);
+
+  /** Mounts a synced store whose pull response `rewrite` edits, and records each push body. */
+  async function mountProfile(rewrite: (payload: any) => void) {
+    const pushed: unknown[] = [];
+    worker.use(
+      http.get('/api/profile', () => HttpResponse.json({ name: 'Grace', bio: 'new' })),
+      http.patch('/api/profile', async ({ request }) => {
+        pushed.push(await request.json());
+        return HttpResponse.json({});
+      }),
+    );
+    const { app } = await mount('', {
+      setup: (a) => {
+        a.store('profile', { name: 'Ada', bio: 'old' }, { url: '/api/profile' });
+        a.on('rz:store:patch:before', (e) => {
+          if (e.detail.operation === 'pull') {
+            rewrite(e.detail.payload);
+          }
+        });
+      },
+    });
+    return { app, pushed };
+  }
+
+  it('reads a rewritten pull value dirty until it is pushed', async () => {
+    const { app, pushed } = await mountProfile((payload) => {
+      payload.name = 'GRACE';
+    });
+    await app.stores.pull('profile');
+
+    expect(app.stores.snapshot('profile')).toEqual({ name: 'GRACE', bio: 'new' });
+    expect(app.stores.baseline('profile')).toEqual({ name: 'Grace', bio: 'new' });
+    expect(dirtyRoots(app, 'profile')).toEqual(['name']);
+
+    await app.stores.push('profile');
+    expect(pushed).toEqual([{ name: 'GRACE', bio: 'new' }]);
+    expect(app.stores.isDirty('profile')).toBe(false);
+  });
+
+  it('reads a rewritten push response value dirty until the next push', async () => {
+    const pushed: unknown[] = [];
+    worker.use(
+      http.patch('/api/post', async ({ request }) => {
+        pushed.push(await request.json());
+        return HttpResponse.json(pushed.length === 1 ? { id: 7, slug: 'hello' } : {});
+      }),
+    );
+    const { app } = await mount('', {
+      setup: (a) => {
+        a.store('post', { id: 0, slug: '' }, { url: '/api/post' });
+        a.on('rz:store:patch:before', (e) => {
+          if ('slug' in e.detail.payload) {
+            e.detail.payload.slug = e.detail.payload.slug.toUpperCase();
+          }
+        });
+      },
+    });
+    app.stores.get('post')!.slug = 'Hello';
+    await app.stores.push('post');
+
+    expect(app.stores.snapshot('post')).toEqual({ id: 7, slug: 'HELLO' });
+    expect(dirtyRoots(app, 'post')).toEqual(['slug']);
+
+    await app.stores.push('post');
+    expect(pushed).toEqual([
+      { id: 0, slug: 'Hello' },
+      { id: 7, slug: 'HELLO' },
+    ]);
+    expect(app.stores.isDirty('post')).toBe(false);
+  });
+
+  it('reads a rewritten deposit value dirty', async () => {
+    const { app } = await mount('', {
+      stores: { s: { a: 1, b: 1 } },
+      setup: (a) =>
+        a.on('rz:store:patch:before', (e) => {
+          e.detail.payload.a = 3;
+        }),
+    });
+    app.stores.deposit('s', { a: 2, b: 2 });
+
+    expect(app.stores.snapshot('s')).toEqual({ a: 3, b: 2 });
+    expect(app.stores.baseline('s')).toEqual({ a: 2, b: 2 });
+    expect(dirtyRoots(app, 's')).toEqual(['a']);
+  });
+
+  it('keeps the store value of a key removed from a pull and pushes it', async () => {
+    const { app, pushed } = await mountProfile((payload) => {
+      delete payload.name;
+    });
+    await app.stores.pull('profile');
+
+    expect(app.stores.snapshot('profile')).toEqual({ name: 'Ada', bio: 'new' });
+    expect(dirtyRoots(app, 'profile')).toEqual(['name']);
+
+    await app.stores.push('profile');
+    expect(pushed).toEqual([{ name: 'Ada', bio: 'new' }]);
+  });
+
+  it('keeps a local edit to a key removed from a pull', async () => {
+    const { app } = await mountProfile((payload) => {
+      delete payload.name;
+    });
+    app.stores.get('profile')!.name = 'Mine';
+    await app.stores.pull('profile');
+
+    expect(app.stores.snapshot('profile')).toEqual({ name: 'Mine', bio: 'new' });
+    expect(app.stores.baseline('profile')).toEqual({ name: 'Grace', bio: 'new' });
+    expect(dirtyRoots(app, 'profile')).toEqual(['name']);
+  });
+});
+
 describe('store status and dirty tracking', () => {
   it('reports dirty roots a microtask after an edit', async () => {
     const { app } = await mount('', { stores: { s: { a: 1, b: { c: 2 } } } });

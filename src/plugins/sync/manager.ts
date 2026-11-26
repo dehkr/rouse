@@ -1,10 +1,12 @@
 /*
  * `lastGood` is what Rouse believes the server holds, so `commit()` and `update()` may
  * set it without a round trip. On the sync path it moves only by what reached the
- * server: a push's snapshot, then the response as applied to the data. Never copy
+ * server: a push's snapshot, then the response as the server sent it. Never copy
  * `data` into it there. On a 204 that saves a mid-flight edit and cancels its
  * follow-up, and after a pull it marks unsaved edits in omitted keys as saved. A
- * deposit follows the same rule.
+ * deposit follows the same rule. Never patch it with the payload an
+ * `rz:store:patch:before` listener returns: a key the listener rewrites or removes
+ * must read dirty while the store and the server differ.
  *
  * Every dirty read, in HTML or JS, comes from `status.dirtyRoots` and `status.dirty`.
  * Don't give a JS read its own live comparison against `lastGood`.
@@ -54,6 +56,19 @@ function sliceAt(obj: any, path?: string) {
 /** Copies the fields a store's status exposes from a request error. Replaced whole, never mutated. */
 function storeError(error: RequestError | null): StoreStatus['error'] {
   return error && { code: error.code, message: error.message };
+}
+
+/**
+ * Returns the roots a response patch can change: the keys of the payload as listeners
+ * received it, and of the payload they returned.
+ */
+function patchedRoots(received: object, applied: object): Set<string> {
+  return new Set([...Object.keys(received), ...Object.keys(applied)]);
+}
+
+/** Returns `true` for a payload that can patch a store: any non-null object. */
+function isPatch(value: unknown): value is object {
+  return typeof value === 'object' && value !== null;
 }
 
 /** The one root a path-level write can change, or `undefined` for the whole store. */
@@ -143,10 +158,10 @@ export class StoreSync {
       // matches what the store holds after the write
       reseeded: (entry) => this._updateLastGood(entry as SyncEntry, entry.data),
       patched: (entry, roots) => this._reconcileDirty(entry as SyncEntry, roots),
-      deposited: (stored, payload) => {
+      deposited: (stored, received, applied) => {
         const entry = stored as SyncEntry;
-        this._patchBaseline(entry, payload);
-        this._reconcileDirty(entry, Object.keys(payload));
+        this._patchBaseline(entry, received);
+        this._reconcileDirty(entry, patchedRoots(received, applied));
         entry.status.lastSync = Date.now();
       },
       // Reconciled before the edit listeners run, so a debounced push reads a current
@@ -185,16 +200,17 @@ export class StoreSync {
   }
 
   /**
-   * Applies a response payload to `lastGood` exactly as it is applied to the data. The
+   * Merges a payload into `lastGood` the way a response merges into the data. The
    * caller reconciles the payload's roots once both sides hold it.
+   *
+   * `payload` must be a copy nothing else holds. A baseline sharing an object or array
+   * with the store would change with every edit through the proxy and never read dirty.
    */
-  private _patchBaseline(entry: SyncEntry, payload: any) {
-    // Cloned so the baseline never shares an object or array with the store, where an
-    // edit through the proxy would change both and never read dirty. The live data is
-    // the shape, so a key that's a getter on the store isn't stored as data, where a
-    // nested one would read dirty forever.
+  private _patchBaseline(entry: SyncEntry, payload: object) {
+    // The live data is the shape, so a key that's a getter on the store isn't stored as
+    // data, where a nested one would read dirty forever
     entry.lastGood ??= {};
-    core.patchState(entry.lastGood, core.clone(payload), 'merge', entry.data);
+    core.patchState(entry.lastGood, payload, 'merge', entry.data);
   }
 
   /**
@@ -478,6 +494,9 @@ export class StoreSync {
       });
     }
 
+    // Copied before dispatch, since listeners can edit the payload in place
+    const received = isPatch(result.data) ? core.clone(result.data) : {};
+
     const beforeEvent = this.stores._dispatchPatchEvent(
       entry,
       'rz:store:patch:before',
@@ -490,7 +509,7 @@ export class StoreSync {
 
     // Whole `result.data`, mutable by listeners (matches the router's deposit path)
     const payload = beforeEvent.detail.payload;
-    const hasBody = payload && typeof payload === 'object';
+    const hasBody = isPatch(payload);
 
     // Local state moved mid-flight; keep the edit and skip the echo
     if (hasBody && !deepEqual(data, snapshot)) {
@@ -505,17 +524,18 @@ export class StoreSync {
     }
 
     core.batch(() => {
-      // Reconcile the response payload into the store: merges server-owned fields
-      // (assigned IDs, normalized values) on push, or hydrates fetched state on pull.
-      if (hasBody) {
-        // Patch the baseline identically to live data so omitted keys preserve their
-        // dirty state. Update the baseline first so the subsequent data patch's patched
-        // hook sees both sides synchronized.
-        this._patchBaseline(entry, payload);
+      // Merges server-owned fields (assigned IDs, normalized values) on push, or
+      // hydrates fetched state on pull. The baseline takes what the server sent, and the
+      // store takes what listeners return. Omitted keys keep their dirty state. The
+      // baseline is patched first, so the data patch's `patched` hook sees both sides.
+      const applied = hasBody ? payload : {};
+      const roots = patchedRoots(received, applied);
+      if (roots.size) {
+        this._patchBaseline(entry, received);
         this.stores._withPatchGuard(
           entry,
-          () => core.patchState(entry.data, payload, 'merge'),
-          Object.keys(payload),
+          () => core.patchState(entry.data, applied, 'merge'),
+          roots,
         );
       }
 

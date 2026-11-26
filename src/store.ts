@@ -74,8 +74,12 @@ export interface StoreHooks {
    * Not called for a reseed or a deposit, which have their own hooks.
    */
   patched(entry: StoreEntry, roots?: Iterable<string>): void;
-  /** A deposit merged `payload` into the data. Runs inside the deposit's batch. */
-  deposited(entry: StoreEntry, payload: object): void;
+  /**
+   * A deposit merged `applied`, the payload `rz:store:patch:before` listeners returned,
+   * into the data. `received` is a copy of the payload as they received it. Runs inside
+   * the deposit's batch.
+   */
+  deposited(entry: StoreEntry, received: object, applied: object): void;
   /** A batch of user edits touched `roots`. Runs before the edit listeners. */
   edited(entry: StoreEntry, roots: ReadonlySet<string>): void;
   /** The store was removed. */
@@ -199,7 +203,7 @@ export class StoreManager {
    *
    * @internal
    */
-  _withPatchGuard(entry: StoreEntry, fn: VoidFn, roots?: string[]) {
+  _withPatchGuard(entry: StoreEntry, fn: VoidFn, roots?: Iterable<string>) {
     this._frameworkWrite(fn, () => this._hooks.patched?.(entry, roots));
   }
 
@@ -443,6 +447,9 @@ export class StoreManager {
     const { data, name } = entry;
     const response = options?.response;
     const operation = options?.operation ?? 'fetch';
+    // Copied before dispatch, since listeners can edit the payload in place. Only the
+    // `deposited` hook reads the copy, so an app without one skips it.
+    const received = this._hooks.deposited ? clone(payload) : payload;
 
     const beforeEvent = this._dispatchPatchEvent(
       entry,
@@ -460,7 +467,7 @@ export class StoreManager {
     // Unlike a pull, there's no mid-flight guard
     this._frameworkWrite(
       () => patchState(data, applied, 'merge'),
-      () => this._hooks.deposited?.(entry, applied),
+      () => this._hooks.deposited?.(entry, received, applied),
     );
 
     this._dispatchPatchEvent(entry, 'rz:store:patch', {

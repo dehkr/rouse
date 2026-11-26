@@ -486,6 +486,7 @@ Requires the sync plugin. A store with an endpoint syncs whole. Push (`rz-push`,
 
 - `rz-push`, `rz-pull`, and `rz-deposit` always name their store, including on the store's own script (`<script data-rz-store="feed" data-rz-sse="ready: /feed" data-rz-deposit="@feed">`). A path (`@user.profile`) is rejected.
 - Server responses are applied as JSON Merge Patch (RFC 7396): absent keys stay, objects merge, arrays and primitives replace, `null` deletes the key.
+- An `rz:store:patch:before` listener's rewrite applies to the store only. A key the listener rewrites or removes reads dirty while the store's value differs from what the server sent, and the next push sends the store's value.
 - A push in progress holds later pushes and sends one follow-up when it succeeds. A failed push changes no data: the store stays dirty and `status.error` is set. Roll back yourself: `app.on('rz:push:error', () => app.stores.revert('cart'))`.
 
 ### Store status
@@ -1152,3 +1153,4 @@ The development build warns about most authoring mistakes. These fail without an
 - **Streams send no headers.** `rz-headers`, `rz-request`, and interceptors don't apply to `rz-sse`; see [Server-sent events](#server-sent-events).
 - **URLs can read as methods.** A relative URL spelled like an HTTP method is read as one: write `./query`, not `query`.
 - **Scripts in placed HTML don't run.** `rz-place`, `Rouse-Place`, `rz-sse`, `rz-html`, and `app.place` insert HTML through `innerHTML`, which never runs `<script>`. Put behavior in a scope; the fragment's directives still bind.
+- **Sanitize in `rz:dom:place:before`.** A `response` interceptor never sees stream messages or `app.place()` content, so a sanitizer there misses them.
