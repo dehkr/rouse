@@ -1,13 +1,23 @@
 @font-face {
   font-family: 'IBM Plex Mono';
-  src: url('/assets/fonts/IBMPlexMono-Regular.woff2') format('woff2');
-  font-weight: 400;
+  src: url('/assets/fonts/IBMPlexMonoVar-Roman-Latin1.woff2') format('woff2');
+  font-weight: 400 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'IBM Plex Sans';
+  src: url('/assets/fonts/IBMPlexSansVar-Roman-Latin1.woff2') format('woff2');
+  font-weight: 400 600;
   font-style: normal;
   font-display: swap;
 }
 
 :root {
   color-scheme: light dark;
+  --font-sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --fg: light-dark(#1f2328, #CED7E2);
   --muted: light-dark(#59636e, #94A5B8);
   --bg: light-dark(#ffffff, #1F242B);
@@ -68,7 +78,6 @@
   color: var(--fg);
 }
 
-/* The icons draw with currentColor, which an <img> can't inherit, so they're masks */
 .theme-toggle button::before {
   content: '';
   width: 16px;
@@ -95,11 +104,15 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--fg);
-  font: 15px/1.5 system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font: 15px/1.6 var(--font-sans);
 }
 
 strong {
-  font-weight: 700;
+  font-weight: 600;
+}
+
+em {
+  font-style: normal;
 }
 
 main {
@@ -120,12 +133,14 @@ h3 {
 h1 {
   font-size: 2.8em;
   font-weight: normal;
+  letter-spacing: -0.02em;
   margin-top: 0;
   margin-bottom: 1em;
 }
 
 h2 {
   font-size: 1.9em;
+  letter-spacing: -0.02em;
   margin-bottom: 0.8em;
   margin-top: 2.2em;
 }
@@ -157,7 +172,7 @@ li {
 }
 
 li + li {
-  margin-top: 0.4em;
+  margin-top: 0.6em;
 }
 
 a {
@@ -173,19 +188,20 @@ blockquote {
   margin-left: 0;
   margin-bottom: 3rem;
   font-size: 1.4em;
-  line-height: 1.75;
+  line-height: 1.6;
+  letter-spacing: -0.2px;
   color: var(--muted);
 }
 
 code,
 pre {
-  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
   background: var(--subtle);
   font-size: 0.9em;
 }
 
 code {
-  padding: 0.01em 0.25em 0.09em;
+  padding: 0 0.2em 0.08em;
   border-radius: 3px;
   overflow-wrap: anywhere;
   border: 1px solid var(--border);
@@ -205,11 +221,11 @@ pre > code {
 
 pre {
   position: relative;
-  padding: 2rem;
+  padding: 1.75rem;
   padding-top: 2rem;
-  margin-inline: -2rem;
+  margin-inline: -1.75rem;
   margin-block: 2.5rem;
-  border-radius: 6px;
+  border-radius: 12px;
 }
 
 /* Scroll the code, not the pre, so the language badge can overhang the pre's edge */
@@ -222,21 +238,19 @@ pre > code {
 pre[class*='language-']::before {
   position: absolute;
   top: 0;
-  left: calc(2rem - 1px);
+  left: calc(1.75rem - 3px);
   transform: translateY(-48%);
-  padding: 0.325em 0.5em;
-  border: 1px solid var(--bg);
-  border-radius: 3px;
+  padding: 0.4em 0.8em;
+  border: 2px solid var(--bg);
+  border-radius: 16px;
   background: var(--badge-bg);
   color: var(--fg);
   font-size: 0.7rem;
-  font-weight: 600;
   line-height: 1;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
-/* Muted language colors: pale tints under dark text, deep shades under light text */
 pre.language-html::before {
   content: 'HTML';
   --badge-bg: light-dark(#fed7aa, #7c2d12);
@@ -270,7 +284,7 @@ table {
 
 th,
 td {
-  padding: 10px 24px 10px 0;
+  padding: 12px 24px 12px 0;
   text-align: left;
   vertical-align: top;
 }
@@ -281,12 +295,14 @@ td:last-child {
 }
 
 th {
-  font-weight: 600;
+  font-weight: 500;
   font-size: 0.92em;
+  min-width: 150px;
+  padding-bottom: 8px;
   code {
     font: inherit;
   }
-  border-bottom: 2px solid var(--fg);
+  border-bottom: 1.5px solid var(--fg);
 }
 
 td {
@@ -296,6 +312,23 @@ td {
 
 td:first-child {
   font-weight: 500;
+  & em {
+    font-family: var(--font-mono);
+    font-weight: 400;
+    font-size: 0.92em;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    color: var(--muted);
+  }
+  & em::before {
+    content: "";
+    flex-shrink: 0;
+    width: 12px;
+    height: 12px;
+    background-color: currentColor;
+    mask: url('/assets/icons/plug.svg') center / contain no-repeat;
+  }
 }
 
 td:first-child code {
@@ -304,10 +337,6 @@ td:first-child code {
   border: none;
   padding: 0;
   font-size: 0.95em;
-}
-
-th:nth-child(1) {
-  min-width: 180px;
 }
 
 /* Prism tokens from @11ty/eleventy-plugin-syntaxhighlight */

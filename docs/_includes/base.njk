@@ -17,10 +17,10 @@
     } catch {}
   </script>
   <script type="importmap">
-    { "imports": { "rousejs": "/assets/rouse/rouse.min.js" } }
+    { "imports": { "rousejs": "/assets/rouse/rouse.js" } }
   </script>
   <script type="module">
-    import { rouse, signal } from 'rousejs';
+    import { reactive, rouse } from 'rousejs';
     import { headingJump } from '/scopes/heading-jump.js';
 
     const app = rouse();
@@ -28,24 +28,28 @@
     // Inline scope definition
     // Manages the theme picker buttons. Saves the selection to localStorage and
     // respects the system setting until a theme is picked.
-    app.scope('theme-toggle', ({ app }) => {
+    app.scope('theme-toggle', ({ app, term }) => {
       const systemDark = matchMedia('(prefers-color-scheme: dark)');
-      const system = signal(systemDark.matches ? 'dark' : 'light');
-      const picked = signal(app.root.dataset.theme);
+      const state = reactive({
+        system: systemDark.matches ? 'dark' : 'light',
+        picked: app.root.dataset.theme,
+      });
 
-      systemDark.addEventListener('change', (e) => system(e.matches ? 'dark' : 'light'));
+      app.on(systemDark, 'change', () => {
+        state.system = systemDark.matches ? 'dark' : 'light';
+      }, { signal: term });
 
       return {
         setTheme({ el }) {
           const theme = el.dataset.themeValue;
-          picked(theme);
+          state.picked = theme;
           app.root.dataset.theme = theme;
           try {
             localStorage.setItem('theme', theme);
           } catch {}
         },
         pressed({ el }) {
-          return el.dataset.themeValue === (picked() ?? system());
+          return el.dataset.themeValue === (state.picked ?? state.system);
         },
       };
     });
@@ -92,9 +96,9 @@
           <template data-rz-render="list.shown" data-rz-key="id">
             <li
               role="option"
-              data-rz-attr="id: %.id, aria-selected: selected"
-              data-rz-class="toc-sub: %.sub"
-              data-rz-text="%.text"
+              data-rz-attr="id: ~item.id, aria-selected: selected"
+              data-rz-class="toc-sub: ~item.sub"
+              data-rz-text="~item.text"
               data-rz-on="click: pick"
             ></li>
           </template>

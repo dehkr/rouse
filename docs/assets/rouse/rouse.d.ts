@@ -7,11 +7,14 @@ export declare function signal<T>(initialValue: T): {
   (value: T): void;
 };
 export declare function computed<T>(getter: (previousValue?: T) => T): () => T;
-export declare function effect(fn: () => void | (() => void)): () => void;
 /** List of valid DOM placement positions. */
 declare const PLACE_POSITIONS: readonly ["innerHTML", "outerHTML", "beforebegin", "afterbegin", "beforeend", "afterend", "delete"];
 /** Represents a valid DOM placement position. */
 type PlacePosition = (typeof PLACE_POSITIONS)[number];
+/** Web Storage areas the `persist` option accepts: `localStorage` and `sessionStorage`. */
+declare const PERSIST_STORAGES: readonly ["local", "session"];
+/** Represents a `persist` option token. */
+type PersistStorage = (typeof PERSIST_STORAGES)[number];
 /** Modifiers naming a host for the listener other than the element itself. */
 declare const LISTEN_TARGETS: readonly ["window", "document", "root"];
 type ListenTarget = (typeof LISTEN_TARGETS)[number];
@@ -20,24 +23,17 @@ interface AppEventDetail {
   /** The app instance the event fired from. */
   app: RouseApp;
 }
-/** Detail for `rz:scope:init`. */
-interface ScopeInitDetail {
-  /** The context passed into the scope's setup function. */
-  context: ScopeCtx;
-  /** The scope object the setup function returned. */
-  instance: Scope;
-}
-/** Detail for `rz:scope:connect`, `rz:scope:disconnect`, and `rz:scope:destroy`. */
+/** Detail for `rz:scope:connect` and `rz:scope:disconnect`. */
 interface ScopeLifecycleDetail {
   /** The scope's host element. Identifies the scope when the event fires from the app root. */
   host: HTMLElement;
   /**
-   * The scope object its setup function returned. On `rz:scope:destroy` it is
-   * already torn down, so use it to recognize the scope rather than to call it.
+   * The scope object its setup function returned. On `rz:scope:disconnect` it is
+   * being torn down, so use it to recognize the scope rather than to call it.
    */
   instance: Scope;
 }
-/** Detail for `rz:fetch:config`, `rz:fetch:start`, `rz:fetch:abort`, and `rz:fetch:end`. */
+/** Detail for `rz:fetch:config`. */
 interface FetchConfigDetail {
   /**
    * The request config, the same object the interceptors receive and the response
@@ -46,23 +42,19 @@ interface FetchConfigDetail {
    */
   config: ResolvedRequest;
 }
+/** Detail for `rz:fetch:start`, `rz:fetch:abort`, and `rz:fetch:end`. */
+interface FetchRequestDetail {
+  /**
+   * The request config, the same object `rz:fetch:config` carries. Read-only here:
+   * change a request in a `rz:fetch:config` listener or a request interceptor.
+   */
+  config: ReadonlyRequest;
+}
 /** Detail for `rz:fetch:success`: the full response object. */
 type FetchSuccessDetail = RouseResponse;
-/** Detail for `rz:fetch:success:json`: response with a parsed-JSON body (object/array). */
-type FetchSuccessJsonDetail = RouseResponse<Record<string, any> | any[]>;
-/** Detail for `rz:fetch:success:html`: response with an HTML/text body, or an empty one carrying `Rouse-Place`. */
-type FetchSuccessHtmlDetail = RouseResponse<string>;
-/** Detail for `rz:fetch:success:file`: response with a binary body (Blob/ArrayBuffer). */
-type FetchSuccessFileDetail = RouseResponse<Blob | ArrayBuffer>;
 /** Detail for `rz:fetch:error`: the full response object. */
 type FetchErrorDetail = RouseResponse;
-/** Detail for `rz:fetch:error:json`: error response with a parsed-JSON body (object/array). */
-type FetchErrorJsonDetail = RouseResponse<Record<string, any> | any[]>;
-/** Detail for `rz:fetch:error:html`: error response with an HTML/text body, or an empty one carrying `Rouse-Place`. */
-type FetchErrorHtmlDetail = RouseResponse<string>;
-/** Detail for `rz:fetch:error:file`: error response with a binary body (Blob/ArrayBuffer). */
-type FetchErrorFileDetail = RouseResponse<Blob | ArrayBuffer>;
-/** Detail for `rz:push` and `rz:pull` `:config`, `:start`, `:abort`, and `:end`. */
+/** Detail for `rz:push:config` and `rz:pull:config`. */
 interface PushPullConfigDetail {
   /** Name of the store being synced. */
   storeName: string;
@@ -72,6 +64,16 @@ interface PushPullConfigDetail {
    * the object has no effect on the request.
    */
   config: ResolvedRequest;
+}
+/** Detail for `rz:push` and `rz:pull` `:start`, `:abort`, and `:end`. */
+interface PushPullRequestDetail {
+  /** Name of the store being synced. */
+  storeName: string;
+  /**
+   * The request config, the same object `:config` carries. Read-only here: change a
+   * request in a `:config` listener or a request interceptor.
+   */
+  config: ReadonlyRequest;
 }
 /** A stream's resolved connection config, carried on every `rz:sse:*` detail. */
 interface SseConnectionConfig {
@@ -118,10 +120,6 @@ interface SseMessageDetail<T = unknown> extends SseConnectionDetail {
   /** The server's `id:` field, or an empty string when absent. */
   lastEventId: string;
 }
-/** Detail for `rz:sse:message:json`: a message whose body parsed to an object or array. */
-type SseMessageJsonDetail = SseMessageDetail<Record<string, any> | any[]>;
-/** Detail for `rz:sse:message:html`: a message whose body is text. */
-type SseMessageHtmlDetail = SseMessageDetail<string>;
 /**
  * Detail for `rz:sse:error`; cancelable. The connection dropped, and the default
  * action is the platform's automatic reconnect. `preventDefault()` closes instead.
@@ -193,72 +191,52 @@ interface LifecycleEventMap {
   'rz:app:ready': AppEventDetail;
   /** Fires when the app instance is destroyed. */
   'rz:app:destroy': AppEventDetail;
-  /** Fires after the setup function runs, before bindings attach. */
-  'rz:scope:init': ScopeInitDetail;
   /** Fires when scope bindings are attached. */
   'rz:scope:connect': ScopeLifecycleDetail;
   /** Fires when scope bindings are detached. */
   'rz:scope:disconnect': ScopeLifecycleDetail;
-  /** Fires when the scope is torn down. */
-  'rz:scope:destroy': ScopeLifecycleDetail;
   /** Fires before the request is sent; cancelable. Listeners can mutate `config`. */
   'rz:fetch:config': FetchConfigDetail;
-  /** Fires when the fetch starts, after config. */
-  'rz:fetch:start': FetchConfigDetail;
+  /** Fires once indicators apply. Request interceptors run and the request is sent after it. */
+  'rz:fetch:start': FetchRequestDetail;
   /** Fires if the fetch is aborted. */
-  'rz:fetch:abort': FetchConfigDetail;
+  'rz:fetch:abort': FetchRequestDetail;
   /** Fires when the request settles, after success, error, or abort. */
-  'rz:fetch:end': FetchConfigDetail;
+  'rz:fetch:end': FetchRequestDetail;
   /** Fires when the request completes with an OK status. */
   'rz:fetch:success': FetchSuccessDetail;
-  /** Fires after `rz:fetch:success` when the body is parsed JSON (object/array). */
-  'rz:fetch:success:json': FetchSuccessJsonDetail;
-  /** Fires after `rz:fetch:success` when the body is HTML/text. */
-  'rz:fetch:success:html': FetchSuccessHtmlDetail;
-  /** Fires after `rz:fetch:success` when the body is a Blob/ArrayBuffer. */
-  'rz:fetch:success:file': FetchSuccessFileDetail;
   /** Fires when the request fails (non-OK status, network error, or timeout). */
   'rz:fetch:error': FetchErrorDetail;
-  /** Fires after `rz:fetch:error` when the body is parsed JSON (object/array). */
-  'rz:fetch:error:json': FetchErrorJsonDetail;
-  /** Fires after `rz:fetch:error` when the body is HTML/text. */
-  'rz:fetch:error:html': FetchErrorHtmlDetail;
-  /** Fires after `rz:fetch:error` when the body is a Blob/ArrayBuffer. */
-  'rz:fetch:error:file': FetchErrorFileDetail;
   /** Fires before a push is sent; cancelable. Listeners can mutate `config`. */
   'rz:push:config': PushPullConfigDetail;
-  /** Fires when the push starts, after config. */
-  'rz:push:start': PushPullConfigDetail;
+  /** Fires once indicators apply. Request interceptors run and the push is sent after it. */
+  'rz:push:start': PushPullRequestDetail;
   /** Fires if the push is canceled through the `signal` option. */
-  'rz:push:abort': PushPullConfigDetail;
+  'rz:push:abort': PushPullRequestDetail;
   /** Fires when the push completes with an OK status. */
   'rz:push:success': PushPullResultDetail;
   /** Fires when the push fails (non-OK status or network error). */
   'rz:push:error': PushPullResultDetail;
   /** Fires when the push settles, after success/error/abort. */
-  'rz:push:end': PushPullConfigDetail;
+  'rz:push:end': PushPullRequestDetail;
   /** Fires before a pull is sent; cancelable. Listeners can mutate `config`. */
   'rz:pull:config': PushPullConfigDetail;
-  /** Fires when the pull starts, after config. */
-  'rz:pull:start': PushPullConfigDetail;
+  /** Fires once indicators apply. Request interceptors run and the pull is sent after it. */
+  'rz:pull:start': PushPullRequestDetail;
   /** Fires if the pull is aborted (overlapping programmatic pulls sharing an abortKey). */
-  'rz:pull:abort': PushPullConfigDetail;
+  'rz:pull:abort': PushPullRequestDetail;
   /** Fires when the pull completes with an OK status. */
   'rz:pull:success': PushPullResultDetail;
   /** Fires when the pull fails (non-OK status or network error). */
   'rz:pull:error': PushPullResultDetail;
   /** Fires when the pull settles, after success/error/abort. */
-  'rz:pull:end': PushPullConfigDetail;
+  'rz:pull:end': PushPullRequestDetail;
   /** Fires once before the initial connection attempt; cancelable. Listeners can mutate `config`. */
   'rz:sse:config': SseConfigDetail;
   /** Fires when the stream connects, and again after every successful reconnect. */
   'rz:sse:open': SseConnectionDetail;
   /** Fires for every message the server sends, named or unnamed. */
   'rz:sse:message': SseMessageDetail;
-  /** Fires after `rz:sse:message` when the body parsed to an object or array. */
-  'rz:sse:message:json': SseMessageJsonDetail;
-  /** Fires after `rz:sse:message` when the body is text. */
-  'rz:sse:message:html': SseMessageHtmlDetail;
   /** Fires when the connection drops; cancelable. Preventing it suppresses the reconnect. */
   'rz:sse:error': SseErrorDetail;
   /** Fires when the stream has ended and will not reopen on its own. */
@@ -372,10 +350,11 @@ type EventCallback<E> = ((ev: E) => void) | {
  * - `TIMEOUT`: Request exceeded timeout threshold.
  * - `NETWORK_ERROR`: Fetch failed (offline, DNS, CORS, etc.).
  * - `PARSE_ERROR`: Response body couldn't be parsed.
+ * - `INVALID_REQUEST`: Request can't be sent as written (a body on GET or HEAD, or
+ *   a missing or unresolvable URL).
  * - `INTERNAL_ERROR`: Unexpected error in request engine.
- * - `REDIRECTED`: Cross-origin redirect refused by the fetch engine.
  */
-type CustomErrorCode = 'CANCELED' | 'TIMEOUT' | 'NETWORK_ERROR' | 'PARSE_ERROR' | 'INTERNAL_ERROR' | 'REDIRECTED';
+type CustomErrorCode = 'CANCELED' | 'TIMEOUT' | 'NETWORK_ERROR' | 'PARSE_ERROR' | 'INVALID_REQUEST' | 'INTERNAL_ERROR';
 /** An HTTP status code, or a custom error code. */
 type ErrorCode = CustomErrorCode | number;
 /** Normalized error object. Can include a parsed response body for non-OK HTTP responses (JSON object/array or text/HTML string). */
@@ -447,11 +426,15 @@ type FetchRequest = Omit<RequestInit, 'body' | 'headers'> & FetchConfig;
  */
 type ResolvedRequest = FetchRequest & Required<Pick<FetchRequest, 'url' | 'method' | 'headers'>>;
 /**
- * The authoring surface for a store push or pull. A push body is the store's own data
- * and a pull carries none, so `body` is absent by design. `method` is absent too: a
- * push is always `PATCH` (RFC 7396 merge patch), and a pull always `GET`.
+ * A request config as the events after `:config` see it: the same object, typed
+ * read-only. `headers`, `params`, and `body` are read-only too, since a nested edit
+ * would still reach the request.
  */
-type SyncRequest = Omit<RequestInit, 'body' | 'headers' | 'method'> & BaseRequestConfig;
+type ReadonlyRequest = Readonly<Omit<ResolvedRequest, 'headers' | 'params' | 'body'>> & {
+  readonly headers: Readonly<ResolvedRequest['headers']>;
+  readonly params?: Readonly<NonNullable<ResolvedRequest['params']>>;
+  readonly body?: Readonly<ResolvedRequest['body']>;
+};
 /**
  * The callable fetch surface. The HTTP method comes from `options.method`,
  * defaulting to `GET`.
@@ -593,39 +576,87 @@ type RenderHandlerCtx<Item, E extends Element = HTMLElement> = Omit<HandlerCtx<E
     index: number;
   };
 };
+type PluginName = 'sync' | 'sse';
 /**
- * A store's sync status. Read it with `app.stores.status(name)` in JavaScript,
- * or as `@name::status` in a directive, for example
- * `data-rz-prop="disabled: @cart::status.syncing"`. Every property updates
- * reactively, and none of them can be written from HTML.
+ * Saves the state to Web Storage on every change and restores it on creation.
+ * `persist` and `persistKey` are passed together or not at all.
  */
-interface StoreStatus {
-  /** `'push'` or `'pull'` while that operation is in progress, `false` when idle. */
-  syncing: false | 'push' | 'pull';
-  /** Why the last push or pull failed, or `null`. Cleared when the next one starts. */
-  error: Pick<RequestError, 'code' | 'message'> | null;
-  /** When the store last took in data from the server, in milliseconds, or `0`. */
-  lastSync: number;
-  /** `true` when the store holds changes the server hasn't confirmed. */
-  dirty: boolean;
-  /** The roots whose values differ from what the server has. */
-  dirtyRoots: Record<string, true>;
-}
+type PersistOptions = {
+  persist?: undefined;
+  persistKey?: undefined;
+} | {
+  /** Where to save: `'local'` for `localStorage`, `'session'` for `sessionStorage`. */
+  persist: PersistStorage;
+  /** The storage key, used verbatim. Must be stable across page loads and unique on the page. */
+  persistKey: string;
+};
+/** Options for `reactive()`. */
+type ReactiveOptions = PersistOptions;
 /**
- * A store's standing sync policy, applied to every push and pull. A store script seeds
- * it when it declares the store, and replaces `url` and `headers` when it re-declares it.
+ * Creates a reactive proxy for the target object.
  *
- * `indicator` is deliberately absent: it belongs to the trigger, not the store. A
- * store has many triggers, and `resolveIndicators` takes a single value, so a
- * policy-level indicator would silently override every trigger's `rz-indicator`.
+ * - If passed a raw object, it returns its reactive proxy (creating one if needed).
+ * - If passed an existing proxy, it returns it as-is.
+ * - If passed anything but a plain object or array (primitive, class instance,
+ *   built-in such as `Map` or `Date`), it returns it as-is.
+ *
+ * The returned proxy is deeply reactive but lazy: nested properties are converted to
+ * proxies only when accessed.
+ *
+ * **Persistence:** pass `persist` and `persistKey` to keep the state across page loads.
+ * - The saved value is restored before the proxy is created. An object takes each saved
+ *   field over its initial value, skipping getters and methods. An array is replaced.
+ * - Every change saves the data fields as JSON. Getters and methods are never saved.
+ * - Unreadable storage or a saved value of another type keeps the initial value.
+ * - Saving stops with the scope when called during setup or `connect()`. Otherwise
+ *   it runs for the page's lifetime.
+ *
+ * @template T - The type of the target object.
+ * @param target - The object to make reactive.
+ * @param options - `persist` (`'local'` or `'session'`) with a `persistKey` used verbatim
+ *   as the storage key. Options apply only on the object's first `reactive()` call.
+ * @returns The reactive proxy, or the original value if it cannot be proxied.
+ * @throws If `persist` is not `'local'` or `'session'`, or `persistKey` is missing.
+ *
+ * @example
+ * const state = reactive({ count: 0 });
+ * effect(() => console.log(state.count));
+ *
+ * @example
+ * const prefs = reactive({ theme: 'light' }, { persist: 'local', persistKey: 'prefs' });
  */
-interface SyncPolicy extends Omit<SyncRequest, 'url' | 'indicator'> {
-  /** Endpoint for push and pull. */
-  url: string;
+export declare function reactive<T extends object>(target: T, options?: ReactiveOptions): T;
+/**
+ * Runs `fn` and defers effects until it returns, so each effect runs at most once
+ * for all the writes inside it. Returns `fn`'s result.
+ *
+ * - Reads inside `fn`, including computed values, return current state. Only effects
+ *   wait, so the DOM updates when the outermost `batch()` returns.
+ * - Nested calls run their effects once, when the outermost call returns.
+ * - If `fn` throws, effects for the writes before the throw still run, and the error
+ *   propagates.
+ * - Writes after an `await` inside `fn` are not batched.
+ *
+ * @param fn - A synchronous function that writes state.
+ */
+export declare function batch<T>(fn: () => T): T;
+/**
+ * An optional feature, installed into one app through the `plugins` option of
+ * `rouse()`. Load each plugin from the same release as the core library.
+ */
+interface RousePlugin {
+  readonly name: PluginName;
+  readonly version: string;
 }
 /**
- * The central manager for all reactive stores and their network logic.
- * Instantiated once per RouseApp to ensure isolation.
+ * Options a plugin adds to `app.store()`. Empty without one, so an option that needs a
+ * plugin, such as the sync plugin's `url`, is a type error until that plugin is
+ * installed.
+ */
+interface StoreOptions {}
+/**
+ * Manages one app's stores by name, as `app.stores`. Each app has its own, so stores
+ * never cross between apps.
  */
 declare class StoreManager {
   private app;
@@ -633,82 +664,25 @@ declare class StoreManager {
   private _pendingFlush;
   private _isPatching;
   constructor(app: RouseApp);
-  /** Replaces the policy object. Nothing in it is reactive, so there's no `@name::config`. */
-  private _setConfig;
   /**
-   * Returns the store's element while it's on the page. A sync started from a detached
-   * `<script data-rz-store>` treats the store as having no element.
+   * Runs `fn` with edit tracking suppressed, then `report`, the one hook that announces
+   * the write, in the same batch.
    */
-  private _elementOf;
-  /** Returns `true` while `entry` is the store registered under its name. */
-  private _isRegistered;
+  private _frameworkWrite;
   /**
-   * Nullish-safe lookup for accessors that report absence through their own
-   * return value. `_getStore` is the version that warns.
-   */
-  private _find;
-  /**
-   * `_find` with a dev warning when the store is missing. `action` names what the
-   * caller was about to do, for the message.
-   */
-  private _getStore;
-  /**
-   * Advances the `lastGood` baseline to `source` and reconciles the dirty flags
-   * that move with it.
-   */
-  private _updateLastGood;
-  /**
-   * Applies a response payload to `lastGood` exactly as it was applied to the data,
-   * and reconciles the dirty flags that move with it.
-   */
-  private _patchBaseline;
-  /**
-   * Recomputes the dirty status against `lastGood`. The only writer of
-   * `status.dirtyRoots` and `status.dirty`. Without `roots`, walks every root in
-   * the data, the baseline, or the current dirty set. A root deleted locally still
-   * reads dirty, and a root the server deleted from both sides is cleared.
-   */
-  private _reconcileDirty;
-  /** Returns `true` when the data at `path`, or the whole store, differs from `lastGood`. */
-  private _isSliceDirty;
-  private _dispatchPatchEvent;
-  /**
-   * Internal unified request handler for push and pull operations.
-   */
-  private _request;
-  /**
-   * Sends the request and applies the outcome to the store: records a failure in
-   * `status.error`, leaving the data alone, or reconciles the response.
-   *
-   * `snapshot` is the data the request carries, and what the baseline advances to if it
-   * succeeds. Tracks the request so a superseded one leaves `syncing` alone when it settles.
-   * Hands back the push held while it was in flight when it owned the store and succeeded.
-   */
-  private _sendAndApply;
-  private _applyServerResponse;
-  /** Applies a response payload to the store's data, as a framework write. */
-  private _patchPayload;
-  /**
-   * Runs a framework write with dirty tracking suppressed, then reconciles the
-   * dirty flags against the baseline, for `roots` or the whole store. Every
-   * framework mutation of store data goes through here, so the reconcile cannot
-   * be forgotten.
-   */
-  private _withPatchGuard;
-  /**
-   * Queues a store for end-of-microtask reconciliation, coalescing a batch of
-   * synchronous writes into one dirty recompute and one round of notifications.
+   * Queues a store for an end-of-microtask flush, coalescing a batch of synchronous
+   * writes into one `edited` call and one round of notifications.
    */
   private _scheduleFlush;
   /**
-   * Replaces the store's data, then clears dirty flags and refreshes both
-   * snapshots: the one `reset()` restores to, and the last synced state `revert()`
-   * restores to. To change the store's sync configuration, use `config()`.
+   * Replaces the store's data. Sends nothing. With the `sync` plugin, the new data is
+   * also what `revert()` restores, and the store has no unsaved changes. Use it for
+   * data the server already holds, such as a server render.
    */
   update<T extends object = any>(storeName: string | null | undefined, state: object): T;
   /**
-   * Replaces the store's data and makes it both restore targets. Shared by `update()`,
-   * `reset()`, and a re-declared script. Callers passing new state warn on null fields.
+   * Replaces the store's data and calls the `reseeded` hook. Shared by `update()` and a
+   * re-declared script.
    */
   private _reseed;
   /**
@@ -717,9 +691,8 @@ declare class StoreManager {
    * events a push or pull fires, so a listener sees one shape whatever produced
    * the payload.
    *
-   * The payload's keys become the last synced state, as they would after a pull.
-   * Keys it leaves out keep any unsaved changes, and `reset()` still restores the
-   * state the store started with.
+   * With the `sync` plugin, the payload's keys count as synced, as after a pull. Keys
+   * it leaves out keep any unsaved changes.
    *
    * @returns `false` if the store does not exist or a listener canceled the patch.
    */
@@ -736,93 +709,9 @@ declare class StoreManager {
    */
   snapshot<T = any>(storeName: string | null | undefined): T | undefined;
   /**
-   * Returns a copy of the last synced state: what a push or pull last confirmed,
-   * or what `commit()`, `update()`, or `deposit()` last asserted. This is the
-   * reference point for unsaved changes and what `revert()` restores. Non-reactive,
-   * like `snapshot()`.
-   */
-  baseline<T = any>(storeName: string | null | undefined): T | undefined;
-  /**
    * Returns `true` if a store with the provided name exists.
    */
   has(storeName: string | null | undefined): boolean;
-  /**
-   * Returns the status object for a store, or `undefined`. Available store
-   * status properties are `syncing`, `error`, `lastSync`, `dirty`, and `dirtyRoots`.
-   */
-  status(storeName: string | null | undefined): StoreStatus | undefined;
-  /**
-   * Returns `true` when the store has unsaved changes. Pass a root key to ask
-   * about that key alone, the same question `@name::status.dirtyRoots.key` answers
-   * in HTML.
-   *
-   * The answer comes from the store's status, which updates a microtask after an
-   * edit.
-   */
-  isDirty(storeName: string | null | undefined, root?: string): boolean;
-  /**
-   * Returns the root keys that hold unsaved changes, or an empty array when there
-   * are none. The array is a copy, so changing it leaves the store's status alone.
-   *
-   * Like `isDirty()`, the answer updates a microtask after an edit.
-   */
-  dirtyRoots(storeName: string | null | undefined): string[];
-  /**
-   * Patches `SyncPolicy` for a store. Warns if the store is missing.
-   */
-  config(storeName: string | null | undefined, config: Partial<SyncPolicy>): void;
-  /**
-   * Sends the store's data to the server.
-   *
-   * If the store already has a request in flight, the push waits for it, and once that
-   * request succeeds, it's sent if the data still differs from what the server holds.
-   * The promise resolves when the push's request finishes or, if it had to wait, once
-   * the store has nothing in flight and nothing left to send. It never rejects: read
-   * `status(name).error` to see whether a push failed.
-   *
-   * Options apply to this push only and take precedence over the store's own config,
-   * for example `push('user', { indicator: '#save', timeout: 5000 })`. A push is
-   * always a `PATCH` carrying the whole store, so there is no `method` or `body`.
-   */
-  push(storeName: string | null | undefined, options?: SyncRequest): Promise<void>;
-  /** `push()` without the call-site warning, so a held push's follow-up doesn't repeat it. */
-  private _push;
-  /** Returns a promise that settles once the store has nothing in flight and nothing left to send. */
-  private _whenIdle;
-  /** Settles held `push()` calls. */
-  private _settleIdle;
-  /** Returns what the server will hold if the request in flight succeeds. */
-  private _expectedBaseline;
-  /**
-   * Pulls fresh store data from the server, unless a push is currently in flight.
-   *
-   * Options apply to this pull only and take precedence over the store's own config.
-   * Pass `url` to pull from somewhere other than the store's endpoint:
-   * `pull('user', { url: '/api/user?fields=name' })`.
-   */
-  pull(storeName: string | null | undefined, options?: SyncRequest): Promise<void>;
-  /**
-   * Restores the store to its initial state, and makes that the new baseline,
-   * so nothing reads as dirty afterward.
-   *
-   * To restore the last state the server confirmed instead, use `revert()`.
-   */
-  reset(storeName: string | null | undefined): void;
-  /**
-   * Discards unsaved changes, restoring the store to the last synced state, which
-   * `baseline()` returns. Pass a dot path to revert a single field or branch
-   * instead of the whole store. Returns `true` if anything changed.
-   *
-   * To restore the state the store started with, use `reset()`.
-   */
-  revert(storeName: string | null | undefined, path?: string): boolean;
-  /**
-   * Marks the store's current data as the new baseline, so nothing reads as dirty.
-   * Does not send anything to the server. Use it when state reached the server by
-   * some means Rouse did not perform, such as a native form submit or a socket
-   * acknowledgement.
-   */
-  commit(storeName: string | null | undefined): void;
   /**
    * Drops all per-store state from the manager. Intended for tear-down of
    * dynamically-created stores.
@@ -836,7 +725,10 @@ declare class StoreManager {
 interface RouseConfig {
   /** Element or selector where the app mounts. Defaults to `document.documentElement`. */
   root?: string | HTMLElement;
-  /** Prepended to relative URLs in `rz-fetch`, `rz-push`, `rz-pull`, `rz-sse`, `app.fetch()`, and `app.sse()`. */
+  /**
+   * Prepended to relative URLs in `rz-fetch` and `app.fetch()`, and in the requests and
+   * streams of the `sync` and `sse` plugins.
+   */
   baseUrl?: string;
   /** Default headers applied to every request. Merged with per-request and directive-level headers; a `null` value removes the header. */
   headers?: Record<string, string | null>;
@@ -846,6 +738,12 @@ interface RouseConfig {
   timeout?: number;
   /** Default scope activation strategy. Overridden by `rz-wake`. */
   wake?: string;
+  /**
+   * Optional features to install in this app, such as `sync` from `rousejs/sync`.
+   * Each is installed once, while the app is created. Throws if a plugin comes from a
+   * different release than the core library.
+   */
+  plugins?: readonly RousePlugin[];
 }
 /**
  * The options passed to `rouse()`, with defaults filled in, read from `app.config`.
@@ -858,6 +756,8 @@ interface ResolvedConfig {
   credentials?: RequestCredentials;
   timeout: number;
   wake: string;
+  /** The installed plugins, each listed once. */
+  plugins: readonly RousePlugin[];
 }
 /**
  * A Rouse application instance. Holds the root element, the stores, the
@@ -891,17 +791,6 @@ export declare class RouseApp {
    */
   fetch: RouseFetch;
   /**
-   * Opens a server-sent events stream, or joins one already open at the same URL.
-   * The stream closes when the app is destroyed, when `options.signal` aborts, or
-   * when the returned closer is called. Inside a scope, pass `signal: term` to close
-   * it with the scope.
-   *
-   * @example
-   * const close = app.sse('/api/feed');
-   * app.on('rz:sse:message:html', (e) => app.place(feedEl, e.detail.data, { position: 'beforeend' }));
-   */
-  sse: RouseSse;
-  /**
    * Adds an event listener that is auto-removed when the app is destroyed. Listens
    * on `app.root` unless an `EventTarget` is passed first. Inside a scope, pass the
    * host and `signal: term` to listen on the scope's element until it is destroyed.
@@ -917,7 +806,6 @@ export declare class RouseApp {
   on: BoundOn;
   private _hasStarted;
   private _destroyed;
-  private _observer?;
   private _abortController;
   /**
    * Resolves the root, marks it with `data-rouse-app`, and wires the stores, scopes,
@@ -947,17 +835,28 @@ export declare class RouseApp {
    *
    * A store is one flat object. Data, getters, and methods live side by side.
    * Getters are cached as computeds bound to the proxy and must stay pure. Work
-   * that needs cleanup belongs in a scope instead.
+   * that needs cleanup belongs in a scope instead. Snapshots and incoming data touch
+   * only plain, JSON-serializable data, never methods or getters.
    *
-   * Only plain, JSON-serializable data is synced. Methods and getters are untouched
-   * by snapshots, push bodies, `reset()`, and incoming server state.
+   * **Sync:** with the `sync` plugin installed, `config` also takes the store's
+   * endpoint (`url`) and request options, and the store syncs with that endpoint as a
+   * whole.
+   *
+   * **Persistence:** pass `persist` and `persistKey` to keep the data in the browser
+   * across page loads.
+   * - The saved copy is restored on creation.
+   * - Every change saves the data fields as JSON.
+   * - Saving stops on `stores.remove()` and `destroy()`. The saved copy stays in storage.
    *
    * @template T - Shape of the store's data, getters, and methods.
    * @param name - Unique name. Referenced as `@name` in directives.
-   * @param data - Initial state. Made reactive, and kept as the snapshot `reset()` restores.
-   * @param config - Standing sync config: the endpoint URL, headers, and other transport options.
+   * @param data - Initial state, made reactive.
+   * @param config - `persist` (`'local'` or `'session'`) with a `persistKey` used
+   *   verbatim as the storage key. The `sync` plugin adds `url` and request options.
    * @returns The store's reactive proxy.
-   * @throws If a store of this name already exists.
+   * @throws If a store of this name already exists, or if `persist` is not `'local'` or
+   *   `'session'` with a `persistKey`. With sync, also if `persist` is combined with
+   *   `url`.
    *
    * @example
    * const cart = app.store('cart', {
@@ -968,11 +867,18 @@ export declare class RouseApp {
    *   clear() {
    *     this.items = [];
    *   },
-   * }, { url: '/api/cart' });
+   * });
    *
    * cart.items.push(item);
+   *
+   * @example
+   * app.store('prefs', { theme: 'light' }, { persist: 'local', persistKey: 'prefs' });
+   *
+   * @example
+   * // With the sync plugin: rouse({ plugins: [sync] })
+   * app.store('user', { name: '' }, { url: '/api/user' });
    */
-  store<T extends object>(name: string, data: T, config?: Partial<SyncPolicy>): T;
+  store<T extends object>(name: string, data: T, config?: StoreOptions & PersistOptions): T;
   /**
    * Places an HTML string into the page, the programmatic counterpart to `rz-place`.
    * A selector is matched within the app root, including the root itself, and every
@@ -1079,25 +985,120 @@ export declare function dispatch<N extends string>(el: EventTarget, name: N, det
  * <template data-rz-render="items" data-rz-key="key">
  */
 export declare function createKey(prefix?: string): string;
+/** Options for the two-argument form of `effect()`. */
+interface EffectOptions {
+  /** Skip the first `apply`. The first call then receives the first changed value. */
+  defer?: boolean;
+}
 /**
- * Creates a reactive proxy for the target object.
+ * Runs `fn` now, and again whenever a reactive value it read changes.
  *
- * - If passed a raw object, it returns its reactive proxy (creating one if needed).
- * - If passed an existing proxy, it returns it as-is.
- * - If passed anything but a plain object or array (primitive, class instance,
- *   built-in such as `Map` or `Date`), it returns it as-is.
+ * If `fn` returns a function, that function is a cleanup. It runs before each re-run
+ * and when the effect stops. Any other return value is ignored.
  *
- * The returned proxy is deeply reactive but lazy: nested properties are converted to
- * proxies only when accessed.
+ * Stops with the scope when called during setup or `connect()`. Otherwise it runs
+ * until the returned function is called.
  *
- * @template T - The type of the target object.
- * @param target - The object to make reactive.
- * @returns The reactive proxy, or the original value if it cannot be proxied.
+ * @param fn - The side effect. Every reactive read inside it is tracked.
+ * @returns A function that stops the effect.
  *
  * @example
- * const state = reactive({ count: 0 });
- * effect(() => console.log(state.count));
+ * const stop = effect(() => console.log(state.count));
  */
-export declare function reactive<T extends object>(target: T): T;
-export { type BindableValue, type HandlerCtx, type LifecycleEvent, type LifecycleEventMap, type RenderHandlerCtx, type RouseConfig, type ScopeCtx, type ScopeSetup, rouse as default };
+export declare function effect(fn: () => unknown): () => void;
+/**
+ * Runs `apply` with the value `compute` returns, and again whenever that value
+ * changes (compared with `!==`).
+ *
+ * - **Tracking:** only reads inside `compute` trigger a re-run. Reads inside `apply`
+ *   are never tracked.
+ * - **First run:** `apply` runs immediately, with `prev` set to `undefined`. With
+ *   `defer: true`, it first runs on the first change, with `prev` set to the initial
+ *   value.
+ * - **Stopping:** `apply` receives `stop`, which ends the effect from any run,
+ *   including the first.
+ * - **Cleanup:** if `apply` returns a function, it runs before the next `apply` and
+ *   when the effect stops. Any other return value is ignored.
+ * - **Nested effects:** an effect created inside `apply` stops before the next `apply`
+ *   and when this effect stops.
+ *
+ * Stops with the scope when called during setup or `connect()`. Otherwise it runs
+ * until the returned function is called.
+ *
+ * @param compute - Reads the state to follow and returns a value. Must `return`.
+ *   A signal works as is.
+ * @param apply - Acts on the new value. Receives the previous value and `stop`.
+ * @param options - `defer` skips the first `apply`.
+ * @returns A function that stops the effect.
+ *
+ * @example
+ * effect(
+ *   () => state.query,
+ *   (query) => {
+ *     const url = new URL(location.href);
+ *     url.searchParams.set('q', query);
+ *     history.replaceState(null, '', url);
+ *   },
+ * );
+ */
+export declare function effect<T>(compute: {
+  (): T;
+  (value: T): void;
+} | (() => T), apply: (value: T, prev: T | undefined, stop: () => void) => unknown, options?: EffectOptions): () => void;
+/** Options for `selection()`. */
+interface SelectionOptions {
+  /** Allow more than one selected item. By default, selecting an item deselects the rest. */
+  multiple?: boolean;
+  /**
+   * Field path that identifies an item, such as `'id'`. Without it, items are identified
+   * by their position in the list, so the selection stays on a position when the list
+   * reorders.
+   */
+  key?: string;
+  /** Clears the selection whenever the value this returns changes. */
+  clearOn?: () => unknown;
+}
+/**
+ * Selection state for the items of a rendered list. The item methods take the handler
+ * context, so a binding or an event handler can name them directly. They work without
+ * `this`.
+ */
+interface Selection<Key = unknown> {
+  /** Returns whether the item is selected. Re-runs a binding only when the result changes. */
+  isSelected(ctx: HandlerCtx<Element>): boolean;
+  /** Selects the item, or deselects it if selected. Returns whether it is now selected. */
+  toggle(ctx: HandlerCtx<Element>): boolean;
+  /** Selects the item. Without `multiple`, deselects the rest. */
+  select(ctx: HandlerCtx<Element>): void;
+  /** Deselects the item. */
+  deselect(ctx: HandlerCtx<Element>): void;
+  /** Deselects every item. */
+  clear(): void;
+  /** Replaces the selection. Without `multiple`, keeps only the last key. */
+  set(keys: Iterable<Key>): void;
+  /** The selected keys, in selection order. Reactive. */
+  readonly keys: readonly Key[];
+}
+/**
+ * Tracks which items of a rendered list are selected, expanded, or active, without
+ * writing that state into the list's data.
+ *
+ * - **Keys:** items are identified by their position in the list, or by the field that
+ *   `key` names. Use a field for a list that reorders or comes from a store.
+ * - **Single or multiple:** by default, selecting an item deselects the rest. Pass
+ *   `multiple: true` to select items independently.
+ * - **Clearing:** `clearOn` clears the selection when the value it returns changes,
+ *   such as the list's source data. Called during setup, it stops with the scope.
+ *
+ * @param options - `multiple`, `key`, and `clearOn`.
+ * @returns The selection. Return it from a scope's setup to use it in markup.
+ *
+ * @example
+ * const days = selection({ key: 'date', clearOn: () => weather.data });
+ * return { days };
+ *
+ * // <li data-rz-class="active: days.isSelected" data-rz-on="click: days.toggle">
+ */
+export declare function selection<Key = unknown>(options?: SelectionOptions): Selection<Key>;
+export { type BindableValue, type EffectOptions, type HandlerCtx, type LifecycleEvent, type LifecycleEventMap, type PersistStorage, type ReactiveOptions, type RenderHandlerCtx, type RouseConfig, type RousePlugin, type RouseSse, type ScopeCtx, type ScopeSetup, type Selection, type SelectionOptions, type SseOptions, type StoreManager, type StoreOptions, rouse as default };
 //# sourceMappingURL=rouse.d.ts.map

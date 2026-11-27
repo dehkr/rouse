@@ -112,7 +112,7 @@ How a directive value names state.
 | Bare path | A key on the nearest enclosing `data-rz-scope` | `count`, `user.name` |
 | `@name` | A store | `@cart` |
 | `@name.path` | A field in a store | `@cart.items` |
-| `@name::status` | The store's read-only sync status | `@cart::status.syncing` |
+| `@name::status` *sync* | The store's read-only sync status | `@cart::status.syncing` |
 | `~item` | The current `rz-render` item | `~item` |
 | `~item.path` | A field on the current item | `~item.title` |
 | `~item::index`, `~item::position` | The item's zero-based and one-based position | `~item::position` |
@@ -175,10 +175,10 @@ Every directive, its job, and a typical value.
 | `rz-indicator` | Elements that get the `rouse-request` class in flight (default: the trigger; `null` = none) | `data-rz-indicator="#spinner"` |
 | `rz-disable` | Elements disabled in flight; empty = the host. A `<form>` can't be disabled: name its `<fieldset>` | `data-rz-disable` |
 | `rz-store` | On `<script type="application/json">`: declare a store, optional sync endpoint (sync plugin) | `data-rz-store="cart: /api/cart"` |
-| `rz-push` | Sync plugin. Send the whole store (`PATCH`, JSON Merge Patch body) | `data-rz-push="click: @cart"` |
-| `rz-pull` | Sync plugin. Refresh the whole store (`GET`) | `data-rz-pull="ready interval-[30s]: @cart"` |
-| `rz-sse` | SSE plugin. Open an `EventSource`; one stream per element | `data-rz-sse="ready: /events"` |
-| `rz-close` | SSE plugin. Triggers that close that element's stream (OR) | `data-rz-close="sse-[done]"` |
+| `rz-push` *sync* | Send the whole store (`PATCH`, JSON Merge Patch body) | `data-rz-push="click: @cart"` |
+| `rz-pull` *sync* | Refresh the whole store (`GET`) | `data-rz-pull="ready interval-[30s]: @cart"` |
+| `rz-sse` *sse* | Open an `EventSource`; one stream per element | `data-rz-sse="ready: /events"` |
+| `rz-close` *sse* | Triggers that close that element's stream (OR) | `data-rz-close="sse-[done]"` |
 
 `rz-headers` (outside a store script), `rz-request`, and `rz-send` apply to fetch triggers only. The method is only ever in the `rz-fetch` subject (or a form's `method` / a button's `formmethod`).
 
@@ -258,7 +258,7 @@ Triggers that aren't DOM events:
 | `interact` | On each `pointerover` or `focusin` on the element; add `once` for the first only | `interact\|once` |
 | `idle` | Once, when the browser is idle | `idle` |
 | `edit-[@store]`, `edit-[@store.key]` | When your code (handlers, effects, timers) or `rz-model` edits the store, or that top-level key. Sync responses, deposits, `update()`, and `revert()` don't count. To follow every change, use `effect` | `edit-[@cart]\|debounce-[500ms]` |
-| `sse-[name]` | SSE plugin. On a server-sent event named `name` from this element's stream or its descendants'; `sse-[message]` for unnamed messages | `sse-[done]`, `sse-[tick]\|root` |
+| `sse-[name]` *sse* | On a server-sent event named `name` from this element's stream or its descendants'; `sse-[message]` for unnamed messages | `sse-[done]`, `sse-[tick]\|root` |
 
 On a source only `once`, timing, and its argument apply (`sse` also takes `root`); other modifiers are ignored without a warning.
 
@@ -282,7 +282,10 @@ const label = computed(() => `${form.name} (${count()})`);
 const stop = effect(() => console.log(label()));
 
 // tracks only form.name: count() inside the second function isn't tracked
-effect(() => form.name, (name) => { document.title = `${name} (${count()})`; });
+effect(
+  () => form.name,
+  (name) => document.title = `${name} (${count()})`,
+);
 
 // the effect runs once, after both writes
 const text = batch(() => {                                
@@ -358,7 +361,9 @@ app.scope('search', ({ host, app, term }) => {
     const { data, error } = await app.fetch(`/search?q=${encodeURIComponent(state.query)}`, {
       signal: term,
     });
-    if (!error) state.results = data.items;
+    if (!error) {
+      state.results = data.items;
+    }
   }
 
   // Search once when half the region scrolls into view
@@ -381,7 +386,7 @@ The markup inside `data-rz-scope="search"` names the keys the setup returned: `s
 
 ```html
 <div data-rz-scope="search">
-  <!-- Typing writes state.query; run fires 300 ms after typing stops; Escape anywhere clears -->
+  <!-- Typing writes state.query; run fires 300 ms after typing stops. Escape anywhere clears -->
   <input 
     data-rz-model="state.query"
     data-rz-on="input|debounce-[300ms]: run, keydown|window.key-[escape]: clear"
@@ -447,8 +452,12 @@ Stores hold what the whole app shares: state that outlives one region of the pag
 ```js
 const cart = app.store('cart', {
   items: [],
-  get total() { return this.items.reduce((s, i) => s + i.price, 0); },
-  clear() { this.items = []; },
+  get total() {
+    return this.items.reduce((s, i) => s + i.price, 0);
+  },
+  clear() {
+    this.items = [];
+  },
 }, { url: '/api/cart' });
 
 cart.items.push({ id: 1, price: 5 }); // local only; the store now reads dirty
@@ -639,8 +648,8 @@ Rouse speaks HTTP the way the browser does. Forms, methods, and encodings work a
 | Mechanism | Markup | JavaScript | Data flow | Responses go to |
 | --- | --- | --- | --- | --- |
 | [Fetch](#fetch-requests) | `rz-fetch` | `app.fetch` | One request, one response | `rz-place` (HTML), `rz-deposit` (JSON) |
-| [Store sync](#store-sync) | `rz-push`, `rz-pull` | `app.stores.push`, `app.stores.pull` | A whole store to or from its endpoint | The store, as JSON Merge Patch |
-| [Server-sent events](#server-sent-events) | `rz-sse` | `app.sse` | A stream of server messages | `rz-place` / `rz-deposit`, or `sse-[name]` triggers |
+| [Store sync](#store-sync) *sync* | `rz-push`, `rz-pull` | `app.stores.push`, `app.stores.pull` | A whole store to or from its endpoint | The store, as JSON Merge Patch |
+| [Server-sent events](#server-sent-events) *sse* | `rz-sse` | `app.sse` | A stream of server messages | `rz-place` / `rz-deposit`, or `sse-[name]` triggers |
 
 - Fetch and store sync share the app `headers`, `baseUrl`, `timeout`, [interceptors](#interceptors), [request headers](#request-headers), and [error handling](#errors).
 - Streams share only `baseUrl`. `EventSource` sends no custom headers, so the rest doesn't apply.
@@ -653,7 +662,10 @@ Rouse speaks HTTP the way the browser does. Forms, methods, and encodings work a
 <!-- GET /search?q=…: a field sends its own name and value -->
 <input name="q" data-rz-fetch="input|debounce-[300ms]: /search" data-rz-place="#results">
 
-<!-- POST a JSON body built from scope and store state; the Content-Type picks the encoding -->
+<!--
+POST a JSON body built from scope and store state;
+the Content-Type picks the encoding
+-->
 <button
   data-rz-fetch="click: POST /notes"
   data-rz-send="title, @prefs"
@@ -758,7 +770,7 @@ The server can override the client with response headers. The header wins over t
 | --- | --- | --- |
 | `Rouse-Place` | Replaces `rz-place` for this response, same grammar (`beforeend: #log`, `delete`). Beats `rz-place="null"` | fetch |
 | `Rouse-Deposit` | Replaces `rz-deposit` for this response (`@results`) | fetch |
-| `Rouse-Trigger` | Dispatches the named event from the trigger element after `:success`; `detail` is the response | fetch, push, pull |
+| `Rouse-Trigger` | Dispatches the named event from the trigger element after `:success`; `detail` is the response | fetch, push *sync*, pull *sync* |
 | `Rouse-Redirect` | Navigates the page to the URL after `:success` or `:error` fires; the response doesn't route | fetch |
 | `Rouse-Replace-Url` | `history.replaceState` to the URL; same origin only. For a history entry, send `Rouse-Redirect` | fetch |
 
@@ -828,7 +840,7 @@ Pick by who owns the error UI. Strategies can be combined: a server-routed form 
 | App-wide | `app.on('rz:fetch:error', fn)` | Toasts, logging, redirect to login on `401` |
 | Interceptor | `app.interceptor('error', fn)` | Normalize or rewrite `error` for every fetch, push, and pull |
 | Inline | `const { error } = await app.fetch(…)` | Code that calls `app.fetch` |
-| Store sync | `@name::status.error`, `rz:push:error`, `rz:pull:error` | Failed push or pull |
+| Store sync *sync* | `@name::status.error`, `rz:push:error`, `rz:pull:error` | Failed push or pull |
 
 ```html
 <!-- Field validation: a 422 JSON body deposits per-field messages -->
@@ -857,8 +869,11 @@ Code can handle the same failures for the whole app: listen for the error event,
 // App-wide: e.detail is the full response; data is the parsed error body
 app.on('rz:fetch:error', (e) => {
   const { error, data } = e.detail;
-  if (error.code === 401) location.assign('/login');
-  else toast(error.message);
+  if (error.code === 401) {
+    location.assign('/login');
+  } else {
+    toast(error.message);
+  }
 });
 
 // Interceptor: listeners and app.fetch callers see the returned error
@@ -925,7 +940,9 @@ app.on(form, 'rz:fetch:config', (e) => {
 
 // Cancelable: veto an HTML placement
 app.on('rz:dom:place:before', (e) => {
-  if (!e.detail.payload.trim()) e.preventDefault();
+  if (!e.detail.payload.trim()) {
+    e.preventDefault();
+  }
 });
 ```
 
@@ -937,9 +954,9 @@ Every event bubbles to `app.root`. Each fires from the element it describes. Onc
 | --- | --- | --- | --- |
 | App | `rz:app:*` | `app.root` | |
 | Scope | `rz:scope:*` | The scope's host | `host` |
-| Request (a network operation) | `rz:fetch:*`, `rz:push:*`, `rz:pull:*` | The trigger element, else `app.root` | `config.triggerEl` (`result.config.triggerEl` on push/pull `:success` / `:error`); push/pull also `storeName` |
+| Request (a network operation) | `rz:fetch:*`, `rz:push:*` *sync*, `rz:pull:*` *sync* | The trigger element, else `app.root` | `config.triggerEl` (`result.config.triggerEl` on push/pull `:success` / `:error`); push/pull also `storeName` |
 | Destination (what a response changed) | `rz:store:patch*`, `rz:dom:place*` | The store's script (else `app.root`), or the placement target (its parent for `outerHTML` / `delete`) | `storeName`, `target` |
-| Connection (a stream) | `rz:sse:*` | The `rz-sse` element | `config.triggerEl` |
+| Connection (a stream) | `rz:sse:*` *sse* | The `rz-sse` element | `config.triggerEl` |
 
 - `rz:push:*` and `rz:pull:*` have the same events as `rz:fetch:*`.
 - A destination event's `operation` or `source` names the cause.
@@ -966,11 +983,11 @@ Every `rz:*` event, when it fires, and its `detail`.
 | `rz:store:patch:skipped` | An edit made during the request kept the response from applying. A deposit never skips | `{ storeName, operation, localData, serverData, response }` |
 | `rz:dom:place:before` | Before placing. **Cancelable**; `payload` can be rewritten | `{ target, position, payload, source }` |
 | `rz:dom:place` | Placed | `{ target, position, payload, source }` |
-| `rz:sse:config` | Before the first connection, once. **Cancelable**; edit `config` in place | `{ config }` |
-| `rz:sse:open` | Each successful (re)connection | `{ config }` |
-| `rz:sse:message` | Every message. An unnamed one is placed or deposited first | `{ config, event, data, raw, lastEventId }` |
-| `rz:sse:error` | Connection lost. **Cancelable**: prevented, no reconnect | `{ config, attempt }` |
-| `rz:sse:close` | Stream closed | `{ config, reason }` |
+| `rz:sse:config` *sse* | Before the first connection, once. **Cancelable**; edit `config` in place | `{ config }` |
+| `rz:sse:open` *sse* | Each successful (re)connection | `{ config }` |
+| `rz:sse:message` *sse* | Every message. An unnamed one is placed or deposited first | `{ config, event, data, raw, lastEventId }` |
+| `rz:sse:error` *sse* | Connection lost. **Cancelable**: prevented, no reconnect | `{ config, attempt }` |
+| `rz:sse:close` *sse* | Stream closed | `{ config, reason }` |
 
 - Request order is always `:config` → `:start` → one of `:success` / `:error` / `:abort` → `:end`, and the request's outcome fires before any destination event (`rz:push:success` before `rz:store:patch:before`).
 - `:config`, `:start`, `:abort`, and `:end` carry the same `config` object. Only `:config` listeners edit it: the others type it read-only.
@@ -996,7 +1013,9 @@ app.place('#log', '<li>Done</li>', { position: 'beforeend' });
 const close = app.sse('/events');
 app.on('rz:sse:message', (e) => {
   const { event, data } = e.detail;
-  if (event === 'message' && typeof data === 'string') app.place('#log', data, { position: 'beforeend' });
+  if (event === 'message' && typeof data === 'string') {
+    app.place('#log', data, { position: 'beforeend' });
+  }
 });
 ```
 
@@ -1013,7 +1032,7 @@ Methods and properties on the app that `rouse()` returns.
 | `app.fetch(url, options?)` | `Promise<{ data, error, status, headers, response, config }>`; never rejects | Sends a request through the app's config and interceptors |
 | `app.on([target,] event, callback, options?)` | A teardown function | Listens until the app is destroyed or `options.signal` aborts |
 | `app.place(target, html, options?)` | `true` if anything was placed | Inserts HTML the way `rz-place` does |
-| `app.sse(url, options?)` | A close function | SSE plugin. Opens a stream, or joins one already open at that URL |
+| `app.sse(url, options?)` *sse* | A close function | Opens a stream, or joins one already open at that URL |
 | `app.interceptor(phase, fn, options?)` | A teardown function | Adds an interceptor; phase is `'request'`, `'response'`, or `'error'`. See [Interceptors](#interceptors) |
 | `app.stores` | The store manager | See [Store manager methods](#store-manager-methods) |
 | `app.root` | The root element | Resolved from `config.root` at creation. Every event bubbles to it, and `app.on` listens on it by default |
@@ -1126,7 +1145,7 @@ The development build warns about most authoring mistakes. These fail without an
 - **Only plain objects and arrays are reactive.** `reactive()` returns `Map`, `Set`, `Date`, and class instances unproxied, so changes inside them never update bindings.
 - **Late effects outlive the scope.** An `effect` created in a handler, a timer, or after an `await` isn't stopped on teardown. Stop it when `term` aborts.
 - **`batch()` ends at the first `await`.** Writes after an `await` inside the callback run unbatched, with only a dev warning. Batch the synchronous writes on each side of the `await` separately.
-- **A returned function is a cleanup.** A concise arrow that evaluates to a function, such as `effect(() => state.onSave)` or an `apply` of `(v) => handlers[v]`, calls it before every re-run and on stop. Use a block body.
+- **An accidental function return runs as a cleanup.** This applies to `effect(fn)` and to the `apply` of `effect(compute, apply)`: a returned function runs before every re-run and on stop. A concise arrow returns one without meaning to, as in `effect(() => state.onSave)` or `effect(compute, (v) => handlers[v])`. Use a block body. `compute` is never affected: its return is a value.
 - **`compute` tracks only what it reads.** `effect(() => state.items, apply)` misses a `push`, and returning the same proxy compares equal, so mutations never reach `apply`. Return what matters: `state.items.length` or `[...state.items]`.
 - **`compute` must return.** Without `return` it yields `undefined` every time, so `apply` runs once and never again.
 - **Unbatched writes each run `apply`.** `effect(() => [state.query, state.page], apply)` runs `apply` twice when a handler writes both fields. Wrap the writes in `batch()`.

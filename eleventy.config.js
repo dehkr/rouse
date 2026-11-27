@@ -15,6 +15,16 @@ export default function (eleventyConfig) {
   });
   eleventyConfig.addPlugin(IdAttributePlugin);
 
+  eleventyConfig.addTransform('plugin-marker-title', (content, outputPath) => {
+    if (!outputPath?.endsWith('.html')) {
+      return content;
+    }
+    return content.replace(
+      /<em>(sync|sse)<\/em>/g,
+      (_, name) => `<em title="Requires the ${name} plugin">${name}</em>`,
+    );
+  });
+
   // Provide defaults via global data so index.md stays clean Markdown for LLM/agent consumption
   eleventyConfig.addGlobalData('layout', 'base.njk');
 
